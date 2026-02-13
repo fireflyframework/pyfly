@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
-from pyfly.container import Container
 from pyfly.container.scanner import scan_package
-from pyfly.container.types import Scope
 from pyfly.core.config import Config
+
+if TYPE_CHECKING:
+    from pyfly.context.application_context import ApplicationContext
 
 T = TypeVar("T")
 
@@ -22,14 +23,7 @@ def pyfly_application(
     scan_packages: list[str] | None = None,
     description: str = "",
 ) -> Any:
-    """Decorator marking a class as a PyFly application entry point.
-
-    Args:
-        name: Application name (used in config, logging, metrics).
-        version: Application version.
-        scan_packages: Packages to scan for @injectable classes.
-        description: Human-readable description.
-    """
+    """Decorator marking a class as a PyFly application entry point."""
 
     def decorator(cls: type[T]) -> type[T]:
         cls.__pyfly_app_name__ = name  # type: ignore[attr-defined]
@@ -44,8 +38,8 @@ def pyfly_application(
 class PyFlyApplication:
     """Main application class that bootstraps the framework.
 
-    Initializes the DI container, loads configuration, scans for
-    injectable classes, and manages the application lifecycle.
+    Creates an ApplicationContext, loads configuration, scans for
+    beans, and manages the application lifecycle.
     """
 
     def __init__(self, app_class: type, config_path: str | Path | None = None) -> None:
@@ -58,7 +52,6 @@ class PyFlyApplication:
         if config_path:
             self.config = Config.from_file(config_path)
         else:
-            # Try default locations
             for candidate in ["pyfly.yaml", "pyfly.toml", "config/pyfly.yaml"]:
                 if Path(candidate).exists():
                     self.config = Config.from_file(candidate)
@@ -66,27 +59,37 @@ class PyFlyApplication:
             else:
                 self.config = Config({})
 
-        # Create DI container
-        self.container = Container()
+        # Deferred import to avoid circular import
+        # (core.__init__ -> application -> context -> environment -> core.config -> core.__init__)
+        from pyfly.context.application_context import ApplicationContext
 
-        # Register the config itself
-        self.container.register(Config, scope=Scope.SINGLETON)
-        self.container._registrations[Config].instance = self.config
+        # Create ApplicationContext (wraps Container)
+        self._context = ApplicationContext(self.config)
 
-        # Auto-discover injectable classes
+        # Auto-discover beans from scanned packages
         for package in self._scan_packages:
             try:
-                count = scan_package(package, self.container)
-                logger.info("Scanned %s: found %d injectable classes", package, count)
+                count = scan_package(package, self._context.container)
+                logger.info("Scanned %s: found %d beans", package, count)
             except ImportError as e:
                 logger.warning("Could not scan package %s: %s", package, e)
 
+    @property
+    def context(self) -> ApplicationContext:
+        """The ApplicationContext."""
+        return self._context
+
+    @property
+    def container(self):
+        """Backward-compatible access to the Container."""
+        return self._context.container
+
     async def startup(self) -> None:
-        """Start the application — call lifecycle hooks."""
+        """Start the application — start the ApplicationContext."""
         logger.info("Starting %s v%s", self._name, self._version)
-        await self.container.startup()
+        await self._context.start()
 
     async def shutdown(self) -> None:
-        """Shutdown the application — call lifecycle hooks."""
+        """Shutdown the application — stop the ApplicationContext."""
         logger.info("Shutting down %s", self._name)
-        await self.container.shutdown()
+        await self._context.stop()
