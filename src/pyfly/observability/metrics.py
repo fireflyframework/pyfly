@@ -1,0 +1,89 @@
+"""Metrics collection with Prometheus-compatible counters and histograms."""
+
+from __future__ import annotations
+
+import functools
+import time
+from typing import Any, Callable, TypeVar
+
+from prometheus_client import Counter, Histogram
+
+F = TypeVar("F", bound=Callable[..., Any])
+
+
+class MetricsRegistry:
+    """Registry for application metrics.
+
+    Wraps prometheus_client to provide a clean API for creating and
+    managing metrics. Ensures each metric name is registered only once.
+    """
+
+    def __init__(self) -> None:
+        self._counters: dict[str, Counter] = {}
+        self._histograms: dict[str, Histogram] = {}
+
+    def counter(self, name: str, description: str, labels: list[str] | None = None) -> Counter:
+        """Get or create a counter metric."""
+        if name not in self._counters:
+            self._counters[name] = Counter(name, description, labels or [])
+        return self._counters[name]
+
+    def histogram(
+        self,
+        name: str,
+        description: str,
+        labels: list[str] | None = None,
+        buckets: tuple[float, ...] | None = None,
+    ) -> Histogram:
+        """Get or create a histogram metric."""
+        if name not in self._histograms:
+            kwargs: dict[str, Any] = {}
+            if buckets:
+                kwargs["buckets"] = buckets
+            self._histograms[name] = Histogram(name, description, labels or [], **kwargs)
+        return self._histograms[name]
+
+
+def timed(registry: MetricsRegistry, name: str, description: str) -> Callable[[F], F]:
+    """Decorator that records function execution duration as a histogram.
+
+    Usage:
+        @timed(registry, "request_duration_seconds", "Request processing time")
+        async def handle_request(): ...
+    """
+
+    def decorator(func: F) -> F:
+        histogram = registry.histogram(name, description)
+
+        @functools.wraps(func)
+        async def wrapper(*args: Any, **kwargs: Any) -> Any:
+            start = time.perf_counter()
+            try:
+                return await func(*args, **kwargs)
+            finally:
+                histogram.observe(time.perf_counter() - start)
+
+        return wrapper  # type: ignore[return-value]
+
+    return decorator
+
+
+def counted(registry: MetricsRegistry, name: str, description: str) -> Callable[[F], F]:
+    """Decorator that counts function invocations.
+
+    Usage:
+        @counted(registry, "requests_total", "Total request count")
+        async def handle_request(): ...
+    """
+
+    def decorator(func: F) -> F:
+        counter = registry.counter(name, description)
+
+        @functools.wraps(func)
+        async def wrapper(*args: Any, **kwargs: Any) -> Any:
+            counter.inc()
+            return await func(*args, **kwargs)
+
+        return wrapper  # type: ignore[return-value]
+
+    return decorator
