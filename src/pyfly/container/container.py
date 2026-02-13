@@ -76,3 +76,23 @@ class Container:
             kwargs[param_name] = self.resolve(param_type)
 
         return reg.impl_type(**kwargs)
+
+    async def startup(self) -> None:
+        """Call on_init on all resolved singleton instances."""
+        from pyfly.container.lifecycle import call_lifecycle_hook
+
+        for reg in self._registrations.values():
+            if reg.instance is not None:
+                await call_lifecycle_hook(reg.instance, "on_init")
+
+    async def shutdown(self) -> None:
+        """Call on_destroy on all resolved singleton instances (reverse order)."""
+        from pyfly.container.lifecycle import call_lifecycle_hook
+
+        instances = [
+            reg.instance
+            for reg in reversed(list(self._registrations.values()))
+            if reg.instance is not None
+        ]
+        for instance in instances:
+            await call_lifecycle_hook(instance, "on_destroy")
