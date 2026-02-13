@@ -181,3 +181,48 @@ class TestEndToEndOrderService:
         assert resp.status_code == 404
         body = resp.json()
         assert body["error"]["code"] == "ORDER_NOT_FOUND"
+
+
+class TestOpenAPIIntegration:
+    def test_openapi_with_router_and_error_handling(self):
+        """Verify OpenAPI docs work alongside error handling and routers."""
+        from pyfly.web.router import PyFlyRouter
+
+        router = PyFlyRouter(prefix="/api/orders", tags=["Orders"])
+
+        @router.get("/{order_id}", summary="Get order by ID")
+        async def get_order(request):
+            from starlette.responses import JSONResponse
+            order_id = request.path_params["order_id"]
+            if order_id == "missing":
+                raise ResourceNotFoundException("Order not found", code="ORDER_NOT_FOUND")
+            return JSONResponse({"id": order_id, "status": "created"})
+
+        @router.post("/", status_code=201, summary="Create order")
+        async def create_order(request):
+            from starlette.responses import JSONResponse
+            return JSONResponse({"id": "ord-001", "status": "created"}, status_code=201)
+
+        app = create_app(title="Order Service", version="1.0.0", routers=[router])
+        client = TestClient(app, raise_server_exceptions=False)
+
+        # OpenAPI spec is served
+        spec_resp = client.get("/openapi.json")
+        assert spec_resp.status_code == 200
+        spec = spec_resp.json()
+        assert "/api/orders/{order_id}" in spec["paths"]
+        assert "/api/orders/" in spec["paths"]
+
+        # Swagger UI and ReDoc are served
+        assert client.get("/docs").status_code == 200
+        assert client.get("/redoc").status_code == 200
+
+        # Routes actually work
+        resp = client.get("/api/orders/ord-001")
+        assert resp.status_code == 200
+        assert resp.json()["id"] == "ord-001"
+
+        # Error handling still works
+        resp = client.get("/api/orders/missing")
+        assert resp.status_code == 404
+        assert resp.json()["error"]["code"] == "ORDER_NOT_FOUND"
