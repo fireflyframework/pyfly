@@ -17,3 +17,4 @@ class Registration:
     scope: Scope = Scope.SINGLETON
     condition: Callable[..., bool] | None = None
     instance: Any = field(default=None, repr=False)
+    name: str = ""
