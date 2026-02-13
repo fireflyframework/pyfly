@@ -1,0 +1,103 @@
+"""Tests for PyFly testing utilities."""
+
+import pytest
+
+from pyfly.container import Container, Scope
+from pyfly.eda import EventEnvelope, InMemoryEventBus
+from pyfly.testing.assertions import assert_event_published, assert_no_events_published
+from pyfly.testing.containers import create_test_container
+from pyfly.testing.fixtures import PyFlyTestCase
+
+
+class TestPyFlyTestCase:
+    @pytest.mark.asyncio
+    async def test_has_container(self):
+        tc = PyFlyTestCase()
+        await tc.setup()
+        assert isinstance(tc.container, Container)
+        await tc.teardown()
+
+    @pytest.mark.asyncio
+    async def test_has_event_bus(self):
+        tc = PyFlyTestCase()
+        await tc.setup()
+        assert isinstance(tc.event_bus, InMemoryEventBus)
+        await tc.teardown()
+
+    @pytest.mark.asyncio
+    async def test_lifecycle(self):
+        tc = PyFlyTestCase()
+        await tc.setup()
+        # Container should be functional
+        tc.container.register(list)
+        instance = tc.container.resolve(list)
+        assert isinstance(instance, list)
+        await tc.teardown()
+
+
+class TestEventAssertions:
+    @pytest.mark.asyncio
+    async def test_assert_event_published(self):
+        bus = InMemoryEventBus()
+        published: list[EventEnvelope] = []
+
+        async def capture(event: EventEnvelope) -> None:
+            published.append(event)
+
+        bus.subscribe("*", capture)
+        await bus.publish("topic", "user.created", {"id": "1"})
+
+        assert_event_published(published, "user.created")
+
+    @pytest.mark.asyncio
+    async def test_assert_event_not_published(self):
+        published: list[EventEnvelope] = []
+
+        with pytest.raises(AssertionError, match="Expected event"):
+            assert_event_published(published, "user.created")
+
+    @pytest.mark.asyncio
+    async def test_assert_no_events(self):
+        published: list[EventEnvelope] = []
+        assert_no_events_published(published)
+
+    @pytest.mark.asyncio
+    async def test_assert_no_events_fails_when_events_exist(self):
+        bus = InMemoryEventBus()
+        published: list[EventEnvelope] = []
+
+        async def capture(event: EventEnvelope) -> None:
+            published.append(event)
+
+        bus.subscribe("*", capture)
+        await bus.publish("topic", "order.created", {"id": "1"})
+
+        with pytest.raises(AssertionError, match="Expected no events"):
+            assert_no_events_published(published)
+
+    @pytest.mark.asyncio
+    async def test_assert_event_with_payload_check(self):
+        bus = InMemoryEventBus()
+        published: list[EventEnvelope] = []
+
+        async def capture(event: EventEnvelope) -> None:
+            published.append(event)
+
+        bus.subscribe("*", capture)
+        await bus.publish("topic", "user.created", {"id": "1", "name": "Alice"})
+
+        assert_event_published(published, "user.created", payload_contains={"name": "Alice"})
+
+
+class TestCreateTestContainer:
+    def test_creates_container_with_defaults(self):
+        container = create_test_container()
+        assert isinstance(container, Container)
+
+    def test_registers_overrides(self):
+        class FakeDB:
+            pass
+
+        container = create_test_container(overrides={object: FakeDB})
+        instance = container.resolve(object)
+        assert isinstance(instance, FakeDB)
