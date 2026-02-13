@@ -1,4 +1,4 @@
-"""Package scanner for auto-discovering @injectable classes."""
+"""Package scanner for auto-discovering injectable and stereotype-decorated classes."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 
 
 def scan_package(package_name: str, container: Container) -> int:
-    """Scan a package for @injectable classes and register them.
+    """Scan a package for injectable classes and register them.
 
     Args:
         package_name: Dotted package name to scan (e.g. "myapp.services").
@@ -41,19 +41,31 @@ def scan_package(package_name: str, container: Container) -> int:
     return count
 
 
-def _register_from_module(module: object, container: Container) -> int:
-    """Register all @injectable classes from a module."""
-    from pyfly.container.types import Scope
+def scan_module_classes(module: object) -> list[type]:
+    """Extract all injectable/stereotype-decorated classes from a module.
 
-    count = 0
+    Returns a list of classes that have ``__pyfly_injectable__ = True``.
+    """
+    classes: list[type] = []
     for _name, obj in inspect.getmembers(module, inspect.isclass):
         if getattr(obj, "__pyfly_injectable__", False) and obj.__module__ == module.__name__:
-            scope = getattr(obj, "__pyfly_scope__", None)
-            condition = getattr(obj, "__pyfly_condition__", None)
-            container.register(
-                obj,
-                scope=scope or Scope.SINGLETON,
-                condition=condition,
-            )
-            count += 1
-    return count
+            classes.append(obj)
+    return classes
+
+
+def _register_from_module(module: object, container: Container) -> int:
+    """Register all injectable classes from a module."""
+    from pyfly.container.types import Scope
+
+    classes = scan_module_classes(module)
+    for obj in classes:
+        scope = getattr(obj, "__pyfly_scope__", None)
+        condition = getattr(obj, "__pyfly_condition__", None)
+        name = getattr(obj, "__pyfly_bean_name__", "")
+        container.register(
+            obj,
+            scope=scope or Scope.SINGLETON,
+            condition=condition,
+            name=name,
+        )
+    return len(classes)
