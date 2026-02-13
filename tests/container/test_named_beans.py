@@ -7,7 +7,6 @@ import pytest
 from pyfly.container.bean import Qualifier, primary
 from pyfly.container.container import Container
 from pyfly.container.stereotypes import component, service
-from pyfly.container.types import Scope
 
 
 @runtime_checkable

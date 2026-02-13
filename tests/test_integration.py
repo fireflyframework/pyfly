@@ -79,7 +79,7 @@ class TestEndToEndOrderService:
     async def test_full_order_flow(self):
         """Simulate creating an order through the full stack."""
         # 1. Set up infrastructure
-        container = create_test_container()
+        create_test_container()
         event_bus = InMemoryEventBus()
         cache_backend = InMemoryCache()
         metrics = MetricsRegistry()

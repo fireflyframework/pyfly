@@ -4,18 +4,14 @@ import pytest
 
 from pyfly.container.bean import bean, primary
 from pyfly.container.stereotypes import (
-    component,
     configuration,
     repository,
-    rest_controller,
     service,
 )
-from pyfly.container.types import Scope
 from pyfly.context.application_context import ApplicationContext
-from pyfly.context.events import ApplicationReadyEvent, ContextRefreshedEvent, app_event_listener
-from pyfly.context.lifecycle import post_construct, pre_destroy
+from pyfly.context.events import ApplicationReadyEvent, app_event_listener
+from pyfly.context.lifecycle import post_construct
 from pyfly.core.config import Config
-
 
 # --- Domain layer ---
 

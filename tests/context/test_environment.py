@@ -1,8 +1,6 @@
 """Tests for Environment with profile support."""
 
-import os
 
-import pytest
 
 from pyfly.context.environment import Environment
 from pyfly.core.config import Config

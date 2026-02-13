@@ -13,7 +13,7 @@ class TestConditionalOnProperty:
         class MyBean:
             pass
 
-        cond = getattr(MyBean, "__pyfly_conditions__")
+        cond = MyBean.__pyfly_conditions__
         assert len(cond) == 1
         assert cond[0]["type"] == "on_property"
         assert cond[0]["key"] == "cache.enabled"
@@ -25,7 +25,7 @@ class TestConditionalOnProperty:
         class MyBean:
             pass
 
-        cond = getattr(MyBean, "__pyfly_conditions__")
+        cond = MyBean.__pyfly_conditions__
         assert len(cond) == 2
 
 
@@ -35,7 +35,7 @@ class TestConditionalOnClass:
         class MyBean:
             pass
 
-        cond = getattr(MyBean, "__pyfly_conditions__")
+        cond = MyBean.__pyfly_conditions__
         assert len(cond) == 1
         assert cond[0]["type"] == "on_class"
         assert cond[0]["module_name"] == "json"
@@ -45,7 +45,7 @@ class TestConditionalOnClass:
         class MyBean:
             pass
 
-        cond = getattr(MyBean, "__pyfly_conditions__")[0]
+        cond = MyBean.__pyfly_conditions__[0]
         assert cond["check"]() is True
 
     def test_evaluates_unavailable(self):
@@ -53,7 +53,7 @@ class TestConditionalOnClass:
         class MyBean:
             pass
 
-        cond = getattr(MyBean, "__pyfly_conditions__")[0]
+        cond = MyBean.__pyfly_conditions__[0]
         assert cond["check"]() is False
 
 
@@ -66,7 +66,7 @@ class TestConditionalOnMissingBean:
         class FallbackImpl:
             pass
 
-        cond = getattr(FallbackImpl, "__pyfly_conditions__")
+        cond = FallbackImpl.__pyfly_conditions__
         assert len(cond) == 1
         assert cond[0]["type"] == "on_missing_bean"
         assert cond[0]["bean_type"] is SomeInterface

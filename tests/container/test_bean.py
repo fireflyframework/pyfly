@@ -1,8 +1,6 @@
 """Tests for @bean factory methods, @primary, and Qualifier."""
 
-from typing import Annotated, Protocol
-
-import pytest
+from typing import Annotated
 
 from pyfly.container.bean import Qualifier, bean, primary
 from pyfly.container.stereotypes import configuration
@@ -17,7 +15,7 @@ class TestBeanDecorator:
             def my_service(self) -> str:
                 return "hello"
 
-        assert getattr(MyConfig.my_service, "__pyfly_bean__") is True
+        assert MyConfig.my_service.__pyfly_bean__ is True
 
     def test_bean_with_name(self):
         @configuration
@@ -26,7 +24,7 @@ class TestBeanDecorator:
             def my_service(self) -> str:
                 return "hello"
 
-        assert getattr(MyConfig.my_service, "__pyfly_bean_name__") == "customName"
+        assert MyConfig.my_service.__pyfly_bean_name__ == "customName"
 
     def test_bean_with_scope(self):
         @configuration
@@ -35,7 +33,7 @@ class TestBeanDecorator:
             def my_service(self) -> str:
                 return "hello"
 
-        assert getattr(MyConfig.my_service, "__pyfly_bean_scope__") == Scope.TRANSIENT
+        assert MyConfig.my_service.__pyfly_bean_scope__ == Scope.TRANSIENT
 
     def test_bean_default_scope_is_singleton(self):
         @configuration
@@ -44,7 +42,7 @@ class TestBeanDecorator:
             def my_service(self) -> str:
                 return "hello"
 
-        assert getattr(MyConfig.my_service, "__pyfly_bean_scope__") == Scope.SINGLETON
+        assert MyConfig.my_service.__pyfly_bean_scope__ == Scope.SINGLETON
 
 
 class TestPrimary:
@@ -53,7 +51,7 @@ class TestPrimary:
         class MyImpl:
             pass
 
-        assert getattr(MyImpl, "__pyfly_primary__") is True
+        assert MyImpl.__pyfly_primary__ is True
 
     def test_primary_preserves_class(self):
         @primary

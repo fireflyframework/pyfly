@@ -42,7 +42,7 @@ class TestAppEventListener:
             async def on_ready(self, event: ApplicationReadyEvent) -> None:
                 pass
 
-        assert getattr(MyService.on_ready, "__pyfly_app_event_listener__") is True
+        assert MyService.on_ready.__pyfly_app_event_listener__ is True
 
     def test_preserves_method(self):
         class MyService:

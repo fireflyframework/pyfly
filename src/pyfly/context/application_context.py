@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import inspect
 import typing
 from typing import Any, TypeVar
@@ -53,7 +54,7 @@ class ApplicationContext:
     def register_bean(self, cls: type, **kwargs: Any) -> None:
         """Register a bean class with the context."""
         name = kwargs.get("name", "") or getattr(cls, "__pyfly_bean_name__", "")
-        scope = kwargs.get("scope", None) or getattr(cls, "__pyfly_scope__", Scope.SINGLETON)
+        scope = kwargs.get("scope") or getattr(cls, "__pyfly_scope__", Scope.SINGLETON)
         self._container.register(cls, scope=scope, name=name)
 
     def register_post_processor(self, processor: BeanPostProcessor) -> None:
@@ -116,10 +117,8 @@ class ApplicationContext:
         # 2. Eagerly resolve all singletons
         for cls, reg in list(self._container._registrations.items()):
             if reg.scope == Scope.SINGLETON and reg.instance is None:
-                try:
+                with contextlib.suppress(KeyError):
                     self._container.resolve(cls)
-                except KeyError:
-                    pass  # Dependency not yet available
 
         # 3. Run post-processors and lifecycle hooks
         for reg in self._container._registrations.values():
@@ -158,7 +157,7 @@ class ApplicationContext:
 
     def _process_configurations(self) -> None:
         """Find @configuration beans, call their @bean methods, register results."""
-        for cls, reg in list(self._container._registrations.items()):
+        for cls, _reg in list(self._container._registrations.items()):
             if getattr(cls, "__pyfly_stereotype__", "") != "configuration":
                 continue
 

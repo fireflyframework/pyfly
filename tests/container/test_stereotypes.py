@@ -17,48 +17,48 @@ class TestStereotypeDecorators:
         class MyComponent:
             pass
 
-        assert getattr(MyComponent, "__pyfly_injectable__") is True
-        assert getattr(MyComponent, "__pyfly_stereotype__") == "component"
+        assert MyComponent.__pyfly_injectable__ is True
+        assert MyComponent.__pyfly_stereotype__ == "component"
 
     def test_service_marks_class(self):
         @service
         class MyService:
             pass
 
-        assert getattr(MyService, "__pyfly_injectable__") is True
-        assert getattr(MyService, "__pyfly_stereotype__") == "service"
+        assert MyService.__pyfly_injectable__ is True
+        assert MyService.__pyfly_stereotype__ == "service"
 
     def test_repository_marks_class(self):
         @repository
         class MyRepo:
             pass
 
-        assert getattr(MyRepo, "__pyfly_injectable__") is True
-        assert getattr(MyRepo, "__pyfly_stereotype__") == "repository"
+        assert MyRepo.__pyfly_injectable__ is True
+        assert MyRepo.__pyfly_stereotype__ == "repository"
 
     def test_controller_marks_class(self):
         @controller
         class MyCtrl:
             pass
 
-        assert getattr(MyCtrl, "__pyfly_injectable__") is True
-        assert getattr(MyCtrl, "__pyfly_stereotype__") == "controller"
+        assert MyCtrl.__pyfly_injectable__ is True
+        assert MyCtrl.__pyfly_stereotype__ == "controller"
 
     def test_rest_controller_marks_class(self):
         @rest_controller
         class MyRest:
             pass
 
-        assert getattr(MyRest, "__pyfly_injectable__") is True
-        assert getattr(MyRest, "__pyfly_stereotype__") == "rest_controller"
+        assert MyRest.__pyfly_injectable__ is True
+        assert MyRest.__pyfly_stereotype__ == "rest_controller"
 
     def test_configuration_marks_class(self):
         @configuration
         class MyConfig:
             pass
 
-        assert getattr(MyConfig, "__pyfly_injectable__") is True
-        assert getattr(MyConfig, "__pyfly_stereotype__") == "configuration"
+        assert MyConfig.__pyfly_injectable__ is True
+        assert MyConfig.__pyfly_stereotype__ == "configuration"
 
 
 class TestStereotypeWithArguments:
@@ -67,32 +67,32 @@ class TestStereotypeWithArguments:
         class MyService:
             pass
 
-        assert getattr(MyService, "__pyfly_scope__") == Scope.TRANSIENT
-        assert getattr(MyService, "__pyfly_stereotype__") == "service"
+        assert MyService.__pyfly_scope__ == Scope.TRANSIENT
+        assert MyService.__pyfly_stereotype__ == "service"
 
     def test_component_with_name(self):
         @component(name="myBean")
         class MyComponent:
             pass
 
-        assert getattr(MyComponent, "__pyfly_bean_name__") == "myBean"
+        assert MyComponent.__pyfly_bean_name__ == "myBean"
 
     def test_service_with_profile(self):
         @service(profile="production")
         class ProdService:
             pass
 
-        assert getattr(ProdService, "__pyfly_profile__") == "production"
+        assert ProdService.__pyfly_profile__ == "production"
 
     def test_rest_controller_with_all_args(self):
         @rest_controller(name="orderCtrl", scope=Scope.SINGLETON, profile="api")
         class OrderCtrl:
             pass
 
-        assert getattr(OrderCtrl, "__pyfly_bean_name__") == "orderCtrl"
-        assert getattr(OrderCtrl, "__pyfly_scope__") == Scope.SINGLETON
-        assert getattr(OrderCtrl, "__pyfly_profile__") == "api"
-        assert getattr(OrderCtrl, "__pyfly_stereotype__") == "rest_controller"
+        assert OrderCtrl.__pyfly_bean_name__ == "orderCtrl"
+        assert OrderCtrl.__pyfly_scope__ == Scope.SINGLETON
+        assert OrderCtrl.__pyfly_profile__ == "api"
+        assert OrderCtrl.__pyfly_stereotype__ == "rest_controller"
 
     def test_component_with_condition(self):
         def my_condition():
@@ -102,7 +102,7 @@ class TestStereotypeWithArguments:
         class ConditionalComponent:
             pass
 
-        assert getattr(ConditionalComponent, "__pyfly_condition__") is my_condition
+        assert ConditionalComponent.__pyfly_condition__ is my_condition
 
     def test_stereotype_preserves_class_identity(self):
         @service

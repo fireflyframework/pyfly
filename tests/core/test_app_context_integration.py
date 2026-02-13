@@ -2,7 +2,6 @@
 
 import pytest
 
-from pyfly.container.stereotypes import service
 from pyfly.context.application_context import ApplicationContext
 from pyfly.core.application import PyFlyApplication, pyfly_application
 

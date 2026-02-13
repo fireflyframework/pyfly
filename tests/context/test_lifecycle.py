@@ -1,6 +1,5 @@
 """Tests for @post_construct and @pre_destroy lifecycle annotations."""
 
-import pytest
 
 from pyfly.context.lifecycle import post_construct, pre_destroy
 
@@ -12,7 +11,7 @@ class TestPostConstruct:
             async def init(self):
                 pass
 
-        assert getattr(MyService.init, "__pyfly_post_construct__") is True
+        assert MyService.init.__pyfly_post_construct__ is True
 
     def test_preserves_method(self):
         class MyService:
@@ -31,7 +30,7 @@ class TestPreDestroy:
             async def cleanup(self):
                 pass
 
-        assert getattr(MyService.cleanup, "__pyfly_pre_destroy__") is True
+        assert MyService.cleanup.__pyfly_pre_destroy__ is True
 
     def test_preserves_method(self):
         class MyService:
@@ -54,5 +53,5 @@ class TestMultipleAnnotations:
             async def stop(self):
                 pass
 
-        assert getattr(MyService.start, "__pyfly_post_construct__") is True
-        assert getattr(MyService.stop, "__pyfly_pre_destroy__") is True
+        assert MyService.start.__pyfly_post_construct__ is True
+        assert MyService.stop.__pyfly_pre_destroy__ is True

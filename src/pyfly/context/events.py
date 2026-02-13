@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
-from typing import Any, TypeVar
+from typing import TypeVar
 
 F = TypeVar("F", bound=Callable)
 
