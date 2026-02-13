@@ -1,15 +1,37 @@
 """Tests for PyFly kernel exception hierarchy."""
 
 from pyfly.kernel.exceptions import (
+    AuthorizationException,
+    BadGatewayException,
+    BulkheadException,
     BusinessException,
     CircuitBreakerException,
+    ConcurrencyException,
     ConflictException,
+    DataIntegrityException,
+    DegradedServiceException,
+    ExternalServiceException,
+    ForbiddenException,
+    GatewayTimeoutException,
+    GoneException,
     InfrastructureException,
+    InvalidRequestException,
+    LockedResourceException,
+    MethodNotAllowedException,
+    NotImplementedException,
+    OperationTimeoutException,
+    PayloadTooLargeException,
+    PreconditionFailedException,
     PyFlyException,
+    QuotaExceededException,
     RateLimitException,
     ResourceNotFoundException,
+    RetryExhaustedException,
     SecurityException,
     ServiceUnavailableException,
+    ThirdPartyServiceException,
+    UnauthorizedException,
+    UnsupportedMediaTypeException,
     ValidationException,
 )
 
@@ -85,3 +107,163 @@ class TestExceptionHierarchy:
                 raise exc
             except PyFlyException as caught:
                 assert caught is exc
+
+
+class TestExpandedBusinessExceptions:
+    """Test that all new business exception types subclass BusinessException."""
+
+    def test_precondition_failed_is_business(self):
+        assert issubclass(PreconditionFailedException, BusinessException)
+
+    def test_gone_is_business(self):
+        assert issubclass(GoneException, BusinessException)
+
+    def test_invalid_request_is_business(self):
+        assert issubclass(InvalidRequestException, BusinessException)
+
+    def test_data_integrity_is_business(self):
+        assert issubclass(DataIntegrityException, BusinessException)
+
+    def test_concurrency_is_business(self):
+        assert issubclass(ConcurrencyException, BusinessException)
+
+    def test_locked_resource_is_business(self):
+        assert issubclass(LockedResourceException, BusinessException)
+
+    def test_method_not_allowed_is_business(self):
+        assert issubclass(MethodNotAllowedException, BusinessException)
+
+    def test_unsupported_media_type_is_business(self):
+        assert issubclass(UnsupportedMediaTypeException, BusinessException)
+
+    def test_payload_too_large_is_business(self):
+        assert issubclass(PayloadTooLargeException, BusinessException)
+
+    def test_business_exceptions_are_pyfly(self):
+        """All business exceptions should also be PyFlyException."""
+        business_types = [
+            PreconditionFailedException,
+            GoneException,
+            InvalidRequestException,
+            DataIntegrityException,
+            ConcurrencyException,
+            LockedResourceException,
+            MethodNotAllowedException,
+            UnsupportedMediaTypeException,
+            PayloadTooLargeException,
+        ]
+        for exc_type in business_types:
+            assert issubclass(exc_type, PyFlyException), f"{exc_type.__name__} is not a PyFlyException"
+
+    def test_business_exceptions_carry_code_and_context(self):
+        """New business exceptions inherit PyFlyException __init__ behavior."""
+        exc = PreconditionFailedException("precondition failed", code="PRE_001", context={"field": "version"})
+        assert str(exc) == "precondition failed"
+        assert exc.code == "PRE_001"
+        assert exc.context == {"field": "version"}
+
+
+class TestExpandedSecurityExceptions:
+    """Test that all new security exception types subclass SecurityException."""
+
+    def test_unauthorized_is_security(self):
+        assert issubclass(UnauthorizedException, SecurityException)
+
+    def test_forbidden_is_security(self):
+        assert issubclass(ForbiddenException, SecurityException)
+
+    def test_authorization_is_security(self):
+        assert issubclass(AuthorizationException, SecurityException)
+
+    def test_security_exceptions_are_pyfly(self):
+        """All security exceptions should also be PyFlyException."""
+        security_types = [UnauthorizedException, ForbiddenException, AuthorizationException]
+        for exc_type in security_types:
+            assert issubclass(exc_type, PyFlyException), f"{exc_type.__name__} is not a PyFlyException"
+
+    def test_security_exceptions_carry_code_and_context(self):
+        """New security exceptions inherit PyFlyException __init__ behavior."""
+        exc = ForbiddenException("access denied", code="FORBIDDEN_001", context={"resource": "/admin"})
+        assert str(exc) == "access denied"
+        assert exc.code == "FORBIDDEN_001"
+        assert exc.context == {"resource": "/admin"}
+
+
+class TestExpandedInfrastructureExceptions:
+    """Test that all new infrastructure exception types subclass InfrastructureException."""
+
+    def test_bulkhead_is_infrastructure(self):
+        assert issubclass(BulkheadException, InfrastructureException)
+
+    def test_operation_timeout_is_infrastructure(self):
+        assert issubclass(OperationTimeoutException, InfrastructureException)
+
+    def test_retry_exhausted_is_infrastructure(self):
+        assert issubclass(RetryExhaustedException, InfrastructureException)
+
+    def test_degraded_service_is_infrastructure(self):
+        assert issubclass(DegradedServiceException, InfrastructureException)
+
+    def test_not_implemented_is_infrastructure(self):
+        assert issubclass(NotImplementedException, InfrastructureException)
+
+    def test_infrastructure_exceptions_are_pyfly(self):
+        """All infrastructure exceptions should also be PyFlyException."""
+        infra_types = [
+            BulkheadException,
+            OperationTimeoutException,
+            RetryExhaustedException,
+            DegradedServiceException,
+            NotImplementedException,
+        ]
+        for exc_type in infra_types:
+            assert issubclass(exc_type, PyFlyException), f"{exc_type.__name__} is not a PyFlyException"
+
+    def test_infrastructure_exceptions_carry_code_and_context(self):
+        """New infrastructure exceptions inherit PyFlyException __init__ behavior."""
+        exc = OperationTimeoutException("timed out", code="TIMEOUT_001", context={"duration_ms": 5000})
+        assert str(exc) == "timed out"
+        assert exc.code == "TIMEOUT_001"
+        assert exc.context == {"duration_ms": 5000}
+
+
+class TestExpandedExternalServiceExceptions:
+    """Test external service exception hierarchy."""
+
+    def test_external_service_is_infrastructure(self):
+        assert issubclass(ExternalServiceException, InfrastructureException)
+
+    def test_third_party_service_is_external_service(self):
+        assert issubclass(ThirdPartyServiceException, ExternalServiceException)
+
+    def test_bad_gateway_is_external_service(self):
+        assert issubclass(BadGatewayException, ExternalServiceException)
+
+    def test_gateway_timeout_is_external_service(self):
+        assert issubclass(GatewayTimeoutException, ExternalServiceException)
+
+    def test_quota_exceeded_is_rate_limit(self):
+        assert issubclass(QuotaExceededException, RateLimitException)
+
+    def test_external_service_exceptions_are_pyfly(self):
+        """All external service exceptions should also be PyFlyException."""
+        external_types = [
+            ExternalServiceException,
+            ThirdPartyServiceException,
+            BadGatewayException,
+            GatewayTimeoutException,
+            QuotaExceededException,
+        ]
+        for exc_type in external_types:
+            assert issubclass(exc_type, PyFlyException), f"{exc_type.__name__} is not a PyFlyException"
+
+    def test_external_service_is_also_infrastructure(self):
+        """External service exceptions should be catchable as InfrastructureException."""
+        exc = ThirdPartyServiceException("stripe down")
+        assert isinstance(exc, InfrastructureException)
+
+    def test_quota_exceeded_is_also_infrastructure(self):
+        """QuotaExceededException inherits from RateLimitException which is InfrastructureException."""
+        exc = QuotaExceededException("API quota exceeded", code="QUOTA_001")
+        assert isinstance(exc, InfrastructureException)
+        assert isinstance(exc, RateLimitException)

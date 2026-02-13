@@ -5,11 +5,17 @@ error handling across modules. Mirrors fireflyframework-kernel's design.
 
 Categories:
 - BusinessException: Domain rule violations, validation errors
-- InfrastructureException: Database, cache, messaging, network failures
 - SecurityException: Authentication and authorization errors
+- InfrastructureException: Database, cache, messaging, network failures
+- ExternalServiceException: Third-party and gateway failures
 """
 
 from __future__ import annotations
+
+
+# =============================================================================
+# Base Exception
+# =============================================================================
 
 
 class PyFlyException(Exception):
@@ -36,12 +42,9 @@ class PyFlyException(Exception):
         self.context: dict = context if context is not None else {}
 
 
-class InfrastructureException(PyFlyException):
-    """Infrastructure failures: database, cache, messaging, network."""
-
-
-class SecurityException(PyFlyException):
-    """Authentication and authorization errors."""
+# =============================================================================
+# Business Exceptions
+# =============================================================================
 
 
 class BusinessException(PyFlyException):
@@ -60,13 +63,124 @@ class ConflictException(BusinessException):
     """Operation conflicts with current state (e.g. duplicate, version mismatch)."""
 
 
-class RateLimitException(InfrastructureException):
-    """Request rate limit exceeded."""
+class PreconditionFailedException(BusinessException):
+    """A precondition for the operation was not met."""
+
+
+class GoneException(BusinessException):
+    """Requested resource has been permanently removed."""
+
+
+class InvalidRequestException(BusinessException):
+    """Request is syntactically valid but semantically incorrect."""
+
+
+class DataIntegrityException(BusinessException):
+    """Data integrity constraint violated."""
+
+
+class ConcurrencyException(BusinessException):
+    """Concurrent modification conflict (e.g. optimistic locking failure)."""
+
+
+class LockedResourceException(BusinessException):
+    """Resource is locked and cannot be modified."""
+
+
+class MethodNotAllowedException(BusinessException):
+    """The requested operation or HTTP method is not allowed on this resource."""
+
+
+class UnsupportedMediaTypeException(BusinessException):
+    """The provided media type or content type is not supported."""
+
+
+class PayloadTooLargeException(BusinessException):
+    """The request payload exceeds the maximum allowed size."""
+
+
+# =============================================================================
+# Security Exceptions
+# =============================================================================
+
+
+class SecurityException(PyFlyException):
+    """Authentication and authorization errors."""
+
+
+class UnauthorizedException(SecurityException):
+    """Authentication is required but was not provided or is invalid."""
+
+
+class ForbiddenException(SecurityException):
+    """Authenticated caller lacks permission to perform the operation."""
+
+
+class AuthorizationException(SecurityException):
+    """Authorization policy denied access to the requested resource."""
+
+
+# =============================================================================
+# Infrastructure Exceptions
+# =============================================================================
+
+
+class InfrastructureException(PyFlyException):
+    """Infrastructure failures: database, cache, messaging, network."""
+
+
+class ServiceUnavailableException(InfrastructureException):
+    """Downstream service is unavailable."""
 
 
 class CircuitBreakerException(InfrastructureException):
     """Circuit breaker is open, operation rejected."""
 
 
-class ServiceUnavailableException(InfrastructureException):
-    """Downstream service is unavailable."""
+class RateLimitException(InfrastructureException):
+    """Request rate limit exceeded."""
+
+
+class BulkheadException(InfrastructureException):
+    """Bulkhead capacity exhausted, operation rejected to protect the system."""
+
+
+class OperationTimeoutException(InfrastructureException):
+    """Operation exceeded its allowed time limit."""
+
+
+class RetryExhaustedException(InfrastructureException):
+    """All retry attempts have been exhausted without success."""
+
+
+class DegradedServiceException(InfrastructureException):
+    """Service is running in a degraded state with reduced functionality."""
+
+
+class NotImplementedException(InfrastructureException):
+    """Requested operation is not yet implemented."""
+
+
+# =============================================================================
+# External Service Exceptions
+# =============================================================================
+
+
+class ExternalServiceException(InfrastructureException):
+    """Failure communicating with an external or third-party service."""
+
+
+class ThirdPartyServiceException(ExternalServiceException):
+    """A third-party service returned an error or is unavailable."""
+
+
+class BadGatewayException(ExternalServiceException):
+    """Gateway received an invalid response from an upstream service."""
+
+
+class GatewayTimeoutException(ExternalServiceException):
+    """Gateway did not receive a timely response from an upstream service."""
+
+
+class QuotaExceededException(RateLimitException):
+    """API or resource quota has been exceeded."""
