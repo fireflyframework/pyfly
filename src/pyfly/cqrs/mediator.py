@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 from pyfly.cqrs.types import Command, CommandHandler, Query, QueryHandler
@@ -10,12 +11,13 @@ from pyfly.cqrs.types import Command, CommandHandler, Query, QueryHandler
 class Mediator:
     """Routes commands and queries to registered handlers.
 
-    Handlers are discovered via the DI container or registered manually.
+    Supports an optional middleware pipeline that wraps handler execution.
     Each command/query type maps to exactly one handler.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, middleware: list[Any] | None = None) -> None:
         self._handlers: dict[type, CommandHandler | QueryHandler] = {}  # type: ignore[type-arg]
+        self._middleware = middleware or []
 
     def register_handler(
         self,
@@ -26,9 +28,34 @@ class Mediator:
         self._handlers[message_type] = handler
 
     async def send(self, message: Command | Query) -> Any:
-        """Dispatch a command or query to its handler."""
+        """Dispatch a command or query through the middleware pipeline to its handler."""
         message_type = type(message)
         handler = self._handlers.get(message_type)
         if handler is None:
             raise KeyError(f"No handler registered for {message_type.__name__}")
-        return await handler.handle(message)  # type: ignore[arg-type]
+
+        async def invoke(msg: Command | Query) -> Any:
+            return await handler.handle(msg)  # type: ignore[arg-type]
+
+        # Build the middleware chain (innermost = handler)
+        chain: Callable[..., Awaitable[Any]] = invoke
+        for mw in reversed(self._middleware):
+            chain = _wrap(mw, chain)
+
+        return await chain(message)
+
+
+def _wrap(
+    middleware: Any,
+    next_handler: Callable[..., Awaitable[Any]],
+) -> Callable[..., Awaitable[Any]]:
+    """Create a closure that calls middleware.handle with the next handler.
+
+    Extracted as a standalone function to avoid Python late-binding issues
+    in a loop.
+    """
+
+    async def _next(msg: Command | Query) -> Any:
+        return await middleware.handle(msg, next_handler)
+
+    return _next
