@@ -1,13 +1,12 @@
 """Tests for observability module: logging, metrics, tracing, and health."""
 
-import logging
 
 import pytest
 
+from pyfly.observability.health import HealthChecker, HealthStatus
 from pyfly.observability.logging import configure_logging, get_logger
 from pyfly.observability.metrics import MetricsRegistry, counted, timed
 from pyfly.observability.tracing import span
-from pyfly.observability.health import HealthChecker, HealthStatus
 
 
 class TestStructuredLogging:

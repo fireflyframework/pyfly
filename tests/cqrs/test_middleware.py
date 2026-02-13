@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from pyfly.cqrs import Command, CommandHandler, Mediator, Query, QueryHandler
+from pyfly.cqrs import Command, CommandHandler, Mediator
 from pyfly.cqrs.middleware import CqrsMiddleware, LoggingMiddleware, MetricsMiddleware
 
 

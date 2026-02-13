@@ -1,6 +1,6 @@
 """Tests for @injectable decorator."""
 
-from pyfly.container import Container, Scope, injectable
+from pyfly.container import Scope, injectable
 
 
 @injectable

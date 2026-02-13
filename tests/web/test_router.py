@@ -1,10 +1,10 @@
 """Tests for PyFlyRouter with OpenAPI metadata collection."""
-import pytest
 from pydantic import BaseModel
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.testclient import TestClient
-from pyfly.web.router import PyFlyRouter, RouteMetadata
+
+from pyfly.web.router import PyFlyRouter
 
 
 class ItemResponse(BaseModel):

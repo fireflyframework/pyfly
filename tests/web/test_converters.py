@@ -1,17 +1,12 @@
 """Tests for exception converter system."""
 
-import pytest
-from pydantic import ValidationError, BaseModel
+from pydantic import BaseModel, ValidationError
 
 from pyfly.kernel.exceptions import (
-    DataIntegrityException,
     InvalidRequestException,
-    PyFlyException,
-    ServiceUnavailableException,
     ValidationException,
 )
 from pyfly.web.converters import (
-    ExceptionConverter,
     ExceptionConverterService,
     JSONExceptionConverter,
     PydanticExceptionConverter,

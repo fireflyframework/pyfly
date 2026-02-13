@@ -1,12 +1,5 @@
 """PyFly Kernel — Foundation layer with zero external dependencies."""
 
-from pyfly.kernel.types import (
-    ErrorCategory,
-    ErrorResponse,
-    ErrorSeverity,
-    FieldError,
-)
-
 from pyfly.kernel.exceptions import (
     AuthorizationException,
     BadGatewayException,
@@ -40,6 +33,12 @@ from pyfly.kernel.exceptions import (
     UnauthorizedException,
     UnsupportedMediaTypeException,
     ValidationException,
+)
+from pyfly.kernel.types import (
+    ErrorCategory,
+    ErrorResponse,
+    ErrorSeverity,
+    FieldError,
 )
 
 __all__ = [

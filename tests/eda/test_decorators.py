@@ -2,7 +2,7 @@
 
 import pytest
 
-from pyfly.eda import InMemoryEventBus, EventEnvelope
+from pyfly.eda import EventEnvelope, InMemoryEventBus
 from pyfly.eda.decorators import event_listener, event_publisher, publish_result
 
 

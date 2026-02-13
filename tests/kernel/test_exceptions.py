@@ -302,7 +302,7 @@ class TestErrorResponse:
         assert resp.trace_id is None
 
     def test_error_response_to_dict(self):
-        from pyfly.kernel.types import ErrorResponse, ErrorCategory, ErrorSeverity
+        from pyfly.kernel.types import ErrorCategory, ErrorResponse, ErrorSeverity
         resp = ErrorResponse(
             timestamp="2026-02-13T12:00:00Z", status=429, error="Too Many Requests",
             message="Rate limit exceeded", code="RATE_LIMIT", path="/api/orders",

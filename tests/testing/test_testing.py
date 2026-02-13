@@ -2,7 +2,7 @@
 
 import pytest
 
-from pyfly.container import Container, Scope
+from pyfly.container import Container
 from pyfly.eda import EventEnvelope, InMemoryEventBus
 from pyfly.testing.assertions import assert_event_published, assert_no_events_published
 from pyfly.testing.containers import create_test_container

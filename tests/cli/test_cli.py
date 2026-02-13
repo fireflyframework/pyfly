@@ -1,9 +1,7 @@
 """Tests for CLI: pyfly new command."""
 
-import os
 from pathlib import Path
 
-import pytest
 from click.testing import CliRunner
 
 from pyfly.cli.main import cli

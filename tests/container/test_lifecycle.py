@@ -2,7 +2,7 @@
 
 import pytest
 
-from pyfly.container import Container, Scope, injectable
+from pyfly.container import Container, injectable
 
 
 @injectable

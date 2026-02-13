@@ -1,5 +1,6 @@
 """Tests for OpenAPI 3.1 schema generation."""
 from pydantic import BaseModel
+
 from pyfly.web.openapi import OpenAPIGenerator
 from pyfly.web.router import PyFlyRouter
 

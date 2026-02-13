@@ -12,24 +12,20 @@ Simulates a mini order-service that uses:
 """
 
 from dataclasses import dataclass
-from datetime import timedelta
 
 import pytest
 from pydantic import BaseModel
 from starlette.testclient import TestClient
 
 from pyfly.cache import InMemoryCache, cache
-from pyfly.container import Container, Scope, injectable
 from pyfly.cqrs import Command, CommandHandler, Mediator, Query, QueryHandler, command_handler, query_handler
 from pyfly.eda import EventEnvelope, InMemoryEventBus
-from pyfly.eda.decorators import publish_result
 from pyfly.kernel.exceptions import ResourceNotFoundException, ValidationException
 from pyfly.observability.metrics import MetricsRegistry, counted
 from pyfly.security import SecurityContext, secure
-from pyfly.testing import assert_event_published, assert_no_events_published, create_test_container
+from pyfly.testing import assert_event_published, create_test_container
 from pyfly.validation import validate_model
 from pyfly.web import create_app
-
 
 # --- Domain models ---
 

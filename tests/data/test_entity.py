@@ -1,10 +1,10 @@
 """Tests for BaseEntity and Page types."""
 
-from datetime import datetime, timezone
+from datetime import datetime
 from uuid import UUID
 
 import pytest
-from sqlalchemy import String, select
+from sqlalchemy import String
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import Mapped, mapped_column
 
