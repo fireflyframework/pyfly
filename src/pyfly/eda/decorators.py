@@ -7,7 +7,7 @@ import inspect
 from collections.abc import Callable
 from typing import Any, TypeVar
 
-from pyfly.eda.memory import InMemoryEventBus
+from pyfly.eda.adapters.memory import InMemoryEventBus
 
 F = TypeVar("F", bound=Callable[..., Any])
 

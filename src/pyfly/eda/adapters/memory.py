@@ -5,7 +5,7 @@ from __future__ import annotations
 import fnmatch
 from typing import Any
 
-from pyfly.eda.bus import EventHandler
+from pyfly.eda.ports.outbound import EventHandler
 from pyfly.eda.types import EventEnvelope
 
 

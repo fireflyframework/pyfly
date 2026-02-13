@@ -5,6 +5,7 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from enum import Enum
 from typing import Any
 
 
@@ -18,3 +19,13 @@ class EventEnvelope:
     event_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
     headers: dict[str, str] = field(default_factory=dict)
+
+
+class ErrorStrategy(Enum):
+    """Strategy for handling errors during event processing."""
+
+    IGNORE = "IGNORE"
+    LOG_AND_CONTINUE = "LOG_AND_CONTINUE"
+    RETRY = "RETRY"
+    DEAD_LETTER = "DEAD_LETTER"
+    FAIL_FAST = "FAIL_FAST"

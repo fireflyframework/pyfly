@@ -1,13 +1,15 @@
 """PyFly EDA — Event-Driven Architecture."""
 
-from pyfly.eda.bus import EventBus
+from pyfly.eda.adapters.memory import InMemoryEventBus
 from pyfly.eda.decorators import event_listener, event_publisher, publish_result
-from pyfly.eda.memory import InMemoryEventBus
-from pyfly.eda.types import EventEnvelope
+from pyfly.eda.ports.outbound import EventHandler, EventPublisher
+from pyfly.eda.types import ErrorStrategy, EventEnvelope
 
 __all__ = [
-    "EventBus",
+    "ErrorStrategy",
     "EventEnvelope",
+    "EventHandler",
+    "EventPublisher",
     "InMemoryEventBus",
     "event_listener",
     "event_publisher",
