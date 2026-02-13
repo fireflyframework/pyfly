@@ -2,7 +2,7 @@
 
 import pytest
 
-from pyfly.container import Container, injectable
+from pyfly.container import Container, service
 from pyfly.core.application import PyFlyApplication, pyfly_application
 
 
@@ -15,7 +15,7 @@ class TestPyFlyApplication:
     @pytest.mark.asyncio
     async def test_creates_container(self):
         app = PyFlyApplication(TestApp)
-        assert isinstance(app.container, Container)
+        assert isinstance(app.context.container, Container)
 
     @pytest.mark.asyncio
     async def test_has_config(self):
@@ -32,8 +32,8 @@ class TestPyFlyApplication:
         await app.shutdown()
 
     @pytest.mark.asyncio
-    async def test_auto_discovers_injectables(self):
-        @injectable
+    async def test_auto_discovers_services(self):
+        @service
         class DiscoveredService:
             pass
 

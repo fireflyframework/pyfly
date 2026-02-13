@@ -1,4 +1,4 @@
-"""Package scanner for auto-discovering injectable and stereotype-decorated classes."""
+"""Package scanner for auto-discovering stereotype-decorated classes."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 
 
 def scan_package(package_name: str, container: Container) -> int:
-    """Scan a package for injectable classes and register them.
+    """Scan a package for stereotype-decorated classes and register them.
 
     Args:
         package_name: Dotted package name to scan (e.g. "myapp.services").
@@ -24,7 +24,7 @@ def scan_package(package_name: str, container: Container) -> int:
     count = 0
     module = importlib.import_module(package_name)
 
-    # Register injectables from this module
+    # Register stereotype-decorated classes from this module
     count += _register_from_module(module, container)
 
     # If it's a package, scan submodules
@@ -42,7 +42,7 @@ def scan_package(package_name: str, container: Container) -> int:
 
 
 def scan_module_classes(module: object) -> list[type]:
-    """Extract all injectable/stereotype-decorated classes from a module.
+    """Extract all stereotype-decorated classes from a module.
 
     Returns a list of classes that have ``__pyfly_injectable__ = True``.
     """
@@ -54,7 +54,7 @@ def scan_module_classes(module: object) -> list[type]:
 
 
 def _register_from_module(module: object, container: Container) -> int:
-    """Register all injectable classes from a module."""
+    """Register all stereotype-decorated classes from a module."""
     from pyfly.container.types import Scope
 
     classes = scan_module_classes(module)

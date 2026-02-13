@@ -79,11 +79,6 @@ class PyFlyApplication:
         """The ApplicationContext."""
         return self._context
 
-    @property
-    def container(self):
-        """Backward-compatible access to the Container."""
-        return self._context.container
-
     async def startup(self) -> None:
         """Start the application — start the ApplicationContext."""
         logger.info("Starting %s v%s", self._name, self._version)

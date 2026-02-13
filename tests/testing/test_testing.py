@@ -3,6 +3,7 @@
 import pytest
 
 from pyfly.container import Container
+from pyfly.context.application_context import ApplicationContext
 from pyfly.eda import EventEnvelope, InMemoryEventBus
 from pyfly.testing.assertions import assert_event_published, assert_no_events_published
 from pyfly.testing.containers import create_test_container
@@ -11,10 +12,10 @@ from pyfly.testing.fixtures import PyFlyTestCase
 
 class TestPyFlyTestCase:
     @pytest.mark.asyncio
-    async def test_has_container(self):
+    async def test_has_context(self):
         tc = PyFlyTestCase()
         await tc.setup()
-        assert isinstance(tc.container, Container)
+        assert isinstance(tc.context, ApplicationContext)
         await tc.teardown()
 
     @pytest.mark.asyncio
@@ -28,9 +29,9 @@ class TestPyFlyTestCase:
     async def test_lifecycle(self):
         tc = PyFlyTestCase()
         await tc.setup()
-        # Container should be functional
-        tc.container.register(list)
-        instance = tc.container.resolve(list)
+        # Container should be functional via context
+        tc.context.container.register(list)
+        instance = tc.context.container.resolve(list)
         assert isinstance(instance, list)
         await tc.teardown()
 

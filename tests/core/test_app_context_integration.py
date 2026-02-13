@@ -26,13 +26,3 @@ class TestPyFlyApplicationContext:
         await app.startup()
         assert app.context._started is True
         await app.shutdown()
-
-    @pytest.mark.asyncio
-    async def test_container_still_accessible(self):
-        @pyfly_application(name="test-app")
-        class TestApp:
-            pass
-
-        app = PyFlyApplication(TestApp)
-        # Backward compatibility: .container still works
-        assert app.container is app.context.container

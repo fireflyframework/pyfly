@@ -2,7 +2,6 @@
 
 from pyfly.container.bean import Qualifier, bean, primary
 from pyfly.container.container import Container
-from pyfly.container.decorators import injectable
 from pyfly.container.stereotypes import (
     component,
     configuration,
@@ -21,7 +20,6 @@ __all__ = [
     "component",
     "configuration",
     "controller",
-    "injectable",
     "primary",
     "repository",
     "rest_controller",
