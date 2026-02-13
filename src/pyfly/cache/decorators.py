@@ -8,7 +8,7 @@ from collections.abc import Callable
 from datetime import timedelta
 from typing import Any, TypeVar
 
-from pyfly.cache.types import CacheAdapter
+from pyfly.cache.ports.outbound import CacheAdapter
 
 F = TypeVar("F", bound=Callable[..., Any])
 

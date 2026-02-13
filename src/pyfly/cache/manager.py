@@ -6,7 +6,7 @@ import logging
 from datetime import timedelta
 from typing import Any
 
-from pyfly.cache.types import CacheAdapter
+from pyfly.cache.ports.outbound import CacheAdapter
 
 logger = logging.getLogger("pyfly.cache")
 
