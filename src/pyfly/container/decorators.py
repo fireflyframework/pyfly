@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Callable, TypeVar, overload
+from collections.abc import Callable
+from typing import TypeVar, overload
 
 from pyfly.container.types import Scope
 

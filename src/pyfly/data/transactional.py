@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import functools
-from typing import Any, Callable, TypeVar
+from collections.abc import Callable
+from typing import Any, TypeVar
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -28,10 +29,9 @@ def reactive_transactional(session_factory: async_sessionmaker[AsyncSession]) ->
     def decorator(func: F) -> F:
         @functools.wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
-            async with session_factory() as session:
-                async with session.begin():
-                    result = await func(session, *args, **kwargs)
-                    return result
+            async with session_factory() as session, session.begin():
+                result = await func(session, *args, **kwargs)
+                return result
 
         return wrapper  # type: ignore[return-value]
 

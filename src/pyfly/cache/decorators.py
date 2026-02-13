@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import functools
 import inspect
-import json
+from collections.abc import Callable
 from datetime import timedelta
-from typing import Any, Callable, TypeVar
+from typing import Any, TypeVar
 
 from pyfly.cache.types import CacheAdapter
 

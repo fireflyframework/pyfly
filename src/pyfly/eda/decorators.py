@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import functools
 import inspect
-from typing import Any, Callable, TypeVar
+from collections.abc import Callable
+from typing import Any, TypeVar
 
 from pyfly.eda.memory import InMemoryEventBus
-from pyfly.eda.types import EventEnvelope
 
 F = TypeVar("F", bound=Callable[..., Any])
 

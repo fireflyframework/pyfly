@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Awaitable, Callable
 from datetime import timedelta
 from enum import Enum, auto
-from typing import Any, Awaitable, Callable
+from typing import Any
 
 from pyfly.kernel.exceptions import CircuitBreakerException
 
@@ -45,9 +46,12 @@ class CircuitBreaker:
     @property
     def state(self) -> CircuitState:
         """Current circuit state, accounting for recovery timeout."""
-        if self._state == CircuitState.OPEN and self._last_failure_time is not None:
-            if time.monotonic() - self._last_failure_time >= self._recovery_timeout:
-                return CircuitState.HALF_OPEN
+        if (
+            self._state == CircuitState.OPEN
+            and self._last_failure_time is not None
+            and time.monotonic() - self._last_failure_time >= self._recovery_timeout
+        ):
+            return CircuitState.HALF_OPEN
         return self._state
 
     async def call(self, func: Callable[..., Awaitable[Any]], *args: Any, **kwargs: Any) -> Any:

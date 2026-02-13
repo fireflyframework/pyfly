@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import functools
-from typing import Any, Callable, TypeVar
+from collections.abc import Callable
+from typing import Any, TypeVar
 
 from pyfly.kernel.exceptions import SecurityException
 from pyfly.security.context import SecurityContext
