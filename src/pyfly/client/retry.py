@@ -1,0 +1,44 @@
+"""Retry with exponential backoff for transient failures."""
+
+from __future__ import annotations
+
+import asyncio
+from datetime import timedelta
+from typing import Any, Awaitable, Callable
+
+
+class RetryPolicy:
+    """Retry policy with exponential backoff.
+
+    Args:
+        max_attempts: Maximum number of attempts (including the first).
+        base_delay: Base delay between retries (doubled each attempt).
+        retry_on: Tuple of exception types to retry on. Defaults to all.
+    """
+
+    def __init__(
+        self,
+        max_attempts: int = 3,
+        base_delay: timedelta = timedelta(seconds=1),
+        retry_on: tuple[type[Exception], ...] = (Exception,),
+    ) -> None:
+        self._max_attempts = max_attempts
+        self._base_delay = base_delay.total_seconds()
+        self._retry_on = retry_on
+
+    async def execute(self, func: Callable[..., Awaitable[Any]], *args: Any, **kwargs: Any) -> Any:
+        """Execute a function with retry logic."""
+        last_exception: Exception | None = None
+
+        for attempt in range(self._max_attempts):
+            try:
+                return await func(*args, **kwargs)
+            except self._retry_on as exc:
+                last_exception = exc
+                if attempt < self._max_attempts - 1:
+                    delay = self._base_delay * (2 ** attempt)
+                    await asyncio.sleep(delay)
+            except Exception:
+                raise
+
+        raise last_exception  # type: ignore[misc]
