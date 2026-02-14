@@ -22,16 +22,16 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Application Frameworks",
     "Typing :: Typed",
 ]
+dependencies = [
+    "pydantic>=2.0",
+    "pyyaml>=6.0",
+]
+
 [project.urls]
 Homepage = "https://github.com/fireflyframework/pyfly"
 Repository = "https://github.com/fireflyframework/pyfly"
 Organization = "https://github.com/fireflyframework"
 Issues = "https://github.com/fireflyframework/pyfly/issues"
-
-dependencies = [
-    "pydantic>=2.0",
-    "pyyaml>=6.0",
-]
 
 [project.optional-dependencies]
 web = [

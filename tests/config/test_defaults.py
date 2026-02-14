@@ -34,7 +34,7 @@ class TestFrameworkDefaults:
 
     def test_defaults_have_web_port(self):
         defaults = Config._load_framework_defaults()
-        assert defaults["pyfly"]["web"]["port"] == 8000
+        assert defaults["pyfly"]["web"]["port"] == 8080
 
     def test_defaults_data_disabled(self):
         defaults = Config._load_framework_defaults()
@@ -88,7 +88,7 @@ class TestTomlConfig:
         # Overridden by TOML
         assert config.get("pyfly.app.name") == "toml-app"
         # From defaults
-        assert config.get("pyfly.web.port") == 8000
+        assert config.get("pyfly.web.port") == 8080
 
     def test_toml_profile_overlay(self, tmp_path: Path):
         base = tmp_path / "pyfly.toml"
