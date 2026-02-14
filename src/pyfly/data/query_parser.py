@@ -316,7 +316,7 @@ class QueryMethodCompiler:
     ) -> Callable[..., Coroutine[Any, Any, int]]:
         async def _execute(session: AsyncSession, *args: Any) -> int:
             stmt = delete(entity)
-            stmt = self._apply_where_delete(stmt, parsed, entity, args)
+            stmt = self._apply_where(stmt, parsed, entity, args)
             result = await session.execute(stmt)
             return result.rowcount  # type: ignore[return-value]
 
@@ -365,35 +365,12 @@ class QueryMethodCompiler:
 
     def _apply_where(
         self,
-        stmt: Select,
-        parsed: ParsedQuery,
-        entity: type[T],
-        args: Sequence[Any],
-    ) -> Select:
-        """Apply WHERE clauses from the parsed predicates to a SELECT statement."""
-        if not parsed.predicates:
-            return stmt
-
-        clauses, _ = self._collect_clauses(parsed, entity, args)
-
-        # Combine clauses with the connectors
-        combined = clauses[0]
-        for i, connector in enumerate(parsed.connectors):
-            if connector == "and":
-                combined = combined & clauses[i + 1]
-            else:  # or
-                combined = or_(combined, clauses[i + 1])
-
-        return stmt.where(combined)
-
-    def _apply_where_delete(
-        self,
         stmt: Any,
         parsed: ParsedQuery,
         entity: type[T],
         args: Sequence[Any],
     ) -> Any:
-        """Apply WHERE clauses from the parsed predicates to a DELETE statement."""
+        """Apply WHERE clauses from parsed predicates to a SELECT or DELETE statement."""
         if not parsed.predicates:
             return stmt
 
