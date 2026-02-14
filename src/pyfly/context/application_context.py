@@ -105,22 +105,32 @@ class ApplicationContext:
         """Application event bus."""
         return self._event_bus
 
+    @property
+    def bean_count(self) -> int:
+        """Number of beans eagerly initialized during start()."""
+        return sum(
+            1 for reg in self._container._registrations.values() if reg.instance is not None
+        )
+
     # ------------------------------------------------------------------
     # Lifecycle
     # ------------------------------------------------------------------
 
     async def start(self) -> None:
         """Start the context: resolve @configuration beans, call lifecycle hooks, publish events."""
-        # 1. Process @configuration classes and their @bean methods
+        # 1. Filter beans by active profiles
+        self._filter_by_profile()
+
+        # 2. Process @configuration classes and their @bean methods
         self._process_configurations()
 
-        # 2. Eagerly resolve all singletons
+        # 3. Eagerly resolve all singletons
         for cls, reg in list(self._container._registrations.items()):
             if reg.scope == Scope.SINGLETON and reg.instance is None:
                 with contextlib.suppress(KeyError):
                     self._container.resolve(cls)
 
-        # 3. Run post-processors and lifecycle hooks
+        # 4. Run post-processors and lifecycle hooks
         for reg in self._container._registrations.values():
             if reg.instance is not None:
                 bean_name = reg.name or reg.impl_type.__name__
@@ -136,7 +146,7 @@ class ApplicationContext:
                 for pp in self._post_processors:
                     reg.instance = pp.after_init(reg.instance, bean_name)
 
-        # 4. Publish lifecycle events
+        # 5. Publish lifecycle events
         await self._event_bus.publish(ContextRefreshedEvent())
         await self._event_bus.publish(ApplicationReadyEvent())
         self._started = True
@@ -154,6 +164,19 @@ class ApplicationContext:
     # ------------------------------------------------------------------
     # Private helpers
     # ------------------------------------------------------------------
+
+    def _filter_by_profile(self) -> None:
+        """Remove beans whose profile expression does not match active profiles."""
+        to_remove: list[type] = []
+        for cls in list(self._container._registrations):
+            profile_expr = getattr(cls, "__pyfly_profile__", "")
+            if profile_expr and not self._environment.accepts_profiles(profile_expr):
+                to_remove.append(cls)
+
+        for cls in to_remove:
+            reg = self._container._registrations.pop(cls)
+            if reg.name and reg.name in self._container._named:
+                del self._container._named[reg.name]
 
     def _process_configurations(self) -> None:
         """Find @configuration beans, call their @bean methods, register results."""

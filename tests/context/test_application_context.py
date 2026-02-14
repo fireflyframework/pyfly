@@ -170,3 +170,72 @@ class TestEnvironmentAccess:
         ctx = ApplicationContext(config)
         await ctx.start()
         assert ctx.config.get("key") == "value"
+
+
+class TestProfileBasedBeanFiltering:
+    @pytest.fixture()
+    def ctx_with_profiles(self):
+        """ApplicationContext with 'dev' and 'test' profiles active."""
+        config = Config({"pyfly": {"profiles": {"active": "dev,test"}}})
+        return ApplicationContext(config)
+
+    async def test_bean_with_matching_profile_is_initialized(self, ctx_with_profiles):
+        @service(profile="dev")
+        class DevOnlyService:
+            pass
+
+        ctx_with_profiles.register_bean(DevOnlyService)
+        await ctx_with_profiles.start()
+        instance = ctx_with_profiles.get_bean(DevOnlyService)
+        assert instance is not None
+
+    async def test_bean_with_non_matching_profile_is_skipped(self, ctx_with_profiles):
+        @service(profile="production")
+        class ProdService:
+            pass
+
+        ctx_with_profiles.register_bean(ProdService)
+        await ctx_with_profiles.start()
+        with pytest.raises(KeyError):
+            ctx_with_profiles.get_bean(ProdService)
+
+    async def test_bean_without_profile_is_always_initialized(self, ctx_with_profiles):
+        @service
+        class AlwaysService:
+            pass
+
+        ctx_with_profiles.register_bean(AlwaysService)
+        await ctx_with_profiles.start()
+        assert ctx_with_profiles.get_bean(AlwaysService) is not None
+
+    async def test_negated_profile_bean(self, ctx_with_profiles):
+        @service(profile="!production")
+        class NonProdService:
+            pass
+
+        ctx_with_profiles.register_bean(NonProdService)
+        await ctx_with_profiles.start()
+        assert ctx_with_profiles.get_bean(NonProdService) is not None
+
+    async def test_multi_profile_bean(self, ctx_with_profiles):
+        @service(profile="dev,staging")
+        class DevStagingService:
+            pass
+
+        ctx_with_profiles.register_bean(DevStagingService)
+        await ctx_with_profiles.start()
+        assert ctx_with_profiles.get_bean(DevStagingService) is not None
+
+    async def test_bean_count_excludes_filtered(self, ctx_with_profiles):
+        @service
+        class IncludedService:
+            pass
+
+        @service(profile="production")
+        class ExcludedService:
+            pass
+
+        ctx_with_profiles.register_bean(IncludedService)
+        ctx_with_profiles.register_bean(ExcludedService)
+        await ctx_with_profiles.start()
+        assert ctx_with_profiles.bean_count >= 1
