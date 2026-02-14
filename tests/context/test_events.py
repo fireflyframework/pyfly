@@ -107,3 +107,52 @@ class TestApplicationEventBus:
         bus.subscribe(ApplicationEvent, listener)
         await bus.publish(ApplicationReadyEvent())
         assert len(received) == 1
+
+
+class TestEventListenerOrdering:
+    @pytest.mark.asyncio
+    async def test_listeners_called_in_order(self):
+        from pyfly.container.ordering import order
+        from pyfly.context.events import ApplicationEventBus, ContextRefreshedEvent
+
+        call_order: list[str] = []
+
+        @order(2)
+        class SecondListener:
+            async def on_event(self, event: ContextRefreshedEvent) -> None:
+                call_order.append("second")
+
+        @order(1)
+        class FirstListener:
+            async def on_event(self, event: ContextRefreshedEvent) -> None:
+                call_order.append("first")
+
+        bus = ApplicationEventBus()
+        bus.subscribe(ContextRefreshedEvent, SecondListener().on_event, owner_cls=SecondListener)
+        bus.subscribe(ContextRefreshedEvent, FirstListener().on_event, owner_cls=FirstListener)
+
+        await bus.publish(ContextRefreshedEvent())
+        assert call_order == ["first", "second"]
+
+    @pytest.mark.asyncio
+    async def test_unordered_listeners_default_zero(self):
+        from pyfly.container.ordering import order
+        from pyfly.context.events import ApplicationEventBus, ContextRefreshedEvent
+
+        call_order: list[str] = []
+
+        @order(-1)
+        class EarlyListener:
+            async def on_event(self, event: ContextRefreshedEvent) -> None:
+                call_order.append("early")
+
+        class DefaultListener:
+            async def on_event(self, event: ContextRefreshedEvent) -> None:
+                call_order.append("default")
+
+        bus = ApplicationEventBus()
+        bus.subscribe(ContextRefreshedEvent, DefaultListener().on_event, owner_cls=DefaultListener)
+        bus.subscribe(ContextRefreshedEvent, EarlyListener().on_event, owner_cls=EarlyListener)
+
+        await bus.publish(ContextRefreshedEvent())
+        assert call_order == ["early", "default"]

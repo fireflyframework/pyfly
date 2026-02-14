@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from typing import TypeVar
 
+from pyfly.container.ordering import get_order
+
 F = TypeVar("F", bound=Callable)
 
 
@@ -37,24 +39,29 @@ class ApplicationEventBus:
     """Simple in-process event bus for application lifecycle events."""
 
     def __init__(self) -> None:
-        self._listeners: dict[type[ApplicationEvent], list[Callable[..., Awaitable[None]]]] = {}
+        self._listeners: dict[
+            type[ApplicationEvent],
+            list[tuple[Callable[..., Awaitable[None]], type | None]],
+        ] = {}
 
     def subscribe(
         self,
         event_type: type[ApplicationEvent],
         listener: Callable[..., Awaitable[None]],
+        *,
+        owner_cls: type | None = None,
     ) -> None:
         """Register a listener for a specific event type."""
         if event_type not in self._listeners:
             self._listeners[event_type] = []
-        self._listeners[event_type].append(listener)
+        self._listeners[event_type].append((listener, owner_cls))
 
     async def publish(self, event: ApplicationEvent) -> None:
-        """Publish an event to all matching listeners.
-
-        A listener matches if the event is an instance of the subscribed type.
-        """
-        for event_type, listeners in self._listeners.items():
+        """Publish an event to all matching listeners, sorted by @order."""
+        for event_type, entries in self._listeners.items():
             if isinstance(event, event_type):
-                for listener in listeners:
+                sorted_entries = sorted(
+                    entries, key=lambda e: get_order(e[1]) if e[1] else 0
+                )
+                for listener, _owner in sorted_entries:
                     await listener(event)
