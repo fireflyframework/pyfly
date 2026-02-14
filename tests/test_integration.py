@@ -15,6 +15,7 @@ from dataclasses import dataclass
 
 import pytest
 from pydantic import BaseModel
+from starlette.routing import Route
 from starlette.testclient import TestClient
 
 from pyfly.cache import InMemoryCache, cache
@@ -186,11 +187,11 @@ class TestEndToEndOrderService:
 
     def test_web_error_handling(self):
         """Verify that framework exceptions are properly mapped to HTTP responses."""
-        app = create_app(title="test")
 
-        @app.route("/order/{order_id}")
         async def get_order(request):
             raise ResourceNotFoundException("Order not found", code="ORDER_NOT_FOUND")
+
+        app = create_app(title="test", extra_routes=[Route("/order/{order_id}", get_order)])
 
         client = TestClient(app, raise_server_exceptions=False)
         resp = client.get("/order/123")
