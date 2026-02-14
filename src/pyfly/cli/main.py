@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import click
 
+from pyfly.cli.db import db_group
 from pyfly.cli.new import new_command
 
 
@@ -27,3 +28,4 @@ def cli() -> None:
 
 
 cli.add_command(new_command, name="new")
+cli.add_command(db_group, name="db")
