@@ -74,6 +74,8 @@ class KafkaAdapter:
     async def stop(self) -> None:
         for task in self._consumer_tasks:
             task.cancel()
+        if self._consumer_tasks:
+            await asyncio.gather(*self._consumer_tasks, return_exceptions=True)
         for consumer in self._consumers:
             await consumer.stop()
         if self._producer is not None:
@@ -84,11 +86,13 @@ class KafkaAdapter:
     ) -> None:
         try:
             async for record in consumer:
-                headers = (
-                    {k: v.decode() for k, v in record.headers}
-                    if record.headers
-                    else {}
-                )
+                headers = {}
+                if record.headers:
+                    for k, v in record.headers:
+                        try:
+                            headers[k] = v.decode()
+                        except (UnicodeDecodeError, AttributeError):
+                            headers[k] = v.hex() if isinstance(v, bytes) else str(v)
                 msg = Message(
                     topic=record.topic,
                     value=record.value,
