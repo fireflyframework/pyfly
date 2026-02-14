@@ -18,7 +18,7 @@ from __future__ import annotations
 from typing import Any, Generic, TypeVar
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from pyfly.data.adapters.sqlalchemy.entity import BaseEntity
@@ -44,6 +44,13 @@ class Repository(Generic[T]):
     def __init__(self, model: type[T], session: AsyncSession) -> None:
         self._model = model
         self._session = session
+
+    def _apply_sort(self, stmt: Select, pageable: Pageable) -> Select:
+        """Apply sort orders from a Pageable to a SELECT statement."""
+        for order in pageable.sort.orders:
+            col = getattr(self._model, order.property)
+            stmt = stmt.order_by(col.asc() if order.direction == "asc" else col.desc())
+        return stmt
 
     async def save(self, entity: T) -> T:
         """Persist an entity (insert or update)."""
@@ -100,11 +107,7 @@ class Repository(Generic[T]):
 
         # Apply sorting from pageable
         if pageable is not None:
-            for order in pageable.sort.orders:
-                col = getattr(self._model, order.property)
-                stmt = stmt.order_by(
-                    col.asc() if order.direction == "asc" else col.desc()
-                )
+            stmt = self._apply_sort(stmt, pageable)
 
         stmt = stmt.offset(offset).limit(size)
         result = await self._session.execute(stmt)
@@ -131,12 +134,7 @@ class Repository(Generic[T]):
         total = total_result.scalar_one()
 
         # Apply sorting from Pageable.sort
-        stmt = filtered
-        for order in pageable.sort.orders:
-            col = getattr(self._model, order.property)
-            stmt = stmt.order_by(
-                col.asc() if order.direction == "asc" else col.desc()
-            )
+        stmt = self._apply_sort(filtered, pageable)
 
         # Apply pagination
         stmt = stmt.offset(pageable.offset).limit(pageable.size)
