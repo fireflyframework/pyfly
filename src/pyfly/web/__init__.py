@@ -12,6 +12,7 @@ from pyfly.web.mappings import (
     request_mapping,
 )
 from pyfly.web.params import Body, Cookie, Header, PathVar, QueryParam
+from pyfly.web.request_logger import RequestLoggingMiddleware
 from pyfly.web.response import handle_return_value
 
 __all__ = [
@@ -21,6 +22,7 @@ __all__ = [
     "Header",
     "PathVar",
     "QueryParam",
+    "RequestLoggingMiddleware",
     "create_app",
     "delete_mapping",
     "exception_handler",
