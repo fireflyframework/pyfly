@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 from typing import Any
 
 from starlette.requests import Request
@@ -10,6 +11,13 @@ from starlette.routing import Route
 
 from pyfly.web.resolver import ParameterResolver
 from pyfly.web.response import handle_return_value
+
+
+async def _maybe_await(result: Any) -> Any:
+    """Await the result if it's a coroutine, otherwise return as-is."""
+    if inspect.isawaitable(result):
+        return await result
+    return result
 
 
 class ControllerRegistrar:
@@ -60,7 +68,11 @@ class ControllerRegistrar:
     def _collect_exception_handlers(
         self, instance: Any
     ) -> dict[type[Exception], Any]:
-        """Collect all @exception_handler methods from a controller instance."""
+        """Collect all @exception_handler methods from a controller instance.
+
+        Handlers are sorted by MRO depth (most specific first) so subclass
+        exceptions are matched before their parents.
+        """
         handlers: dict[type[Exception], Any] = {}
         for attr_name in dir(instance):
             method = getattr(instance, attr_name, None)
@@ -69,7 +81,9 @@ class ControllerRegistrar:
             exc_type = getattr(method, "__pyfly_exception_handler__", None)
             if exc_type is not None:
                 handlers[exc_type] = method
-        return handlers
+        return dict(
+            sorted(handlers.items(), key=lambda item: len(item[0].__mro__), reverse=True)
+        )
 
     def _make_handler(
         self,
@@ -83,12 +97,12 @@ class ControllerRegistrar:
         async def endpoint(request: Request) -> Response:
             try:
                 kwargs = await resolver.resolve(request)
-                result = await method(**kwargs)
+                result = await _maybe_await(method(**kwargs))
                 return handle_return_value(result, status_code)
             except Exception as exc:
                 for exc_type, handler in exc_handlers.items():
                     if isinstance(exc, exc_type):
-                        result = await handler(exc)
+                        result = await _maybe_await(handler(exc))
                         if isinstance(result, tuple) and len(result) == 2:
                             return JSONResponse(result[1], status_code=result[0])
                         return handle_return_value(result)
