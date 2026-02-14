@@ -21,6 +21,8 @@ import click
 from alembic import command
 from alembic.config import Config
 
+from pyfly.cli.console import console
+
 _ENV_PY_TEMPLATE = '''\
 from logging.config import fileConfig
 
@@ -80,9 +82,8 @@ def _get_alembic_config() -> Config:
     """
     ini_path = Path("alembic.ini")
     if not ini_path.exists():
-        raise click.ClickException(
-            "alembic.ini not found. Run 'pyfly db init' first."
-        )
+        console.print("[error]\u2717[/error] alembic.ini not found. Run 'pyfly db init' first.")
+        raise SystemExit(1)
     return Config(str(ini_path))
 
 
@@ -96,10 +97,11 @@ def init_cmd() -> None:
     """Initialize the Alembic migration environment."""
     directory = "alembic"
     if Path(directory).exists():
-        raise click.ClickException(
-            f"Directory '{directory}' already exists. "
+        console.print(
+            f"[error]\u2717[/error] Directory '{directory}' already exists. "
             "Remove it first if you want to re-initialize."
         )
+        raise SystemExit(1)
 
     cfg = Config("alembic.ini")
     command.init(cfg, directory)
@@ -108,7 +110,7 @@ def init_cmd() -> None:
     env_py_path = Path(directory) / "env.py"
     env_py_path.write_text(_ENV_PY_TEMPLATE)
 
-    click.echo("Initialized Alembic migration environment in 'alembic/'.")
+    console.print("[success]\u2713[/success] Initialized Alembic migration environment in 'alembic/'.")
 
 
 @db_group.command("migrate")
@@ -122,7 +124,7 @@ def migrate_cmd(message: str | None) -> None:
     """Auto-generate a new migration revision."""
     cfg = _get_alembic_config()
     command.revision(cfg, message=message, autogenerate=True)
-    click.echo("Migration revision created.")
+    console.print("[success]\u2713[/success] Migration revision created.")
 
 
 @db_group.command("upgrade")
@@ -131,7 +133,7 @@ def upgrade_cmd(revision: str) -> None:
     """Upgrade the database to a given revision (default: head)."""
     cfg = _get_alembic_config()
     command.upgrade(cfg, revision)
-    click.echo(f"Database upgraded to {revision}.")
+    console.print(f"[success]\u2713[/success] Database upgraded to {revision}.")
 
 
 @db_group.command("downgrade")
@@ -140,4 +142,4 @@ def downgrade_cmd(revision: str) -> None:
     """Downgrade the database to a given revision."""
     cfg = _get_alembic_config()
     command.downgrade(cfg, revision)
-    click.echo(f"Database downgraded to {revision}.")
+    console.print(f"[success]\u2713[/success] Database downgraded to {revision}.")
