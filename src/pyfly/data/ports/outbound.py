@@ -18,7 +18,10 @@ from __future__ import annotations
 from typing import Any, Protocol, TypeVar, runtime_checkable
 from uuid import UUID
 
+from pyfly.data.page import Page
+
 T = TypeVar("T")
+ID = TypeVar("ID")
 
 
 @runtime_checkable
@@ -47,3 +50,31 @@ class SessionPort(Protocol):
     async def commit(self) -> None: ...
 
     async def rollback(self) -> None: ...
+
+
+@runtime_checkable
+class CrudRepository(Protocol[T, ID]):
+    """Spring Data-style CRUD repository interface."""
+
+    async def save(self, entity: T) -> T: ...
+
+    async def find_by_id(self, id: ID) -> T | None: ...
+
+    async def find_all(self) -> list[T]: ...
+
+    async def delete(self, entity: T) -> None: ...
+
+    async def delete_by_id(self, id: ID) -> None: ...
+
+    async def count(self) -> int: ...
+
+    async def exists_by_id(self, id: ID) -> bool: ...
+
+
+@runtime_checkable
+class PagingRepository(CrudRepository[T, ID], Protocol[T, ID]):
+    """CrudRepository with pagination support."""
+
+    async def find_all_paged(
+        self, page: int = 1, size: int = 20, sort: list[str] | None = None
+    ) -> Page[T]: ...
