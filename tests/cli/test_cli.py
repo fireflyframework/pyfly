@@ -478,6 +478,18 @@ class TestNewInteractive:
         assert not (tmp_path / "cancel-me").exists()
 
     @patch("pyfly.cli.new.questionary")
+    def test_interactive_keyboard_interrupt(self, mock_q, tmp_path: Path):
+        mock_q.text.return_value.unsafe_ask.side_effect = KeyboardInterrupt()
+
+        runner = CliRunner()
+        result = runner.invoke(
+            cli,
+            ["new", "--directory", str(tmp_path)],
+        )
+        # Should exit cleanly without traceback
+        assert not (tmp_path / "any-project").exists()
+
+    @patch("pyfly.cli.new.questionary")
     def test_interactive_library_skips_features(self, mock_q, tmp_path: Path):
         mock_q.text.return_value.unsafe_ask.side_effect = ["my-lib", "my_lib"]
         mock_q.select.return_value.unsafe_ask.return_value = "library"
