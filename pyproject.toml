@@ -66,6 +66,9 @@ observability = [
     "opentelemetry-instrumentation-starlette>=0.45b0",
     "structlog>=24.0",
 ]
+scheduling = [
+    "croniter>=2.0",
+]
 security = [
     "pyjwt[crypto]>=2.8",
     "passlib[bcrypt]>=1.7",
@@ -76,7 +79,7 @@ cli = [
     "jinja2>=3.1",
 ]
 full = [
-    "pyfly[web,data,eda,cqrs,cache,client,observability,security,cli,kafka,rabbitmq,redis]",
+    "pyfly[web,data,eda,cqrs,cache,client,observability,security,scheduling,cli,kafka,rabbitmq,redis]",
 ]
 dev = [
     "pyfly[full]",
