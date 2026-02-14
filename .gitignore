@@ -16,3 +16,5 @@ venv/
 .env
 *.db
 .worktrees/
+.idea/
+docs/plans/

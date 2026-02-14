@@ -146,10 +146,10 @@ Examples of adapters:
                      | Data   |  |  | Cache  |  |  | Messaging  |
                      +------+-+  |  +------+-+  |  +-----+------+
                             |    |         |    |        |
-               +------------v-+  |  +------v-+  |  +----v---------+
-               | Adapter      |  |  | Adapter |  |  | Adapter      |
-               | SQLAlchemy   |  |  | Redis   |  |  | Kafka        |
-               +--------------+  |  +---------+  |  +--------------+
+               +------------v-+  |  +------v--+ |  +-----v--------+
+               | Adapter      |  |  | Adapter | |  | Adapter      |
+               | SQLAlchemy   |  |  | Redis   | |  | Kafka        |
+               +--------------+  |  +---------+ |  +--------------+
                                  |
                           +------v-------+
                           | Adapter      |
@@ -224,12 +224,12 @@ Cross-cutting modules provide capabilities that span all other layers.
 ```
 +-----------------------------------------------------------------------+
 |                         Cross-Cutting Layer                           |
-|   aop    observability    resilience    testing    cli                 |
+|   aop    observability    resilience    testing    cli                |
 +-----------------------------------------------------------------------+
           |                   |                  |
 +-----------------------------------------------------------------------+
 |                       Infrastructure Layer                            |
-|   web    data    messaging    cache    client    scheduling            |
+|   web    data    messaging    cache    client    scheduling           |
 |   security    actuator                                                |
 |                                                                       |
 |   Each module:  ports/  <--  adapters/                                |
@@ -242,7 +242,7 @@ Cross-cutting modules provide capabilities that span all other layers.
           |                   |                  |
 +-----------------------------------------------------------------------+
 |                        Foundation Layer                               |
-|   kernel    core    container    context    config    logging          |
+|   kernel    core    container    context    config    logging         |
 +-----------------------------------------------------------------------+
 ```
 

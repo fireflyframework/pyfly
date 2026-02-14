@@ -2,6 +2,8 @@
 
 This guide covers every way to install PyFly — from the interactive installer for first-time users to manual pip commands for CI/CD pipelines.
 
+> **Note:** PyFly is distributed exclusively via GitHub as part of the [Firefly Framework](https://github.com/fireflyframework) organization. It is **not** published to PyPI. All installation methods require cloning the repository first.
+
 ---
 
 ## Table of Contents
@@ -25,6 +27,10 @@ This guide covers every way to install PyFly — from the interactive installer 
 ## Quick Install
 
 ```bash
+# Clone the repository
+git clone https://github.com/fireflyframework/pyfly.git
+cd pyfly
+
 # Full installation (all modules)
 bash install.sh
 
@@ -47,6 +53,7 @@ pyfly doctor
 |-------------|---------|-------------|
 | Python | >= 3.12 | `python3 --version` |
 | pip | Latest recommended | `pip --version` |
+| Git | Any recent version | `git --version` |
 | venv module | Included with Python | `python3 -m venv --help` |
 | OS | macOS or Linux | Windows support planned |
 
@@ -161,10 +168,10 @@ Installation complete! Run 'pyfly doctor' to verify.
 
 For CI/CD pipelines, Docker images, or automated setups, the installer detects when it's piped or when stdin is not a terminal, and uses sensible defaults without prompting.
 
-### Pipe from a URL
+### Pipe from GitHub
 
 ```bash
-curl -fsSL https://your-server/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/fireflyframework/pyfly/main/install.sh | bash
 ```
 
 ### Default Behavior (Non-Interactive)
@@ -197,7 +204,7 @@ PYFLY_EXTRAS=web,data bash install.sh
 PYFLY_HOME=/opt/pyfly PYFLY_EXTRAS=web,data,cli PYFLY_SOURCE=/src/pyfly bash install.sh
 
 # CI/CD: non-interactive with full extras
-curl -fsSL https://example.com/install.sh | PYFLY_HOME=/app/pyfly bash
+curl -fsSL https://raw.githubusercontent.com/fireflyframework/pyfly/main/install.sh | PYFLY_HOME=/app/pyfly bash
 ```
 
 ### Docker Example
@@ -226,6 +233,10 @@ If you prefer to manage your own virtual environment, you can install PyFly dire
 ### From Source
 
 ```bash
+# Clone the repository
+git clone https://github.com/fireflyframework/pyfly.git
+cd pyfly
+
 # Create and activate a virtual environment
 python3 -m venv .venv
 source .venv/bin/activate
@@ -373,7 +384,7 @@ If any step fails, the installer removes the partially-created installation dire
 For contributing to PyFly itself, install with the `dev` extra which includes all modules plus testing and linting tools:
 
 ```bash
-git clone <pyfly-repo>
+git clone https://github.com/fireflyframework/pyfly.git
 cd pyfly
 python3 -m venv .venv
 source .venv/bin/activate

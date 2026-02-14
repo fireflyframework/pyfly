@@ -1,31 +1,49 @@
-# PyFly Framework
+<p align="center">
+  <img src="assets/pyfly-logo.png" alt="PyFly Logo" width="600" />
+</p>
 
-**The Enterprise Python Framework**
+<p align="center">
+  <strong>The Official Python Implementation of the Firefly Framework</strong>
+</p>
 
-> *Build production-grade applications with the patterns you trust — dependency injection, CQRS, event-driven architecture, and more — all native to Python.*
+<p align="center">
+  <a href="https://github.com/fireflyframework"><img src="https://img.shields.io/badge/Firefly_Framework-official-ff6600?logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0id2hpdGUiIGQ9Ik0xMiAyQzYuNDggMiAyIDYuNDggMiAxMnM0LjQ4IDEwIDEwIDEwIDEwLTQuNDggMTAtMTBTMTcuNTIgMiAxMiAyeiIvPjwvc3ZnPg==" alt="Firefly Framework"></a>
+  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.12%2B-blue?logo=python&logoColor=white" alt="Python 3.12+"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-green" alt="License: Apache 2.0"></a>
+  <a href="#"><img src="https://img.shields.io/badge/version-0.1.0--alpha-yellow" alt="Version: 0.1.0-alpha"></a>
+  <a href="#"><img src="https://img.shields.io/badge/type--checked-mypy%20strict-blue?logo=python&logoColor=white" alt="Type Checked: mypy strict"></a>
+  <a href="#"><img src="https://img.shields.io/badge/code%20style-ruff-purple?logo=ruff&logoColor=white" alt="Code Style: Ruff"></a>
+  <a href="#"><img src="https://img.shields.io/badge/async-first-brightgreen" alt="Async First"></a>
+</p>
+
+<p align="center">
+  <em>Build production-grade Python applications with the patterns you trust — dependency injection, CQRS, event-driven architecture, and more — powered by the <a href="https://github.com/fireflyframework">Firefly Framework</a>.</em>
+</p>
 
 ---
 
 ## What is PyFly?
 
-PyFly is a comprehensive application framework for Python 3.12+ that brings well-established enterprise patterns to the Python ecosystem. It provides a **cohesive programming model** for building production-grade microservices, monoliths, and libraries — while embracing Python's strengths: `async/await`, type hints, protocols, and simplicity.
+PyFly is the **official native Python implementation** of the [Firefly Framework](https://github.com/fireflyframework) — a comprehensive enterprise framework originally built on **Spring Boot** for the Java ecosystem.
 
-Rather than wiring together dozens of independent libraries for each new project, PyFly gives you an opinionated, full-stack foundation where every module is designed to work together seamlessly.
+The Firefly Framework provides a battle-tested set of enterprise patterns: dependency injection, CQRS, event-driven architecture, hexagonal design, distributed transactions, and more. With **PyFly**, all of these patterns come to Python 3.12+ — reimagined from the ground up for `async/await`, type hints, protocols, and the full power of modern Python.
+
+> **Why PyFly?** The Firefly Framework's Java implementation (`fireflyframework-*`) consists of 40+ Spring Boot modules covering everything from kernel abstractions to workflow engines, event sourcing, and enterprise content management. PyFly brings this same cohesive programming model to Python — not as a port or wrapper, but as a **native implementation** that embraces Python's strengths while preserving the architectural patterns that make the Firefly Framework production-ready.
 
 ### Who is PyFly for?
 
-- **Teams migrating from Java/Spring** who want familiar concepts expressed natively in Python
+- **Firefly Framework users** who need Python services that share the same architecture and patterns as their Java services
+- **Teams migrating from Java/Spring Boot** who want familiar concepts expressed natively in Python
 - **Python developers** who want enterprise-grade patterns without reinventing the wheel
-- **Architects** building microservice platforms who need consistency across services
-- **Anyone** tired of choosing from hundreds of libraries and assembling them from scratch
+- **Architects** building polyglot microservice platforms who need consistency across Java and Python services
 
-If you're coming from Spring Boot, check out our [Spring Boot Comparison Guide](docs/spring-comparison.md) for a detailed mapping of concepts.
+If you're coming from Spring Boot or the Firefly Framework for Java, check out our [Spring Boot Comparison Guide](docs/spring-comparison.md) for a detailed mapping of concepts.
 
 ---
 
 ## Philosophy
 
-PyFly is guided by four core beliefs:
+PyFly is guided by the same core beliefs as the Firefly Framework:
 
 ### Convention Over Configuration
 
@@ -40,7 +58,7 @@ pyfly:
 
 ### Framework-Agnostic Domain Logic
 
-Your business code should never depend on infrastructure libraries. PyFly enforces this through **hexagonal architecture (ports and adapters)**:
+Your business code should never depend on infrastructure libraries. PyFly enforces this through **hexagonal architecture (ports and adapters)** — the same pattern used across all Firefly Framework modules:
 
 - **Ports** are Python `Protocol` classes defining contracts
 - **Adapters** are concrete implementations (SQLAlchemy, Redis, Kafka, etc.)
@@ -66,7 +84,7 @@ Every module that interacts with external systems follows the ports and adapters
 
 ```
 ┌──────────────────────────────────────────────┐
-│              Your Application                 │
+│              Your Application                │
 │                                              │
 │   @service                 @repository       │
 │   class OrderService:      class OrderRepo:  │
@@ -74,14 +92,14 @@ Every module that interacts with external systems follows the ports and adapters
 │       broker: MessageBrokerPort              │
 │       cache: CacheAdapter                    │
 │                                              │
-│           Depends on PORTS (Protocols)        │
+│           Depends on PORTS (Protocols)       │
 │                    │                         │
 ├────────────────────┼─────────────────────────┤
 │                    │                         │
-│   ┌──────────┐ ┌──────────┐ ┌──────────┐   │
-│   │SQLAlchemy│ │  Kafka   │ │  Redis   │   │
-│   │ Adapter  │ │ Adapter  │ │ Adapter  │   │
-│   └──────────┘ └──────────┘ └──────────┘   │
+│    ┌──────────┐ ┌──────────┐ ┌──────────┐    │
+│    │SQLAlchemy│ │  Kafka   │ │  Redis   │    │
+│    │ Adapter  │ │ Adapter  │ │ Adapter  │    │
+│    └──────────┘ └──────────┘ └──────────┘    │
 │                                              │
 │           ADAPTERS (Implementations)         │
 └──────────────────────────────────────────────┘
@@ -107,16 +125,51 @@ PyFly detects installed libraries at startup and wires the appropriate adapters 
 
 ---
 
-## Quick Start
+## Installation
+
+> **Note:** PyFly is distributed exclusively via GitHub. It is **not** published to PyPI.
+
+### Quick Install (Recommended)
 
 ```bash
-# Install PyFly
-curl -fsSL https://raw.githubusercontent.com/your-org/pyfly/main/install.sh | bash
+# Clone the repository
+git clone https://github.com/fireflyframework/pyfly.git
+cd pyfly
 
-# Create a new project
+# Run the installer (creates a venv, installs PyFly, adds to PATH)
+bash install.sh
+```
+
+### Manual Install
+
+```bash
+# Clone the repository
+git clone https://github.com/fireflyframework/pyfly.git
+cd pyfly
+
+# Create a virtual environment
+python3 -m venv .venv
+source .venv/bin/activate
+
+# Install with all modules
+pip install -e ".[full]"
+
+# Or install with specific extras only
+pip install -e ".[web,data,security,cli]"
+```
+
+### Verify Installation
+
+```bash
+pyfly --version
+pyfly doctor
+pyfly info
+```
+
+### Create Your First Project
+
+```bash
 pyfly new my-service
-
-# Navigate and run
 cd my-service
 pyfly run --reload
 
@@ -124,54 +177,54 @@ pyfly run --reload
 open http://localhost:8080/docs
 ```
 
-See the [Getting Started Tutorial](docs/getting-started.md) for a comprehensive walkthrough.
+See the [Installation Guide](docs/installation.md) for detailed options, Docker examples, and CI/CD setup.
 
 ---
 
 ## Modules
 
-PyFly is organized into four layers:
+PyFly currently implements **24 modules** organized into four layers:
 
 ### Foundation Layer
 
-| Module | Description |
-|--------|-------------|
-| **Core** | Application bootstrap, lifecycle, banner, configuration |
-| **Kernel** | Exception hierarchy, structured error types |
-| **Container** | Dependency injection, stereotypes, bean factories |
-| **Context** | ApplicationContext, events, lifecycle hooks, conditions |
+| Module | Description | Firefly Java Equivalent |
+|--------|-------------|------------------------|
+| **Core** | Application bootstrap, lifecycle, banner, configuration | `fireflyframework-core` |
+| **Kernel** | Exception hierarchy, structured error types | `fireflyframework-kernel` |
+| **Container** | Dependency injection, stereotypes, bean factories | Spring DI (built-in) |
+| **Context** | ApplicationContext, events, lifecycle hooks, conditions | Spring ApplicationContext |
 
 ### Application Layer
 
-| Module | Description |
-|--------|-------------|
-| **Web** | HTTP routing, controllers, middleware, OpenAPI |
-| **Data** | Repository pattern, specifications, pagination |
-| **CQRS** | Command/Query segregation with mediator |
-| **Validation** | Input validation with Pydantic |
+| Module | Description | Firefly Java Equivalent |
+|--------|-------------|------------------------|
+| **Web** | HTTP routing, controllers, middleware, OpenAPI | `fireflyframework-web` |
+| **Data** | Repository pattern, specifications, pagination | `fireflyframework-r2dbc` |
+| **CQRS** | Command/Query segregation with mediator | `fireflyframework-cqrs` |
+| **Validation** | Input validation with Pydantic | `fireflyframework-validators` |
 
 ### Infrastructure Layer
 
-| Module | Description |
-|--------|-------------|
-| **Security** | JWT, password encoding, authorization |
-| **Messaging** | Kafka, RabbitMQ, in-memory broker |
-| **EDA** | Event-driven architecture, event bus |
-| **Cache** | Caching decorators, Redis adapter |
-| **Client** | HTTP client, circuit breaker, retry |
-| **Scheduling** | Cron jobs, fixed-rate tasks |
-| **Resilience** | Rate limiter, bulkhead, timeout, fallback |
+| Module | Description | Firefly Java Equivalent |
+|--------|-------------|------------------------|
+| **Security** | JWT, password encoding, authorization | Part of `fireflyframework-application` |
+| **Messaging** | Kafka, RabbitMQ, in-memory broker | `fireflyframework-eda` |
+| **EDA** | Event-driven architecture, event bus | `fireflyframework-eda` |
+| **Cache** | Caching decorators, Redis adapter | `fireflyframework-cache` |
+| **Client** | HTTP client, circuit breaker, retry | `fireflyframework-client` |
+| **Scheduling** | Cron jobs, fixed-rate tasks | Spring Scheduling |
+| **Resilience** | Rate limiter, bulkhead, timeout, fallback | Resilience4j (in `fireflyframework-client`) |
 
 ### Cross-Cutting Layer
 
-| Module | Description |
-|--------|-------------|
-| **AOP** | Aspect-oriented programming |
-| **Observability** | Prometheus metrics, OpenTelemetry tracing |
-| **Logging** | Structured logging with structlog |
-| **Actuator** | Health checks, monitoring endpoints |
-| **Testing** | Test fixtures and assertions |
-| **CLI** | Command-line tools |
+| Module | Description | Firefly Java Equivalent |
+|--------|-------------|------------------------|
+| **AOP** | Aspect-oriented programming | Spring AOP |
+| **Observability** | Prometheus metrics, OpenTelemetry tracing | `fireflyframework-observability` |
+| **Logging** | Structured logging with structlog | `fireflyframework-observability` |
+| **Actuator** | Health checks, monitoring endpoints | `fireflyframework-core` (actuator) |
+| **Testing** | Test fixtures and assertions | Spring Test |
+| **CLI** | Command-line tools | `fireflyframework-cli` |
 
 ---
 
@@ -189,16 +242,52 @@ Browse all guides in the [Documentation Table of Contents](docs/README.md).
 
 ---
 
+## Roadmap
+
+See **[ROADMAP.md](ROADMAP.md)** for the full roadmap toward feature parity with the Firefly Framework Java ecosystem (40+ modules).
+
+| Phase | Focus | Key Modules |
+|-------|-------|-------------|
+| **Phase 1** | Core Distributed Patterns | Event Sourcing, Saga/TCC, Workflow, DDD |
+| **Phase 2** | Business Logic | Rule Engine, Plugins, Data Processing |
+| **Phase 3** | Enterprise Integrations | Notifications, IDP, ECM, Webhooks |
+| **Phase 4** | Administrative | Backoffice, Config Server, Utils |
+
+---
+
+## Changelog
+
+See **[CHANGELOG.md](CHANGELOG.md)** for detailed release notes.
+
+**Current:** v0.1.0-alpha (2026-02-14) — 24 modules across 4 layers, interactive installer, full CLI tooling.
+
+---
+
+## Firefly Framework Ecosystem
+
+PyFly is part of the [Firefly Framework](https://github.com/fireflyframework) ecosystem:
+
+| Platform | Repository | Status |
+|----------|-----------|--------|
+| **Java / Spring Boot** | [`fireflyframework-*`](https://github.com/fireflyframework) (40+ modules) | Production |
+| **Python** | [`pyfly`](https://github.com/fireflyframework/pyfly) | Alpha |
+| **Frontend (Angular)** | [`flyfront`](https://github.com/fireflyframework/flyfront) | Active Development |
+| **GenAI** | [`fireflyframework-genai`](https://github.com/fireflyframework/fireflyframework-genai) | Active Development |
+| **CLI (Go)** | [`fireflyframework-cli`](https://github.com/fireflyframework/fireflyframework-cli) | Active Development |
+
+---
+
 ## Requirements
 
 | Requirement | Version |
 |-------------|---------|
 | Python | >= 3.12 |
 | pip | Latest recommended |
+| Git | For cloning the repository |
 | OS | macOS, Linux (Windows support planned) |
 
 ---
 
 ## License
 
-Apache License 2.0 — Firefly Software Solutions Inc.
+Apache License 2.0 — [Firefly Software Solutions Inc.](https://github.com/fireflyframework)

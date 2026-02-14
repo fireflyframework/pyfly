@@ -191,14 +191,14 @@ pyfly new payment-service --directory /projects
 After creation, the CLI displays a Rich tree panel showing all created files and a hint to navigate into the project:
 
 ```
-╭─ Created core project ──────────╮
-│ 📁 order-service/               │
-│ ├── pyfly.yaml                  │
-│ ├── pyproject.toml              │
-│ ├── src/order_service/__init__.py│
-│ ├── src/order_service/app.py    │
-│ └── tests/__init__.py           │
-╰─────────────────────────────────╯
+╭─ Created core project ────────────╮
+│ 📁 order-service/                 │
+│ ├── pyfly.yaml                    │
+│ ├── pyproject.toml                │
+│ ├── src/order_service/__init__.py │
+│ ├── src/order_service/app.py      │
+│ └── tests/__init__.py             │
+╰───────────────────────────────────╯
 
   cd order-service to get started!
 ```

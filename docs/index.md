@@ -1,8 +1,8 @@
 # PyFly Framework
 
-**The Enterprise Python Framework**
+**The Official Python Implementation of the [Firefly Framework](https://github.com/fireflyframework)**
 
-> *Build production-grade applications with the patterns you trust — dependency injection, CQRS, event-driven architecture, and more — all native to Python.*
+> *Build production-grade Python applications with the patterns you trust — dependency injection, CQRS, event-driven architecture, and more — powered by the Firefly Framework.*
 
 ---
 
@@ -20,7 +20,7 @@
 
 ## What is PyFly?
 
-PyFly is a comprehensive application framework for Python 3.12+ that brings well-established enterprise patterns to the Python ecosystem. It provides a **cohesive programming model** for building production-grade microservices, monoliths, and libraries — while embracing Python's strengths: `async/await`, type hints, protocols, and simplicity.
+PyFly is the **official native Python implementation** of the [Firefly Framework](https://github.com/fireflyframework) — a comprehensive enterprise framework originally built on Spring Boot for the Java ecosystem. It provides a **cohesive programming model** for building production-grade microservices, monoliths, and libraries — while embracing Python's strengths: `async/await`, type hints, protocols, and simplicity.
 
 Rather than wiring together dozens of independent libraries for each new project, PyFly gives you an opinionated, full-stack foundation where every module is designed to work together seamlessly.
 
@@ -114,7 +114,7 @@ Every module that interacts with external systems follows the ports and adapters
 
 ```
 ┌──────────────────────────────────────────────┐
-│              Your Application                 │
+│              Your Application                │
 │                                              │
 │   @service                 @repository       │
 │   class OrderService:      class OrderRepo:  │
@@ -122,14 +122,14 @@ Every module that interacts with external systems follows the ports and adapters
 │       broker: MessageBrokerPort              │
 │       cache: CacheAdapter                    │
 │                                              │
-│           Depends on PORTS (Protocols)        │
+│           Depends on PORTS (Protocols)       │
 │                    │                         │
 ├────────────────────┼─────────────────────────┤
 │                    │                         │
-│   ┌──────────┐ ┌──────────┐ ┌──────────┐   │
-│   │SQLAlchemy│ │  Kafka   │ │  Redis   │   │
-│   │ Adapter  │ │ Adapter  │ │ Adapter  │   │
-│   └──────────┘ └──────────┘ └──────────┘   │
+│    ┌──────────┐ ┌──────────┐ ┌──────────┐    │
+│    │SQLAlchemy│ │  Kafka   │ │  Redis   │    │
+│    │ Adapter  │ │ Adapter  │ │ Adapter  │    │
+│    └──────────┘ └──────────┘ └──────────┘    │
 │                                              │
 │           ADAPTERS (Implementations)         │
 └──────────────────────────────────────────────┘
@@ -158,6 +158,10 @@ PyFly detects installed libraries at startup and wires the appropriate adapters 
 ## Quick Start
 
 ```bash
+# Clone the repository
+git clone https://github.com/fireflyframework/pyfly.git
+cd pyfly
+
 # Install PyFly
 bash install.sh
 

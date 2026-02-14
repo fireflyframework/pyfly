@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "pyfly"
 version = "0.1.0"
-description = "Enterprise Python framework — DI, CQRS, EDA, DDD, and more."
+description = "The official Python implementation of the Firefly Framework — DI, CQRS, EDA, hexagonal architecture, and more."
 readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.12"
@@ -22,6 +22,12 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Application Frameworks",
     "Typing :: Typed",
 ]
+[project.urls]
+Homepage = "https://github.com/fireflyframework/pyfly"
+Repository = "https://github.com/fireflyframework/pyfly"
+Organization = "https://github.com/fireflyframework"
+Issues = "https://github.com/fireflyframework/pyfly/issues"
+
 dependencies = [
     "pydantic>=2.0",
     "pyyaml>=6.0",
