@@ -61,3 +61,70 @@ class TestConfigProperties:
         db_config = config.bind(DatabaseConfig)
         assert db_config.url == "sqlite:///default.db"
         assert db_config.pool_size == 5
+
+
+class TestProfileConfigMerging:
+    def test_merge_profile_config(self, tmp_path):
+        base = tmp_path / "pyfly.yaml"
+        base.write_text("server:\n  port: 8080\n  host: localhost\n")
+
+        profile = tmp_path / "pyfly-dev.yaml"
+        profile.write_text("server:\n  port: 9090\n  debug: true\n")
+
+        config = Config.from_file(base, active_profiles=["dev"])
+        assert config.get("server.port") == 9090
+        assert config.get("server.host") == "localhost"
+        assert config.get("server.debug") is True
+
+    def test_merge_multiple_profiles(self, tmp_path):
+        base = tmp_path / "pyfly.yaml"
+        base.write_text("app:\n  name: test\n")
+
+        dev = tmp_path / "pyfly-dev.yaml"
+        dev.write_text("app:\n  debug: true\n")
+
+        local = tmp_path / "pyfly-local.yaml"
+        local.write_text("app:\n  port: 3000\n")
+
+        config = Config.from_file(base, active_profiles=["dev", "local"])
+        assert config.get("app.name") == "test"
+        assert config.get("app.debug") is True
+        assert config.get("app.port") == 3000
+
+    def test_later_profile_wins(self, tmp_path):
+        base = tmp_path / "pyfly.yaml"
+        base.write_text("db:\n  url: base\n")
+
+        dev = tmp_path / "pyfly-dev.yaml"
+        dev.write_text("db:\n  url: dev-url\n")
+
+        local = tmp_path / "pyfly-local.yaml"
+        local.write_text("db:\n  url: local-url\n")
+
+        config = Config.from_file(base, active_profiles=["dev", "local"])
+        assert config.get("db.url") == "local-url"
+
+    def test_missing_profile_file_is_skipped(self, tmp_path):
+        base = tmp_path / "pyfly.yaml"
+        base.write_text("app:\n  name: test\n")
+
+        config = Config.from_file(base, active_profiles=["nonexistent"])
+        assert config.get("app.name") == "test"
+
+    def test_no_profiles_loads_base_only(self, tmp_path):
+        base = tmp_path / "pyfly.yaml"
+        base.write_text("app:\n  name: base\n")
+
+        config = Config.from_file(base, active_profiles=[])
+        assert config.get("app.name") == "base"
+
+    def test_env_vars_still_win(self, tmp_path, monkeypatch):
+        base = tmp_path / "pyfly.yaml"
+        base.write_text("app:\n  name: base\n")
+
+        profile = tmp_path / "pyfly-dev.yaml"
+        profile.write_text("app:\n  name: dev\n")
+
+        monkeypatch.setenv("PYFLY_APP_NAME", "env-wins")
+        config = Config.from_file(base, active_profiles=["dev"])
+        assert config.get("app.name") == "env-wins"

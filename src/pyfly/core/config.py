@@ -44,14 +44,39 @@ class Config:
         self._data: dict[str, Any] = data or {}
 
     @classmethod
-    def from_file(cls, path: str | Path) -> Config:
-        """Load configuration from a YAML file."""
+    def from_file(cls, path: str | Path, active_profiles: list[str] | None = None) -> Config:
+        """Load configuration from a YAML file, merging profile-specific overlays.
+
+        Merge order (later wins):
+        1. Base config (pyfly.yaml)
+        2. pyfly-{profile}.yaml for each active profile, in order
+        3. Environment variables (handled at read time in get())
+        """
         path = Path(path)
         if not path.exists():
             return cls({})
         with open(path) as f:
             data = yaml.safe_load(f) or {}
+
+        for profile in active_profiles or []:
+            profile_path = path.parent / f"{path.stem}-{profile}{path.suffix}"
+            if profile_path.exists():
+                with open(profile_path) as f:
+                    profile_data = yaml.safe_load(f) or {}
+                data = cls._deep_merge(data, profile_data)
+
         return cls(data)
+
+    @staticmethod
+    def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
+        """Recursively merge override into base, with override values winning."""
+        merged = dict(base)
+        for key, value in override.items():
+            if key in merged and isinstance(merged[key], dict) and isinstance(value, dict):
+                merged[key] = Config._deep_merge(merged[key], value)
+            else:
+                merged[key] = value
+        return merged
 
     def get(self, key: str, default: Any = None) -> Any:
         """Get a value by dot-notation key, checking env vars first.
