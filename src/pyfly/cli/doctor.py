@@ -19,10 +19,8 @@ import shutil
 import sys
 
 import click
-from rich.table import Table
 
 from pyfly.cli.console import console
-
 
 _MIN_PYTHON = (3, 12)
 
@@ -52,7 +50,9 @@ def doctor_command() -> None:
     if py_ok:
         console.print(f"  [success]\u2713[/success] Python {py_version.major}.{py_version.minor}.{py_version.micro}")
     else:
-        console.print(f"  [error]\u2717[/error] Python {py_version.major}.{py_version.minor}.{py_version.micro} (requires >={_MIN_PYTHON[0]}.{_MIN_PYTHON[1]})")
+        cur = f"{py_version.major}.{py_version.minor}.{py_version.micro}"
+        req = f"{_MIN_PYTHON[0]}.{_MIN_PYTHON[1]}"
+        console.print(f"  [error]\u2717[/error] Python {cur} (requires >={req})")
         all_ok = False
 
     # Virtual environment check

@@ -1,6 +1,9 @@
 pyfly:
   app:
     name: {{ name }}
+{% if archetype != "library" %}
+    module: {{ package_name }}.main:app
+{% endif %}
 
 {% if has_web or archetype in ("web-api", "hexagonal", "core") %}
   web:
@@ -14,22 +17,30 @@ pyfly:
 
   data:
     datasource:
+{% if has_postgresql %}
       url: postgresql+asyncpg://localhost:5432/{{ package_name }}
       pool-size: 5
+{% else %}
+      url: sqlite+aiosqlite:///{{ package_name }}.db
+{% endif %}
 {% endif %}
 {% if has_cache %}
 
   cache:
-    type: redis
-    redis:
-      url: redis://localhost:6379/0
-      ttl: 300
+    type: memory
+    ttl: 300
+    # Redis (production — uncomment and install pyfly[redis])
+    # type: redis
+    # redis:
+    #   url: redis://localhost:6379/0
 {% endif %}
 {% if has_eda %}
 
   eda:
-    kafka:
-      bootstrap-servers: localhost:9092
+    type: memory
+    # Kafka (production — uncomment and install pyfly[kafka])
+    # kafka:
+    #   bootstrap-servers: localhost:9092
 {% endif %}
 {% if has_security %}
 

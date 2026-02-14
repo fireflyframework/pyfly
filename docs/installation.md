@@ -272,7 +272,8 @@ Each extra pulls in the third-party libraries needed for a specific framework mo
 | Extra | Dependencies | What It Enables |
 |-------|-------------|-----------------|
 | `web` | starlette, uvicorn, python-multipart | HTTP server, REST controllers, routing, middleware, OpenAPI docs |
-| `data` | sqlalchemy[asyncio], alembic, asyncpg | Async database access, repositories, migrations, pagination |
+| `data` | sqlalchemy[asyncio], alembic, aiosqlite | Async database access, repositories, migrations (SQLite default) |
+| `postgresql` | asyncpg | PostgreSQL async driver (add for production databases) |
 | `eda` | aiokafka, aio-pika | Both Kafka and RabbitMQ message brokers |
 | `kafka` | aiokafka | Apache Kafka messaging only |
 | `rabbitmq` | aio-pika | RabbitMQ messaging only |

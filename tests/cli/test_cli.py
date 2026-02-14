@@ -254,6 +254,7 @@ class TestNewFeatures:
         config = (tmp_path / "my-svc" / "pyfly.yaml").read_text()
         assert "data:" in config
         assert "datasource:" in config
+        assert "sqlite+aiosqlite://" in config
         assert "port: 8080" in config
 
     def test_features_data_adds_database_url_to_env(self, tmp_path: Path):
@@ -265,8 +266,20 @@ class TestNewFeatures:
 
         env = (tmp_path / "my-svc" / ".env.example").read_text()
         assert "DATABASE_URL" in env
+        assert "sqlite+aiosqlite://" in env
 
-    def test_features_cache_adds_redis_to_config(self, tmp_path: Path):
+    def test_features_eda_defaults_to_memory(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-svc", "--features", "eda", "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+
+        config = (tmp_path / "my-svc" / "pyfly.yaml").read_text()
+        assert "eda:" in config
+        assert "type: memory" in config
+
+    def test_features_cache_defaults_to_memory(self, tmp_path: Path):
         runner = CliRunner()
         result = runner.invoke(cli, [
             "new", "my-svc", "--features", "cache", "--directory", str(tmp_path),
@@ -275,7 +288,7 @@ class TestNewFeatures:
 
         config = (tmp_path / "my-svc" / "pyfly.yaml").read_text()
         assert "cache:" in config
-        assert "redis:" in config
+        assert "type: memory" in config
 
     def test_invalid_feature_fails(self, tmp_path: Path):
         runner = CliRunner()
@@ -496,6 +509,101 @@ class TestRunCommand:
         assert "--host" in result.output
         assert "--port" in result.output
         assert "--reload" in result.output
+
+    def test_run_discovers_app_from_pyfly_yaml(self, tmp_path: Path, monkeypatch: object):
+        """pyfly run should discover the module from pyfly.yaml."""
+        monkeypatch.chdir(tmp_path)
+
+        (tmp_path / "pyfly.yaml").write_text(
+            "pyfly:\n  app:\n    name: my-test\n    module: my_test.main:app\n"
+        )
+
+        from pyfly.cli.run import _discover_app
+
+        assert _discover_app() == "my_test.main:app"
+
+    def test_run_auto_discovers_from_src(self, tmp_path: Path, monkeypatch: object):
+        """pyfly run should auto-discover main.py in src/ when module is not in yaml."""
+        monkeypatch.chdir(tmp_path)
+
+        (tmp_path / "pyfly.yaml").write_text("pyfly:\n  app:\n    name: my-test\n")
+        (tmp_path / "src" / "my_test").mkdir(parents=True)
+        (tmp_path / "src" / "my_test" / "main.py").write_text("app = None\n")
+
+        from pyfly.cli.run import _discover_app
+
+        assert _discover_app() == "my_test.main:app"
+
+
+class TestMainPyGeneration:
+    """Tests for main.py ASGI entry point generation."""
+
+    def test_core_generates_main_py(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["new", "my-svc", "--directory", str(tmp_path)])
+        assert result.exit_code == 0, result.output
+        assert (tmp_path / "my-svc" / "src" / "my_svc" / "main.py").exists()
+
+    def test_web_api_generates_main_py(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-api", "--archetype", "web-api", "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+        assert (tmp_path / "my-api" / "src" / "my_api" / "main.py").exists()
+
+    def test_hexagonal_generates_main_py(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-hex", "--archetype", "hexagonal", "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+        assert (tmp_path / "my-hex" / "src" / "my_hex" / "main.py").exists()
+
+    def test_library_does_not_generate_main_py(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-lib", "--archetype", "library", "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+        assert not (tmp_path / "my-lib" / "src" / "my_lib" / "main.py").exists()
+
+    def test_main_py_imports_application(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["new", "my-svc", "--directory", str(tmp_path)])
+        assert result.exit_code == 0, result.output
+
+        main = (tmp_path / "my-svc" / "src" / "my_svc" / "main.py").read_text()
+        assert "from my_svc.app import Application" in main
+        assert "PyFlyApplication" in main
+        assert "create_app" in main
+
+    def test_main_py_has_lifespan(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["new", "my-svc", "--directory", str(tmp_path)])
+        assert result.exit_code == 0, result.output
+
+        main = (tmp_path / "my-svc" / "src" / "my_svc" / "main.py").read_text()
+        assert "_lifespan" in main
+        assert "startup" in main
+        assert "shutdown" in main
+
+    def test_pyfly_yaml_has_module_field(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["new", "my-svc", "--directory", str(tmp_path)])
+        assert result.exit_code == 0, result.output
+
+        config = (tmp_path / "my-svc" / "pyfly.yaml").read_text()
+        assert "module: my_svc.main:app" in config
+
+    def test_library_yaml_has_no_module_field(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-lib", "--archetype", "library", "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+        # Libraries don't have pyfly.yaml at all
+        assert not (tmp_path / "my-lib" / "pyfly.yaml").exists()
 
 
 class TestDoctorCommand:

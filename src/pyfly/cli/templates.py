@@ -21,7 +21,7 @@ from jinja2 import Environment, PackageLoader
 
 # Available features that map to PyFly extras
 AVAILABLE_FEATURES: list[str] = [
-    "web", "data", "eda", "cache", "client",
+    "web", "data", "postgresql", "eda", "cache", "client",
     "security", "scheduling", "observability", "cqrs",
 ]
 
@@ -47,6 +47,7 @@ _ARCHETYPE_FILES: dict[str, list[tuple[str, str]]] = {
     "core": [
         ("pyproject.toml.j2", "pyproject.toml"),
         ("app.py.j2", "src/{package_name}/app.py"),
+        ("main.py.j2", "src/{package_name}/main.py"),
         ("init.py.j2", "src/{package_name}/__init__.py"),
         ("pyfly.yaml.j2", "pyfly.yaml"),
         ("conftest.py.j2", "tests/conftest.py"),
@@ -59,6 +60,7 @@ _ARCHETYPE_FILES: dict[str, list[tuple[str, str]]] = {
     "web-api": [
         ("pyproject.toml.j2", "pyproject.toml"),
         ("app.py.j2", "src/{package_name}/app.py"),
+        ("main.py.j2", "src/{package_name}/main.py"),
         ("init.py.j2", "src/{package_name}/__init__.py"),
         ("pyfly.yaml.j2", "pyfly.yaml"),
         ("conftest.py.j2", "tests/conftest.py"),
@@ -86,6 +88,7 @@ _ARCHETYPE_FILES: dict[str, list[tuple[str, str]]] = {
     "hexagonal": [
         ("pyproject.toml.j2", "pyproject.toml"),
         ("app.py.j2", "src/{package_name}/app.py"),
+        ("main.py.j2", "src/{package_name}/main.py"),
         ("init.py.j2", "src/{package_name}/__init__.py"),
         ("pyfly.yaml.j2", "pyfly.yaml"),
         ("conftest.py.j2", "tests/conftest.py"),
@@ -152,6 +155,7 @@ def _build_context(name: str, archetype: str, features: list[str]) -> dict[str, 
         "features": features,
         "has_web": "web" in features,
         "has_data": "data" in features,
+        "has_postgresql": "postgresql" in features,
         "has_eda": "eda" in features,
         "has_cache": "cache" in features,
         "has_client": "client" in features,

@@ -42,6 +42,9 @@ web = [
 data = [
     "sqlalchemy[asyncio]>=2.0",
     "alembic>=1.13",
+    "aiosqlite>=0.20",
+]
+postgresql = [
     "asyncpg>=0.29",
 ]
 eda = [
@@ -84,7 +87,7 @@ cli = [
     "jinja2>=3.1",
 ]
 full = [
-    "pyfly[web,data,eda,cqrs,cache,client,observability,security,scheduling,cli,kafka,rabbitmq,redis]",
+    "pyfly[web,data,postgresql,eda,cqrs,cache,client,observability,security,scheduling,cli,kafka,rabbitmq,redis]",
 ]
 dev = [
     "pyfly[full]",
@@ -94,7 +97,6 @@ dev = [
     "coverage[toml]>=7.0",
     "mypy>=1.8",
     "ruff>=0.3",
-    "aiosqlite>=0.20",
 ]
 
 [project.scripts]

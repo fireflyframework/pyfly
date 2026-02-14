@@ -45,13 +45,19 @@ def run_command(host: str, port: int, use_reload: bool, app_path: str | None) ->
     except ImportError:
         console.print("[error]uvicorn is not installed.[/error]")
         console.print("[dim]Install it with: pip install 'pyfly[web]'[/dim]")
-        raise SystemExit(1)
+        raise SystemExit(1) from None
 
     uvicorn.run(app_path, host=host, port=port, reload=use_reload)
 
 
 def _discover_app() -> str | None:
-    """Try to discover the application from pyfly.yaml."""
+    """Try to discover the application from pyfly.yaml, with auto-discovery fallback.
+
+    Resolution order:
+    1. ``pyfly.app.module`` in ``pyfly.yaml`` (canonical)
+    2. ``app.module`` in ``pyfly.yaml`` (flat layout)
+    3. Auto-discover: look for ``src/<package>/main.py`` containing an ``app`` variable
+    """
     from pathlib import Path
 
     import yaml
@@ -64,7 +70,7 @@ def _discover_app() -> str | None:
         with open(config_path) as f:
             config = yaml.safe_load(f)
         if not config:
-            return None
+            return _auto_discover_module()
         # Support both pyfly.app.module (canonical) and flat app.module
         pyfly_section = config.get("pyfly", {}) or {}
         app_section = pyfly_section.get("app", config.get("app", {})) or {}
@@ -72,5 +78,21 @@ def _discover_app() -> str | None:
             return str(app_section["module"])
     except Exception:
         pass
+
+    return _auto_discover_module()
+
+
+def _auto_discover_module() -> str | None:
+    """Scan src/ for a main.py that likely contains the ASGI app."""
+    from pathlib import Path
+
+    src = Path("src")
+    if not src.is_dir():
+        return None
+
+    for pkg_dir in sorted(src.iterdir()):
+        main_py = pkg_dir / "main.py"
+        if main_py.is_file():
+            return f"{pkg_dir.name}.main:app"
 
     return None

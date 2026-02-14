@@ -47,6 +47,7 @@ def create_app(
     extra_routes: list[Route] | None = None,
     actuator_enabled: bool = False,
     cors: CORSConfig | None = None,
+    lifespan: object | None = None,
 ) -> Starlette:
     """Create a Starlette application with PyFly enterprise middleware.
 
@@ -123,6 +124,7 @@ def create_app(
         debug=debug,
         middleware=middleware,
         routes=routes,
+        lifespan=lifespan,
     )
 
     # Register global exception handler

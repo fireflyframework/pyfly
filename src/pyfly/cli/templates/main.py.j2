@@ -1,0 +1,27 @@
+"""ASGI application entry point — bootstraps PyFly and creates the web server."""
+
+from contextlib import asynccontextmanager
+
+from pyfly.core import PyFlyApplication
+from pyfly.web import create_app
+
+from {{ package_name }}.app import Application
+
+# Bootstrap: load config, scan packages, build DI context
+_pyfly = PyFlyApplication(Application)
+
+
+@asynccontextmanager
+async def _lifespan(app):
+    """Manage application startup and shutdown lifecycle."""
+    await _pyfly.startup()
+    yield
+    await _pyfly.shutdown()
+
+
+app = create_app(
+    title="{{ name }}",
+    version="0.1.0",
+    context=_pyfly.context,
+    lifespan=_lifespan,
+)

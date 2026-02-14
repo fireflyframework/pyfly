@@ -24,7 +24,6 @@ from rich.table import Table
 from pyfly import __version__
 from pyfly.cli.console import console
 
-
 _EXTRAS = [
     ("web", "starlette"),
     ("data", "sqlalchemy"),
