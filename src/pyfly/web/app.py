@@ -2,15 +2,19 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any
+
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.routing import Route
 
+from pyfly.web.controller import ControllerRegistrar
 from pyfly.web.docs import make_openapi_endpoint, make_redoc_endpoint, make_swagger_ui_endpoint
 from pyfly.web.errors import global_exception_handler
 from pyfly.web.middleware import TransactionIdMiddleware
-from pyfly.web.openapi import OpenAPIGenerator
-from pyfly.web.router import PyFlyRouter
+
+if TYPE_CHECKING:
+    from pyfly.context.application_context import ApplicationContext
 
 
 def create_app(
@@ -18,10 +22,13 @@ def create_app(
     version: str = "0.1.0",
     description: str = "",
     debug: bool = False,
-    routers: list[PyFlyRouter] | None = None,
+    context: ApplicationContext | None = None,
     docs_enabled: bool = True,
 ) -> Starlette:
     """Create a Starlette application with PyFly enterprise middleware.
+
+    When ``context`` is provided, auto-discovers all ``@rest_controller`` beans
+    and mounts their routes.
 
     Includes:
     - Transaction ID propagation
@@ -34,29 +41,26 @@ def create_app(
 
     routes: list[Route] = []
 
-    # Mount router routes
-    all_routers = routers or []
+    # Auto-discover controller routes from ApplicationContext
+    if context is not None:
+        registrar = ControllerRegistrar()
+        routes.extend(registrar.collect_routes(context))
 
     # Generate OpenAPI spec and doc routes
     if docs_enabled:
-        generator = OpenAPIGenerator(
-            title=title,
-            version=version,
-            routers=all_routers,
-            description=description,
-        )
-        spec = generator.generate()
+        spec: dict[str, Any] = {
+            "openapi": "3.1.0",
+            "info": {"title": title, "version": version},
+            "paths": {},
+        }
+        if description:
+            spec["info"]["description"] = description
 
         routes.extend([
             Route("/openapi.json", make_openapi_endpoint(spec)),
             Route("/docs", make_swagger_ui_endpoint(title)),
             Route("/redoc", make_redoc_endpoint(title)),
         ])
-
-    # Add router routes
-    for router in all_routers:
-        for meta in router.get_route_metadata():
-            routes.append(Route(meta.path, meta.handler, methods=[meta.method]))
 
     app = Starlette(
         debug=debug,

@@ -1,0 +1,73 @@
+"""Tests for create_app() with ApplicationContext controller discovery."""
+
+import pytest
+from pydantic import BaseModel
+from starlette.testclient import TestClient
+
+from pyfly.container.stereotypes import rest_controller, service
+from pyfly.context.application_context import ApplicationContext
+from pyfly.core.config import Config
+from pyfly.web.app import create_app
+from pyfly.web.mappings import get_mapping, request_mapping
+from pyfly.web.params import PathVar
+
+
+class HealthResponse(BaseModel):
+    status: str
+
+
+@service
+class HealthService:
+    def check(self) -> str:
+        return "ok"
+
+
+@rest_controller
+@request_mapping("/api/health")
+class HealthController:
+    def __init__(self, health_service: HealthService):
+        self._svc = health_service
+
+    @get_mapping("/")
+    async def health(self) -> dict:
+        return {"status": self._svc.check()}
+
+
+class TestCreateAppWithContext:
+    @pytest.mark.asyncio
+    async def test_controller_routes_auto_discovered(self):
+        ctx = ApplicationContext(Config({}))
+        ctx.register_bean(HealthService)
+        ctx.register_bean(HealthController)
+        await ctx.start()
+
+        app = create_app(context=ctx)
+        client = TestClient(app)
+
+        response = client.get("/api/health/")
+        assert response.status_code == 200
+        assert response.json() == {"status": "ok"}
+
+    @pytest.mark.asyncio
+    async def test_docs_still_work(self):
+        ctx = ApplicationContext(Config({}))
+        await ctx.start()
+
+        app = create_app(context=ctx, docs_enabled=True)
+        client = TestClient(app)
+
+        response = client.get("/docs")
+        assert response.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_openapi_json_available(self):
+        ctx = ApplicationContext(Config({}))
+        await ctx.start()
+
+        app = create_app(context=ctx)
+        client = TestClient(app)
+
+        response = client.get("/openapi.json")
+        assert response.status_code == 200
+        spec = response.json()
+        assert spec["openapi"] == "3.1.0"
