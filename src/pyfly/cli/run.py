@@ -15,25 +15,45 @@
 
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
 import click
 
 from pyfly.cli.console import console
 
 
+def _ensure_src_on_path() -> None:
+    """Add ``src/`` to sys.path when running from a src-layout project.
+
+    This allows ``pyfly run`` to work without ``pip install -e .`` first,
+    mirroring how ``uvicorn --app-dir src`` works.
+    """
+    src = Path("src").resolve()
+    if src.is_dir():
+        src_str = str(src)
+        if src_str not in sys.path:
+            sys.path.insert(0, src_str)
+
+
 @click.command()
 @click.option("--host", default="0.0.0.0", help="Bind address.")
-@click.option("--port", default=8080, type=int, help="Port number.")
+@click.option("--port", default=None, type=int, help="Port number (default: from pyfly.yaml or 8080).")
 @click.option("--reload", "use_reload", is_flag=True, help="Enable auto-reload for development.")
-@click.option("--app", "app_path", default=None, help="Application import path (e.g. 'myapp.app:Application').")
-def run_command(host: str, port: int, use_reload: bool, app_path: str | None) -> None:
+@click.option("--app", "app_path", default=None, help="Application import path (e.g. 'myapp.main:app').")
+def run_command(host: str, port: int | None, use_reload: bool, app_path: str | None) -> None:
     """Start the PyFly application server."""
+    _ensure_src_on_path()
+
     if app_path is None:
-        # Try to discover app from pyfly.yaml
         app_path = _discover_app()
         if app_path is None:
             console.print("[error]No application found.[/error]")
             console.print("[dim]Provide --app flag or create a pyfly.yaml in the current directory.[/dim]")
             raise SystemExit(1)
+
+    if port is None:
+        port = _read_port_from_config() or 8080
 
     console.print("[info]Starting PyFly application...[/info]")
     console.print(f"[dim]  App:    {app_path}[/dim]")
@@ -48,6 +68,24 @@ def run_command(host: str, port: int, use_reload: bool, app_path: str | None) ->
         raise SystemExit(1) from None
 
     uvicorn.run(app_path, host=host, port=port, reload=use_reload)
+
+
+def _read_port_from_config() -> int | None:
+    """Read the web port from pyfly.yaml if available."""
+    import yaml
+
+    config_path = Path("pyfly.yaml")
+    if not config_path.exists():
+        return None
+    try:
+        with open(config_path) as f:
+            config = yaml.safe_load(f) or {}
+        pyfly_section = config.get("pyfly", {}) or {}
+        web_section = pyfly_section.get("web", {}) or {}
+        port = web_section.get("port")
+        return int(port) if port is not None else None
+    except Exception:
+        return None
 
 
 def _discover_app() -> str | None:

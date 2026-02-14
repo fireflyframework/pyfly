@@ -21,9 +21,22 @@ from jinja2 import Environment, PackageLoader
 
 # Available features that map to PyFly extras
 AVAILABLE_FEATURES: list[str] = [
-    "web", "data", "postgresql", "eda", "cache", "client",
+    "web", "data", "eda", "cache", "client",
     "security", "scheduling", "observability", "cqrs",
 ]
+
+# Human-readable descriptions for features (shown in interactive mode)
+FEATURE_DESCRIPTIONS: dict[str, str] = {
+    "web": "HTTP server, REST controllers, OpenAPI docs",
+    "data": "SQLAlchemy ORM, repositories, Alembic migrations (SQLite default)",
+    "eda": "Event-driven architecture, in-memory event bus",
+    "cache": "Caching with in-memory adapter (Redis optional)",
+    "client": "Resilient HTTP client with retry and circuit breaker",
+    "security": "JWT authentication, password hashing",
+    "scheduling": "Cron-based task scheduling",
+    "observability": "Prometheus metrics, OpenTelemetry tracing",
+    "cqrs": "Command/Query Responsibility Segregation",
+}
 
 # Default features per archetype
 DEFAULT_FEATURES: dict[str, list[str]] = {
@@ -155,7 +168,6 @@ def _build_context(name: str, archetype: str, features: list[str]) -> dict[str, 
         "features": features,
         "has_web": "web" in features,
         "has_data": "data" in features,
-        "has_postgresql": "postgresql" in features,
         "has_eda": "eda" in features,
         "has_cache": "cache" in features,
         "has_client": "client" in features,

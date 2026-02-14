@@ -22,6 +22,6 @@ COPY pyfly.yaml .
 
 {% if has_web or archetype in ("web-api", "hexagonal", "core") %}
 EXPOSE 8080
-{% endif %}
 
-CMD ["pyfly", "run"]
+CMD ["python", "-m", "uvicorn", "{{ package_name }}.main:app", "--host", "0.0.0.0", "--port", "8080"]
+{% endif %}

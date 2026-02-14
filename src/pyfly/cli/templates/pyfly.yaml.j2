@@ -17,12 +17,7 @@ pyfly:
 
   data:
     datasource:
-{% if has_postgresql %}
-      url: postgresql+asyncpg://localhost:5432/{{ package_name }}
-      pool-size: 5
-{% else %}
       url: sqlite+aiosqlite:///{{ package_name }}.db
-{% endif %}
 {% endif %}
 {% if has_cache %}
 

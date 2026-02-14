@@ -14,8 +14,6 @@ requires-python = ">=3.12"
 dependencies = [
 {% if features %}
     "pyfly[{{ features | join(',') }}]",
-{% elif archetype == "library" %}
-    "pyfly",
 {% else %}
     "pyfly",
 {% endif %}
@@ -29,11 +27,6 @@ dev = [
     "ruff>=0.3",
     "mypy>=1.8",
 ]
-{% if archetype != "library" %}
-
-[project.scripts]
-{{ package_name }} = "{{ package_name }}.app:Application"
-{% endif %}
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/{{ package_name }}"]

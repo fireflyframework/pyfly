@@ -17,7 +17,7 @@ A PyFly microservice.
 python -m venv .venv
 source .venv/bin/activate
 
-# Install dependencies
+# Install dependencies (editable mode for development)
 pip install -e ".[dev]"
 {% if archetype != "library" %}
 
@@ -36,7 +36,8 @@ pytest
 {{ name }}/
 {% if archetype == "hexagonal" %}
   src/{{ package_name }}/
-    app.py                          # Application entry point
+    app.py                          # Application definition
+    main.py                         # ASGI entry point (uvicorn target)
     domain/                         # Domain layer (entities, events, ports)
       models.py                     # Domain entities
       events.py                     # Domain events
@@ -54,7 +55,8 @@ pytest
       dto.py                        # Request/response models
 {% elif archetype == "web-api" %}
   src/{{ package_name }}/
-    app.py                          # Application entry point
+    app.py                          # Application definition
+    main.py                         # ASGI entry point (uvicorn target)
     controllers/                    # REST controllers
       health_controller.py          # Health check endpoint
       item_controller.py            # Example CRUD controller
@@ -66,13 +68,21 @@ pytest
       item_repository.py            # Example repository
 {% else %}
   src/{{ package_name }}/
-    app.py                          # Application entry point
+    app.py                          # Application definition
+    main.py                         # ASGI entry point (uvicorn target)
 {% endif %}
   tests/                            # Test suite
   pyfly.yaml                        # Framework configuration
   pyproject.toml                    # Project metadata
   Dockerfile                        # Container build
 ```
+
+## API Documentation
+
+Once running, visit:
+- **Swagger UI:** http://localhost:8080/docs
+- **ReDoc:** http://localhost:8080/redoc
+- **OpenAPI JSON:** http://localhost:8080/openapi.json
 {% endif %}
 
 ## Development

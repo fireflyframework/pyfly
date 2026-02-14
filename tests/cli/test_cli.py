@@ -394,21 +394,21 @@ class TestNewInteractive:
 
     def test_interactive_creates_project(self, tmp_path: Path):
         runner = CliRunner()
-        # Simulate: name=test-svc, package=test_svc (default), archetype=1 (core), features="" (defaults)
-        user_input = f"test-svc\n\n1\n\n"
+        # name, package (default), archetype=1, features (default=none), confirm=y
+        user_input = "demo-svc\n\n1\nnone\ny\n"
         result = runner.invoke(
             cli,
             ["new", "--directory", str(tmp_path)],
             input=user_input,
         )
         assert result.exit_code == 0, result.output
-        assert (tmp_path / "test-svc").exists()
-        assert (tmp_path / "test-svc" / "pyproject.toml").exists()
+        assert (tmp_path / "demo-svc").exists()
+        assert (tmp_path / "demo-svc" / "pyproject.toml").exists()
 
     def test_interactive_web_api(self, tmp_path: Path):
         runner = CliRunner()
-        # Simulate: name=my-api, package=my_api (default), archetype=2 (web-api), features=web (default)
-        user_input = f"my-api\n\n2\nweb\n"
+        # name, package (default), archetype=2 (web-api), features=web, confirm=y
+        user_input = "my-api\n\n2\nweb\ny\n"
         result = runner.invoke(
             cli,
             ["new", "--directory", str(tmp_path)],
@@ -418,6 +418,105 @@ class TestNewInteractive:
 
         p = tmp_path / "my-api"
         assert (p / "src" / "my_api" / "controllers" / "item_controller.py").exists()
+
+
+class TestNameValidation:
+    """Tests for project name validation."""
+
+    def test_reserved_name_test_rejected(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["new", "test", "--directory", str(tmp_path)])
+        assert result.exit_code != 0
+        assert "conflicts" in result.output
+
+    def test_reserved_name_os_rejected(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["new", "os", "--directory", str(tmp_path)])
+        assert result.exit_code != 0
+
+    def test_reserved_name_sys_rejected(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["new", "sys", "--directory", str(tmp_path)])
+        assert result.exit_code != 0
+
+    def test_python_keyword_rejected(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["new", "class", "--directory", str(tmp_path)])
+        assert result.exit_code != 0
+        assert "keyword" in result.output
+
+    def test_name_starting_with_digit_rejected(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["new", "123-service", "--directory", str(tmp_path)])
+        assert result.exit_code != 0
+
+    def test_valid_name_accepted(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["new", "order-service", "--directory", str(tmp_path)])
+        assert result.exit_code == 0
+
+    def test_postgresql_not_a_valid_feature(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-svc", "--features", "web,postgresql", "--directory", str(tmp_path),
+        ])
+        assert result.exit_code != 0
+        assert "Unknown features" in result.output
+
+
+class TestDockerfile:
+    """Tests for generated Dockerfile content."""
+
+    def test_dockerfile_uses_uvicorn_directly(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["new", "my-svc", "--directory", str(tmp_path)])
+        assert result.exit_code == 0, result.output
+
+        dockerfile = (tmp_path / "my-svc" / "Dockerfile").read_text()
+        assert "uvicorn" in dockerfile
+        assert "my_svc.main:app" in dockerfile
+        assert "pyfly run" not in dockerfile
+
+    def test_dockerfile_copies_pyfly_yaml(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["new", "my-svc", "--directory", str(tmp_path)])
+        assert result.exit_code == 0, result.output
+
+        dockerfile = (tmp_path / "my-svc" / "Dockerfile").read_text()
+        assert "COPY pyfly.yaml" in dockerfile
+
+
+class TestGitignore:
+    """Tests for generated .gitignore content."""
+
+    def test_gitignore_includes_db_files(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["new", "my-svc", "--directory", str(tmp_path)])
+        assert result.exit_code == 0, result.output
+
+        gitignore = (tmp_path / "my-svc" / ".gitignore").read_text()
+        assert "*.db" in gitignore
+
+
+class TestPostGenerationGuidance:
+    """Tests for post-generation next-steps output."""
+
+    def test_shows_next_steps(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["new", "my-svc", "--directory", str(tmp_path)])
+        assert result.exit_code == 0, result.output
+        assert "Next steps" in result.output
+        assert "pip install" in result.output
+        assert "pyfly run" in result.output
+
+    def test_data_feature_shows_sqlite_guidance(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-svc", "--features", "data", "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+        assert "SQLite" in result.output
+        assert "pyfly db init" in result.output
 
 
 class TestLicenseCommand:

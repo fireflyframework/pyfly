@@ -15,6 +15,9 @@
 
 from __future__ import annotations
 
+import keyword
+import re
+import sys
 from pathlib import Path
 
 import click
@@ -26,50 +29,113 @@ from pyfly.cli.templates import (
     ARCHETYPE_DESCRIPTIONS,
     AVAILABLE_FEATURES,
     DEFAULT_FEATURES,
+    FEATURE_DESCRIPTIONS,
     generate_project,
 )
 
 _ARCHETYPES = list(ARCHETYPE_DESCRIPTIONS.keys())
 
+# Python stdlib modules and common names that will cause import conflicts.
+_RESERVED_NAMES: set[str] = {
+    "test", "tests", "src", "pyfly", "site", "setup", "pip", "pkg",
+    "main", "app", "config", "logging", "typing", "collections",
+    "os", "sys", "io", "re", "json", "http", "email", "html",
+    "xml", "csv", "ast", "dis", "code", "types", "abc",
+    "dataclasses", "enum", "string", "textwrap", "unicodedata",
+    "struct", "codecs", "datetime", "calendar", "time", "math",
+    "random", "statistics", "pathlib", "glob", "shutil",
+    "sqlite3", "socket", "signal", "subprocess",
+    "threading", "multiprocessing", "asyncio", "uuid",
+    "hashlib", "secrets", "pydantic", "starlette", "uvicorn",
+    "sqlalchemy", "alembic", "click", "rich", "jinja2",
+}
 
-def _prompt_interactive() -> tuple[str, str, list[str]]:
-    """Run interactive prompts when NAME is omitted."""
-    console.print(Panel("[pyfly]PyFly Project Generator[/pyfly]", border_style="magenta"))
 
-    name = click.prompt("  Project name")
+def _validate_project_name(name: str) -> str | None:
+    """Validate project name. Returns error message or None if valid."""
+    if not name:
+        return "Project name cannot be empty."
+    if not re.match(r"^[a-zA-Z][a-zA-Z0-9_-]*$", name):
+        return "Project name must start with a letter and contain only letters, digits, hyphens, and underscores."
+    pkg = name.replace("-", "_").replace(" ", "_").lower()
+    if keyword.iskeyword(pkg):
+        return f"'{pkg}' is a Python keyword and cannot be used as a package name."
+    if pkg in _RESERVED_NAMES:
+        return f"'{name}' conflicts with a Python stdlib module or common package. Choose a different name."
+    if pkg in sys.stdlib_module_names:
+        return f"'{name}' conflicts with Python stdlib module '{pkg}'. Choose a different name."
+    return None
+
+
+def _prompt_interactive() -> tuple[str, str, str, list[str]]:
+    """Run interactive prompts when NAME is omitted.
+
+    Returns (name, package_name, archetype, features).
+    """
+    console.print(Panel("[pyfly]  PyFly Project Generator  [/pyfly]", border_style="magenta"))
+    console.print()
+
+    # --- Project name ---
+    while True:
+        name = click.prompt("  Project name")
+        error = _validate_project_name(name)
+        if error is None:
+            break
+        console.print(f"  [error]{error}[/error]")
 
     default_pkg = name.replace("-", "_").replace(" ", "_").lower()
-    click.prompt("  Package name", default=default_pkg)
+    package_name = click.prompt("  Package name", default=default_pkg)
 
-    # Archetype selection
-    console.print("\n  [info]Archetype:[/info]")
+    # --- Archetype selection ---
+    console.print("\n  [info]Select an archetype:[/info]")
     for i, key in enumerate(_ARCHETYPES, 1):
         desc = ARCHETYPE_DESCRIPTIONS[key]
-        console.print(f"    {i}) [success]{key:12s}[/success] {desc}")
+        default_marker = " [dim](default)[/dim]" if i == 1 else ""
+        console.print(f"    [success]{i})[/success] {key:12s}  {desc}{default_marker}")
 
     archetype_idx = click.prompt(
-        "  Select archetype",
+        "\n  Archetype",
         type=click.IntRange(1, len(_ARCHETYPES)),
         default=1,
+        show_default=True,
     )
     archetype = _ARCHETYPES[archetype_idx - 1]
 
-    # Feature selection
+    # --- Feature selection ---
     defaults = DEFAULT_FEATURES[archetype]
-    console.print("\n  [info]Available features:[/info]")
+    console.print("\n  [info]Available features:[/info] [dim](comma-separated, or press Enter for defaults)[/dim]")
     for feat in AVAILABLE_FEATURES:
-        marker = "x" if feat in defaults else " "
-        console.print(f"    [{marker}] {feat}")
+        marker = "[success]x[/success]" if feat in defaults else " "
+        desc = FEATURE_DESCRIPTIONS.get(feat, "")
+        console.print(f"    [{marker}] [success]{feat:16s}[/success] {desc}")
 
     default_str = ",".join(defaults) if defaults else ""
     features_input = click.prompt(
-        "  Features (comma-separated, enter for defaults)",
-        default=default_str,
+        "\n  Features",
+        default=default_str or "none",
+        show_default=True,
     )
-    features = [f.strip() for f in features_input.split(",") if f.strip()] if features_input else []
+    if features_input.strip().lower() in ("none", ""):
+        features: list[str] = []
+    else:
+        features = [f.strip() for f in features_input.split(",") if f.strip()]
+
+    # --- Confirmation ---
+    console.print()
+    console.print(Panel(
+        f"  [info]Name:[/info]      {name}\n"
+        f"  [info]Package:[/info]   {package_name}\n"
+        f"  [info]Archetype:[/info] {archetype}\n"
+        f"  [info]Features:[/info]  {', '.join(features) if features else 'none'}",
+        title="[pyfly]Project Summary[/pyfly]",
+        border_style="cyan",
+    ))
+
+    if not click.confirm("  Create this project?", default=True):
+        raise SystemExit(0)
 
     console.print()
-    return name, archetype, features
+    return name, package_name, archetype, features
 
 
 @click.command()
@@ -96,8 +162,14 @@ def new_command(name: str | None, archetype: str | None, features_str: str | Non
     """Create a new PyFly project."""
     # Interactive mode when no name provided
     if name is None:
-        name, archetype, features = _prompt_interactive()
+        name, _pkg, archetype, features = _prompt_interactive()
     else:
+        # Validate name in non-interactive mode
+        error = _validate_project_name(name)
+        if error:
+            console.print(f"[error]{error}[/error]")
+            raise SystemExit(1)
+
         archetype = archetype or "core"
         if features_str is not None:
             features = [f.strip() for f in features_str.split(",") if f.strip()]
@@ -133,4 +205,15 @@ def new_command(name: str | None, archetype: str | None, features_str: str | Non
         border_style="green",
     )
     console.print(panel)
-    console.print(f"\n  [info]cd {project_dir}[/info] to get started!\n")
+
+    # Post-generation next steps
+    console.print("\n  [info]Next steps:[/info]")
+    console.print(f"    cd {project_dir}")
+    console.print("    python -m venv .venv && source .venv/bin/activate")
+    console.print('    pip install -e ".[dev]"')
+    if archetype != "library":
+        console.print("    pyfly run --reload")
+    if "data" in features:
+        console.print("\n  [dim]Database: SQLite is configured by default (zero infrastructure).[/dim]")
+        console.print("  [dim]Run 'pyfly db init' to set up migrations.[/dim]")
+    console.print()
