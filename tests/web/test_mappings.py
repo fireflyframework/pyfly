@@ -16,7 +16,7 @@ class TestRequestMapping:
         class MyController:
             pass
 
-        assert getattr(MyController, "__pyfly_request_mapping__") == "/api/orders"
+        assert MyController.__pyfly_request_mapping__ == "/api/orders"  # type: ignore[attr-defined]
 
     def test_preserves_class(self):
         @request_mapping("/api")
@@ -34,7 +34,7 @@ class TestGetMapping:
             async def get_item(self):
                 pass
 
-        meta = getattr(Ctrl.get_item, "__pyfly_mapping__")
+        meta = Ctrl.get_item.__pyfly_mapping__
         assert meta["method"] == "GET"
         assert meta["path"] == "/{item_id}"
         assert meta["status_code"] == 200
@@ -55,7 +55,7 @@ class TestPostMapping:
             async def create(self):
                 pass
 
-        meta = getattr(Ctrl.create, "__pyfly_mapping__")
+        meta = Ctrl.create.__pyfly_mapping__
         assert meta["method"] == "POST"
         assert meta["status_code"] == 201
 
@@ -67,7 +67,7 @@ class TestPutMapping:
             async def update(self):
                 pass
 
-        meta = getattr(Ctrl.update, "__pyfly_mapping__")
+        meta = Ctrl.update.__pyfly_mapping__
         assert meta["method"] == "PUT"
         assert meta["path"] == "/{id}"
 
@@ -79,7 +79,7 @@ class TestPatchMapping:
             async def partial_update(self):
                 pass
 
-        meta = getattr(Ctrl.partial_update, "__pyfly_mapping__")
+        meta = Ctrl.partial_update.__pyfly_mapping__
         assert meta["method"] == "PATCH"
 
 
@@ -90,7 +90,7 @@ class TestDeleteMapping:
             async def remove(self):
                 pass
 
-        meta = getattr(Ctrl.remove, "__pyfly_mapping__")
+        meta = Ctrl.remove.__pyfly_mapping__
         assert meta["method"] == "DELETE"
         assert meta["status_code"] == 204
 
@@ -102,7 +102,7 @@ class TestDefaultStatusCodes:
             async def get(self):
                 pass
 
-        assert getattr(Ctrl.get, "__pyfly_mapping__")["status_code"] == 200
+        assert Ctrl.get.__pyfly_mapping__["status_code"] == 200
 
     def test_post_default_200(self):
         class Ctrl:
@@ -110,7 +110,7 @@ class TestDefaultStatusCodes:
             async def create(self):
                 pass
 
-        assert getattr(Ctrl.create, "__pyfly_mapping__")["status_code"] == 200
+        assert Ctrl.create.__pyfly_mapping__["status_code"] == 200
 
     def test_delete_default_200(self):
         class Ctrl:
@@ -118,4 +118,4 @@ class TestDefaultStatusCodes:
             async def remove(self):
                 pass
 
-        assert getattr(Ctrl.remove, "__pyfly_mapping__")["status_code"] == 200
+        assert Ctrl.remove.__pyfly_mapping__["status_code"] == 200

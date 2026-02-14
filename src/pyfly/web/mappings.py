@@ -9,7 +9,7 @@ from collections.abc import Callable
 from typing import Any, TypeVar
 
 T = TypeVar("T", bound=type)
-F = TypeVar("F", bound=Callable)
+F = TypeVar("F", bound=Callable[..., Any])
 
 
 def request_mapping(path: str) -> Callable[[T], T]:
