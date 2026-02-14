@@ -1,0 +1,69 @@
+"""End-to-end declarative HTTP client integration test."""
+from __future__ import annotations
+
+import json
+
+import pytest
+
+from pyfly.client.declarative import get, http_client, post
+from pyfly.client.post_processor import HttpClientBeanPostProcessor
+from pyfly.context.application_context import ApplicationContext
+from pyfly.core.config import Config
+
+
+class FakeHttpClient:
+    def __init__(self, base_url: str = "") -> None:
+        self.base_url = base_url
+        self.calls: list[dict] = []
+        self.responses: dict[str, bytes] = {}
+
+    async def request(self, method: str, url: str, **kwargs) -> "FakeResponse":
+        self.calls.append({"method": method, "url": url, **kwargs})
+        body = self.responses.get(f"{method}:{url}", b'{}')
+        return FakeResponse(body)
+
+    async def close(self) -> None:
+        pass
+
+
+class FakeResponse:
+    def __init__(self, body: bytes) -> None:
+        self.status_code = 200
+        self._body = body
+
+    def json(self) -> dict:
+        return json.loads(self._body)
+
+
+class TestDeclarativeClientIntegration:
+    @pytest.mark.asyncio
+    async def test_full_lifecycle_with_context(self) -> None:
+        fake = FakeHttpClient()
+        fake.responses["GET:/users/1"] = json.dumps({"id": 1, "name": "Alice"}).encode()
+        fake.responses["POST:/users"] = json.dumps({"id": 2, "name": "Bob"}).encode()
+
+        @http_client(base_url="http://api.example.com")
+        class UserClient:
+            @get("/users/{user_id}")
+            async def get_user(self, user_id: int) -> dict: ...
+
+            @post("/users")
+            async def create_user(self, body: dict) -> dict: ...
+
+        ctx = ApplicationContext(Config())
+        ctx.register_bean(UserClient)
+        ctx.register_post_processor(
+            HttpClientBeanPostProcessor(http_client_factory=lambda base_url: fake)
+        )
+        await ctx.start()
+
+        client = ctx.get_bean(UserClient)
+        user = await client.get_user(1)
+        assert user == {"id": 1, "name": "Alice"}
+
+        created = await client.create_user(body={"name": "Bob"})
+        assert created == {"id": 2, "name": "Bob"}
+
+        assert len(fake.calls) == 2
+        assert fake.calls[0]["method"] == "GET"
+        assert fake.calls[1]["method"] == "POST"
