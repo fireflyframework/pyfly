@@ -163,8 +163,8 @@ class PyFlyApplication:
         """Log mapped endpoints and documentation URLs (Spring Boot style)."""
         route_metadata = getattr(self, "_route_metadata", [])
         docs_enabled = getattr(self, "_docs_enabled", False)
-        host = getattr(self, "_host", "0.0.0.0")
-        port = getattr(self, "_port", 8080)
+        host = getattr(self, "_host", None) or str(self.config.get("pyfly.web.host", "0.0.0.0"))
+        port = getattr(self, "_port", None) or int(self.config.get("pyfly.web.port", 8080))
 
         if route_metadata:
             lines = []

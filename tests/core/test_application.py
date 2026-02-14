@@ -164,7 +164,6 @@ class TestStartupExperience:
 class TestRouteAndDocsLogging:
     """Tests for startup route and docs URL logging."""
 
-    @pytest.mark.asyncio
     async def test_log_routes_and_docs_with_no_metadata(self, tmp_path):
         """When no route metadata is set, _log_routes_and_docs should not crash."""
         @pyfly_application(name="NoRoutes", version="0.1.0", scan_packages=[])
@@ -179,7 +178,6 @@ class TestRouteAndDocsLogging:
         # Should not crash — no route metadata set
         await app.shutdown()
 
-    @pytest.mark.asyncio
     async def test_log_routes_with_metadata(self, tmp_path):
         """When route metadata is set, _log_routes_and_docs should log endpoints."""
         from pyfly.web.adapters.starlette.controller import RouteMetadata
@@ -217,7 +215,6 @@ class TestRouteAndDocsLogging:
         # If we got here without error, the logging worked
         await app.shutdown()
 
-    @pytest.mark.asyncio
     async def test_docs_urls_not_logged_when_disabled(self, tmp_path):
         """When docs_enabled is False, no docs URLs should be logged."""
         @pyfly_application(name="NoDocs", version="0.1.0", scan_packages=[])

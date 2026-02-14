@@ -130,7 +130,7 @@ def create_app(
     )
 
     # Store metadata for startup logging
-    app.state.pyfly_route_metadata = route_metadata if context is not None else []
+    app.state.pyfly_route_metadata = route_metadata
     app.state.pyfly_docs_enabled = docs_enabled
 
     # Register global exception handler
