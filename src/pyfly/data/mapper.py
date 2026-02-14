@@ -34,7 +34,7 @@ from __future__ import annotations
 
 import dataclasses
 from collections.abc import Callable
-from typing import TypeVar, get_type_hints
+from typing import Any, TypeVar, get_type_hints
 
 S = TypeVar("S")
 D = TypeVar("D")
@@ -51,7 +51,7 @@ class MappingConfig:
     """
 
     field_map: dict[str, str] = dataclasses.field(default_factory=dict)
-    transformers: dict[str, Callable] = dataclasses.field(default_factory=dict)
+    transformers: dict[str, Callable[[Any], Any]] = dataclasses.field(default_factory=dict)
     exclude: set[str] = dataclasses.field(default_factory=set)
 
 
@@ -84,7 +84,7 @@ class Mapper:
         dest_type: type[D],
         *,
         field_map: dict[str, str] | None = None,
-        transformers: dict[str, Callable] | None = None,
+        transformers: dict[str, Callable[[Any], Any]] | None = None,
         exclude: set[str] | None = None,
     ) -> None:
         """Register a custom mapping between source and destination types.
