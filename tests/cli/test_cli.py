@@ -11,9 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Tests for CLI: pyfly new command."""
+"""Tests for CLI commands."""
+
+from __future__ import annotations
 
 from pathlib import Path
+from unittest.mock import patch
 
 from click.testing import CliRunner
 
@@ -48,7 +51,6 @@ class TestCLI:
         project_dir = tmp_path / "common-lib"
         assert project_dir.exists()
         assert (project_dir / "pyproject.toml").exists()
-        # Library doesn't have pyfly.yaml
         assert not (project_dir / "pyfly.yaml").exists()
 
     def test_new_command_pyproject_content(self, tmp_path: Path):
@@ -65,3 +67,62 @@ class TestCLI:
         (tmp_path / "existing").mkdir()
         result = runner.invoke(cli, ["new", "existing", "--directory", str(tmp_path)])
         assert result.exit_code != 0
+
+
+class TestInfoCommand:
+    def test_info_shows_version(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["info"])
+        assert result.exit_code == 0
+        assert "PyFly Framework" in result.output
+        assert "0.1.0" in result.output
+
+    def test_info_shows_python_version(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["info"])
+        assert result.exit_code == 0
+        assert "Python" in result.output
+
+    def test_info_shows_extras(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["info"])
+        assert result.exit_code == 0
+        assert "Installed Extras" in result.output
+        assert "web" in result.output
+
+
+class TestRunCommand:
+    def test_run_without_app_or_config_fails(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["run"], catch_exceptions=False)
+        assert result.exit_code != 0
+        assert "No application found" in result.output
+
+    def test_run_help(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["run", "--help"])
+        assert result.exit_code == 0
+        assert "--host" in result.output
+        assert "--port" in result.output
+        assert "--reload" in result.output
+
+
+class TestDoctorCommand:
+    def test_doctor_runs(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["doctor"])
+        assert result.exit_code == 0
+        assert "PyFly Doctor" in result.output
+
+    def test_doctor_checks_python(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["doctor"])
+        assert result.exit_code == 0
+        assert "Python" in result.output
+
+    def test_doctor_checks_tools(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["doctor"])
+        assert result.exit_code == 0
+        # git should be found in any dev environment
+        assert "git" in result.output

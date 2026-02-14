@@ -1,0 +1,530 @@
+# Installation Guide
+
+This guide covers every way to install PyFly — from the interactive installer for first-time users to manual pip commands for CI/CD pipelines.
+
+---
+
+## Table of Contents
+
+- [Quick Install](#quick-install)
+- [Prerequisites](#prerequisites)
+- [Interactive Installation](#interactive-installation)
+- [Non-Interactive Installation](#non-interactive-installation)
+- [Manual Installation (pip)](#manual-installation-pip)
+- [Available Extras](#available-extras)
+- [Core Dependencies](#core-dependencies)
+- [What the Installer Does](#what-the-installer-does)
+- [Development Setup](#development-setup)
+- [Verifying Installation](#verifying-installation)
+- [Configuration After Installation](#configuration-after-installation)
+- [Troubleshooting](#troubleshooting)
+- [Uninstalling](#uninstalling)
+
+---
+
+## Quick Install
+
+```bash
+# Full installation (all modules)
+bash install.sh
+
+# Or with specific extras
+PYFLY_EXTRAS=web,data bash install.sh
+```
+
+After installation, verify with:
+
+```bash
+pyfly --version
+pyfly doctor
+```
+
+---
+
+## Prerequisites
+
+| Requirement | Version | How to Check |
+|-------------|---------|-------------|
+| Python | >= 3.12 | `python3 --version` |
+| pip | Latest recommended | `pip --version` |
+| venv module | Included with Python | `python3 -m venv --help` |
+| OS | macOS or Linux | Windows support planned |
+
+### Python 3.12+
+
+PyFly requires Python 3.12 or later for modern type hint features (`type` statement, `TypeVar` improvements, and performance optimizations).
+
+**macOS:**
+```bash
+brew install python@3.12
+```
+
+**Ubuntu/Debian:**
+```bash
+sudo apt update && sudo apt install python3.12 python3.12-venv
+```
+
+**Verify:**
+```bash
+python3 --version  # Should show 3.12.x or higher
+```
+
+---
+
+## Interactive Installation
+
+The installer script provides a guided experience for first-time installation.
+
+### Running the Installer
+
+From the PyFly source directory:
+
+```bash
+bash install.sh
+```
+
+### Prompts
+
+The installer asks three questions:
+
+**1. Installation Directory**
+
+```
+Where should PyFly be installed? [~/.pyfly]:
+```
+
+Default: `~/.pyfly`. This directory will contain the PyFly source code, a dedicated virtual environment, and the `pyfly` wrapper script.
+
+**2. Extras Selection**
+
+```
+Which extras should be installed?
+  1) full — All modules (recommended)
+  2) web — Web framework (Starlette, uvicorn)
+  3) data — Database (SQLAlchemy, Alembic)
+  4) eda — Event-Driven (Kafka, RabbitMQ)
+  5) security — Auth & JWT
+  6) custom — Enter comma-separated extras
+
+Your choice [1]:
+```
+
+If you choose `custom`, you'll be prompted to enter a comma-separated list:
+
+```
+Enter extras (comma-separated): web,data,security,cli
+```
+
+**3. PATH Configuration**
+
+```
+Add pyfly to PATH? [Y/n]:
+```
+
+If you answer `Y` (default), the installer appends a PATH entry to your shell profile (`.zshrc`, `.bashrc`, `.bash_profile`, or `.profile`):
+
+```bash
+export PATH="$HOME/.pyfly/bin:$PATH"  # PyFly Framework
+```
+
+### Example Session
+
+```
+$ bash install.sh
+
+    ____        ________
+   / __ \__  __/ ____/ /_  __
+  / /_/ / / / / /_  / / / / /
+ / ____/ /_/ / __/ / / /_/ /
+/_/    \__, /_/   /_/\__, /
+      /____/        /____/
+
+PyFly Installer
+
+Where should PyFly be installed? [~/.pyfly]:
+Which extras? (1=full, 2=web, 3=data, 4=eda, 5=security, 6=custom) [1]: 1
+Add pyfly to PATH? [Y/n]: Y
+
+✓ Python 3.12.5 detected
+✓ Source copied to ~/.pyfly
+✓ Virtual environment created
+✓ PyFly installed with [full] extras
+✓ Wrapper script created at ~/.pyfly/bin/pyfly
+✓ PATH updated in ~/.zshrc
+
+Installation complete! Run 'pyfly doctor' to verify.
+```
+
+---
+
+## Non-Interactive Installation
+
+For CI/CD pipelines, Docker images, or automated setups, the installer detects when it's piped or when stdin is not a terminal, and uses sensible defaults without prompting.
+
+### Pipe from a URL
+
+```bash
+curl -fsSL https://your-server/install.sh | bash
+```
+
+### Default Behavior (Non-Interactive)
+
+When piped or when stdin is not a TTY:
+- **Install directory:** `~/.pyfly` (or `PYFLY_HOME`)
+- **Extras:** `full` (or `PYFLY_EXTRAS`)
+- **PATH:** Automatically added
+
+### Environment Variable Overrides
+
+Customize any default with environment variables:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PYFLY_HOME` | `~/.pyfly` | Installation directory |
+| `PYFLY_EXTRAS` | `full` | Comma-separated extras to install |
+| `PYFLY_SOURCE` | Current directory | Path to PyFly source |
+
+### Examples
+
+```bash
+# Install to a custom directory
+PYFLY_HOME=/opt/pyfly bash install.sh
+
+# Install only web and data modules
+PYFLY_EXTRAS=web,data bash install.sh
+
+# Full customization
+PYFLY_HOME=/opt/pyfly PYFLY_EXTRAS=web,data,cli PYFLY_SOURCE=/src/pyfly bash install.sh
+
+# CI/CD: non-interactive with full extras
+curl -fsSL https://example.com/install.sh | PYFLY_HOME=/app/pyfly bash
+```
+
+### Docker Example
+
+```dockerfile
+FROM python:3.12-slim
+
+COPY pyfly-source/ /tmp/pyfly-src/
+RUN cd /tmp/pyfly-src && \
+    PYFLY_HOME=/opt/pyfly PYFLY_EXTRAS=web,data bash install.sh && \
+    rm -rf /tmp/pyfly-src
+
+ENV PATH="/opt/pyfly/bin:${PATH}"
+
+WORKDIR /app
+COPY . .
+CMD ["pyfly", "run", "--host", "0.0.0.0", "--port", "8080"]
+```
+
+---
+
+## Manual Installation (pip)
+
+If you prefer to manage your own virtual environment, you can install PyFly directly with pip.
+
+### From Source
+
+```bash
+# Create and activate a virtual environment
+python3 -m venv .venv
+source .venv/bin/activate
+
+# Install with all extras
+pip install -e ".[full]"
+
+# Or install with specific extras
+pip install -e ".[web,data,cli]"
+
+# Or install the bare minimum (core + pydantic + pyyaml)
+pip install -e .
+```
+
+### Extras Syntax
+
+Multiple extras are comma-separated inside the brackets:
+
+```bash
+pip install -e ".[web]"                    # Web only
+pip install -e ".[web,data]"              # Web + data
+pip install -e ".[web,data,security]"     # Web + data + security
+pip install -e ".[full]"                  # Everything
+pip install -e ".[dev]"                   # Everything + dev tools
+```
+
+---
+
+## Available Extras
+
+Each extra pulls in the third-party libraries needed for a specific framework module. Install only what your application needs to keep the dependency footprint minimal.
+
+| Extra | Dependencies | What It Enables |
+|-------|-------------|-----------------|
+| `web` | starlette, uvicorn, python-multipart | HTTP server, REST controllers, routing, middleware, OpenAPI docs |
+| `data` | sqlalchemy[asyncio], alembic, asyncpg | Async database access, repositories, migrations, pagination |
+| `eda` | aiokafka, aio-pika | Both Kafka and RabbitMQ message brokers |
+| `kafka` | aiokafka | Apache Kafka messaging only |
+| `rabbitmq` | aio-pika | RabbitMQ messaging only |
+| `redis` | redis[hiredis] | Redis client (hiredis C parser for performance) |
+| `cache` | redis[hiredis] | Caching with Redis backend |
+| `client` | httpx, tenacity | Resilient HTTP client with retry and circuit breaker |
+| `observability` | prometheus-client, opentelemetry-api, opentelemetry-sdk, structlog | Metrics, distributed tracing, structured logging |
+| `security` | pyjwt[crypto], passlib[bcrypt] | JWT token generation/verification, password hashing |
+| `scheduling` | croniter | Cron expression parsing for scheduled tasks |
+| `cli` | click, rich, jinja2 | CLI tools (pyfly new, run, info, doctor, db) |
+| `full` | All of the above | Complete framework with all modules |
+| `dev` | full + pytest, pytest-asyncio, pytest-cov, mypy, ruff, aiosqlite | Development and testing tools |
+
+### Choosing Extras
+
+**For a typical web service:** `web,data,security,cli`
+
+**For a microservice with messaging:** `web,data,eda,cache,cli`
+
+**For development:** `dev` (includes everything + test/lint tools)
+
+**For production Docker images:** Only the extras your service actually uses (minimize image size)
+
+### Auto-Configuration by Extras
+
+PyFly's auto-configuration engine detects which libraries are installed and wires the appropriate adapters:
+
+| Installed Library | Auto-Configured Adapter |
+|------------------|------------------------|
+| `redis` | `RedisCacheAdapter` (instead of `InMemoryCache`) |
+| `aiokafka` | `KafkaAdapter` (instead of `InMemoryMessageBroker`) |
+| `aio-pika` | `RabbitMQAdapter` (instead of `InMemoryMessageBroker`) |
+| `prometheus-client` | Prometheus metrics endpoint enabled |
+| `structlog` | Structured JSON logging (instead of stdlib logging) |
+
+This means you can start development with zero configuration — `InMemoryCache` and `InMemoryMessageBroker` work immediately — and switch to production backends simply by installing the appropriate extra.
+
+---
+
+## Core Dependencies
+
+These are always installed regardless of which extras you choose:
+
+| Package | Version | Purpose |
+|---------|---------|---------|
+| `pydantic` | >= 2.0 | Data validation, serialization, config binding |
+| `pyyaml` | >= 6.0 | YAML configuration file parsing |
+
+PyFly has **zero additional runtime dependencies** beyond these two and the Python standard library. All other dependencies are optional and pulled in through extras.
+
+---
+
+## What the Installer Does
+
+The `install.sh` script performs these steps:
+
+### 1. Prerequisites Check
+
+Verifies that Python >= 3.12, the `venv` module, and `pip` are available. If any check fails, the installer exits with a clear error message.
+
+### 2. Source Copy
+
+Copies the PyFly source tree to the installation directory (default: `~/.pyfly`), excluding development artifacts like `.git`, `__pycache__`, `.pytest_cache`, `.mypy_cache`, `.venv`, and `.worktrees`.
+
+### 3. Virtual Environment Creation
+
+Creates an isolated Python virtual environment at `$INSTALL_DIR/venv`:
+
+```bash
+python3 -m venv "$INSTALL_DIR/venv"
+```
+
+This ensures PyFly's dependencies don't conflict with your system Python or other projects.
+
+### 4. PyFly Installation
+
+Runs an editable install inside the virtual environment:
+
+```bash
+$INSTALL_DIR/venv/bin/pip install -e ".[${EXTRAS}]"
+```
+
+### 5. Wrapper Script
+
+Creates an executable wrapper at `$INSTALL_DIR/bin/pyfly` that activates the virtual environment before running the CLI:
+
+```bash
+#!/bin/bash
+source "$HOME/.pyfly/venv/bin/activate"
+exec python -m pyfly.cli.main "$@"
+```
+
+### 6. PATH Configuration
+
+Appends the `bin/` directory to your shell profile so `pyfly` is available globally:
+
+```bash
+export PATH="$HOME/.pyfly/bin:$PATH"  # PyFly Framework
+```
+
+### 7. Cleanup on Failure
+
+If any step fails, the installer removes the partially-created installation directory to leave your system clean.
+
+---
+
+## Development Setup
+
+For contributing to PyFly itself, install with the `dev` extra which includes all modules plus testing and linting tools:
+
+```bash
+git clone <pyfly-repo>
+cd pyfly
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
+```
+
+### Development Tools Included
+
+| Tool | Purpose |
+|------|---------|
+| pytest | Test runner |
+| pytest-asyncio | Async test support |
+| pytest-cov | Coverage reporting |
+| mypy | Static type checking (strict mode) |
+| ruff | Fast linter and formatter |
+| aiosqlite | In-memory SQLite for tests |
+
+### Running Tests
+
+```bash
+# Run all tests
+python -m pytest --tb=short -q
+
+# Run with coverage
+python -m pytest --cov=pyfly --cov-report=term-missing
+
+# Run a specific module's tests
+python -m pytest tests/web/ -v
+
+# Type checking
+mypy src/pyfly --strict
+
+# Linting
+ruff check src/ tests/
+```
+
+---
+
+## Verifying Installation
+
+After installation, run these commands to verify everything is working:
+
+```bash
+# Check the CLI version
+pyfly --version
+
+# Display environment and installed extras
+pyfly info
+
+# Run comprehensive health check
+pyfly doctor
+```
+
+### Expected `pyfly doctor` Output
+
+```
+PyFly Doctor
+
+  ✓ Python 3.12.5
+  ✓ Virtual environment active
+
+  Required tools:
+    ✓ git — Version control
+    ✓ pip — Package manager
+
+  Optional tools:
+    ✓ uvicorn — ASGI server (pyfly run)
+    ✓ alembic — Database migrations (pyfly db)
+    ✓ ruff — Linter & formatter
+    ✓ mypy — Type checker
+
+  PyFly packages:
+    ✓ pyfly v0.1.0
+
+  All checks passed!
+```
+
+---
+
+## Configuration After Installation
+
+After installing, create your first project:
+
+```bash
+pyfly new my-service
+cd my-service
+```
+
+This generates a `pyfly.yaml` with sensible defaults. See the [Configuration Guide](guides/configuration.md) for detailed configuration options.
+
+---
+
+## Troubleshooting
+
+### "command not found: pyfly"
+
+The PATH wasn't updated. Either:
+- Source your shell profile: `source ~/.zshrc` (or `~/.bashrc`)
+- Or add the PATH manually: `export PATH="$HOME/.pyfly/bin:$PATH"`
+
+### "Python 3.12 required but found 3.11"
+
+Install Python 3.12+:
+- macOS: `brew install python@3.12`
+- Ubuntu: `sudo apt install python3.12 python3.12-venv`
+
+### "ModuleNotFoundError: No module named 'starlette'"
+
+The `web` extra isn't installed. Reinstall with:
+```bash
+pip install -e ".[web]"
+```
+
+Or reinstall everything:
+```bash
+pip install -e ".[full]"
+```
+
+### "venv module not found"
+
+On some Linux distributions, `venv` is a separate package:
+```bash
+sudo apt install python3.12-venv
+```
+
+### Installation hangs or fails with pip errors
+
+Try upgrading pip first:
+```bash
+python3 -m pip install --upgrade pip
+```
+
+---
+
+## Uninstalling
+
+### Installer-based Installation
+
+1. Remove the installation directory:
+```bash
+rm -rf ~/.pyfly
+```
+
+2. Remove the PATH entry from your shell profile (`.zshrc`, `.bashrc`, etc.) — look for the line containing `# PyFly Framework`:
+```bash
+# Remove this line:
+export PATH="$HOME/.pyfly/bin:$PATH"  # PyFly Framework
+```
+
+### pip-based Installation
+
+```bash
+pip uninstall pyfly
+```

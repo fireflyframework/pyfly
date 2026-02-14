@@ -18,7 +18,10 @@ from __future__ import annotations
 from pathlib import Path
 
 import click
+from rich.panel import Panel
+from rich.tree import Tree
 
+from pyfly.cli.console import console
 from pyfly.cli.templates import generate_core_project, generate_library_project
 
 
@@ -42,11 +45,25 @@ def new_command(name: str, archetype: str, directory: str) -> None:
     project_dir = parent / name
 
     if project_dir.exists():
-        raise click.ClickException(f"Directory '{project_dir}' already exists.")
+        console.print(f"[error]Directory '{project_dir}' already exists.[/error]")
+        raise SystemExit(1)
 
     if archetype == "library":
         generate_library_project(name, project_dir)
     else:
         generate_core_project(name, project_dir)
 
-    click.echo(f"Created {archetype} project: {project_dir}")
+    # Build a tree showing created structure
+    tree = Tree(f"[success]{name}/[/success]")
+    for path in sorted(project_dir.rglob("*")):
+        if path.is_file():
+            relative = path.relative_to(project_dir)
+            tree.add(f"[dim]{relative}[/dim]")
+
+    panel = Panel(
+        tree,
+        title=f"[success]Created {archetype} project[/success]",
+        border_style="green",
+    )
+    console.print(panel)
+    console.print(f"\n  [info]cd {project_dir}[/info] to get started!\n")
