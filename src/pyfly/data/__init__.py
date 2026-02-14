@@ -18,20 +18,44 @@ Default adapter (SQLAlchemy) exports are re-exported for convenience.
 """
 
 # Framework-agnostic exports
+from pyfly.data.filter import FilterOperator, FilterUtils
+from pyfly.data.mapper import Mapper
 from pyfly.data.page import Page
+from pyfly.data.pageable import Order, Pageable, Sort
 from pyfly.data.ports.outbound import RepositoryPort, SessionPort
+from pyfly.data.query import QueryExecutor, query
+from pyfly.data.query_parser import QueryMethodCompiler, QueryMethodParser
+from pyfly.data.specification import Specification
 
 # Default adapter (SQLAlchemy) re-exports
-from pyfly.data.adapters.sqlalchemy import Base, BaseEntity, Repository, reactive_transactional
+from pyfly.data.adapters.sqlalchemy import (
+    Base,
+    BaseEntity,
+    Repository,
+    RepositoryBeanPostProcessor,
+    reactive_transactional,
+)
 
 __all__ = [
     # Framework-agnostic
+    "FilterOperator",
+    "FilterUtils",
+    "Mapper",
+    "Order",
     "Page",
+    "Pageable",
+    "QueryExecutor",
+    "QueryMethodCompiler",
+    "QueryMethodParser",
     "RepositoryPort",
     "SessionPort",
+    "Sort",
+    "Specification",
+    "query",
     # Default adapter (SQLAlchemy)
     "Base",
     "BaseEntity",
     "Repository",
+    "RepositoryBeanPostProcessor",
     "reactive_transactional",
 ]

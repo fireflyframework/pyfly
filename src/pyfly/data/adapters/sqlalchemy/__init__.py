@@ -14,6 +14,7 @@
 """SQLAlchemy data access adapter — default RepositoryPort implementation."""
 
 from pyfly.data.adapters.sqlalchemy.entity import Base, BaseEntity
+from pyfly.data.adapters.sqlalchemy.post_processor import RepositoryBeanPostProcessor
 from pyfly.data.adapters.sqlalchemy.repository import Repository
 from pyfly.data.adapters.sqlalchemy.transactional import reactive_transactional
 
@@ -21,5 +22,6 @@ __all__ = [
     "Base",
     "BaseEntity",
     "Repository",
+    "RepositoryBeanPostProcessor",
     "reactive_transactional",
 ]
