@@ -60,7 +60,7 @@ class Application:
 
 # Start the application
 app = PyFlyApplication(Application)
-await app.start()
+await app.startup()
 ```
 
 **Key difference:** In Spring, component scanning is classpath-based and implicit. In PyFly, `scan_packages` explicitly lists which Python packages to scan for decorated classes. This is deliberate — Python's import system doesn't have Java's classpath scanning, so explicit package listing is more predictable and avoids accidental imports from third-party libraries.
@@ -87,7 +87,7 @@ public class OrderService {
 }
 ```
 
-### PyFly
+### PyFly — Constructor Injection (Preferred)
 
 ```python
 @service
@@ -97,9 +97,41 @@ class OrderService:
         self._events = events
 ```
 
-**Key difference:** Spring historically used field injection with `@Autowired`, later moving toward constructor injection as best practice. PyFly *only* supports constructor injection — there's no field injection and no setter injection. This is intentional: constructor injection makes dependencies explicit, enables immutability, and is the universally recommended pattern.
+### PyFly — Field Injection with `Autowired()`
 
-**How it works:** PyFly's container inspects the `__init__` type hints using Python's `typing.get_type_hints()`. When resolving `OrderService`, it sees that `repo` needs an `OrderRepository` and `events` needs an `EventPublisher`, recursively resolves both, and injects them.
+```python
+from pyfly.container import Autowired
+
+@service
+class OrderService:
+    repo: OrderRepository = Autowired()
+    events: EventPublisher = Autowired()
+    metrics: MetricsCollector = Autowired(required=False)  # optional
+```
+
+**How it works:** PyFly supports both constructor injection and field injection, matching Spring Boot's capabilities. Constructor injection is the recommended default — it makes dependencies explicit and enables immutability. Field injection via `Autowired()` is available for cases where it improves readability or for optional dependencies.
+
+The container inspects `__init__` type hints for constructor injection and class annotations for `Autowired()` sentinels. After constructing the instance, it injects any `Autowired` fields via `setattr`.
+
+### Optional and Collection Injection
+
+```python
+from typing import Optional
+
+@service
+class OrderService:
+    def __init__(
+        self,
+        repo: OrderRepository,
+        cache: Optional[CacheAdapter] = None,    # None if not registered
+        validators: list[Validator] = [],          # all implementations
+    ) -> None:
+        self._repo = repo
+        self._cache = cache
+        self._validators = validators
+```
+
+`Optional[T]` resolves to `None` when no bean of type `T` is registered. `list[T]` collects all implementations bound to `T` — equivalent to Spring's `List<T>` injection.
 
 ### Qualifier / Named Beans
 
@@ -304,11 +336,12 @@ app:
 ### PyFly
 
 ```python
+from dataclasses import dataclass
 from pyfly.core import config_properties
-from pydantic import BaseModel
 
 @config_properties(prefix="pyfly.data")
-class DataSourceProperties(BaseModel):
+@dataclass
+class DataSourceProperties:
     url: str = "sqlite+aiosqlite:///app.db"
     pool_size: int = 10
 ```
@@ -620,17 +653,21 @@ public Order updateOrder(Order order) { }
 ### PyFly
 
 ```python
-@cacheable(cache_name="orders", key="id")
+from pyfly.cache import cacheable, cache_evict, cache_put, InMemoryCache
+
+cache_backend = InMemoryCache()  # or RedisCacheAdapter
+
+@cacheable(backend=cache_backend, key="order:{id}")
 async def find_by_id(self, id: int) -> Order: ...
 
-@cache_evict(cache_name="orders", key="id")
+@cache_evict(backend=cache_backend, key="order:{id}")
 async def delete_order(self, id: int) -> None: ...
 
-@cache_put(cache_name="orders", key="order.id")
+@cache_put(backend=cache_backend, key="order:{order.id}")
 async def update_order(self, order: Order) -> Order: ...
 ```
 
-The decorator names and behavior map one-to-one. PyFly also provides `@cache` as a simpler alias for `@cacheable` when you don't need named caches.
+The decorator names and behavior map one-to-one. PyFly uses explicit `backend` injection (a `CacheAdapter` instance) rather than named caches. PyFly also provides `@cache` as a simpler alias for `@cacheable`.
 
 **Backend:** Spring auto-configures CacheManager based on classpath. PyFly auto-configures based on installed extras — if `redis` is installed, `RedisCacheAdapter` is used; otherwise `InMemoryCache`. Both can be overridden in configuration.
 
@@ -736,7 +773,7 @@ public Order getOrder(Long id) { }
 
 ```python
 from pyfly.resilience import rate_limiter, fallback
-from pyfly.client import CircuitBreaker
+from pyfly.client import ServiceClient
 
 # Rate limiting
 limiter = rate_limiter(max_calls=100, period=60.0)
@@ -744,9 +781,12 @@ limiter = rate_limiter(max_calls=100, period=60.0)
 @limiter
 async def get_order(self, id: int) -> Order: ...
 
-# Circuit breaker (on HTTP clients)
-breaker = CircuitBreaker(failure_threshold=5, recovery_timeout=30.0)
-client = ServiceClient("http://order-svc").with_circuit_breaker(breaker).build()
+# Circuit breaker (on HTTP clients via builder)
+client = (ServiceClient.rest("order-svc")
+    .base_url("http://order-svc")
+    .circuit_breaker(failure_threshold=5)
+    .retry(max_attempts=3)
+    .build())
 
 # Fallback
 @fallback(fallback_fn=get_cached_order)
@@ -820,7 +860,7 @@ async def create_order(self, data: dict) -> Order: ...
 @KafkaListener(topics = "orders", groupId = "order-service")
 public void handleOrder(OrderEvent event) { }
 
-@Autowired
+@Autowired  // Spring field injection
 private KafkaTemplate<String, OrderEvent> kafkaTemplate;
 
 public void publishOrder(OrderEvent event) {
@@ -859,7 +899,7 @@ A complete mapping of Spring Boot concepts to PyFly equivalents:
 | `@Repository` | `@repository` | Data access |
 | `@RestController` | `@rest_controller` | REST endpoints |
 | `@Configuration` + `@Bean` | `@configuration` + `@bean` | Bean factories |
-| `@Autowired` | Constructor injection (automatic) | Type-hint based |
+| `@Autowired` | Constructor injection (automatic) + `Autowired()` field injection | Type-hint based |
 | `@Qualifier` | `Qualifier("name")` with `Annotated` | Named bean selection |
 | `@Primary` | `@primary` | Default implementation |
 | `@ConditionalOnProperty` | `@conditional_on_property` | Config-based activation |

@@ -107,17 +107,21 @@ Every module that interacts with external systems follows the ports and adapters
 
 ### Dependency Injection
 
-PyFly's DI container uses **constructor injection** based on type hints — no annotations, no magic, just Python:
+PyFly's DI container supports **constructor injection** and **field injection** based on type hints — no XML, no reflection, just Python decorators and type annotations:
 
 ```python
+from pyfly.container import Autowired, service
+
 @service
 class OrderService:
+    metrics: MetricsCollector = Autowired(required=False)  # field injection
+
     def __init__(self, repo: OrderRepository, events: EventPublisher) -> None:
-        self._repo = repo
+        self._repo = repo      # constructor injection (preferred)
         self._events = events
 ```
 
-The container inspects `__init__` parameters, resolves dependencies recursively, and manages bean lifecycles (singleton, transient, request-scoped).
+The container inspects `__init__` parameters and `Autowired()` fields, resolves dependencies recursively, and manages bean lifecycles (singleton, transient, request-scoped). It also supports `Optional[T]` (resolves to `None` when missing), `list[T]` (collects all implementations), `Qualifier` for named beans, and automatic circular dependency detection.
 
 ### Auto-Configuration
 
@@ -183,7 +187,7 @@ See the [Installation Guide](docs/installation.md) for detailed options, Docker 
 
 ## Modules
 
-PyFly currently implements **24 modules** organized into four layers:
+PyFly currently implements **22 modules** organized into four layers:
 
 ### Foundation Layer
 
@@ -193,6 +197,8 @@ PyFly currently implements **24 modules** organized into four layers:
 | **Kernel** | Exception hierarchy, structured error types | `fireflyframework-kernel` |
 | **Container** | Dependency injection, stereotypes, bean factories | Spring DI (built-in) |
 | **Context** | ApplicationContext, events, lifecycle hooks, conditions | Spring ApplicationContext |
+| **Config** | Auto-configuration engine with provider detection | Spring Auto-Configuration |
+| **Logging** | Structured logging port and adapters | `fireflyframework-observability` |
 
 ### Application Layer
 
@@ -221,7 +227,6 @@ PyFly currently implements **24 modules** organized into four layers:
 |--------|-------------|------------------------|
 | **AOP** | Aspect-oriented programming | Spring AOP |
 | **Observability** | Prometheus metrics, OpenTelemetry tracing | `fireflyframework-observability` |
-| **Logging** | Structured logging with structlog | `fireflyframework-observability` |
 | **Actuator** | Health checks, monitoring endpoints | `fireflyframework-core` (actuator) |
 | **Testing** | Test fixtures and assertions | Spring Test |
 | **CLI** | Command-line tools | `fireflyframework-cli` |
@@ -259,7 +264,7 @@ See **[ROADMAP.md](ROADMAP.md)** for the full roadmap toward feature parity with
 
 See **[CHANGELOG.md](CHANGELOG.md)** for detailed release notes.
 
-**Current:** v0.1.0-alpha (2026-02-14) — 24 modules across 4 layers, interactive installer, full CLI tooling.
+**Current:** v0.1.0-alpha (2026-02-14) — 22 modules across 4 layers, interactive installer, full CLI tooling.
 
 ---
 

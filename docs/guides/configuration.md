@@ -155,7 +155,7 @@ If no env var is set, the method walks the nested dictionary using the dot-separ
 Returns `default` if the key is not found.
 
 ```python
-port = config.get("pyfly.web.port", 8000)  # int 8000 from YAML, or str from env var
+port = config.get("pyfly.web.port", 8080)  # int 8080 from YAML, or str from env var
 ```
 
 ### get_section()
@@ -168,7 +168,7 @@ Returns all values under a dot-notation prefix as a dictionary subtree.
 
 ```python
 web_config = config.get_section("pyfly.web")
-# {"port": 8000, "host": "0.0.0.0", "debug": False, "docs": {"enabled": True}, ...}
+# {"port": 8080, "host": "0.0.0.0", "debug": False, "docs": {"enabled": True}, ...}
 ```
 
 If the prefix does not exist, returns an empty dict `{}`.
@@ -186,11 +186,11 @@ See the [@config_properties](#config_properties) section for details.
 @config_properties(prefix="pyfly.web")
 @dataclass
 class WebConfig:
-    port: int = 8000
+    port: int = 8080
     host: str = "0.0.0.0"
 
 web = config.bind(WebConfig)
-print(web.port)  # 8000
+print(web.port)  # 8080
 ```
 
 Raises `ValueError` if the class is not decorated with `@config_properties`.
@@ -434,7 +434,7 @@ Example:
 # Base (pyfly.yaml)
 pyfly:
   web:
-    port: 8000
+    port: 8080
     host: "0.0.0.0"
     docs:
       enabled: true
@@ -623,7 +623,7 @@ Every key can be overridden in your config file or via environment variables.
 
 | Key | Default | Description |
 |---|---|---|
-| `pyfly.web.port` | `8000` | HTTP server port. |
+| `pyfly.web.port` | `8080` | HTTP server port. |
 | `pyfly.web.host` | `"0.0.0.0"` | HTTP server bind address. |
 | `pyfly.web.debug` | `false` | Enable debug mode. |
 | `pyfly.web.docs.enabled` | `true` | Enable API documentation endpoints. |
@@ -683,7 +683,7 @@ pyfly:
       root: "INFO"
     format: "console"
   web:
-    port: 8000
+    port: 8080
     host: "0.0.0.0"
     debug: false
     docs:

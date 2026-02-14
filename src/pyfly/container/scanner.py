@@ -15,10 +15,11 @@
 
 from __future__ import annotations
 
+import abc
 import importlib
 import inspect
 import pkgutil
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
     from pyfly.container.container import Container
@@ -81,4 +82,28 @@ def _register_from_module(module: object, container: Container) -> int:
             condition=condition,
             name=name,
         )
+        _auto_bind_interfaces(obj, container)
     return len(classes)
+
+
+def _auto_bind_interfaces(cls: type, container: Container) -> None:
+    """Auto-bind a class to its Protocol, ABC, and base class interfaces."""
+    for base in inspect.getmro(cls)[1:]:
+        if base is object:
+            continue
+        if _is_protocol(base) or inspect.isabstract(base) or _is_port(base):
+            container.bind(base, cls)
+
+
+def _is_protocol(cls: type) -> bool:
+    """Check if a class is a runtime-checkable Protocol."""
+    return getattr(cls, "_is_protocol", False) and cls is not Protocol
+
+
+def _is_port(cls: type) -> bool:
+    """Check if a class lives in a 'ports' package (PyFly convention)."""
+    module = getattr(cls, "__module__", "") or ""
+    if ".ports" in module or module.endswith(".ports"):
+        return True
+    # Also treat abstract base classes (with abc.ABC in MRO) as ports
+    return abc.ABC in getattr(cls, "__mro__", ())

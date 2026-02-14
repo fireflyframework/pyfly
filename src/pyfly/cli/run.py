@@ -63,8 +63,13 @@ def _discover_app() -> str | None:
     try:
         with open(config_path) as f:
             config = yaml.safe_load(f)
-        if config and "app" in config and "module" in config["app"]:
-            return str(config["app"]["module"])
+        if not config:
+            return None
+        # Support both pyfly.app.module (canonical) and flat app.module
+        pyfly_section = config.get("pyfly", {}) or {}
+        app_section = pyfly_section.get("app", config.get("app", {})) or {}
+        if "module" in app_section:
+            return str(app_section["module"])
     except Exception:
         pass
 

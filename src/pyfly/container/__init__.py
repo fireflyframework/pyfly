@@ -13,8 +13,9 @@
 # limitations under the License.
 """PyFly DI Container — Pythonic dependency injection."""
 
+from pyfly.container.autowired import Autowired
 from pyfly.container.bean import Qualifier, bean, primary
-from pyfly.container.container import Container
+from pyfly.container.container import CircularDependencyError, Container
 from pyfly.container.ordering import HIGHEST_PRECEDENCE, LOWEST_PRECEDENCE, order
 from pyfly.container.stereotypes import (
     component,
@@ -27,6 +28,8 @@ from pyfly.container.stereotypes import (
 from pyfly.container.types import Scope
 
 __all__ = [
+    "Autowired",
+    "CircularDependencyError",
     "Container",
     "HIGHEST_PRECEDENCE",
     "LOWEST_PRECEDENCE",

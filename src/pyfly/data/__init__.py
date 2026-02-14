@@ -22,7 +22,7 @@ from pyfly.data.filter import FilterOperator, FilterUtils
 from pyfly.data.mapper import Mapper
 from pyfly.data.page import Page
 from pyfly.data.pageable import Order, Pageable, Sort
-from pyfly.data.ports.outbound import RepositoryPort, SessionPort
+from pyfly.data.ports.outbound import CrudRepository, PagingRepository, RepositoryPort, SessionPort
 from pyfly.data.query import QueryExecutor, query
 from pyfly.data.query_parser import QueryMethodCompiler, QueryMethodParser
 from pyfly.data.specification import Specification
@@ -47,6 +47,8 @@ __all__ = [
     "QueryExecutor",
     "QueryMethodCompiler",
     "QueryMethodParser",
+    "CrudRepository",
+    "PagingRepository",
     "RepositoryPort",
     "SessionPort",
     "Sort",

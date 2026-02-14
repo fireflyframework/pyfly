@@ -132,12 +132,16 @@ class Application:
     pass
 '''
 
-_CORE_CONFIG = '''app:
-  name: {name}
-  port: 8080
+_CORE_CONFIG = '''pyfly:
+  app:
+    name: {name}
 
-logging:
-  level: INFO
+  web:
+    port: 8080
+
+  logging:
+    level:
+      root: INFO
 '''
 
 _LIB_PYPROJECT = '''[build-system]

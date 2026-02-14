@@ -33,31 +33,34 @@ a multi-layer application where every component is managed, wired, and lifecycle
 6. [@primary](#primary)
 7. [@order](#order)
 8. [Qualifier](#qualifier)
-9. [Interface Binding](#interface-binding)
-10. [Component Scanning](#component-scanning)
-11. [ApplicationContext](#applicationcontext)
+9. [Autowired (Field Injection)](#autowired-field-injection)
+10. [Optional and Collection Injection](#optional-and-collection-injection)
+11. [Circular Dependency Detection](#circular-dependency-detection)
+12. [Interface Binding](#interface-binding)
+13. [Component Scanning](#component-scanning)
+14. [ApplicationContext](#applicationcontext)
     - [get_bean()](#get_bean)
     - [get_bean_by_name()](#get_bean_by_name)
     - [get_beans_of_type()](#get_beans_of_type)
     - [register_bean() and register_post_processor()](#register_bean-and-register_post_processor)
     - [Properties](#applicationcontext-properties)
-12. [Lifecycle Hooks](#lifecycle-hooks)
+15. [Lifecycle Hooks](#lifecycle-hooks)
     - [@post_construct](#post_construct)
     - [@pre_destroy](#pre_destroy)
-13. [BeanPostProcessor](#beanpostprocessor)
-14. [Conditional Beans](#conditional-beans)
+16. [BeanPostProcessor](#beanpostprocessor)
+17. [Conditional Beans](#conditional-beans)
     - [@conditional_on_property](#conditional_on_property)
     - [@conditional_on_class](#conditional_on_class)
     - [@conditional_on_bean](#conditional_on_bean)
     - [@conditional_on_missing_bean](#conditional_on_missing_bean)
     - [@auto_configuration](#auto_configuration)
     - [Two-Pass Evaluation](#two-pass-evaluation)
-15. [Application Events](#application-events)
+18. [Application Events](#application-events)
     - [Built-in Events](#built-in-events)
     - [@app_event_listener](#app_event_listener)
     - [ApplicationEventBus](#applicationeventbus)
-16. [Environment](#environment)
-17. [Complete Example](#complete-example)
+19. [Environment](#environment)
+20. [Complete Example](#complete-example)
 
 ---
 
@@ -67,8 +70,9 @@ Dependency injection (DI) is a design pattern where objects receive their collab
 instead of creating them. This decouples components, makes code testable, and lets the
 framework manage object lifecycles.
 
-PyFly uses **constructor injection** exclusively. When you declare a class with type-hinted
-constructor parameters, the container resolves each parameter automatically:
+PyFly supports two injection styles:
+
+**Constructor injection** (recommended) — declare dependencies as `__init__` parameters:
 
 ```python
 from pyfly.container import service
@@ -80,8 +84,20 @@ class OrderService:
         self.notifier = notifier
 ```
 
-You never call `OrderService(repo, notifier)` yourself. The container sees the type hints,
-resolves `OrderRepository` and `NotificationService`, and injects them.
+**Field injection** — use `Autowired()` as a class attribute:
+
+```python
+from pyfly.container import Autowired, service
+
+@service
+class OrderService:
+    repo: OrderRepository = Autowired()
+    notifier: NotificationService = Autowired()
+    metrics: MetricsCollector = Autowired(required=False)  # optional dependency
+```
+
+You never construct beans yourself. The container sees the type hints, resolves
+dependencies, and injects them — first via the constructor, then into `Autowired` fields.
 
 ### Key Concepts
 
@@ -92,6 +108,7 @@ resolves `OrderRepository` and `NotificationService`, and injects them.
 | **Stereotype** | A decorator (`@service`, `@component`, etc.) that marks a class as container-managed. |
 | **Scope** | How long an instance lives: `SINGLETON`, `TRANSIENT`, or `REQUEST`. |
 | **Bean** | Any object managed by the container. |
+| **Autowired** | A field descriptor that marks a class attribute for injection after construction. |
 
 ---
 
@@ -598,6 +615,118 @@ designed to be used exclusively within `Annotated[...]` type hints.
 
 ---
 
+## Autowired (Field Injection)
+
+`Autowired` enables field-level dependency injection. After the container creates an
+instance via constructor injection, it scans class annotations for `Autowired()` sentinels
+and injects the resolved dependencies.
+
+```python
+from pyfly.container import Autowired, service
+
+@service
+class OrderService:
+    repo: OrderRepository = Autowired()
+    cache: CacheAdapter = Autowired(qualifier="redis_cache")
+    metrics: MetricsCollector = Autowired(required=False)
+```
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `qualifier` | `str \| None` | `None` | If set, resolve by bean name instead of type. |
+| `required` | `bool` | `True` | If `False`, set the field to `None` when the dependency cannot be resolved. |
+
+### How It Works
+
+1. The container creates the instance via constructor injection (as before).
+2. It calls `typing.get_type_hints()` on the class to discover field annotations.
+3. For each field whose class-level default is an `Autowired()` instance:
+   - If `qualifier` is set, resolve by name via `resolve_by_name()`.
+   - If the type hint uses `Annotated[T, Qualifier("name")]`, resolve via the qualifier.
+   - Otherwise, resolve by type via `resolve()`.
+   - If resolution fails and `required=False`, set the field to `None`.
+4. The resolved value is injected via `setattr()`.
+
+### Mixing Constructor and Field Injection
+
+A class can use both constructor and field injection. Constructor injection runs first,
+then field injection:
+
+```python
+@service
+class OrderService:
+    cache: CacheAdapter = Autowired(required=False)
+
+    def __init__(self, repo: OrderRepository) -> None:
+        self.repo = repo
+```
+
+### When to Use
+
+- **Constructor injection** for mandatory dependencies — makes them explicit and testable.
+- **Field injection** for optional or supplemental dependencies, or when the constructor
+  parameter list grows unwieldy.
+
+---
+
+## Optional and Collection Injection
+
+### Optional[T]
+
+Declare a parameter as `Optional[T]` (or `T | None`) to make it optional. If no bean
+of type `T` is registered, the container injects `None` instead of raising `KeyError`:
+
+```python
+from typing import Optional
+
+@service
+class OrderService:
+    def __init__(self, cache: Optional[CacheAdapter] = None) -> None:
+        self.cache = cache  # None if CacheAdapter is not registered
+```
+
+### list[T]
+
+Declare a parameter as `list[T]` to collect **all** implementations bound to type `T`.
+This is equivalent to Spring's `List<T>` injection:
+
+```python
+@service
+class ValidationService:
+    def __init__(self, validators: list[Validator]) -> None:
+        self.validators = validators  # all Validator implementations
+```
+
+If no implementations are bound, an empty list is injected.
+
+---
+
+## Circular Dependency Detection
+
+The container detects circular dependencies during resolution and raises a clear
+`CircularDependencyError` instead of entering infinite recursion:
+
+```python
+from pyfly.container import CircularDependencyError
+
+class A:
+    def __init__(self, b: B) -> None: ...
+
+class B:
+    def __init__(self, a: A) -> None: ...
+
+# Raises: CircularDependencyError: Circular dependency: A -> B -> A
+container.resolve(A)
+```
+
+The container tracks types currently being resolved in a `_resolving` set. When a type
+is encountered that is already being resolved, the cycle is detected and a descriptive
+error message shows the full dependency chain.
+
+---
+
 ## Interface Binding
 
 Interface binding connects an abstract port (protocol or ABC) to a concrete adapter.
@@ -657,6 +786,29 @@ count = scan_package("myapp.services", container)
    re-registering imported classes).
 4. Each discovered class is registered in the container with its scope, condition, and
    name from the stereotype decorator attributes.
+5. **Auto-binding:** After registration, the scanner inspects the class's MRO and
+   automatically binds it to any `Protocol`, `ABC`, or base class interface it
+   implements. This eliminates the need for manual `container.bind()` calls — just like
+   Spring's `@ComponentScan` auto-discovers `implements` relationships.
+
+### Auto-Binding Example
+
+```python
+from typing import Protocol, runtime_checkable
+
+@runtime_checkable
+class OrderRepository(Protocol):
+    async def find_by_id(self, id: int) -> dict: ...
+
+@repository
+class PostgresOrderRepository(OrderRepository):
+    async def find_by_id(self, id: int) -> dict:
+        ...
+```
+
+When `PostgresOrderRepository` is discovered during scanning, it is automatically
+bound to `OrderRepository`. No manual `container.bind(OrderRepository, PostgresOrderRepository)`
+is needed.
 
 ### scan_module_classes()
 
@@ -1133,12 +1285,14 @@ listeners.
 
 ```python
 # ports.py
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
+@runtime_checkable
 class UserRepository(Protocol):
     async def find_by_id(self, user_id: str) -> dict | None: ...
     async def save(self, user: dict) -> None: ...
 
+@runtime_checkable
 class NotificationSender(Protocol):
     async def send(self, to: str, message: str) -> None: ...
 ```
@@ -1152,8 +1306,11 @@ from pyfly.context import post_construct, pre_destroy
 
 @primary
 @repository
-class PostgresUserRepository:
-    """Production repository backed by PostgreSQL."""
+class PostgresUserRepository(UserRepository):
+    """Production repository backed by PostgreSQL.
+
+    Explicitly inherits UserRepository so the scanner auto-binds it.
+    """
 
     @post_construct
     async def init_pool(self):
@@ -1286,10 +1443,9 @@ class UserApp:
 async def main():
     app = PyFlyApplication(UserApp)
 
-    # Wire interface bindings
-    app.context.container.bind(UserRepository, PostgresUserRepository)
-    app.context.container.bind(NotificationSender, SmtpNotificationSender)
-    app.context.container.bind(NotificationSender, LoggingNotificationSender)
+    # Interface bindings are auto-discovered during scanning when
+    # implementations explicitly inherit from Protocol/ABC interfaces.
+    # No manual container.bind() calls needed!
 
     await app.startup()
 
@@ -1307,7 +1463,8 @@ This example demonstrates:
 
 - **Stereotype decorators** (`@service`, `@repository`, `@rest_controller`, `@component`, `@configuration`)
 - **Constructor injection** (type-hint based, fully automatic)
-- **Interface binding** (port-to-adapter wiring)
+- **Field injection** (`Autowired()` for optional or supplemental dependencies)
+- **Auto-binding** (interfaces are automatically bound during component scanning)
 - **@primary** (default implementation selection)
 - **@bean factory methods** (inside `@configuration`)
 - **Lifecycle hooks** (`@post_construct`, `@pre_destroy`)
@@ -1315,4 +1472,4 @@ This example demonstrates:
 - **@auto_configuration** (deferred, low-priority config)
 - **@order** (initialization ordering)
 - **Application events** (`ApplicationReadyEvent`, `ContextClosedEvent`)
-- **Component scanning** (via `scan_packages`)
+- **Component scanning** (via `scan_packages` with auto-binding)

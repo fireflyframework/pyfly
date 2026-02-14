@@ -16,8 +16,9 @@
 from __future__ import annotations
 
 import typing
-from typing import Annotated, Any, TypeVar, get_args, get_origin
+from typing import Annotated, Any, TypeVar, Union, get_args, get_origin
 
+from pyfly.container.autowired import Autowired
 from pyfly.container.bean import Qualifier
 from pyfly.container.registry import Registration
 from pyfly.container.types import Scope
@@ -25,18 +26,25 @@ from pyfly.container.types import Scope
 T = TypeVar("T")
 
 
+class CircularDependencyError(Exception):
+    """Raised when beans form a circular dependency chain."""
+
+
 class Container:
     """Dependency injection container.
 
-    Supports constructor injection via type hints, scoped lifecycles,
-    interface-to-implementation binding, named beans, @primary resolution,
-    and Qualifier-based disambiguation.
+    Supports constructor injection via type hints, field injection via
+    ``Autowired``, scoped lifecycles, interface-to-implementation binding,
+    named beans, @primary resolution, Qualifier-based disambiguation,
+    ``Optional[T]`` and ``list[T]`` parameter types, and circular dependency
+    detection.
     """
 
     def __init__(self) -> None:
         self._registrations: dict[type, Registration] = {}
         self._named: dict[str, Registration] = {}
         self._bindings: dict[type, list[type]] = {}
+        self._resolving: set[type] = set()
 
     def register(
         self,
@@ -117,27 +125,84 @@ class Container:
         return instance
 
     def _create_instance(self, reg: Registration) -> Any:
-        """Create an instance, resolving constructor dependencies."""
-        init = reg.impl_type.__init__
-        if init is object.__init__:
-            return reg.impl_type()
+        """Create an instance, resolving constructor and field dependencies."""
+        if reg.impl_type in self._resolving:
+            chain = " -> ".join(t.__name__ for t in self._resolving)
+            raise CircularDependencyError(
+                f"Circular dependency: {chain} -> {reg.impl_type.__name__}"
+            )
+        self._resolving.add(reg.impl_type)
+        try:
+            init = reg.impl_type.__init__
+            if init is object.__init__:
+                instance = reg.impl_type()
+            else:
+                hints = typing.get_type_hints(init, include_extras=True)
+                hints.pop("return", None)
 
-        hints = typing.get_type_hints(init, include_extras=True)
-        hints.pop("return", None)
+                kwargs: dict[str, Any] = {}
+                for param_name, param_type in hints.items():
+                    kwargs[param_name] = self._resolve_param(param_type)
 
-        kwargs: dict[str, Any] = {}
-        for param_name, param_type in hints.items():
-            kwargs[param_name] = self._resolve_param(param_type)
+                instance = reg.impl_type(**kwargs)
 
-        return reg.impl_type(**kwargs)
+            self._inject_autowired_fields(instance)
+            return instance
+        finally:
+            self._resolving.discard(reg.impl_type)
 
     def _resolve_param(self, param_type: type) -> Any:
-        """Resolve a single constructor parameter, handling Annotated[T, Qualifier]."""
+        """Resolve a single parameter, handling Annotated, Optional, and list."""
+        # Handle Annotated[T, Qualifier("name")]
         if get_origin(param_type) is Annotated:
             args = get_args(param_type)
             base_type = args[0]
             for metadata in args[1:]:
                 if isinstance(metadata, Qualifier):
                     return self.resolve_by_name(metadata.name)
-            return self.resolve(base_type)
+            return self._resolve_param(base_type)
+
+        # Handle Optional[T] (Union[T, None])
+        if get_origin(param_type) is Union:
+            args = get_args(param_type)
+            non_none = [a for a in args if a is not type(None)]
+            if len(non_none) == 1:
+                try:
+                    return self.resolve(non_none[0])
+                except KeyError:
+                    return None
+
+        # Handle list[T]
+        if get_origin(param_type) is list:
+            args = get_args(param_type)
+            if args:
+                return self.resolve_all(args[0])
+
         return self.resolve(param_type)
+
+    def _inject_autowired_fields(self, instance: Any) -> None:
+        """Inject dependencies into fields marked with Autowired()."""
+        try:
+            hints = typing.get_type_hints(type(instance), include_extras=True)
+        except Exception:
+            return
+
+        for attr_name, attr_type in hints.items():
+            default = getattr(type(instance), attr_name, None)
+            if not isinstance(default, Autowired):
+                continue
+
+            if default.qualifier:
+                value = self.resolve_by_name(default.qualifier)
+            elif get_origin(attr_type) is Annotated:
+                value = self._resolve_param(attr_type)
+            else:
+                try:
+                    value = self.resolve(attr_type)
+                except KeyError:
+                    if not default.required:
+                        value = None
+                    else:
+                        raise
+
+            setattr(instance, attr_name, value)

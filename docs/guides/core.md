@@ -280,7 +280,7 @@ config subtree.
 
 ```python
 config.get_section("pyfly.web")
-# Returns: {"port": 8000, "host": "0.0.0.0", "debug": False, "docs": {"enabled": True}, ...}
+# Returns: {"port": 8080, "host": "0.0.0.0", "debug": False, "docs": {"enabled": True}, ...}
 ```
 
 ### Typed Binding: bind()
@@ -314,7 +314,7 @@ from pyfly.core import config_properties
 @config_properties(prefix="pyfly.web")
 @dataclass
 class WebConfig:
-    port: int = 8000
+    port: int = 8080
     host: str = "0.0.0.0"
     debug: bool = False
 ```
@@ -325,7 +325,7 @@ Then bind it from a `Config` instance:
 config = Config.from_file("pyfly.yaml")
 web_config = config.bind(WebConfig)
 
-print(web_config.port)   # 8000 (or whatever pyfly.yaml says)
+print(web_config.port)   # 8080 (or whatever pyfly.yaml says)
 print(web_config.debug)  # False
 ```
 
@@ -564,7 +564,7 @@ pyfly:
     format: "console"
 
   web:
-    port: 8000
+    port: 8080
     host: "0.0.0.0"
     debug: false
     docs:
@@ -607,7 +607,7 @@ pyfly:
 | Key | Default | Description |
 |---|---|---|
 | `pyfly.app.name` | `"pyfly-app"` | Application name |
-| `pyfly.web.port` | `8000` | HTTP server port |
+| `pyfly.web.port` | `8080` | HTTP server port |
 | `pyfly.web.host` | `"0.0.0.0"` | HTTP server bind address |
 | `pyfly.web.debug` | `false` | Debug mode |
 | `pyfly.logging.level.root` | `"INFO"` | Root log level |

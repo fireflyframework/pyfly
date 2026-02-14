@@ -6,7 +6,7 @@ PyFly's roadmap is driven by achieving feature parity with the full [Firefly Fra
 
 ## Current State (v0.1.0-alpha)
 
-PyFly ships with **24 modules** covering the foundation, application, infrastructure, and cross-cutting layers. See the [Changelog](CHANGELOG.md) for full details on what's included.
+PyFly ships with **22 modules** covering the foundation, application, infrastructure, and cross-cutting layers. See the [Changelog](CHANGELOG.md) for full details on what's included.
 
 ---
 

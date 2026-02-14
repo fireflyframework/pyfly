@@ -758,14 +758,14 @@ async def main():
     # GET /actuator/info    -- app name, version, description
 
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8080)
 ```
 
 **Testing the actuator endpoints with `curl`:**
 
 ```bash
 # Health check
-curl http://localhost:8000/actuator/health
+curl http://localhost:8080/actuator/health
 # {
 #   "status": "UP",
 #   "components": {
@@ -781,7 +781,7 @@ curl http://localhost:8000/actuator/health
 # }
 
 # Bean registry
-curl http://localhost:8000/actuator/beans
+curl http://localhost:8080/actuator/beans
 # {
 #   "beans": {
 #     "DatabaseHealthIndicator": {"type": "...", "scope": "SINGLETON", "stereotype": "component"},
@@ -792,11 +792,11 @@ curl http://localhost:8000/actuator/beans
 # }
 
 # Environment
-curl http://localhost:8000/actuator/env
+curl http://localhost:8080/actuator/env
 # {"activeProfiles": ["production"]}
 
 # Application info
-curl http://localhost:8000/actuator/info
+curl http://localhost:8080/actuator/info
 # {"app": {"name": "order-service", "version": "1.0.0", "description": "Order management microservice"}}
 ```
 
@@ -812,13 +812,13 @@ spec:
       livenessProbe:
         httpGet:
           path: /actuator/health
-          port: 8000
+          port: 8080
         initialDelaySeconds: 10
         periodSeconds: 30
       readinessProbe:
         httpGet:
           path: /actuator/health
-          port: 8000
+          port: 8080
         initialDelaySeconds: 5
         periodSeconds: 10
 ```

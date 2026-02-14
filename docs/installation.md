@@ -335,7 +335,7 @@ Verifies that Python >= 3.12, the `venv` module, and `pip` are available. If any
 
 ### 2. Source Copy
 
-Copies the PyFly source tree to the installation directory (default: `~/.pyfly`), excluding development artifacts like `.git`, `__pycache__`, `.pytest_cache`, `.mypy_cache`, `.venv`, and `.worktrees`.
+Copies the PyFly source tree to `$INSTALL_DIR/source` (default: `~/.pyfly/source`), then removes development artifacts: `.worktrees`, `.venv`, `.pytest_cache`, `.mypy_cache`, `.ruff_cache`, `htmlcov`, and `.coverage`.
 
 ### 3. Virtual Environment Creation
 
@@ -360,9 +360,9 @@ $INSTALL_DIR/venv/bin/pip install -e ".[${EXTRAS}]"
 Creates an executable wrapper at `$INSTALL_DIR/bin/pyfly` that activates the virtual environment before running the CLI:
 
 ```bash
-#!/bin/bash
-source "$HOME/.pyfly/venv/bin/activate"
-exec python -m pyfly.cli.main "$@"
+#!/usr/bin/env bash
+# PyFly CLI wrapper — activates the venv and runs pyfly
+exec "$HOME/.pyfly/venv/bin/pyfly" "$@"
 ```
 
 ### 6. PATH Configuration

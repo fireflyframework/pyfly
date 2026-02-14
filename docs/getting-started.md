@@ -181,7 +181,7 @@ pyfly:
     active: ""                  # Set to "dev", "prod", etc.
 
   web:
-    port: 8000
+    port: 8080
     host: "0.0.0.0"
     debug: false
     docs:
@@ -473,15 +473,15 @@ You should see output like:
 2026-01-15T10:30:00Z [info] no_active_profiles     message=No active profiles set, falling back to default
 2026-01-15T10:30:00Z [info] scanned_package        package=my_service beans_found=2
 2026-01-15T10:30:00Z [info] application_started    app=my-service startup_time_s=0.015 beans_initialized=2
-INFO:     Uvicorn running on http://0.0.0.0:8000
+INFO:     Uvicorn running on http://0.0.0.0:8080
 ```
 
 Your application is now running with:
 
-- **API endpoints** at `http://localhost:8000/api/greetings`
-- **Swagger UI** at `http://localhost:8000/docs`
-- **ReDoc** at `http://localhost:8000/redoc`
-- **OpenAPI spec** at `http://localhost:8000/openapi.json`
+- **API endpoints** at `http://localhost:8080/api/greetings`
+- **Swagger UI** at `http://localhost:8080/docs`
+- **ReDoc** at `http://localhost:8080/redoc`
+- **OpenAPI spec** at `http://localhost:8080/openapi.json`
 
 ---
 
@@ -491,19 +491,19 @@ Open a new terminal and test your endpoints with `curl`:
 
 ```bash
 # List all greetings
-curl http://localhost:8000/api/greetings
+curl http://localhost:8080/api/greetings
 # [{"name": "world", "message": "Hello, World! Welcome to PyFly."}, ...]
 
 # Greet by name
-curl http://localhost:8000/api/greetings/Alice
+curl http://localhost:8080/api/greetings/Alice
 # {"message": "Hello, Alice! Welcome to PyFly."}
 
 # Known name with custom message
-curl http://localhost:8000/api/greetings/python
+curl http://localhost:8080/api/greetings/python
 # {"message": "Hello, Pythonista! PyFly loves Python."}
 ```
 
-You can also open `http://localhost:8000/docs` in your browser to explore the API
+You can also open `http://localhost:8080/docs` in your browser to explore the API
 interactively using Swagger UI.
 
 ---
@@ -625,13 +625,13 @@ Test the new endpoint:
 
 ```bash
 # Create a new greeting
-curl -X POST http://localhost:8000/api/greetings \
+curl -X POST http://localhost:8080/api/greetings \
   -H "Content-Type: application/json" \
   -d '{"name": "rust", "message": "Hello, Rustacean!"}'
 # {"id": "3", "name": "rust", "message": "Hello, Rustacean!"}
 
 # Verify it was saved
-curl http://localhost:8000/api/greetings
+curl http://localhost:8080/api/greetings
 # [... includes the new greeting ...]
 ```
 

@@ -550,7 +550,8 @@ pyfly.web/
     cors.py              # CORSConfig
     security_headers.py  # SecurityHeadersConfig
     exception_handler.py # @exception_handler
-    ports/               # (reserved for future expansion)
+    ports/
+        outbound.py      # Web port protocols
     adapters/
         starlette/       # Starlette/ASGI implementation
             ControllerRegistrar, create_app,
@@ -763,20 +764,26 @@ The `pyfly.validation` module integrates with Pydantic:
 
 ## Design Decisions and Trade-Offs
 
-### Why Constructor Injection Only?
+### Injection Strategy
 
-PyFly supports only constructor injection (no field injection, no setter injection).
+PyFly supports two injection styles, mirroring Spring Boot:
 
-**Rationale:**
-- Constructor injection makes dependencies explicit and visible in the class signature.
-- It ensures beans are fully initialized after construction -- no partially-constructed
-  objects.
-- It simplifies testing: mock dependencies are passed directly to the constructor.
-- It prevents circular dependency issues from being hidden (they surface as resolution
-  errors at startup).
+1. **Constructor injection** (preferred) — dependencies declared as `__init__` type hints.
+   Dependencies are explicit, immutable, and visible in the class signature.
+2. **Field injection** via `Autowired()` — dependencies declared as class attributes.
+   Useful when constructor parameter lists grow large or for optional collaborators.
 
-**Trade-off:** deeply nested dependency graphs may produce constructors with many
-parameters, which is a signal to refactor into smaller components.
+Additional injection features:
+- **`Optional[T]`** — resolves to `None` when the dependency is not registered.
+- **`list[T]`** — collects all implementations bound to an interface.
+- **Circular dependency detection** — the container tracks types currently being
+  resolved and raises `CircularDependencyError` with a clear chain message instead
+  of infinite recursion.
+
+**Recommendation:** prefer constructor injection for mandatory dependencies.
+Use `Autowired()` for optional or supplemental dependencies where it improves
+readability. Deeply nested dependency graphs with many constructor parameters are
+a signal to refactor into smaller components.
 
 ### Why Async-First?
 

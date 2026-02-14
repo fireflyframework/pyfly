@@ -602,7 +602,7 @@ async def manual_validation_demo():
 
 ```bash
 # Successful creation
-curl -X POST http://localhost:8000/api/orders \
+curl -X POST http://localhost:8080/api/orders \
   -H "Content-Type: application/json" \
   -d '{
     "customer_id": "cust-42",
@@ -620,7 +620,7 @@ curl -X POST http://localhost:8000/api/orders \
 # {"order_id": "ord-001", "customer_id": "cust-42", "total": 59.98, ...}
 
 # Validation failure -- missing required fields
-curl -X POST http://localhost:8000/api/orders \
+curl -X POST http://localhost:8080/api/orders \
   -H "Content-Type: application/json" \
   -d '{"items": []}'
 # HTTP 422

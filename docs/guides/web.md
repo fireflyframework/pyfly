@@ -655,7 +655,7 @@ When `docs_enabled=True` (the default), `create_app()` generates a complete Open
 Available at `/docs`. Provides an interactive API explorer where you can try out requests directly:
 
 ```
-http://localhost:8000/docs
+http://localhost:8080/docs
 ```
 
 ### ReDoc
@@ -663,7 +663,7 @@ http://localhost:8000/docs
 Available at `/redoc`. Provides a clean, readable API reference:
 
 ```
-http://localhost:8000/redoc
+http://localhost:8080/redoc
 ```
 
 ### OpenAPI JSON
