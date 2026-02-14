@@ -42,6 +42,15 @@ eda = [
     "aiokafka>=0.10",
     "aio-pika>=9.0",
 ]
+kafka = [
+    "aiokafka>=0.10",
+]
+rabbitmq = [
+    "aio-pika>=9.0",
+]
+redis = [
+    "redis[hiredis]>=5.0",
+]
 cqrs = []
 cache = [
     "redis[hiredis]>=5.0",
@@ -67,7 +76,7 @@ cli = [
     "jinja2>=3.1",
 ]
 full = [
-    "pyfly[web,data,eda,cqrs,cache,client,observability,security,cli]",
+    "pyfly[web,data,eda,cqrs,cache,client,observability,security,cli,kafka,rabbitmq,redis]",
 ]
 dev = [
     "pyfly[full]",
