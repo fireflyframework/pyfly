@@ -156,6 +156,36 @@ class PyFlyApplication:
             beans_initialized=self._context.bean_count,
         )
 
+        # Log routes and API documentation URLs
+        self._log_routes_and_docs()
+
+    def _log_routes_and_docs(self) -> None:
+        """Log mapped endpoints and documentation URLs (Spring Boot style)."""
+        route_metadata = getattr(self, "_route_metadata", [])
+        docs_enabled = getattr(self, "_docs_enabled", False)
+        host = getattr(self, "_host", "0.0.0.0")
+        port = getattr(self, "_port", 8080)
+
+        if route_metadata:
+            lines = []
+            for rm in route_metadata:
+                method = rm.http_method.upper()
+                handler_name = rm.handler_name
+                controller_name = ""
+                if hasattr(rm, "handler") and hasattr(rm.handler, "__self__"):
+                    controller_name = type(rm.handler.__self__).__name__ + "."
+                lines.append(f"  {method:7s} {rm.path:30s} {controller_name}{handler_name}")
+            self._logger.info("mapped_endpoints", count=len(route_metadata), routes="\n" + "\n".join(lines))
+
+        if docs_enabled:
+            base_url = f"http://{host}:{port}"
+            self._logger.info(
+                "api_documentation",
+                swagger_ui=f"{base_url}/docs",
+                redoc=f"{base_url}/redoc",
+                openapi=f"{base_url}/openapi.json",
+            )
+
     async def shutdown(self) -> None:
         """Shutdown the application — stop the ApplicationContext."""
         self._logger.info("shutting_down", app=self._name)

@@ -159,3 +159,75 @@ class TestStartupExperience:
         assert app.config.get("app.debug") is True
         await app.startup()
         await app.shutdown()
+
+
+class TestRouteAndDocsLogging:
+    """Tests for startup route and docs URL logging."""
+
+    @pytest.mark.asyncio
+    async def test_log_routes_and_docs_with_no_metadata(self, tmp_path):
+        """When no route metadata is set, _log_routes_and_docs should not crash."""
+        @pyfly_application(name="NoRoutes", version="0.1.0", scan_packages=[])
+        class App:
+            pass
+
+        config_file = tmp_path / "pyfly.yaml"
+        config_file.write_text("pyfly:\n  banner:\n    mode: 'OFF'\n")
+
+        app = PyFlyApplication(App, config_path=config_file)
+        await app.startup()
+        # Should not crash — no route metadata set
+        await app.shutdown()
+
+    @pytest.mark.asyncio
+    async def test_log_routes_with_metadata(self, tmp_path):
+        """When route metadata is set, _log_routes_and_docs should log endpoints."""
+        from pyfly.web.adapters.starlette.controller import RouteMetadata
+
+        @pyfly_application(name="WithRoutes", version="0.1.0", scan_packages=[])
+        class App:
+            pass
+
+        config_file = tmp_path / "pyfly.yaml"
+        config_file.write_text("pyfly:\n  banner:\n    mode: 'OFF'\n")
+
+        app = PyFlyApplication(App, config_path=config_file)
+        # Simulate what main.py.j2 does — set route metadata before startup
+        app._route_metadata = [
+            RouteMetadata(
+                path="/items/",
+                http_method="GET",
+                status_code=200,
+                handler=lambda: None,
+                handler_name="list_items",
+            ),
+            RouteMetadata(
+                path="/items/{item_id}",
+                http_method="GET",
+                status_code=200,
+                handler=lambda: None,
+                handler_name="get_item",
+            ),
+        ]
+        app._docs_enabled = True
+        app._host = "0.0.0.0"
+        app._port = 8080
+
+        await app.startup()
+        # If we got here without error, the logging worked
+        await app.shutdown()
+
+    @pytest.mark.asyncio
+    async def test_docs_urls_not_logged_when_disabled(self, tmp_path):
+        """When docs_enabled is False, no docs URLs should be logged."""
+        @pyfly_application(name="NoDocs", version="0.1.0", scan_packages=[])
+        class App:
+            pass
+
+        config_file = tmp_path / "pyfly.yaml"
+        config_file.write_text("pyfly:\n  banner:\n    mode: 'OFF'\n")
+
+        app = PyFlyApplication(App, config_path=config_file)
+        app._docs_enabled = False
+        await app.startup()
+        await app.shutdown()

@@ -108,11 +108,13 @@ def create_app(
 
         routes.extend(make_actuator_routes(health_aggregator=agg, context=context))
 
+    # Collect route metadata (used for OpenAPI and startup logging)
+    route_metadata = registrar.collect_route_metadata(context) if context is not None else []
+
     # Generate OpenAPI spec and doc routes
     if docs_enabled:
         generator = OpenAPIGenerator(title=title, version=version, description=description)
-        route_metadata = registrar.collect_route_metadata(context) if context else None
-        spec = generator.generate(route_metadata)
+        spec = generator.generate(route_metadata or None)
 
         routes.extend([
             Route("/openapi.json", make_openapi_endpoint(spec)),
@@ -126,6 +128,10 @@ def create_app(
         routes=routes,
         lifespan=lifespan,
     )
+
+    # Store metadata for startup logging
+    app.state.pyfly_route_metadata = route_metadata if context is not None else []
+    app.state.pyfly_docs_enabled = docs_enabled
 
     # Register global exception handler
     app.add_exception_handler(Exception, global_exception_handler)
