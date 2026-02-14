@@ -25,6 +25,7 @@ def create_app(
     debug: bool = False,
     context: ApplicationContext | None = None,
     docs_enabled: bool = True,
+    extra_routes: list[Route] | None = None,
 ) -> Starlette:
     """Create a Starlette application with PyFly enterprise middleware.
 
@@ -47,6 +48,10 @@ def create_app(
     if context is not None:
         registrar = ControllerRegistrar()
         routes.extend(registrar.collect_routes(context))
+
+    # Append caller-supplied routes (e.g. test helpers)
+    if extra_routes:
+        routes.extend(extra_routes)
 
     # Generate OpenAPI spec and doc routes
     if docs_enabled:

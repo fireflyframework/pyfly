@@ -1,5 +1,7 @@
 """Tests for global error handling."""
 
+from starlette.responses import JSONResponse
+from starlette.routing import Route
 from starlette.testclient import TestClient
 
 from pyfly.kernel.exceptions import (
@@ -24,23 +26,97 @@ from pyfly.kernel.exceptions import (
 from pyfly.web.app import create_app
 
 
+# --- Handler functions for make_test_app ---
+
+async def not_found(request):
+    raise ResourceNotFoundException("Order not found", code="ORDER_NOT_FOUND", context={"id": "123"})
+
+
+async def validation(request):
+    raise ValidationException("Invalid email", code="INVALID_EMAIL")
+
+
+async def ok(request):
+    return JSONResponse({"status": "ok"})
+
+
 def make_test_app():
-    app = create_app(title="test")
+    return create_app(
+        title="test",
+        extra_routes=[
+            Route("/not-found", not_found),
+            Route("/validation", validation),
+            Route("/ok", ok),
+        ],
+    )
 
-    @app.route("/not-found")
-    async def not_found(request):
-        raise ResourceNotFoundException("Order not found", code="ORDER_NOT_FOUND", context={"id": "123"})
 
-    @app.route("/validation")
-    async def validation(request):
-        raise ValidationException("Invalid email", code="INVALID_EMAIL")
+# --- Handler function for test_unhandled_returns_500 ---
 
-    @app.route("/ok")
-    async def ok(request):
-        from starlette.responses import JSONResponse
-        return JSONResponse({"status": "ok"})
+async def crash(request):
+    raise RuntimeError("boom")
 
-    return app
+
+# --- Handler functions for TestExpandedStatusMapping ---
+
+async def unauthorized(request):
+    raise UnauthorizedException("not authenticated")
+
+
+async def forbidden(request):
+    raise ForbiddenException("access denied")
+
+
+async def gone(request):
+    raise GoneException("resource deleted")
+
+
+async def precondition_failed(request):
+    raise PreconditionFailedException("etag mismatch")
+
+
+async def locked(request):
+    raise LockedResourceException("resource locked")
+
+
+async def method_not_allowed(request):
+    raise MethodNotAllowedException("POST not allowed")
+
+
+async def unsupported_media_type(request):
+    raise UnsupportedMediaTypeException("use application/json")
+
+
+async def payload_too_large(request):
+    raise PayloadTooLargeException("max 10MB")
+
+
+async def operation_timeout(request):
+    raise OperationTimeoutException("timed out")
+
+
+async def bad_gateway(request):
+    raise BadGatewayException("upstream error")
+
+
+async def gateway_timeout(request):
+    raise GatewayTimeoutException("upstream timeout")
+
+
+async def not_implemented(request):
+    raise NotImplementedException("coming soon")
+
+
+async def bulkhead(request):
+    raise BulkheadException("capacity full")
+
+
+async def degraded(request):
+    raise DegradedServiceException("running degraded")
+
+
+async def quota_exceeded(request):
+    raise QuotaExceededException("quota used up")
 
 
 class TestGlobalExceptionHandler:
@@ -71,12 +147,10 @@ class TestGlobalExceptionHandler:
         assert "transaction_id" in body["error"]
 
     def test_unhandled_returns_500(self):
-        app = create_app(title="test")
-
-        @app.route("/crash")
-        async def crash(request):
-            raise RuntimeError("boom")
-
+        app = create_app(
+            title="test",
+            extra_routes=[Route("/crash", crash)],
+        )
         client = TestClient(app, raise_server_exceptions=False)
         resp = client.get("/crash")
         assert resp.status_code == 500
@@ -88,68 +162,26 @@ class TestExpandedStatusMapping:
     """Verify that each new exception type maps to the correct HTTP status code."""
 
     def setup_method(self):
-        app = create_app(title="test")
-
-        @app.route("/unauthorized")
-        async def unauthorized(request):
-            raise UnauthorizedException("not authenticated")
-
-        @app.route("/forbidden")
-        async def forbidden(request):
-            raise ForbiddenException("access denied")
-
-        @app.route("/gone")
-        async def gone(request):
-            raise GoneException("resource deleted")
-
-        @app.route("/precondition-failed")
-        async def precondition_failed(request):
-            raise PreconditionFailedException("etag mismatch")
-
-        @app.route("/locked")
-        async def locked(request):
-            raise LockedResourceException("resource locked")
-
-        @app.route("/method-not-allowed")
-        async def method_not_allowed(request):
-            raise MethodNotAllowedException("POST not allowed")
-
-        @app.route("/unsupported-media-type")
-        async def unsupported_media_type(request):
-            raise UnsupportedMediaTypeException("use application/json")
-
-        @app.route("/payload-too-large")
-        async def payload_too_large(request):
-            raise PayloadTooLargeException("max 10MB")
-
-        @app.route("/operation-timeout")
-        async def operation_timeout(request):
-            raise OperationTimeoutException("timed out")
-
-        @app.route("/bad-gateway")
-        async def bad_gateway(request):
-            raise BadGatewayException("upstream error")
-
-        @app.route("/gateway-timeout")
-        async def gateway_timeout(request):
-            raise GatewayTimeoutException("upstream timeout")
-
-        @app.route("/not-implemented")
-        async def not_implemented(request):
-            raise NotImplementedException("coming soon")
-
-        @app.route("/bulkhead")
-        async def bulkhead(request):
-            raise BulkheadException("capacity full")
-
-        @app.route("/degraded")
-        async def degraded(request):
-            raise DegradedServiceException("running degraded")
-
-        @app.route("/quota-exceeded")
-        async def quota_exceeded(request):
-            raise QuotaExceededException("quota used up")
-
+        app = create_app(
+            title="test",
+            extra_routes=[
+                Route("/unauthorized", unauthorized),
+                Route("/forbidden", forbidden),
+                Route("/gone", gone),
+                Route("/precondition-failed", precondition_failed),
+                Route("/locked", locked),
+                Route("/method-not-allowed", method_not_allowed),
+                Route("/unsupported-media-type", unsupported_media_type),
+                Route("/payload-too-large", payload_too_large),
+                Route("/operation-timeout", operation_timeout),
+                Route("/bad-gateway", bad_gateway),
+                Route("/gateway-timeout", gateway_timeout),
+                Route("/not-implemented", not_implemented),
+                Route("/bulkhead", bulkhead),
+                Route("/degraded", degraded),
+                Route("/quota-exceeded", quota_exceeded),
+            ],
+        )
         self.client = TestClient(app, raise_server_exceptions=False)
 
     def test_unauthorized_returns_401(self):
