@@ -44,6 +44,17 @@ class InMemoryCache:
             return True
         return False
 
+    async def exists(self, key: str) -> bool:
+        """Check if a key exists and is not expired."""
+        entry = self._store.get(key)
+        if entry is None:
+            return False
+        _, expires_at = entry
+        if expires_at is not None and time.monotonic() > expires_at:
+            del self._store[key]
+            return False
+        return True
+
     async def clear(self) -> None:
         """Remove all entries."""
         self._store.clear()

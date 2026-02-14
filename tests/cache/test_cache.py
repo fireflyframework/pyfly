@@ -54,6 +54,23 @@ class TestInMemoryCache:
         assert await c.get("key") is None
 
     @pytest.mark.asyncio
+    async def test_exists_returns_true_for_stored_key(self):
+        c = InMemoryCache()
+        await c.put("key1", "value1")
+        assert await c.exists("key1") is True
+
+    @pytest.mark.asyncio
+    async def test_exists_returns_false_for_missing_key(self):
+        c = InMemoryCache()
+        assert await c.exists("no-such-key") is False
+
+    @pytest.mark.asyncio
+    async def test_exists_returns_false_for_expired_key(self):
+        c = InMemoryCache()
+        await c.put("key1", "value1", ttl=timedelta(seconds=0))
+        assert await c.exists("key1") is False
+
+    @pytest.mark.asyncio
     async def test_protocol_compliance(self):
         """InMemoryCache satisfies the CacheAdapter protocol."""
         c: CacheAdapter = InMemoryCache()
