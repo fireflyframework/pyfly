@@ -24,6 +24,8 @@ from pyfly.data.adapters.sqlalchemy.entity import Base, BaseEntity
 from pyfly.data.adapters.sqlalchemy.repository import Repository
 from pyfly.data.adapters.sqlalchemy.transactional import reactive_transactional
 from pyfly.data.page import Page
+from pyfly.data.pageable import Order, Pageable, Sort
+from pyfly.data.specification import Specification
 
 
 class Item(BaseEntity):
@@ -167,3 +169,61 @@ class TestReactiveTransactional:
             result = await verify_session.execute(select(Item))
             items = result.scalars().all()
             assert len(items) == 0
+
+
+class TestRepositorySpecification:
+    @pytest.mark.asyncio
+    async def test_find_all_by_spec(self, repo):
+        await repo.save(Item(name="A", price=10.0))
+        await repo.save(Item(name="B", price=20.0))
+        await repo.save(Item(name="C", price=30.0))
+
+        expensive = Specification(lambda root, q: q.where(root.price > 15.0))
+        items = await repo.find_all_by_spec(expensive)
+        assert len(items) == 2
+
+    @pytest.mark.asyncio
+    async def test_find_all_by_spec_and(self, repo):
+        await repo.save(Item(name="A", price=10.0))
+        await repo.save(Item(name="B", price=20.0))
+        await repo.save(Item(name="A", price=30.0))
+
+        named_a = Specification(lambda root, q: q.where(root.name == "A"))
+        expensive = Specification(lambda root, q: q.where(root.price > 15.0))
+        items = await repo.find_all_by_spec(named_a & expensive)
+        assert len(items) == 1
+        assert items[0].price == 30.0
+
+    @pytest.mark.asyncio
+    async def test_find_all_by_spec_paged(self, repo):
+        for i in range(20):
+            await repo.save(Item(name=f"Item-{i}", price=float(i)))
+
+        expensive = Specification(lambda root, q: q.where(root.price >= 10.0))
+        pageable = Pageable.of(1, 5, Sort.by("name"))
+        page = await repo.find_all_by_spec_paged(expensive, pageable)
+
+        assert isinstance(page, Page)
+        assert page.total == 10  # Items 10-19
+        assert len(page.items) == 5
+        assert page.has_next is True
+
+    @pytest.mark.asyncio
+    async def test_find_all_by_spec_paged_with_sort(self, repo):
+        await repo.save(Item(name="C", price=30.0))
+        await repo.save(Item(name="A", price=10.0))
+        await repo.save(Item(name="B", price=20.0))
+
+        all_spec = Specification(lambda root, q: q)
+        pageable = Pageable.of(1, 10, Sort(orders=(Order.desc("price"),)))
+        page = await repo.find_all_by_spec_paged(all_spec, pageable)
+
+        assert [item.price for item in page.items] == [30.0, 20.0, 10.0]
+
+    @pytest.mark.asyncio
+    async def test_find_all_by_spec_empty_result(self, repo):
+        await repo.save(Item(name="A", price=10.0))
+
+        impossible = Specification(lambda root, q: q.where(root.price > 999.0))
+        items = await repo.find_all_by_spec(impossible)
+        assert items == []
