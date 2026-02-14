@@ -123,6 +123,19 @@ class TestQueryDecorator:
         assert my_func.__name__ == "my_func"
 
 
+class TestCompileQueryMethodValidation:
+    """Input validation on compile_query_method."""
+
+    def test_rejects_undecorated_method(self):
+        """compile_query_method raises AttributeError for undecorated methods."""
+        executor = QueryExecutor()
+
+        async def plain_method(self) -> list[Item]: ...
+
+        with pytest.raises(AttributeError, match="not decorated with @query"):
+            executor.compile_query_method(plain_method, Item)
+
+
 # ===========================================================================
 # Transpiler Tests (unit, no DB)
 # ===========================================================================
@@ -185,6 +198,18 @@ class TestJpqlTranspiler:
             Item,
         )
         assert "q_items" in sql
+
+    def test_regex_does_not_match_into_where(self):
+        """Regression: FROM regex must not eat SQL keywords as alias."""
+        # If the entity name does not appear, transpiler should
+        # degrade gracefully (no alias found, minimal transformation).
+        sql = QueryExecutor._transpile_jpql(
+            "SELECT i FROM Item i WHERE i.score > :min",
+            Item,
+        )
+        # WHERE must survive intact
+        assert "WHERE" in sql
+        assert "score > :min" in sql
 
 
 # ===========================================================================

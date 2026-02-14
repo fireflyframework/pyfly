@@ -45,7 +45,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 T = TypeVar("T")
 
 
-def query(sql: str, *, native: bool = False) -> Callable:
+def query(sql: str, *, native: bool = False) -> Callable[..., Any]:
     """Mark a repository method with a custom query.
 
     The query string uses named parameters (```:param_name```) that map to
@@ -63,7 +63,7 @@ def query(sql: str, *, native: bool = False) -> Callable:
         ``__pyfly_query__`` and ``__pyfly_query_native__`` attributes.
     """
 
-    def decorator(func: Callable) -> Callable:
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         func.__pyfly_query__ = sql  # type: ignore[attr-defined]
         func.__pyfly_query_native__ = native  # type: ignore[attr-defined]
         return func
@@ -83,7 +83,7 @@ class QueryExecutor:
 
     def compile_query_method(
         self,
-        method: Callable,
+        method: Callable[..., Any],
         entity: type[T],
     ) -> Callable[..., Coroutine[Any, Any, Any]]:
         """Compile a ``@query``-decorated method into an executable async function.
@@ -100,16 +100,24 @@ class QueryExecutor:
             - ``int`` for ``SELECT COUNT(...)`` queries
             - ``bool`` for queries containing ``EXISTS``
             - ``list[entity]`` for all other SELECT queries
+
+        Raises:
+            AttributeError: If *method* was not decorated with :func:`query`.
         """
+        if not hasattr(method, "__pyfly_query__"):
+            raise AttributeError(
+                f"{method} is not decorated with @query (missing __pyfly_query__)"
+            )
+
         sql: str = method.__pyfly_query__  # type: ignore[attr-defined]
         is_native: bool = method.__pyfly_query_native__  # type: ignore[attr-defined]
 
         if not is_native:
             sql = self._transpile_jpql(sql, entity)
 
-        # Determine return type from query prefix
+        # Determine return type from query shape
         is_count = sql.strip().upper().startswith("SELECT COUNT")
-        is_exists = "EXISTS" in sql.upper()
+        is_exists = bool(re.search(r"\bEXISTS\s*\(", sql, re.IGNORECASE))
 
         async def _execute(session: AsyncSession, **kwargs: Any) -> Any:
             result = await session.execute(text(sql), kwargs)
@@ -145,9 +153,14 @@ class QueryExecutor:
         """
         # Get table name from entity
         table_name = getattr(entity, "__tablename__", entity.__name__.lower() + "s")
+        entity_name = re.escape(entity.__name__)
 
-        # Find the alias (e.g., "u" in "FROM User u")
-        alias_match = re.search(r"FROM\s+\w+\s+(\w+)", jpql, re.IGNORECASE)
+        # Find the alias (e.g., "u" in "FROM User u") — anchored to the
+        # entity class name so that SQL keywords like WHERE are never
+        # mistakenly captured as the alias.
+        alias_match = re.search(
+            rf"FROM\s+{entity_name}\s+(\w+)", jpql, re.IGNORECASE
+        )
         alias = alias_match.group(1) if alias_match else None
 
         sql = jpql
@@ -156,9 +169,10 @@ class QueryExecutor:
         # identifier since it is no longer needed after alias references are
         # resolved below).
         sql = re.sub(
-            r"FROM\s+\w+\s+\w+",
+            rf"FROM\s+{entity_name}\s+\w+",
             f"FROM {table_name}",
             sql,
+            count=1,
             flags=re.IGNORECASE,
         )
 
