@@ -1,0 +1,80 @@
+"""Health indicator protocol, status dataclasses, and aggregator."""
+
+from __future__ import annotations
+
+import logging
+from dataclasses import dataclass, field
+from typing import Any, Protocol, runtime_checkable
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class HealthStatus:
+    """Health status for a single component."""
+
+    status: str  # "UP", "DOWN", "DEGRADED"
+    details: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class HealthResult:
+    """Aggregated health result across all components."""
+
+    status: str
+    components: dict[str, HealthStatus] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize to a JSON-friendly dictionary."""
+        result: dict[str, Any] = {"status": self.status}
+        if self.components:
+            result["components"] = {
+                name: {"status": hs.status, "details": hs.details}
+                for name, hs in self.components.items()
+            }
+        return result
+
+
+@runtime_checkable
+class HealthIndicator(Protocol):
+    """Protocol that beans can implement to contribute health information."""
+
+    async def health(self) -> HealthStatus: ...
+
+
+class HealthAggregator:
+    """Collects health indicators and produces an aggregated result."""
+
+    def __init__(self) -> None:
+        self._indicators: dict[str, HealthIndicator] = {}
+
+    def add_indicator(self, name: str, indicator: HealthIndicator) -> None:
+        """Register a named health indicator."""
+        self._indicators[name] = indicator
+
+    async def check(self) -> HealthResult:
+        """Run all indicators and return an aggregated health result.
+
+        Rules:
+        - If any indicator reports DOWN, overall status is DOWN.
+        - If an indicator raises an exception, it is treated as DOWN.
+        - If no indicators are registered, overall status is UP.
+        """
+        if not self._indicators:
+            return HealthResult(status="UP")
+
+        components: dict[str, HealthStatus] = {}
+        overall = "UP"
+
+        for name, indicator in self._indicators.items():
+            try:
+                status = await indicator.health()
+                components[name] = status
+                if status.status == "DOWN":
+                    overall = "DOWN"
+            except Exception:
+                logger.exception("Health indicator '%s' raised an exception", name)
+                components[name] = HealthStatus(status="DOWN", details={"error": "check failed"})
+                overall = "DOWN"
+
+        return HealthResult(status=overall, components=components)
