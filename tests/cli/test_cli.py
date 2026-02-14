@@ -276,8 +276,8 @@ class TestNewFeatures:
         assert result.exit_code == 0, result.output
 
         config = (tmp_path / "my-svc" / "pyfly.yaml").read_text()
-        assert "eda:" in config
-        assert "type: memory" in config
+        assert "messaging:" in config
+        assert "provider: memory" in config
 
     def test_features_cache_defaults_to_memory(self, tmp_path: Path):
         runner = CliRunner()
@@ -288,7 +288,8 @@ class TestNewFeatures:
 
         config = (tmp_path / "my-svc" / "pyfly.yaml").read_text()
         assert "cache:" in config
-        assert "type: memory" in config
+        assert "enabled: true" in config
+        assert "provider: memory" in config
 
     def test_invalid_feature_fails(self, tmp_path: Path):
         runner = CliRunner()
@@ -307,6 +308,41 @@ class TestNewFeatures:
         pyproject = (tmp_path / "my-lib" / "pyproject.toml").read_text()
         # Library with no features should have bare pyfly dependency
         assert '"pyfly"' in pyproject
+
+
+class TestConfigKeyAlignment:
+    """Scaffolded config must use keys that auto-config actually reads."""
+
+    def test_eda_uses_messaging_provider_key(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-svc", "--features", "eda", "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+        config = (tmp_path / "my-svc" / "pyfly.yaml").read_text()
+        assert "messaging:" in config
+        assert "provider: memory" in config
+        assert "eda:" not in config  # Must NOT use old wrong key
+
+    def test_cache_uses_enabled_and_provider_keys(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-svc", "--features", "cache", "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+        config = (tmp_path / "my-svc" / "pyfly.yaml").read_text()
+        assert "cache:" in config
+        assert "enabled: true" in config
+        assert "provider: memory" in config
+
+    def test_env_example_uses_messaging_key(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-svc", "--features", "eda", "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+        env = (tmp_path / "my-svc" / ".env.example").read_text()
+        assert "PYFLY_MESSAGING_PROVIDER" in env
 
 
 class TestNewEnhancedCore:

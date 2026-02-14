@@ -22,18 +22,20 @@ pyfly:
 {% if has_cache %}
 
   cache:
-    type: memory
+    enabled: true
+    provider: memory
     ttl: 300
-    # Redis (production — uncomment and install pyfly[redis])
-    # type: redis
+    # Redis (production — install pyfly[redis] and uncomment):
+    # provider: redis
     # redis:
     #   url: redis://localhost:6379/0
 {% endif %}
 {% if has_eda %}
 
-  eda:
-    type: memory
-    # Kafka (production — uncomment and install pyfly[kafka])
+  messaging:
+    provider: memory
+    # Kafka (production — install pyfly[kafka] and uncomment):
+    # provider: kafka
     # kafka:
     #   bootstrap-servers: localhost:9092
 {% endif %}
