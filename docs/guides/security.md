@@ -1,0 +1,924 @@
+# Security Guide
+
+The PyFly security module provides a complete authentication and authorization system built around JWT tokens, password hashing, a request-scoped security context, middleware for automatic token processing, and a decorator for role- and permission-based access control. Like all PyFly modules, it follows hexagonal principles: the password encoder is defined as a protocol (port) with a bcrypt adapter, and the security context is a plain dataclass with no framework coupling.
+
+---
+
+## Table of Contents
+
+- [Architecture Overview](#architecture-overview)
+- [SecurityContext](#securitycontext)
+  - [Creating a SecurityContext](#creating-a-securitycontext)
+  - [Authentication Check](#authentication-check)
+  - [Role Checking](#role-checking)
+  - [Permission Checking](#permission-checking)
+  - [Anonymous Context](#anonymous-context)
+  - [Full API Reference](#securitycontext-api-reference)
+- [JWT Authentication](#jwt-authentication)
+  - [JWTService](#jwtservice)
+  - [Encoding Tokens](#encoding-tokens)
+  - [Decoding Tokens](#decoding-tokens)
+  - [Token-to-SecurityContext Conversion](#token-to-securitycontext-conversion)
+  - [Token Payload Convention](#token-payload-convention)
+  - [Error Handling](#jwt-error-handling)
+- [Password Encoding](#password-encoding)
+  - [PasswordEncoder Protocol](#passwordencoder-protocol)
+  - [BcryptPasswordEncoder](#bcryptpasswordencoder)
+  - [Custom Password Encoders](#custom-password-encoders)
+- [SecurityMiddleware](#securitymiddleware)
+  - [How It Works](#how-the-middleware-works)
+  - [Excluding Paths](#excluding-paths)
+  - [Integration with create_app()](#integration-with-create_app)
+- [The @secure Decorator](#the-secure-decorator)
+  - [Role-Based Access Control](#role-based-access-control)
+  - [Permission-Based Access Control](#permission-based-access-control)
+  - [Combined Role and Permission Checks](#combined-role-and-permission-checks)
+  - [How @secure Works Internally](#how-secure-works-internally)
+  - [Error Responses](#secure-error-responses)
+- [Exception Hierarchy](#exception-hierarchy)
+- [Putting It All Together](#putting-it-all-together)
+  - [Configuration Layer](#configuration-layer)
+  - [User Entity and Repository](#user-entity-and-repository)
+  - [Authentication Service](#authentication-service)
+  - [Auth Controller: Login and Register](#auth-controller-login-and-register)
+  - [Protected Controller: Role-Based Endpoints](#protected-controller-role-based-endpoints)
+  - [Application Assembly](#application-assembly)
+  - [Testing the Flow](#testing-the-flow)
+
+---
+
+## Architecture Overview
+
+The security module consists of five components:
+
+| Component              | File                          | Purpose                                        |
+|------------------------|-------------------------------|------------------------------------------------|
+| `SecurityContext`      | `pyfly.security.context`      | Immutable dataclass holding auth/authz data     |
+| `JWTService`           | `pyfly.security.jwt`          | Encode, decode, and validate JWT tokens         |
+| `PasswordEncoder`      | `pyfly.security.password`     | Protocol for password hashing                   |
+| `BcryptPasswordEncoder`| `pyfly.security.password`     | Bcrypt implementation of PasswordEncoder        |
+| `SecurityMiddleware`   | `pyfly.security.middleware`   | Starlette middleware for token extraction        |
+| `@secure`              | `pyfly.security.decorators`   | Decorator for role/permission enforcement        |
+
+All components are exported from the top-level `pyfly.security` package:
+
+```python
+from pyfly.security import (
+    SecurityContext,
+    JWTService,
+    PasswordEncoder,
+    BcryptPasswordEncoder,
+    SecurityMiddleware,
+    secure,
+)
+```
+
+---
+
+## SecurityContext
+
+`SecurityContext` is a frozen dataclass that holds authentication and authorization data for the current request. It is the central data structure that the middleware populates and the `@secure` decorator inspects.
+
+### Creating a SecurityContext
+
+```python
+from pyfly.security import SecurityContext
+
+ctx = SecurityContext(
+    user_id="user-123",
+    roles=["ADMIN", "USER"],
+    permissions=["order:read", "order:write", "order:delete"],
+    attributes={"department": "engineering", "team": "platform"},
+)
+```
+
+**Fields:**
+
+| Field          | Type               | Default | Description                              |
+|----------------|--------------------|---------|------------------------------------------|
+| `user_id`      | `str \| None`      | `None`  | Authenticated user's identifier          |
+| `roles`        | `list[str]`        | `[]`    | User's assigned roles                    |
+| `permissions`  | `list[str]`        | `[]`    | User's granted permissions               |
+| `attributes`   | `dict[str, str]`   | `{}`    | Additional key-value attributes          |
+
+Because `SecurityContext` is a frozen dataclass, it is immutable once created. This prevents accidental modification during request processing.
+
+### Authentication Check
+
+```python
+ctx = SecurityContext(user_id="user-123")
+ctx.is_authenticated  # True
+
+anon = SecurityContext()
+anon.is_authenticated  # False
+```
+
+The `is_authenticated` property returns `True` if and only if `user_id` is not `None`.
+
+### Role Checking
+
+```python
+ctx = SecurityContext(user_id="user-123", roles=["ADMIN", "USER"])
+
+ctx.has_role("ADMIN")                       # True
+ctx.has_role("MANAGER")                     # False
+
+ctx.has_any_role(["ADMIN", "MANAGER"])      # True  (has ADMIN)
+ctx.has_any_role(["MANAGER", "DIRECTOR"])   # False (has neither)
+```
+
+- `has_role(role)` -- exact match against the roles list.
+- `has_any_role(roles)` -- returns `True` if the user has at least one of the given roles (set intersection).
+
+### Permission Checking
+
+```python
+ctx = SecurityContext(
+    user_id="user-123",
+    permissions=["order:read", "order:write"],
+)
+
+ctx.has_permission("order:read")     # True
+ctx.has_permission("order:delete")   # False
+```
+
+### Anonymous Context
+
+```python
+anon = SecurityContext.anonymous()
+anon.user_id           # None
+anon.roles             # []
+anon.permissions       # []
+anon.is_authenticated  # False
+```
+
+The `anonymous()` class method creates a context with all defaults, representing an unauthenticated user.
+
+### SecurityContext API Reference
+
+| Method / Property          | Return Type | Description                                     |
+|----------------------------|-------------|-------------------------------------------------|
+| `is_authenticated`         | `bool`      | `True` if `user_id` is not `None`               |
+| `has_role(role)`           | `bool`      | `True` if the user has the specified role        |
+| `has_any_role(roles)`      | `bool`      | `True` if the user has any of the given roles    |
+| `has_permission(permission)` | `bool`    | `True` if the user has the specified permission  |
+| `anonymous()` (classmethod)| `SecurityContext` | Create an anonymous (unauthenticated) context |
+
+---
+
+## JWT Authentication
+
+### JWTService
+
+`JWTService` handles JWT token encoding, decoding, validation, and conversion to `SecurityContext`. It wraps the PyJWT library.
+
+```python
+from pyfly.security import JWTService
+
+jwt_service = JWTService(secret="my-secret-key", algorithm="HS256")
+```
+
+**Constructor parameters:**
+
+| Parameter   | Type  | Default   | Description                              |
+|-------------|-------|-----------|------------------------------------------|
+| `secret`    | `str` | required  | Secret key for HMAC-based token signing  |
+| `algorithm` | `str` | `"HS256"` | JWT algorithm (e.g., HS256, HS384, RS256)|
+
+### Encoding Tokens
+
+Create a JWT token from a payload dictionary:
+
+```python
+from datetime import datetime, timedelta, UTC
+
+token = jwt_service.encode({
+    "sub": "user-123",
+    "roles": ["ADMIN", "USER"],
+    "permissions": ["order:read", "order:write"],
+    "exp": datetime.now(UTC) + timedelta(hours=1),
+    "iat": datetime.now(UTC),
+})
+# Returns: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...."
+```
+
+The payload is a standard Python dictionary. PyJWT handles serialization of common types like `datetime`. You are responsible for including standard JWT claims like `exp` (expiration), `iat` (issued at), and `sub` (subject).
+
+### Decoding Tokens
+
+Decode and validate a JWT token:
+
+```python
+payload = jwt_service.decode(token)
+# Returns: {"sub": "user-123", "roles": ["ADMIN", "USER"], ...}
+```
+
+Validation includes:
+- Signature verification using the configured secret and algorithm
+- Expiration check (if `exp` claim is present)
+- All standard PyJWT validations
+
+If the token is invalid, expired, or tampered with, a `SecurityException` is raised:
+
+```python
+from pyfly.kernel.exceptions import SecurityException
+
+try:
+    payload = jwt_service.decode("invalid-token")
+except SecurityException as exc:
+    print(exc)       # "Invalid token: ..."
+    print(exc.code)  # "INVALID_TOKEN"
+```
+
+### Token-to-SecurityContext Conversion
+
+The `to_security_context()` method is a convenience that decodes a token and builds a `SecurityContext` directly:
+
+```python
+ctx = jwt_service.to_security_context(token)
+# SecurityContext(
+#     user_id="user-123",
+#     roles=["ADMIN", "USER"],
+#     permissions=["order:read", "order:write"],
+# )
+```
+
+### Token Payload Convention
+
+`to_security_context()` extracts these claims from the JWT payload:
+
+| JWT Claim     | SecurityContext Field | Required | Default |
+|---------------|----------------------|----------|---------|
+| `sub`         | `user_id`            | Yes      | --      |
+| `roles`       | `roles`              | No       | `[]`    |
+| `permissions` | `permissions`        | No       | `[]`    |
+
+Any additional claims in the payload are ignored by `to_security_context()`. If you need them, decode the token manually with `decode()` and build the context yourself.
+
+### JWT Error Handling
+
+All PyJWT errors (`jwt.PyJWTError` and its subclasses) are caught and wrapped in a `SecurityException` with code `"INVALID_TOKEN"`:
+
+| PyJWT Error                  | Cause                                 |
+|------------------------------|---------------------------------------|
+| `jwt.ExpiredSignatureError`  | Token has expired (past `exp` claim)  |
+| `jwt.InvalidSignatureError`  | Signature does not match              |
+| `jwt.DecodeError`            | Token is malformed                    |
+| `jwt.InvalidTokenError`      | Other token validation failures       |
+
+---
+
+## Password Encoding
+
+### PasswordEncoder Protocol
+
+`PasswordEncoder` is a runtime-checkable protocol that defines the contract for password hashing:
+
+```python
+from pyfly.security import PasswordEncoder
+
+class PasswordEncoder(Protocol):
+    def hash(self, raw_password: str) -> str:
+        """Hash a raw password. Returns the hashed string."""
+        ...
+
+    def verify(self, raw_password: str, hashed_password: str) -> bool:
+        """Verify a raw password against a hashed password."""
+        ...
+```
+
+This protocol allows you to swap out the hashing implementation (e.g., bcrypt, argon2, scrypt) without changing your service layer.
+
+### BcryptPasswordEncoder
+
+The default production-ready implementation using bcrypt:
+
+```python
+from pyfly.security import BcryptPasswordEncoder
+
+encoder = BcryptPasswordEncoder(rounds=12)
+
+# Hash a password
+hashed = encoder.hash("my-secure-password")
+# "$2b$12$LJ3m4ys3Lk..."
+
+# Verify a password
+encoder.verify("my-secure-password", hashed)    # True
+encoder.verify("wrong-password", hashed)         # False
+```
+
+**Constructor parameters:**
+
+| Parameter | Type  | Default | Description                                          |
+|-----------|-------|---------|------------------------------------------------------|
+| `rounds`  | `int` | `12`    | Bcrypt cost factor (higher = slower but more secure)  |
+
+The cost factor controls how computationally expensive the hashing operation is. Each increment roughly doubles the time. A value of 12 is considered a good default for production use.
+
+**Methods:**
+
+| Method                          | Return Type | Description                                      |
+|---------------------------------|-------------|--------------------------------------------------|
+| `hash(raw_password)`            | `str`       | Generate a bcrypt hash with a random salt        |
+| `verify(raw_password, hashed)`  | `bool`      | Check if the raw password matches the hash       |
+
+### Custom Password Encoders
+
+You can create custom password encoders by implementing the `PasswordEncoder` protocol:
+
+```python
+import hashlib
+
+class SHA256PasswordEncoder:
+    """Simple SHA-256 encoder (NOT recommended for production)."""
+
+    def hash(self, raw_password: str) -> str:
+        return hashlib.sha256(raw_password.encode()).hexdigest()
+
+    def verify(self, raw_password: str, hashed_password: str) -> bool:
+        return self.hash(raw_password) == hashed_password
+```
+
+Because `PasswordEncoder` is a `runtime_checkable` protocol, you can use `isinstance()` checks:
+
+```python
+encoder = BcryptPasswordEncoder()
+isinstance(encoder, PasswordEncoder)  # True
+```
+
+---
+
+## SecurityMiddleware
+
+The `SecurityMiddleware` is a Starlette middleware that automatically extracts JWT tokens from incoming requests and populates the `SecurityContext` on `request.state`.
+
+### How the Middleware Works
+
+For every incoming request, the middleware:
+
+1. Checks if the request path is in the `exclude_paths` set. If so, sets an anonymous context and continues.
+2. Reads the `Authorization` header.
+3. If the header starts with `"Bearer "`, extracts the token string.
+4. Attempts to decode the token via `JWTService.to_security_context()`.
+5. On success, sets `request.state.security_context` to the authenticated context.
+6. On failure (invalid/expired token), logs a debug message and sets an anonymous context.
+7. If no `Authorization` header is present, sets an anonymous context.
+
+**The middleware never rejects requests.** It only populates the security context. Authorization enforcement is the job of the `@secure` decorator or your own logic.
+
+```python
+from pyfly.security import SecurityMiddleware, JWTService
+
+jwt_service = JWTService(secret="my-secret")
+
+# As Starlette middleware
+from starlette.applications import Starlette
+
+app = Starlette()
+app.add_middleware(
+    SecurityMiddleware,
+    jwt_service=jwt_service,
+    exclude_paths=["/docs", "/openapi.json", "/actuator/health"],
+)
+```
+
+**Constructor parameters:**
+
+| Parameter       | Type              | Default | Description                                    |
+|-----------------|-------------------|---------|------------------------------------------------|
+| `app`           | `ASGIApp`         | required| The ASGI application                           |
+| `jwt_service`   | `JWTService`      | required| JWT service for token validation               |
+| `exclude_paths` | `Sequence[str]`   | `()`    | Paths to skip (set anonymous context directly) |
+
+### Excluding Paths
+
+Public endpoints like documentation, health checks, and login should be excluded from JWT processing. While the middleware does not reject requests, excluding paths avoids unnecessary token parsing:
+
+```python
+app.add_middleware(
+    SecurityMiddleware,
+    jwt_service=jwt_service,
+    exclude_paths=[
+        "/docs",
+        "/redoc",
+        "/openapi.json",
+        "/actuator/health",
+        "/api/auth/login",
+        "/api/auth/register",
+    ],
+)
+```
+
+### Integration with create_app()
+
+The `SecurityMiddleware` is not included automatically by `create_app()`. You add it to the application after creation:
+
+```python
+from pyfly.web import create_app
+from pyfly.security import SecurityMiddleware, JWTService
+
+app = create_app(title="My API", context=ctx)
+app.add_middleware(
+    SecurityMiddleware,
+    jwt_service=JWTService(secret="my-secret"),
+    exclude_paths=["/docs", "/openapi.json"],
+)
+```
+
+---
+
+## The @secure Decorator
+
+The `@secure` decorator enforces authentication and authorization on individual handler functions.
+
+### Role-Based Access Control
+
+Require the user to have at least one of the specified roles:
+
+```python
+from pyfly.security import secure, SecurityContext
+
+
+@secure(roles=["ADMIN"])
+async def admin_only(security_context: SecurityContext) -> dict:
+    return {"message": "Admin access granted"}
+
+
+@secure(roles=["ADMIN", "MANAGER"])
+async def admin_or_manager(security_context: SecurityContext) -> dict:
+    # User must have ADMIN *or* MANAGER role (at least one)
+    return {"message": "Access granted"}
+```
+
+### Permission-Based Access Control
+
+Require the user to have all of the specified permissions:
+
+```python
+@secure(permissions=["order:read"])
+async def read_orders(security_context: SecurityContext) -> list:
+    return [{"id": "1", "status": "active"}]
+
+
+@secure(permissions=["order:read", "order:write"])
+async def manage_orders(security_context: SecurityContext) -> dict:
+    # User must have BOTH order:read AND order:write
+    return {"message": "Full order access"}
+```
+
+### Combined Role and Permission Checks
+
+When both `roles` and `permissions` are specified, the user must satisfy both conditions:
+
+```python
+@secure(roles=["ADMIN", "MANAGER"], permissions=["order:delete"])
+async def delete_order(order_id: str, security_context: SecurityContext) -> None:
+    # User must have (ADMIN or MANAGER) AND order:delete permission
+    ...
+```
+
+### How @secure Works Internally
+
+The `@secure` decorator wraps the function in an async wrapper that:
+
+1. Extracts the `security_context` keyword argument from the call.
+2. If `security_context` is `None`, raises `SecurityException(code="AUTH_REQUIRED")`.
+3. If `security_context.is_authenticated` is `False`, raises `SecurityException(code="AUTH_REQUIRED")`.
+4. If `roles` are specified and the user has none of them, raises `SecurityException(code="FORBIDDEN")`.
+5. If `permissions` are specified and the user is missing any, raises `SecurityException(code="FORBIDDEN")`.
+6. If all checks pass, calls the original function.
+
+**The decorated function must accept a `security_context: SecurityContext` keyword argument.** This is how the decorator accesses the current user's context.
+
+### @secure Error Responses
+
+| Check Failed            | Exception                                             | HTTP Status |
+|-------------------------|-------------------------------------------------------|-------------|
+| No security context     | `SecurityException("Authentication required", code="AUTH_REQUIRED")` | 401 |
+| Not authenticated       | `SecurityException("Authentication required", code="AUTH_REQUIRED")` | 401 |
+| Insufficient roles      | `SecurityException("Insufficient roles: ...", code="FORBIDDEN")`     | 403 |
+| Insufficient permissions| `SecurityException("Insufficient permissions: ...", code="FORBIDDEN")`| 403 |
+
+These exceptions are caught by the global exception handler and converted to structured JSON error responses.
+
+---
+
+## Exception Hierarchy
+
+The security module uses exceptions from `pyfly.kernel.exceptions`:
+
+| Exception              | HTTP Status | Description                                       |
+|------------------------|-------------|---------------------------------------------------|
+| `SecurityException`    | 401         | Base security error (auth failures)                |
+| `UnauthorizedException`| 401         | Authentication required but not provided/invalid   |
+| `ForbiddenException`   | 403         | Authenticated but lacks permission                 |
+
+The `@secure` decorator raises `SecurityException` directly with appropriate codes. The `JWTService.decode()` method raises `SecurityException` with code `"INVALID_TOKEN"` for any token validation failure.
+
+---
+
+## Putting It All Together
+
+This complete example demonstrates a login/register flow with JWT authentication, password hashing, and role-based endpoint protection.
+
+### Configuration Layer
+
+```python
+from pyfly.container import configuration, bean
+from pyfly.security import JWTService, BcryptPasswordEncoder
+
+
+@configuration
+class SecurityConfig:
+    """Wires security beans into the DI container."""
+
+    @bean
+    def jwt_service(self) -> JWTService:
+        # In production, load the secret from environment/config
+        return JWTService(secret="change-me-in-production", algorithm="HS256")
+
+    @bean
+    def password_encoder(self) -> BcryptPasswordEncoder:
+        return BcryptPasswordEncoder(rounds=12)
+```
+
+### User Entity and Repository
+
+```python
+from pyfly.data import BaseEntity, Repository
+from pyfly.container import repository as repo_stereotype
+from sqlalchemy import String
+from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.ext.asyncio import AsyncSession
+
+
+class User(BaseEntity):
+    __tablename__ = "users"
+
+    username: Mapped[str] = mapped_column(String(255), unique=True)
+    email: Mapped[str] = mapped_column(String(255), unique=True)
+    password_hash: Mapped[str] = mapped_column(String(255))
+    role: Mapped[str] = mapped_column(String(50), default="USER")
+
+
+@repo_stereotype
+class UserRepository(Repository[User]):
+    def __init__(self, session: AsyncSession) -> None:
+        super().__init__(User, session)
+
+    async def find_by_username(self, username: str) -> list[User]: ...
+    async def exists_by_username(self, username: str) -> bool: ...
+    async def exists_by_email(self, email: str) -> bool: ...
+```
+
+### Authentication Service
+
+```python
+from datetime import datetime, timedelta, UTC
+
+from pyfly.container import service
+from pyfly.kernel.exceptions import (
+    UnauthorizedException,
+    ConflictException,
+    ResourceNotFoundException,
+)
+from pyfly.security import JWTService, BcryptPasswordEncoder, SecurityContext
+
+
+@service
+class AuthService:
+    def __init__(
+        self,
+        user_repo: UserRepository,
+        jwt_service: JWTService,
+        password_encoder: BcryptPasswordEncoder,
+    ) -> None:
+        self._users = user_repo
+        self._jwt = jwt_service
+        self._encoder = password_encoder
+
+    async def register(self, username: str, email: str, password: str) -> str:
+        """Register a new user and return a JWT token."""
+        if await self._users.exists_by_username(username):
+            raise ConflictException(
+                f"Username '{username}' is already taken",
+                code="USERNAME_TAKEN",
+            )
+        if await self._users.exists_by_email(email):
+            raise ConflictException(
+                f"Email '{email}' is already registered",
+                code="EMAIL_TAKEN",
+            )
+
+        user = User(
+            username=username,
+            email=email,
+            password_hash=self._encoder.hash(password),
+            role="USER",
+        )
+        saved = await self._users.save(user)
+        return self._create_token(saved)
+
+    async def login(self, username: str, password: str) -> str:
+        """Authenticate a user and return a JWT token."""
+        users = await self._users.find_by_username(username)
+        if not users:
+            raise UnauthorizedException(
+                "Invalid credentials",
+                code="INVALID_CREDENTIALS",
+            )
+
+        user = users[0]
+        if not self._encoder.verify(password, user.password_hash):
+            raise UnauthorizedException(
+                "Invalid credentials",
+                code="INVALID_CREDENTIALS",
+            )
+
+        return self._create_token(user)
+
+    async def get_current_user(self, user_id: str) -> dict:
+        """Get the current user's profile."""
+        from uuid import UUID
+        user = await self._users.find_by_id(UUID(user_id))
+        if not user:
+            raise ResourceNotFoundException(
+                "User not found", code="USER_NOT_FOUND"
+            )
+        return {
+            "id": str(user.id),
+            "username": user.username,
+            "email": user.email,
+            "role": user.role,
+        }
+
+    def _create_token(self, user: User) -> str:
+        """Create a JWT token for the given user."""
+        return self._jwt.encode({
+            "sub": str(user.id),
+            "username": user.username,
+            "roles": [user.role],
+            "permissions": self._get_permissions(user.role),
+            "exp": datetime.now(UTC) + timedelta(hours=24),
+            "iat": datetime.now(UTC),
+        })
+
+    @staticmethod
+    def _get_permissions(role: str) -> list[str]:
+        """Map roles to permissions."""
+        permission_map = {
+            "USER": ["profile:read", "order:read", "order:create"],
+            "ADMIN": [
+                "profile:read", "profile:write",
+                "order:read", "order:create", "order:delete",
+                "user:read", "user:write", "user:delete",
+            ],
+        }
+        return permission_map.get(role, [])
+```
+
+### Auth Controller: Login and Register
+
+```python
+from pydantic import BaseModel, Field
+
+from pyfly.container import rest_controller
+from pyfly.kernel.exceptions import UnauthorizedException, ConflictException
+from pyfly.web import (
+    request_mapping, get_mapping, post_mapping,
+    exception_handler, Body,
+)
+from pyfly.security import SecurityContext, secure
+
+
+class RegisterRequest(BaseModel):
+    username: str = Field(..., min_length=3, max_length=50)
+    email: str = Field(..., min_length=5)
+    password: str = Field(..., min_length=8)
+
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    expires_in: int = 86400  # 24 hours in seconds
+
+
+@rest_controller
+@request_mapping("/api/auth")
+class AuthController:
+
+    def __init__(self, auth_service: AuthService) -> None:
+        self._auth = auth_service
+
+    @post_mapping("/register", status_code=201)
+    async def register(self, body: Body[RegisterRequest]) -> TokenResponse:
+        token = await self._auth.register(
+            username=body.username,
+            email=body.email,
+            password=body.password,
+        )
+        return TokenResponse(access_token=token)
+
+    @post_mapping("/login")
+    async def login(self, body: Body[LoginRequest]) -> TokenResponse:
+        token = await self._auth.login(
+            username=body.username,
+            password=body.password,
+        )
+        return TokenResponse(access_token=token)
+
+    @get_mapping("/me")
+    @secure(roles=["USER", "ADMIN"])
+    async def me(self, security_context: SecurityContext) -> dict:
+        return await self._auth.get_current_user(security_context.user_id)
+
+    # --- Exception Handlers ---
+
+    @exception_handler(UnauthorizedException)
+    async def handle_unauthorized(self, exc: UnauthorizedException):
+        return 401, {
+            "error": {
+                "message": str(exc),
+                "code": exc.code or "UNAUTHORIZED",
+            }
+        }
+
+    @exception_handler(ConflictException)
+    async def handle_conflict(self, exc: ConflictException):
+        return 409, {
+            "error": {
+                "message": str(exc),
+                "code": exc.code or "CONFLICT",
+            }
+        }
+```
+
+### Protected Controller: Role-Based Endpoints
+
+```python
+from pyfly.web import delete_mapping, PathVar
+
+
+@rest_controller
+@request_mapping("/api/admin/users")
+class AdminUserController:
+
+    def __init__(self, user_repo: UserRepository) -> None:
+        self._users = user_repo
+
+    @get_mapping("/")
+    @secure(roles=["ADMIN"])
+    async def list_users(self, security_context: SecurityContext) -> list[dict]:
+        users = await self._users.find_all()
+        return [
+            {"id": str(u.id), "username": u.username, "role": u.role}
+            for u in users
+        ]
+
+    @delete_mapping("/{user_id}", status_code=204)
+    @secure(roles=["ADMIN"], permissions=["user:delete"])
+    async def delete_user(
+        self,
+        user_id: PathVar[str],
+        security_context: SecurityContext,
+    ) -> None:
+        from uuid import UUID
+        await self._users.delete(UUID(user_id))
+```
+
+### Application Assembly
+
+```python
+from pyfly.web import create_app, CORSConfig
+from pyfly.security import SecurityMiddleware, JWTService
+
+
+def build_app(context):
+    """Build the fully configured application."""
+    app = create_app(
+        title="My Application",
+        version="1.0.0",
+        description="Application with JWT authentication",
+        context=context,
+        docs_enabled=True,
+        cors=CORSConfig(
+            allowed_origins=["http://localhost:3000"],
+            allowed_methods=["GET", "POST", "PUT", "DELETE"],
+            allow_credentials=True,
+        ),
+    )
+
+    # Add security middleware
+    jwt_service = context.get_bean(JWTService)
+    app.add_middleware(
+        SecurityMiddleware,
+        jwt_service=jwt_service,
+        exclude_paths=[
+            "/docs",
+            "/redoc",
+            "/openapi.json",
+            "/api/auth/login",
+            "/api/auth/register",
+        ],
+    )
+
+    return app
+```
+
+### Testing the Flow
+
+**1. Register a new user:**
+
+```
+POST /api/auth/register
+Content-Type: application/json
+
+{
+    "username": "alice",
+    "email": "alice@example.com",
+    "password": "securepassword123"
+}
+
+Response 201:
+{
+    "access_token": "eyJhbGciOiJIUzI1NiI...",
+    "token_type": "bearer",
+    "expires_in": 86400
+}
+```
+
+**2. Log in:**
+
+```
+POST /api/auth/login
+Content-Type: application/json
+
+{
+    "username": "alice",
+    "password": "securepassword123"
+}
+
+Response 200:
+{
+    "access_token": "eyJhbGciOiJIUzI1NiI...",
+    "token_type": "bearer",
+    "expires_in": 86400
+}
+```
+
+**3. Access a protected endpoint:**
+
+```
+GET /api/auth/me
+Authorization: Bearer eyJhbGciOiJIUzI1NiI...
+
+Response 200:
+{
+    "id": "a1b2c3d4-...",
+    "username": "alice",
+    "email": "alice@example.com",
+    "role": "USER"
+}
+```
+
+**4. Access without a token:**
+
+```
+GET /api/auth/me
+
+Response 401:
+{
+    "error": {
+        "message": "Authentication required",
+        "code": "AUTH_REQUIRED",
+        "status": 401,
+        "path": "/api/auth/me",
+        "timestamp": "2026-02-14T10:30:00+00:00",
+        "transaction_id": "..."
+    }
+}
+```
+
+**5. Access an admin-only endpoint without the ADMIN role:**
+
+```
+GET /api/admin/users/
+Authorization: Bearer eyJhbGciOiJIUzI1NiI...  (token with role=USER)
+
+Response 401:
+{
+    "error": {
+        "message": "Insufficient roles: requires one of ['ADMIN']",
+        "code": "FORBIDDEN",
+        "status": 401,
+        "path": "/api/admin/users/",
+        "timestamp": "2026-02-14T10:30:00+00:00",
+        "transaction_id": "..."
+    }
+}
+```
