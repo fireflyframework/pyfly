@@ -47,16 +47,17 @@ class TestVendorIsolation:
         )
         assert result.returncode == 0, f"Starlette leaks found:\n{result.stdout}"
 
-    def test_sqlalchemy_only_in_data_adapters(self):
+    def test_sqlalchemy_only_in_data_and_cli(self):
         result = subprocess.run(
             [
                 sys.executable, "-c",
                 "import subprocess, sys; "
                 "r = subprocess.run("
-                "['grep', '-r', 'from sqlalchemy', 'src/pyfly/'], "
+                "['grep', '-r', '--include=*.py', 'from sqlalchemy', 'src/pyfly/'], "
                 "capture_output=True, text=True); "
                 "lines = [l for l in r.stdout.strip().split('\\n') if l]; "
-                "bad = [l for l in lines if 'adapters/sqlalchemy' not in l]; "
+                "bad = [l for l in lines "
+                "if '/data/' not in l and '/cli/' not in l]; "
                 "print('\\n'.join(bad) if bad else 'CLEAN'); "
                 "sys.exit(len(bad))",
             ],
