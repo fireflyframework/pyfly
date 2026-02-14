@@ -18,6 +18,7 @@ Default adapter (Starlette) exports are re-exported for convenience.
 """
 
 # Framework-agnostic exports
+from pyfly.web.cors import CORSConfig
 from pyfly.web.exception_handler import exception_handler
 from pyfly.web.mappings import (
     delete_mapping,
@@ -28,11 +29,13 @@ from pyfly.web.mappings import (
     request_mapping,
 )
 from pyfly.web.params import Body, Cookie, Header, PathVar, QueryParam
+from pyfly.web.security_headers import SecurityHeadersConfig
 
 # Default adapter (Starlette) re-exports
 from pyfly.web.adapters.starlette import (
     ControllerRegistrar,
     RequestLoggingMiddleware,
+    SecurityHeadersMiddleware,
     create_app,
     handle_return_value,
 )
@@ -40,10 +43,12 @@ from pyfly.web.adapters.starlette import (
 __all__ = [
     # Framework-agnostic
     "Body",
+    "CORSConfig",
     "Cookie",
     "Header",
     "PathVar",
     "QueryParam",
+    "SecurityHeadersConfig",
     "delete_mapping",
     "exception_handler",
     "get_mapping",
@@ -54,6 +59,7 @@ __all__ = [
     # Default adapter (Starlette)
     "ControllerRegistrar",
     "RequestLoggingMiddleware",
+    "SecurityHeadersMiddleware",
     "create_app",
     "handle_return_value",
 ]

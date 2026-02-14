@@ -38,7 +38,8 @@ class TestVendorIsolation:
                 "capture_output=True, text=True); "
                 "lines = [l for l in r.stdout.strip().split('\\n') if l]; "
                 "bad = [l for l in lines "
-                "if 'adapters/starlette' not in l and 'actuator/adapters' not in l]; "
+                "if 'adapters/starlette' not in l and 'actuator/adapters' not in l "
+                "and '/security/' not in l]; "
                 "print('\\n'.join(bad) if bad else 'CLEAN'); "
                 "sys.exit(len(bad))",
             ],

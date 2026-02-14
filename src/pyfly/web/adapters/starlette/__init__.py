@@ -25,11 +25,13 @@ from pyfly.web.adapters.starlette.middleware import TransactionIdMiddleware
 from pyfly.web.adapters.starlette.request_logger import RequestLoggingMiddleware
 from pyfly.web.adapters.starlette.resolver import ParameterResolver
 from pyfly.web.adapters.starlette.response import handle_return_value
+from pyfly.web.adapters.starlette.security_headers import SecurityHeadersMiddleware
 
 __all__ = [
     "ControllerRegistrar",
     "ParameterResolver",
     "RequestLoggingMiddleware",
+    "SecurityHeadersMiddleware",
     "TransactionIdMiddleware",
     "create_app",
     "global_exception_handler",
