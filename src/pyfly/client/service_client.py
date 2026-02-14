@@ -18,16 +18,15 @@ from __future__ import annotations
 from datetime import timedelta
 from typing import Any
 
-import httpx
-
 from pyfly.client.circuit_breaker import CircuitBreaker
+from pyfly.client.ports.outbound import HttpClientPort
 from pyfly.client.retry import RetryPolicy
 
 
 class ServiceClient:
     """Resilient HTTP client with circuit breaker and retry support.
 
-    Built on httpx with a fluent builder API:
+    Uses HttpClientPort abstraction — vendor-agnostic (defaults to httpx adapter).
 
         client = (ServiceClient.rest("user-service")
             .base_url("http://localhost:8081")
@@ -42,7 +41,7 @@ class ServiceClient:
     def __init__(
         self,
         name: str,
-        http_client: httpx.AsyncClient,
+        http_client: HttpClientPort,
         breaker: CircuitBreaker | None = None,
         retry_policy: RetryPolicy | None = None,
     ) -> None:
@@ -51,26 +50,26 @@ class ServiceClient:
         self._breaker = breaker
         self._retry = retry_policy
 
-    async def get(self, path: str, **kwargs: Any) -> httpx.Response:
+    async def get(self, path: str, **kwargs: Any) -> Any:
         """Send a GET request."""
         return await self._request("GET", path, **kwargs)
 
-    async def post(self, path: str, **kwargs: Any) -> httpx.Response:
+    async def post(self, path: str, **kwargs: Any) -> Any:
         """Send a POST request."""
         return await self._request("POST", path, **kwargs)
 
-    async def put(self, path: str, **kwargs: Any) -> httpx.Response:
+    async def put(self, path: str, **kwargs: Any) -> Any:
         """Send a PUT request."""
         return await self._request("PUT", path, **kwargs)
 
-    async def delete(self, path: str, **kwargs: Any) -> httpx.Response:
+    async def delete(self, path: str, **kwargs: Any) -> Any:
         """Send a DELETE request."""
         return await self._request("DELETE", path, **kwargs)
 
-    async def _request(self, method: str, path: str, **kwargs: Any) -> httpx.Response:
+    async def _request(self, method: str, path: str, **kwargs: Any) -> Any:
         """Execute an HTTP request with resilience patterns."""
 
-        async def do_request() -> httpx.Response:
+        async def do_request() -> Any:
             return await self._client.request(method, path, **kwargs)
 
         operation = do_request
@@ -78,7 +77,7 @@ class ServiceClient:
         if self._breaker is not None:
             original = operation
 
-            async def with_breaker() -> httpx.Response:
+            async def with_breaker() -> Any:
                 return await self._breaker.call(original)
 
             operation = with_breaker
@@ -86,7 +85,7 @@ class ServiceClient:
         if self._retry is not None:
             final_op = operation
 
-            async def with_retry() -> httpx.Response:
+            async def with_retry() -> Any:
                 return await self._retry.execute(final_op)
 
             operation = with_retry
@@ -95,7 +94,7 @@ class ServiceClient:
 
     async def close(self) -> None:
         """Close the underlying HTTP client."""
-        await self._client.aclose()
+        await self._client.close()
 
     @staticmethod
     def rest(name: str) -> ServiceClientBuilder:
@@ -154,10 +153,12 @@ class ServiceClientBuilder:
         return self
 
     def build(self) -> ServiceClient:
-        """Build the ServiceClient."""
-        http_client = httpx.AsyncClient(
+        """Build the ServiceClient, defaulting to HttpxClientAdapter."""
+        from pyfly.client.adapters.httpx_adapter import HttpxClientAdapter
+
+        http_client: HttpClientPort = HttpxClientAdapter(
             base_url=self._base_url,
-            timeout=self._timeout.total_seconds(),
+            timeout=self._timeout,
             headers=self._headers,
         )
         return ServiceClient(

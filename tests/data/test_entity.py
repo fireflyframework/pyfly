@@ -21,7 +21,7 @@ from sqlalchemy import String
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import Mapped, mapped_column
 
-from pyfly.data.entity import Base, BaseEntity
+from pyfly.data.adapters.sqlalchemy.entity import Base, BaseEntity
 from pyfly.data.page import Page
 
 

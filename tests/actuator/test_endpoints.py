@@ -22,7 +22,7 @@ from pyfly.actuator.health import HealthAggregator, HealthStatus
 from pyfly.container.stereotypes import component, service
 from pyfly.context.application_context import ApplicationContext
 from pyfly.core.config import Config
-from pyfly.web.app import create_app
+from pyfly.web.adapters.starlette.app import create_app
 
 
 # ---------------------------------------------------------------------------

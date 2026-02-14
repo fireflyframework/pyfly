@@ -21,7 +21,7 @@ from pyfly.container.stereotypes import repository, rest_controller, service
 from pyfly.context.application_context import ApplicationContext
 from pyfly.context.lifecycle import post_construct
 from pyfly.core.config import Config
-from pyfly.web.app import create_app
+from pyfly.web.adapters.starlette.app import create_app
 from pyfly.web.exception_handler import exception_handler
 from pyfly.web.mappings import delete_mapping, get_mapping, post_mapping, request_mapping
 from pyfly.web.params import Body, PathVar, QueryParam

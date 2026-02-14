@@ -20,10 +20,10 @@ from sqlalchemy import String, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import Mapped, mapped_column
 
-from pyfly.data.entity import Base, BaseEntity
+from pyfly.data.adapters.sqlalchemy.entity import Base, BaseEntity
+from pyfly.data.adapters.sqlalchemy.repository import Repository
+from pyfly.data.adapters.sqlalchemy.transactional import reactive_transactional
 from pyfly.data.page import Page
-from pyfly.data.repository import Repository
-from pyfly.data.transactional import reactive_transactional
 
 
 class Item(BaseEntity):

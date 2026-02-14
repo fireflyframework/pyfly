@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING, Any
 from pydantic import BaseModel
 
 if TYPE_CHECKING:
-    from pyfly.web.controller import RouteMetadata
+    from pyfly.web.adapters.starlette.controller import RouteMetadata
 
 _PATH_PARAM_RE = re.compile(r"\{(\w+)\}")
 

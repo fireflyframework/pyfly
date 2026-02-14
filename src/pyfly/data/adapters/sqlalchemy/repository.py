@@ -21,7 +21,7 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from pyfly.data.entity import BaseEntity
+from pyfly.data.adapters.sqlalchemy.entity import BaseEntity
 from pyfly.data.page import Page
 
 T = TypeVar("T", bound=BaseEntity)

@@ -11,27 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""PyFly Data — Repository pattern with pluggable adapters.
+"""Data access ports — abstract interfaces for persistence adapters."""
 
-Framework-agnostic types (Page, ports) are exported directly.
-Default adapter (SQLAlchemy) exports are re-exported for convenience.
-"""
-
-# Framework-agnostic exports
-from pyfly.data.page import Page
 from pyfly.data.ports.outbound import RepositoryPort, SessionPort
 
-# Default adapter (SQLAlchemy) re-exports
-from pyfly.data.adapters.sqlalchemy import Base, BaseEntity, Repository, reactive_transactional
-
-__all__ = [
-    # Framework-agnostic
-    "Page",
-    "RepositoryPort",
-    "SessionPort",
-    # Default adapter (SQLAlchemy)
-    "Base",
-    "BaseEntity",
-    "Repository",
-    "reactive_transactional",
-]
+__all__ = ["RepositoryPort", "SessionPort"]

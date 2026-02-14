@@ -16,7 +16,7 @@
 from pydantic import BaseModel
 from starlette.responses import HTMLResponse, JSONResponse
 
-from pyfly.web.response import handle_return_value
+from pyfly.web.adapters.starlette.response import handle_return_value
 
 
 class ItemResponse(BaseModel):

@@ -24,9 +24,9 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 
+from pyfly.web.adapters.starlette.resolver import ParameterResolver
+from pyfly.web.adapters.starlette.response import handle_return_value
 from pyfly.web.params import Body, Cookie, Header, PathVar, QueryParam
-from pyfly.web.resolver import ParameterResolver
-from pyfly.web.response import handle_return_value
 
 _BINDING_TYPES = {PathVar, QueryParam, Body, Header, Cookie}
 _MISSING = object()

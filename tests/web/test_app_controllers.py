@@ -20,7 +20,7 @@ from starlette.testclient import TestClient
 from pyfly.container.stereotypes import rest_controller, service
 from pyfly.context.application_context import ApplicationContext
 from pyfly.core.config import Config
-from pyfly.web.app import create_app
+from pyfly.web.adapters.starlette.app import create_app
 from pyfly.web.mappings import get_mapping, request_mapping
 
 

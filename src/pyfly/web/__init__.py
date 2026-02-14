@@ -11,10 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""PyFly Web — Enterprise web layer on Starlette."""
+"""PyFly Web — Enterprise web layer with pluggable adapters.
 
-from pyfly.web.app import create_app
-from pyfly.web.controller import ControllerRegistrar
+Framework-agnostic types (mappings, params, etc.) are exported directly.
+Default adapter (Starlette) exports are re-exported for convenience.
+"""
+
+# Framework-agnostic exports
 from pyfly.web.exception_handler import exception_handler
 from pyfly.web.mappings import (
     delete_mapping,
@@ -25,24 +28,32 @@ from pyfly.web.mappings import (
     request_mapping,
 )
 from pyfly.web.params import Body, Cookie, Header, PathVar, QueryParam
-from pyfly.web.request_logger import RequestLoggingMiddleware
-from pyfly.web.response import handle_return_value
+
+# Default adapter (Starlette) re-exports
+from pyfly.web.adapters.starlette import (
+    ControllerRegistrar,
+    RequestLoggingMiddleware,
+    create_app,
+    handle_return_value,
+)
 
 __all__ = [
+    # Framework-agnostic
     "Body",
-    "ControllerRegistrar",
     "Cookie",
     "Header",
     "PathVar",
     "QueryParam",
-    "RequestLoggingMiddleware",
-    "create_app",
     "delete_mapping",
     "exception_handler",
     "get_mapping",
-    "handle_return_value",
     "patch_mapping",
     "post_mapping",
     "put_mapping",
     "request_mapping",
+    # Default adapter (Starlette)
+    "ControllerRegistrar",
+    "RequestLoggingMiddleware",
+    "create_app",
+    "handle_return_value",
 ]

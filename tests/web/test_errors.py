@@ -36,7 +36,7 @@ from pyfly.kernel.exceptions import (
     UnsupportedMediaTypeException,
     ValidationException,
 )
-from pyfly.web.app import create_app
+from pyfly.web.adapters.starlette.app import create_app
 
 
 # --- Handler functions for make_test_app ---

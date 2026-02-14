@@ -20,7 +20,7 @@ from starlette.responses import PlainTextResponse
 from starlette.routing import Route
 from starlette.testclient import TestClient
 
-from pyfly.web.request_logger import RequestLoggingMiddleware
+from pyfly.web.adapters.starlette.request_logger import RequestLoggingMiddleware
 
 
 def _hello(request: Request) -> PlainTextResponse:
