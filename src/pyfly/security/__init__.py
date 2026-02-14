@@ -16,9 +16,12 @@
 from pyfly.security.context import SecurityContext
 from pyfly.security.decorators import secure
 from pyfly.security.jwt import JWTService
+from pyfly.security.password import BcryptPasswordEncoder, PasswordEncoder
 
 __all__ = [
+    "BcryptPasswordEncoder",
     "JWTService",
+    "PasswordEncoder",
     "SecurityContext",
     "secure",
 ]
