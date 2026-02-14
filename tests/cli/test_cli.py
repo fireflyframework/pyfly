@@ -428,32 +428,70 @@ class TestNewEnhancedLibrary:
 class TestNewInteractive:
     """Tests for interactive mode (no NAME argument)."""
 
-    def test_interactive_creates_project(self, tmp_path: Path):
+    @patch("pyfly.cli.new.questionary")
+    def test_interactive_creates_project(self, mock_q, tmp_path: Path):
+        # Mock questionary responses
+        mock_q.text.return_value.unsafe_ask.side_effect = ["demo-svc", "demo_svc"]
+        mock_q.select.return_value.unsafe_ask.return_value = "core"
+        mock_q.checkbox.return_value.unsafe_ask.return_value = []
+        mock_q.confirm.return_value.unsafe_ask.return_value = True
+
         runner = CliRunner()
-        # name, package (default), archetype=1, features (default=none), confirm=y
-        user_input = "demo-svc\n\n1\nnone\ny\n"
         result = runner.invoke(
             cli,
             ["new", "--directory", str(tmp_path)],
-            input=user_input,
         )
         assert result.exit_code == 0, result.output
         assert (tmp_path / "demo-svc").exists()
         assert (tmp_path / "demo-svc" / "pyproject.toml").exists()
 
-    def test_interactive_web_api(self, tmp_path: Path):
+    @patch("pyfly.cli.new.questionary")
+    def test_interactive_web_api(self, mock_q, tmp_path: Path):
+        mock_q.text.return_value.unsafe_ask.side_effect = ["my-api", "my_api"]
+        mock_q.select.return_value.unsafe_ask.return_value = "web-api"
+        mock_q.checkbox.return_value.unsafe_ask.return_value = ["web"]
+        mock_q.confirm.return_value.unsafe_ask.return_value = True
+
         runner = CliRunner()
-        # name, package (default), archetype=2 (web-api), features=web, confirm=y
-        user_input = "my-api\n\n2\nweb\ny\n"
         result = runner.invoke(
             cli,
             ["new", "--directory", str(tmp_path)],
-            input=user_input,
         )
         assert result.exit_code == 0, result.output
 
         p = tmp_path / "my-api"
         assert (p / "src" / "my_api" / "controllers" / "item_controller.py").exists()
+
+    @patch("pyfly.cli.new.questionary")
+    def test_interactive_cancel(self, mock_q, tmp_path: Path):
+        mock_q.text.return_value.unsafe_ask.side_effect = ["cancel-me", "cancel_me"]
+        mock_q.select.return_value.unsafe_ask.return_value = "core"
+        mock_q.checkbox.return_value.unsafe_ask.return_value = []
+        mock_q.confirm.return_value.unsafe_ask.return_value = False
+
+        runner = CliRunner()
+        result = runner.invoke(
+            cli,
+            ["new", "--directory", str(tmp_path)],
+        )
+        # Confirm=False raises SystemExit(0), which CliRunner captures
+        assert not (tmp_path / "cancel-me").exists()
+
+    @patch("pyfly.cli.new.questionary")
+    def test_interactive_library_skips_features(self, mock_q, tmp_path: Path):
+        mock_q.text.return_value.unsafe_ask.side_effect = ["my-lib", "my_lib"]
+        mock_q.select.return_value.unsafe_ask.return_value = "library"
+        mock_q.confirm.return_value.unsafe_ask.return_value = True
+
+        runner = CliRunner()
+        result = runner.invoke(
+            cli,
+            ["new", "--directory", str(tmp_path)],
+        )
+        assert result.exit_code == 0, result.output
+        assert (tmp_path / "my-lib").exists()
+        # checkbox should NOT have been called for library
+        mock_q.checkbox.assert_not_called()
 
 
 class TestNameValidation:

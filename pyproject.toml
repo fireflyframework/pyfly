@@ -85,6 +85,7 @@ cli = [
     "click>=8.1",
     "rich>=13.0",
     "jinja2>=3.1",
+    "questionary>=2.0",
 ]
 full = [
     "pyfly[web,data,postgresql,eda,cqrs,cache,client,observability,security,scheduling,cli,kafka,rabbitmq,redis]",

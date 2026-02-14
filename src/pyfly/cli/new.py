@@ -21,6 +21,8 @@ import sys
 from pathlib import Path
 
 import click
+import questionary
+from questionary import Choice, Style
 from rich.panel import Panel
 from rich.tree import Tree
 
@@ -32,6 +34,19 @@ from pyfly.cli.templates import (
     FEATURE_DESCRIPTIONS,
     generate_project,
 )
+
+PYFLY_STYLE = Style([
+    ("qmark", "fg:#b388ff bold"),
+    ("question", "bold"),
+    ("answer", "fg:#4fc3f7 bold"),
+    ("pointer", "fg:#b388ff bold"),
+    ("highlighted", "fg:#b388ff bold"),
+    ("selected", "fg:#66bb6a bold"),
+    ("separator", "fg:#cc5454"),
+    ("instruction", "fg:#757575"),
+    ("text", ""),
+    ("disabled", "fg:#858585 italic"),
+])
 
 _ARCHETYPES = list(ARCHETYPE_DESCRIPTIONS.keys())
 
@@ -68,59 +83,58 @@ def _validate_project_name(name: str) -> str | None:
 
 
 def _prompt_interactive() -> tuple[str, str, str, list[str]]:
-    """Run interactive prompts when NAME is omitted.
-
-    Returns (name, package_name, archetype, features).
-    """
+    """Run interactive wizard with arrow-key navigation and space-bar toggling."""
     console.print(Panel("[pyfly]  PyFly Project Generator  [/pyfly]", border_style="magenta"))
     console.print()
 
     # --- Project name ---
-    while True:
-        name = click.prompt("  Project name")
-        error = _validate_project_name(name)
-        if error is None:
-            break
-        console.print(f"  [error]{error}[/error]")
+    name = questionary.text(
+        "Project name:",
+        validate=lambda val: True if _validate_project_name(val) is None else _validate_project_name(val),
+        style=PYFLY_STYLE,
+    ).unsafe_ask()
 
     default_pkg = name.replace("-", "_").replace(" ", "_").lower()
-    package_name = click.prompt("  Package name", default=default_pkg)
+    package_name = questionary.text(
+        "Package name:",
+        default=default_pkg,
+        style=PYFLY_STYLE,
+    ).unsafe_ask()
 
-    # --- Archetype selection ---
-    console.print("\n  [info]Select an archetype:[/info]")
-    for i, key in enumerate(_ARCHETYPES, 1):
-        desc = ARCHETYPE_DESCRIPTIONS[key]
-        default_marker = " [dim](default)[/dim]" if i == 1 else ""
-        console.print(f"    [success]{i})[/success] {key:12s}  {desc}{default_marker}")
+    # --- Archetype selection (arrow keys) ---
+    archetype = questionary.select(
+        "Select archetype:",
+        choices=[
+            Choice(
+                title=f"{key:12s}  {ARCHETYPE_DESCRIPTIONS[key]}",
+                value=key,
+            )
+            for key in _ARCHETYPES
+        ],
+        style=PYFLY_STYLE,
+        instruction="(use arrow keys)",
+    ).unsafe_ask()
 
-    archetype_idx = click.prompt(
-        "\n  Archetype",
-        type=click.IntRange(1, len(_ARCHETYPES)),
-        default=1,
-        show_default=True,
-    )
-    archetype = _ARCHETYPES[archetype_idx - 1]
-
-    # --- Feature selection ---
-    defaults = DEFAULT_FEATURES[archetype]
-    console.print("\n  [info]Available features:[/info] [dim](comma-separated, or press Enter for defaults)[/dim]")
-    for feat in AVAILABLE_FEATURES:
-        marker = "[success]x[/success]" if feat in defaults else " "
-        desc = FEATURE_DESCRIPTIONS.get(feat, "")
-        console.print(f"    [{marker}] [success]{feat:16s}[/success] {desc}")
-
-    default_str = ",".join(defaults) if defaults else ""
-    features_input = click.prompt(
-        "\n  Features",
-        default=default_str or "none",
-        show_default=True,
-    )
-    if features_input.strip().lower() in ("none", ""):
+    # --- Feature selection (space bar toggle) — skip for library ---
+    if archetype == "library":
         features: list[str] = []
     else:
-        features = [f.strip() for f in features_input.split(",") if f.strip()]
+        defaults = DEFAULT_FEATURES[archetype]
+        features = questionary.checkbox(
+            "Select features:",
+            choices=[
+                Choice(
+                    title=f"{feat:16s} {FEATURE_DESCRIPTIONS.get(feat, '')}",
+                    value=feat,
+                    checked=feat in defaults,
+                )
+                for feat in AVAILABLE_FEATURES
+            ],
+            style=PYFLY_STYLE,
+            instruction="(space to toggle, enter to confirm)",
+        ).unsafe_ask()
 
-    # --- Confirmation ---
+    # --- Confirmation summary ---
     console.print()
     console.print(Panel(
         f"  [info]Name:[/info]      {name}\n"
@@ -131,7 +145,11 @@ def _prompt_interactive() -> tuple[str, str, str, list[str]]:
         border_style="cyan",
     ))
 
-    if not click.confirm("  Create this project?", default=True):
+    if not questionary.confirm(
+        "Create this project?",
+        default=True,
+        style=PYFLY_STYLE,
+    ).unsafe_ask():
         raise SystemExit(0)
 
     console.print()
