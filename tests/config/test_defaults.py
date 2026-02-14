@@ -126,3 +126,15 @@ class TestConfigEnvVarNormalization:
         monkeypatch.setenv("PYFLY_DATA_POOL_SIZE", "20")
         config = Config({})
         assert config.get("pyfly.data.pool-size") == "20"
+
+
+class TestDefaultsNoInfrastructure:
+    """Framework defaults must not depend on external infrastructure."""
+
+    def test_messaging_defaults_to_memory(self):
+        config = Config(Config._load_framework_defaults())
+        assert config.get("pyfly.messaging.provider") == "memory"
+
+    def test_cache_defaults_to_memory(self):
+        config = Config(Config._load_framework_defaults())
+        assert config.get("pyfly.cache.provider") == "memory"

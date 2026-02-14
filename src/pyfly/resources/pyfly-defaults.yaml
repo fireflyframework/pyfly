@@ -27,16 +27,10 @@ pyfly:
     pool-size: 5
   cache:
     enabled: false
-    provider: "auto"
-    redis:
-      url: "redis://localhost:6379/0"
+    provider: "memory"
     ttl: 300
   messaging:
-    provider: "auto"
-    kafka:
-      bootstrap-servers: "localhost:9092"
-    rabbitmq:
-      url: "amqp://guest:guest@localhost/"
+    provider: "memory"
   client:
     timeout: 30
     retry:
