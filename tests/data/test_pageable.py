@@ -163,6 +163,14 @@ class TestPageable:
         assert pageable.size == 20
         assert pageable.sort.orders == ()
 
+    def test_rejects_page_less_than_one(self) -> None:
+        with pytest.raises(ValueError, match="page must be >= 1"):
+            Pageable.of(0, 20)
+
+    def test_rejects_size_less_than_one(self) -> None:
+        with pytest.raises(ValueError, match="size must be >= 1"):
+            Pageable.of(1, 0)
+
     def test_frozen(self) -> None:
         pageable = Pageable.of(1, 20)
         with pytest.raises(AttributeError):

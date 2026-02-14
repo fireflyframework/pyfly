@@ -86,6 +86,13 @@ class Pageable:
     size: int = 20
     sort: Sort = field(default_factory=Sort)
 
+    def __post_init__(self) -> None:
+        if self.size != _UNPAGED_SENTINEL_SIZE:
+            if self.page < 1:
+                raise ValueError(f"page must be >= 1, got {self.page}")
+            if self.size < 1:
+                raise ValueError(f"size must be >= 1, got {self.size}")
+
     @staticmethod
     def of(page: int, size: int, sort: Sort | None = None) -> Pageable:
         """Create a pageable for the given page, size, and optional sort."""
