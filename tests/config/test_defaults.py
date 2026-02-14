@@ -138,3 +138,68 @@ class TestDefaultsNoInfrastructure:
     def test_cache_defaults_to_memory(self):
         config = Config(Config._load_framework_defaults())
         assert config.get("pyfly.cache.provider") == "memory"
+
+
+class TestMultiSourceConfig:
+    """Config should load and merge from multiple sources."""
+
+    def test_loads_from_config_dir_and_root(self, tmp_path: Path):
+        config_dir = tmp_path / "config"
+        config_dir.mkdir()
+        (config_dir / "pyfly.yaml").write_text("pyfly:\n  app:\n    name: from-config-dir\n")
+        (tmp_path / "pyfly.yaml").write_text("pyfly:\n  app:\n    version: '2.0'\n")
+
+        config = Config.from_sources(tmp_path)
+        assert config.get("pyfly.app.name") == "from-config-dir"
+        assert config.get("pyfly.app.version") == "2.0"
+
+    def test_root_overrides_config_dir(self, tmp_path: Path):
+        config_dir = tmp_path / "config"
+        config_dir.mkdir()
+        (config_dir / "pyfly.yaml").write_text("pyfly:\n  app:\n    name: config-dir\n  web:\n    port: 8080\n")
+        (tmp_path / "pyfly.yaml").write_text("pyfly:\n  app:\n    name: root-override\n")
+
+        config = Config.from_sources(tmp_path)
+        assert config.get("pyfly.app.name") == "root-override"  # root wins
+        assert config.get("pyfly.web.port") == 8080  # from config dir
+
+    def test_profile_overlays_from_both_locations(self, tmp_path: Path):
+        (tmp_path / "pyfly.yaml").write_text("pyfly:\n  app:\n    name: base\n  web:\n    port: 8080\n")
+        (tmp_path / "pyfly-dev.yaml").write_text("pyfly:\n  web:\n    port: 9090\n")
+
+        config = Config.from_sources(tmp_path, active_profiles=["dev"])
+        assert config.get("pyfly.app.name") == "base"
+        assert config.get("pyfly.web.port") == 9090
+
+    def test_tracks_loaded_sources(self, tmp_path: Path):
+        (tmp_path / "pyfly.yaml").write_text("pyfly:\n  app:\n    name: tracked\n")
+
+        config = Config.from_sources(tmp_path)
+        assert len(config.loaded_sources) >= 2  # defaults + pyfly.yaml
+        assert any("pyfly-defaults" in s for s in config.loaded_sources)
+        assert any("pyfly.yaml" in s for s in config.loaded_sources)
+
+    def test_toml_and_yaml_merged(self, tmp_path: Path):
+        (tmp_path / "pyfly.yaml").write_text("pyfly:\n  app:\n    name: from-yaml\n")
+        (tmp_path / "pyfly.toml").write_text('[pyfly.web]\nport = 9999\n')
+
+        config = Config.from_sources(tmp_path)
+        assert config.get("pyfly.app.name") == "from-yaml"
+        assert config.get("pyfly.web.port") == 9999
+
+    def test_config_subdir_profile_overlay(self, tmp_path: Path):
+        config_dir = tmp_path / "config"
+        config_dir.mkdir()
+        (config_dir / "pyfly.yaml").write_text("pyfly:\n  app:\n    name: config-dir\n")
+        (config_dir / "pyfly-prod.yaml").write_text("pyfly:\n  web:\n    port: 443\n")
+        (tmp_path / "pyfly.yaml").write_text("pyfly:\n  web:\n    port: 8080\n")
+
+        config = Config.from_sources(tmp_path, active_profiles=["prod"])
+        assert config.get("pyfly.app.name") == "config-dir"
+        assert config.get("pyfly.web.port") == 443
+
+    def test_empty_dir_returns_defaults(self, tmp_path: Path):
+        config = Config.from_sources(tmp_path)
+        # Should have loaded only defaults
+        assert config.get("pyfly.app.name") == "pyfly-app"  # from defaults
+        assert len(config.loaded_sources) == 1

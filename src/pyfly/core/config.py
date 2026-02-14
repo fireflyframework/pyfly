@@ -57,6 +57,64 @@ class Config:
 
     def __init__(self, data: dict[str, Any] | None = None) -> None:
         self._data: dict[str, Any] = data or {}
+        self._loaded_sources: list[str] = []
+
+    @property
+    def loaded_sources(self) -> list[str]:
+        """List of config file paths that were loaded, in merge order."""
+        return list(self._loaded_sources)
+
+    @classmethod
+    def from_sources(
+        cls,
+        base_dir: str | Path,
+        active_profiles: list[str] | None = None,
+        load_defaults: bool = True,
+    ) -> Config:
+        """Load and merge config from multiple sources (Spring Boot style).
+
+        Merge order (later wins):
+        1. Framework defaults (pyfly-defaults.yaml from package)
+        2. config/pyfly.yaml or config/pyfly.toml (config subdirectory)
+        3. pyfly.yaml or pyfly.toml (project root)
+        4. Profile overlays: config/pyfly-{profile}.yaml, pyfly-{profile}.yaml
+        5. Environment variables (handled at read time in get())
+        """
+        base_dir = Path(base_dir)
+        data: dict[str, Any] = {}
+        sources: list[str] = []
+
+        # 1. Framework defaults
+        if load_defaults:
+            data = cls._load_framework_defaults()
+            sources.append("pyfly-defaults.yaml (framework defaults)")
+
+        # 2. config/ subdirectory
+        for ext in (".yaml", ".toml"):
+            candidate = base_dir / "config" / f"pyfly{ext}"
+            if candidate.is_file():
+                data = cls._deep_merge(data, cls._load_config_data(candidate))
+                sources.append(str(candidate))
+
+        # 3. Project root
+        for ext in (".yaml", ".toml"):
+            candidate = base_dir / f"pyfly{ext}"
+            if candidate.is_file():
+                data = cls._deep_merge(data, cls._load_config_data(candidate))
+                sources.append(str(candidate))
+
+        # 4. Profile overlays (from both locations)
+        for profile in active_profiles or []:
+            for search_dir in [base_dir / "config", base_dir]:
+                for ext in (".yaml", ".toml"):
+                    candidate = search_dir / f"pyfly-{profile}{ext}"
+                    if candidate.is_file():
+                        data = cls._deep_merge(data, cls._load_config_data(candidate))
+                        sources.append(f"{candidate} (profile: {profile})")
+
+        instance = cls(data)
+        instance._loaded_sources = sources
+        return instance
 
     @classmethod
     def from_file(
@@ -65,34 +123,47 @@ class Config:
         active_profiles: list[str] | None = None,
         load_defaults: bool = True,
     ) -> Config:
-        """Load configuration from a YAML or TOML file, merging profile-specific overlays.
+        """Load configuration from a YAML or TOML file (backward-compatible).
 
-        Merge order (later wins):
-        1. Framework defaults (pyfly-defaults.yaml from pyfly.resources)
-        2. Base config (pyfly.yaml or pyfly.toml)
-        3. pyfly-{profile}.yaml/toml for each active profile, in order
-        4. Environment variables (handled at read time in get())
+        If *path* is a standard pyfly config (pyfly.yaml / pyfly.toml),
+        delegates to :meth:`from_sources` for full multi-source loading.
+        Otherwise, loads the single file directly (preserving original
+        behaviour for arbitrary config file names).
         """
-        # 1. Load framework defaults as base layer
+        path = Path(path)
+
+        # If the file follows the pyfly naming convention, use multi-source
+        if path.stem in ("pyfly",) or path.stem.startswith("pyfly-"):
+            return cls.from_sources(
+                base_dir=path.parent,
+                active_profiles=active_profiles,
+                load_defaults=load_defaults,
+            )
+
+        # Fallback: load the exact file (original from_file behaviour)
         data: dict[str, Any] = {}
+        sources: list[str] = []
+
         if load_defaults:
             data = cls._load_framework_defaults()
+            sources.append("pyfly-defaults.yaml (framework defaults)")
 
-        # 2. Load user config file
-        path = Path(path)
         if path.exists():
             user_data = cls._load_config_data(path)
             data = cls._deep_merge(data, user_data)
+            sources.append(str(path))
 
-        # 3. Merge profile overlays
         if path.exists():
             for profile in active_profiles or []:
                 profile_path = path.parent / f"{path.stem}-{profile}{path.suffix}"
                 if profile_path.exists():
                     profile_data = cls._load_config_data(profile_path)
                     data = cls._deep_merge(data, profile_data)
+                    sources.append(f"{profile_path} (profile: {profile})")
 
-        return cls(data)
+        instance = cls(data)
+        instance._loaded_sources = sources
+        return instance
 
     @staticmethod
     def _load_config_data(path: Path) -> dict[str, Any]:

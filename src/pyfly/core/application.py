@@ -71,13 +71,14 @@ class PyFlyApplication:
         self._scan_packages: list[str] = getattr(app_class, "__pyfly_scan_packages__", [])
         self._startup_time: float = 0.0
 
-        # 1. Load configuration (with profile merging)
-        config_file = self._find_config(config_path)
-        active_profiles = self._resolve_profiles_early(config_file)
-        if config_file:
-            self.config = Config.from_file(config_file, active_profiles=active_profiles)
+        # 1. Load configuration (with profile merging, multi-source)
+        config_dir = self._find_config_dir(config_path)
+        active_profiles = self._resolve_profiles_early(config_dir)
+        if config_dir:
+            self.config = Config.from_sources(config_dir, active_profiles=active_profiles)
         else:
             self.config = Config(Config._load_framework_defaults())
+            self.config._loaded_sources = ["pyfly-defaults.yaml (framework defaults)"]
 
         # 2. Configure logging
         self._logging = StructlogAdapter()
@@ -151,34 +152,37 @@ class PyFlyApplication:
         self._logger.info("shutting_down", app=self._name)
         await self._context.stop()
 
-    def _find_config(self, config_path: str | Path | None) -> Path | None:
-        """Find the configuration file path."""
+    def _find_config_dir(self, config_path: str | Path | None) -> Path | None:
+        """Find the project directory containing config files."""
         if config_path:
-            return Path(config_path)
+            p = Path(config_path)
+            return p.parent if p.is_file() else p
         for candidate in ["pyfly.yaml", "pyfly.toml", "config/pyfly.yaml", "config/pyfly.toml"]:
             if Path(candidate).exists():
-                return Path(candidate)
+                return Path(".")
         return None
 
     @staticmethod
-    def _resolve_profiles_early(config_path: Path | None) -> list[str]:
-        """Resolve active profiles before full config load (for merging)."""
+    def _resolve_profiles_early(config_dir: Path | None) -> list[str]:
+        """Resolve active profiles before full config load."""
         import os
 
         import yaml
 
-        # Env var takes priority
         env_profiles = os.environ.get("PYFLY_PROFILES_ACTIVE", "")
         if env_profiles:
             return [p.strip() for p in env_profiles.split(",") if p.strip()]
 
-        # Read from base config file
-        if config_path and config_path.exists():
-            with open(config_path) as f:
-                data = yaml.safe_load(f) or {}
-            profiles_value = (data.get("pyfly", {}) or {}).get("profiles", {})
-            active = profiles_value.get("active", "") if isinstance(profiles_value, dict) else ""
-            if active:
-                return [p.strip() for p in str(active).split(",") if p.strip()]
+        if config_dir is None:
+            return []
+
+        for candidate in [config_dir / "config" / "pyfly.yaml", config_dir / "pyfly.yaml"]:
+            if candidate.exists():
+                with open(candidate) as f:
+                    data = yaml.safe_load(f) or {}
+                profiles_value = (data.get("pyfly", {}) or {}).get("profiles", {})
+                active = profiles_value.get("active", "") if isinstance(profiles_value, dict) else ""
+                if active:
+                    return [p.strip() for p in str(active).split(",") if p.strip()]
 
         return []
