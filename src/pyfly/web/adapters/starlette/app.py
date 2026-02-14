@@ -34,6 +34,7 @@ from pyfly.web.openapi import OpenAPIGenerator
 
 if TYPE_CHECKING:
     from pyfly.context.application_context import ApplicationContext
+    from pyfly.web.cors import CORSConfig
 
 
 def create_app(
@@ -45,6 +46,7 @@ def create_app(
     docs_enabled: bool = True,
     extra_routes: list[Route] | None = None,
     actuator_enabled: bool = False,
+    cors: CORSConfig | None = None,
 ) -> Starlette:
     """Create a Starlette application with PyFly enterprise middleware.
 
@@ -56,11 +58,27 @@ def create_app(
     - Global exception handler (RFC 7807 style)
     - OpenAPI spec, Swagger UI, and ReDoc (when docs_enabled)
     - Actuator endpoints (when actuator_enabled)
+    - CORS support (when cors is provided)
     """
     middleware = [
         Middleware(TransactionIdMiddleware),
         Middleware(RequestLoggingMiddleware),
     ]
+
+    if cors is not None:
+        from starlette.middleware.cors import CORSMiddleware
+
+        middleware.append(
+            Middleware(
+                CORSMiddleware,
+                allow_origins=cors.allowed_origins,
+                allow_methods=cors.allowed_methods,
+                allow_headers=cors.allowed_headers,
+                allow_credentials=cors.allow_credentials,
+                expose_headers=cors.exposed_headers,
+                max_age=cors.max_age,
+            )
+        )
 
     routes: list[Route] = []
     registrar = ControllerRegistrar()
