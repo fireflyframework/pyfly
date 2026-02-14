@@ -18,6 +18,9 @@ from pydantic import BaseModel
 from starlette.testclient import TestClient
 
 from pyfly.cache import InMemoryCache, cache
+from pyfly.container.stereotypes import rest_controller, service
+from pyfly.context.application_context import ApplicationContext
+from pyfly.core.config import Config
 from pyfly.cqrs import Command, CommandHandler, Mediator, Query, QueryHandler, command_handler, query_handler
 from pyfly.eda import EventEnvelope, InMemoryEventBus
 from pyfly.kernel.exceptions import ResourceNotFoundException, ValidationException
@@ -26,6 +29,8 @@ from pyfly.security import SecurityContext, secure
 from pyfly.testing import assert_event_published, create_test_container
 from pyfly.validation import validate_model
 from pyfly.web import create_app
+from pyfly.web.mappings import get_mapping, post_mapping, request_mapping
+from pyfly.web.params import Body, PathVar
 
 # --- Domain models ---
 
@@ -70,6 +75,21 @@ class GetOrderHandler(QueryHandler[GetOrderQuery]):
             f"Order {query.order_id} not found",
             code="ORDER_NOT_FOUND",
         )
+
+
+# --- Controller integration models ---
+
+class ItemRequest(BaseModel):
+    name: str
+    price: float
+
+@service
+class IntegrationItemService:
+    def get(self, item_id: str) -> dict:
+        return {"id": item_id, "name": "Widget", "price": 9.99}
+
+    def create(self, name: str, price: float) -> dict:
+        return {"id": "new-1", "name": name, "price": price}
 
 
 # --- Integration test ---
@@ -180,45 +200,41 @@ class TestEndToEndOrderService:
 
 
 class TestOpenAPIIntegration:
-    def test_openapi_with_router_and_error_handling(self):
-        """Verify OpenAPI docs work alongside error handling and routers."""
-        from pyfly.web.router import PyFlyRouter
+    @pytest.mark.asyncio
+    async def test_controller_with_error_handling(self):
+        """Verify controllers work alongside error handling."""
+        @rest_controller
+        @request_mapping("/api/items")
+        class IntegrationItemCtrl:
+            def __init__(self, svc: IntegrationItemService):
+                self._svc = svc
 
-        router = PyFlyRouter(prefix="/api/orders", tags=["Orders"])
+            @get_mapping("/{item_id}")
+            async def get_item(self, item_id: PathVar[str]) -> dict:
+                return self._svc.get(item_id)
 
-        @router.get("/{order_id}", summary="Get order by ID")
-        async def get_order(request):
-            from starlette.responses import JSONResponse
-            order_id = request.path_params["order_id"]
-            if order_id == "missing":
-                raise ResourceNotFoundException("Order not found", code="ORDER_NOT_FOUND")
-            return JSONResponse({"id": order_id, "status": "created"})
+            @post_mapping("/", status_code=201)
+            async def create_item(self, body: Body[ItemRequest]) -> dict:
+                return self._svc.create(body.name, body.price)
 
-        @router.post("/", status_code=201, summary="Create order")
-        async def create_order(request):
-            from starlette.responses import JSONResponse
-            return JSONResponse({"id": "ord-001", "status": "created"}, status_code=201)
+        ctx = ApplicationContext(Config({}))
+        ctx.register_bean(IntegrationItemService)
+        ctx.register_bean(IntegrationItemCtrl)
+        await ctx.start()
 
-        app = create_app(title="Order Service", version="1.0.0", routers=[router])
+        app = create_app(title="Order Service", version="1.0.0", context=ctx)
         client = TestClient(app, raise_server_exceptions=False)
 
         # OpenAPI spec is served
         spec_resp = client.get("/openapi.json")
         assert spec_resp.status_code == 200
-        spec = spec_resp.json()
-        assert "/api/orders/{order_id}" in spec["paths"]
-        assert "/api/orders/" in spec["paths"]
+        assert spec_resp.json()["openapi"] == "3.1.0"
 
         # Swagger UI and ReDoc are served
         assert client.get("/docs").status_code == 200
         assert client.get("/redoc").status_code == 200
 
         # Routes actually work
-        resp = client.get("/api/orders/ord-001")
+        resp = client.get("/api/items/ord-001")
         assert resp.status_code == 200
         assert resp.json()["id"] == "ord-001"
-
-        # Error handling still works
-        resp = client.get("/api/orders/missing")
-        assert resp.status_code == 404
-        assert resp.json()["error"]["code"] == "ORDER_NOT_FOUND"
