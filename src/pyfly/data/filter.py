@@ -53,76 +53,76 @@ class FilterOperator:
     """
 
     @staticmethod
-    def eq(field: str, value: Any) -> Specification:
+    def eq(field: str, value: Any) -> Specification[Any]:
         """Equal to."""
         return Specification(lambda root, q, _f=field, _v=value: q.where(getattr(root, _f) == _v))
 
     @staticmethod
-    def neq(field: str, value: Any) -> Specification:
+    def neq(field: str, value: Any) -> Specification[Any]:
         """Not equal to."""
         return Specification(lambda root, q, _f=field, _v=value: q.where(getattr(root, _f) != _v))
 
     @staticmethod
-    def gt(field: str, value: Any) -> Specification:
+    def gt(field: str, value: Any) -> Specification[Any]:
         """Greater than."""
         return Specification(lambda root, q, _f=field, _v=value: q.where(getattr(root, _f) > _v))
 
     @staticmethod
-    def gte(field: str, value: Any) -> Specification:
+    def gte(field: str, value: Any) -> Specification[Any]:
         """Greater than or equal."""
         return Specification(
             lambda root, q, _f=field, _v=value: q.where(getattr(root, _f) >= _v)
         )
 
     @staticmethod
-    def lt(field: str, value: Any) -> Specification:
+    def lt(field: str, value: Any) -> Specification[Any]:
         """Less than."""
         return Specification(lambda root, q, _f=field, _v=value: q.where(getattr(root, _f) < _v))
 
     @staticmethod
-    def lte(field: str, value: Any) -> Specification:
+    def lte(field: str, value: Any) -> Specification[Any]:
         """Less than or equal."""
         return Specification(
             lambda root, q, _f=field, _v=value: q.where(getattr(root, _f) <= _v)
         )
 
     @staticmethod
-    def like(field: str, pattern: str) -> Specification:
+    def like(field: str, pattern: str) -> Specification[Any]:
         """SQL LIKE pattern match."""
         return Specification(
             lambda root, q, _f=field, _p=pattern: q.where(getattr(root, _f).like(_p))
         )
 
     @staticmethod
-    def contains(field: str, value: str) -> Specification:
+    def contains(field: str, value: str) -> Specification[Any]:
         """String contains (wraps in ``%value%``)."""
         return Specification(
             lambda root, q, _f=field, _v=value: q.where(getattr(root, _f).contains(_v))
         )
 
     @staticmethod
-    def in_list(field: str, values: list) -> Specification:
+    def in_list(field: str, values: list[Any]) -> Specification[Any]:
         """Value is in list."""
         return Specification(
             lambda root, q, _f=field, _v=values: q.where(getattr(root, _f).in_(_v))
         )
 
     @staticmethod
-    def is_null(field: str) -> Specification:
+    def is_null(field: str) -> Specification[Any]:
         """Value is NULL."""
         return Specification(
             lambda root, q, _f=field: q.where(getattr(root, _f).is_(None))
         )
 
     @staticmethod
-    def is_not_null(field: str) -> Specification:
+    def is_not_null(field: str) -> Specification[Any]:
         """Value is NOT NULL."""
         return Specification(
             lambda root, q, _f=field: q.where(getattr(root, _f).isnot(None))
         )
 
     @staticmethod
-    def between(field: str, low: Any, high: Any) -> Specification:
+    def between(field: str, low: Any, high: Any) -> Specification[Any]:
         """Value is between *low* and *high* (inclusive)."""
         return Specification(
             lambda root, q, _f=field, _lo=low, _hi=high: q.where(
@@ -149,13 +149,13 @@ class FilterUtils:
     """
 
     @staticmethod
-    def by(**kwargs: Any) -> Specification:
+    def by(**kwargs: Any) -> Specification[Any]:
         """Create a specification from keyword arguments (all eq, ANDed)."""
         specs = [FilterOperator.eq(field, value) for field, value in kwargs.items()]
         return FilterUtils._combine_and(specs)
 
     @staticmethod
-    def from_dict(filters: dict[str, Any]) -> Specification:
+    def from_dict(filters: dict[str, Any]) -> Specification[Any]:
         """Create a specification from a dict of field->value pairs (all eq, ANDed).
 
         ``None`` values are skipped.
@@ -168,7 +168,7 @@ class FilterUtils:
         return FilterUtils._combine_and(specs)
 
     @staticmethod
-    def from_example(example: Any) -> Specification:
+    def from_example(example: Any) -> Specification[Any]:
         """Create a specification from an example entity/DTO.
 
         Extracts non-``None`` field values and creates eq filters for each.
@@ -190,7 +190,7 @@ class FilterUtils:
         return FilterUtils._combine_and(specs)
 
     @staticmethod
-    def _combine_and(specs: list[Specification]) -> Specification:
+    def _combine_and(specs: list[Specification[Any]]) -> Specification[Any]:
         """AND-combine a list of specs.  Returns a no-op if empty."""
         if not specs:
             return Specification(lambda root, q: q)
