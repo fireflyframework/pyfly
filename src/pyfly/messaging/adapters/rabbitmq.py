@@ -1,0 +1,84 @@
+"""RabbitMQ message broker adapter — wraps aio-pika."""
+from __future__ import annotations
+
+from typing import Any
+
+from pyfly.messaging.ports.outbound import MessageHandler
+from pyfly.messaging.types import Message
+
+
+class RabbitMQAdapter:
+    """MessageBrokerPort implementation backed by RabbitMQ via aio-pika.
+
+    Requires aio-pika to be installed (pip install pyfly[rabbitmq]).
+    Uses a single direct exchange. Topics map to routing keys and queue names.
+    """
+
+    def __init__(
+        self,
+        url: str = "amqp://guest:guest@localhost/",
+        exchange_name: str = "pyfly",
+    ) -> None:
+        self._url = url
+        self._exchange_name = exchange_name
+        self._connection: Any = None
+        self._channel: Any = None
+        self._exchange: Any = None
+        self._handlers: list[tuple[str, MessageHandler, str | None]] = []
+
+    async def publish(
+        self,
+        topic: str,
+        value: bytes,
+        *,
+        key: bytes | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> None:
+        import aio_pika
+
+        message = aio_pika.Message(body=value, headers=headers or {})
+        await self._exchange.publish(message, routing_key=topic)
+
+    async def subscribe(
+        self,
+        topic: str,
+        handler: MessageHandler,
+        group: str | None = None,
+    ) -> None:
+        self._handlers.append((topic, handler, group))
+
+    async def start(self) -> None:
+        import aio_pika
+
+        self._connection = await aio_pika.connect_robust(self._url)
+        self._channel = await self._connection.channel()
+        self._exchange = await self._channel.declare_exchange(
+            self._exchange_name, aio_pika.ExchangeType.DIRECT, durable=True
+        )
+
+        for topic, handler, group in self._handlers:
+            queue_name = group or f"pyfly.{topic}"
+            queue = await self._channel.declare_queue(queue_name, durable=True)
+            await queue.bind(self._exchange, routing_key=topic)
+
+            async def on_message(
+                message: aio_pika.IncomingMessage,
+                _handler: MessageHandler = handler,
+                _topic: str = topic,
+            ) -> None:
+                async with message.process():
+                    msg = Message(
+                        topic=_topic,
+                        value=message.body,
+                        headers={
+                            k: str(v)
+                            for k, v in (message.headers or {}).items()
+                        },
+                    )
+                    await _handler(msg)
+
+            await queue.consume(on_message)
+
+    async def stop(self) -> None:
+        if self._connection is not None:
+            await self._connection.close()
