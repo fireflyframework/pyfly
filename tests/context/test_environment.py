@@ -42,3 +42,42 @@ class TestEnvironment:
     def test_get_property_none_when_missing(self):
         env = Environment(Config({}))
         assert env.get_property("missing.key") is None
+
+
+class TestAcceptsProfilesNegation:
+    def test_negation_matches_when_profile_not_active(self):
+        env = Environment(Config({}))
+        env._active_profiles = ["dev"]
+        assert env.accepts_profiles("!production") is True
+
+    def test_negation_does_not_match_when_profile_active(self):
+        env = Environment(Config({}))
+        env._active_profiles = ["production"]
+        assert env.accepts_profiles("!production") is False
+
+    def test_negation_mixed_with_positive(self):
+        env = Environment(Config({}))
+        env._active_profiles = ["dev"]
+        assert env.accepts_profiles("dev", "!production") is True
+
+    def test_negation_no_profiles_active(self):
+        env = Environment(Config({}))
+        env._active_profiles = []
+        assert env.accepts_profiles("!production") is True
+
+
+class TestAcceptsMultiProfile:
+    def test_comma_separated_matches_first(self):
+        env = Environment(Config({}))
+        env._active_profiles = ["dev"]
+        assert env.accepts_profiles("dev,test") is True
+
+    def test_comma_separated_matches_second(self):
+        env = Environment(Config({}))
+        env._active_profiles = ["test"]
+        assert env.accepts_profiles("dev,test") is True
+
+    def test_comma_separated_no_match(self):
+        env = Environment(Config({}))
+        env._active_profiles = ["production"]
+        assert env.accepts_profiles("dev,test") is False

@@ -26,8 +26,27 @@ class Environment:
         return list(self._active_profiles)
 
     def accepts_profiles(self, *profiles: str) -> bool:
-        """Return True if any of the given profiles are active."""
-        return any(p in self._active_profiles for p in profiles)
+        """Return True if any of the given profile expressions match.
+
+        Supports:
+        - Simple profiles: "dev" matches if "dev" is active
+        - Negation: "!production" matches if "production" is NOT active
+        - Comma-separated: "dev,test" matches if "dev" OR "test" is active
+        """
+        return any(self._matches_profile_expression(expr) for expr in profiles)
+
+    def _matches_profile_expression(self, expr: str) -> bool:
+        """Evaluate a single profile expression."""
+        if "," in expr:
+            sub_profiles = [p.strip() for p in expr.split(",") if p.strip()]
+            return any(self._matches_single(p) for p in sub_profiles)
+        return self._matches_single(expr)
+
+    def _matches_single(self, profile: str) -> bool:
+        """Evaluate a single profile token (with optional ! negation)."""
+        if profile.startswith("!"):
+            return profile[1:] not in self._active_profiles
+        return profile in self._active_profiles
 
     def get_property(self, key: str, default: Any = None) -> Any:
         """Get a configuration property by dotted key."""
