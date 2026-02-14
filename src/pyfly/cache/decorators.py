@@ -52,3 +52,85 @@ def cache(
         return wrapper  # type: ignore[return-value]
 
     return decorator
+
+
+def cacheable(
+    backend: CacheAdapter,
+    key: str,
+    ttl: timedelta | None = None,
+) -> Callable[[F], F]:
+    """Cache the return value, skip execution on cache hit.
+
+    Equivalent to :func:`cache`.
+
+    Args:
+        backend: Cache adapter to use.
+        key: Key template with {param} placeholders.
+        ttl: Optional time-to-live for cached entries.
+    """
+    return cache(backend=backend, key=key, ttl=ttl)
+
+
+def cache_evict(
+    backend: CacheAdapter,
+    key: str = "",
+    all_entries: bool = False,
+) -> Callable[[F], F]:
+    """Evict a cache entry (or all entries) after method execution.
+
+    Args:
+        backend: Cache adapter to use.
+        key: Key template with {param} placeholders. Ignored when *all_entries* is ``True``.
+        all_entries: When ``True``, clear the entire cache after execution.
+    """
+
+    def decorator(func: F) -> F:
+        @functools.wraps(func)
+        async def wrapper(*args: Any, **kwargs: Any) -> Any:
+            result = await func(*args, **kwargs)
+            if all_entries:
+                await backend.clear()
+            else:
+                sig = inspect.signature(func)
+                bound = sig.bind(*args, **kwargs)
+                bound.apply_defaults()
+                resolved_key = key.format(**bound.arguments)
+                await backend.evict(resolved_key)
+            return result
+
+        return wrapper  # type: ignore[return-value]
+
+    return decorator
+
+
+def cache_put(
+    backend: CacheAdapter,
+    key: str,
+    ttl: timedelta | None = None,
+) -> Callable[[F], F]:
+    """Always execute the method and cache the result.
+
+    Unlike :func:`cacheable`, the decorated function is always invoked.
+    This is useful for update operations where you want to refresh the
+    cached value.
+
+    Args:
+        backend: Cache adapter to use.
+        key: Key template with {param} placeholders.
+        ttl: Optional time-to-live for cached entries.
+    """
+
+    def decorator(func: F) -> F:
+        @functools.wraps(func)
+        async def wrapper(*args: Any, **kwargs: Any) -> Any:
+            result = await func(*args, **kwargs)
+            sig = inspect.signature(func)
+            bound = sig.bind(*args, **kwargs)
+            bound.apply_defaults()
+            resolved_key = key.format(**bound.arguments)
+            await backend.put(resolved_key, result, ttl=ttl)
+            return result
+
+        return wrapper  # type: ignore[return-value]
+
+    return decorator
