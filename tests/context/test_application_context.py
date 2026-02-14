@@ -18,6 +18,13 @@ import pytest
 from pyfly.container.bean import bean
 from pyfly.container.stereotypes import configuration, repository, service
 from pyfly.context.application_context import ApplicationContext
+from pyfly.context.conditions import (
+    auto_configuration,
+    conditional_on_bean,
+    conditional_on_class,
+    conditional_on_missing_bean,
+    conditional_on_property,
+)
 from pyfly.context.events import ApplicationReadyEvent, ContextRefreshedEvent
 from pyfly.context.lifecycle import post_construct, pre_destroy
 from pyfly.core.config import Config
@@ -383,3 +390,283 @@ class TestOrderSorting:
         results = ctx.get_beans_of_type(Base)
         assert isinstance(results[0], FirstImpl)
         assert isinstance(results[1], ThirdImpl)
+
+
+# ------------------------------------------------------------------
+# Conditional evaluation integration tests
+# ------------------------------------------------------------------
+
+
+class TestConditionalOnPropertyIntegration:
+    @pytest.mark.asyncio
+    async def test_excluded_when_property_does_not_match(self):
+        config = Config({"cache": {"enabled": "false"}})
+        ctx = ApplicationContext(config)
+
+        @conditional_on_property("cache.enabled", having_value="true")
+        @service
+        class CacheService:
+            pass
+
+        ctx.register_bean(CacheService)
+        await ctx.start()
+        with pytest.raises(KeyError):
+            ctx.get_bean(CacheService)
+
+    @pytest.mark.asyncio
+    async def test_included_when_property_matches(self):
+        config = Config({"cache": {"enabled": "true"}})
+        ctx = ApplicationContext(config)
+
+        @conditional_on_property("cache.enabled", having_value="true")
+        @service
+        class CacheService:
+            pass
+
+        ctx.register_bean(CacheService)
+        await ctx.start()
+        assert ctx.get_bean(CacheService) is not None
+
+    @pytest.mark.asyncio
+    async def test_excluded_when_property_missing(self):
+        config = Config({})
+        ctx = ApplicationContext(config)
+
+        @conditional_on_property("feature.enabled", having_value="true")
+        @service
+        class FeatureService:
+            pass
+
+        ctx.register_bean(FeatureService)
+        await ctx.start()
+        with pytest.raises(KeyError):
+            ctx.get_bean(FeatureService)
+
+
+class TestConditionalOnClassIntegration:
+    @pytest.mark.asyncio
+    async def test_included_when_module_available(self):
+        ctx = ApplicationContext(Config({}))
+
+        @conditional_on_class("json")
+        @service
+        class JsonService:
+            pass
+
+        ctx.register_bean(JsonService)
+        await ctx.start()
+        assert ctx.get_bean(JsonService) is not None
+
+    @pytest.mark.asyncio
+    async def test_excluded_when_module_unavailable(self):
+        ctx = ApplicationContext(Config({}))
+
+        @conditional_on_class("nonexistent_xyz_module_12345")
+        @service
+        class MissingDepService:
+            pass
+
+        ctx.register_bean(MissingDepService)
+        await ctx.start()
+        with pytest.raises(KeyError):
+            ctx.get_bean(MissingDepService)
+
+
+class TestConditionalOnMissingBeanIntegration:
+    @pytest.mark.asyncio
+    async def test_included_when_no_bean_exists(self):
+        ctx = ApplicationContext(Config({}))
+
+        class CachePort:
+            pass
+
+        @conditional_on_missing_bean(CachePort)
+        @service
+        class FallbackCache(CachePort):
+            pass
+
+        ctx.register_bean(FallbackCache)
+        await ctx.start()
+        assert ctx.get_bean(FallbackCache) is not None
+
+    @pytest.mark.asyncio
+    async def test_excluded_when_bean_exists(self):
+        ctx = ApplicationContext(Config({}))
+
+        class CachePort:
+            pass
+
+        @service
+        class RedisCache(CachePort):
+            pass
+
+        @conditional_on_missing_bean(CachePort)
+        @service
+        class FallbackCache(CachePort):
+            pass
+
+        ctx.register_bean(RedisCache)
+        ctx.register_bean(FallbackCache)
+        await ctx.start()
+        # RedisCache should survive, FallbackCache should be removed
+        assert ctx.get_bean(RedisCache) is not None
+        with pytest.raises(KeyError):
+            ctx.get_bean(FallbackCache)
+
+
+class TestConditionalOnBeanIntegration:
+    @pytest.mark.asyncio
+    async def test_included_when_dependency_exists(self):
+        ctx = ApplicationContext(Config({}))
+
+        class DataSource:
+            pass
+
+        @service
+        class PostgresDataSource(DataSource):
+            pass
+
+        @conditional_on_bean(DataSource)
+        @service
+        class TransactionManager:
+            pass
+
+        ctx.register_bean(PostgresDataSource)
+        ctx.register_bean(TransactionManager)
+        await ctx.start()
+        assert ctx.get_bean(TransactionManager) is not None
+
+    @pytest.mark.asyncio
+    async def test_excluded_when_dependency_missing(self):
+        ctx = ApplicationContext(Config({}))
+
+        class DataSource:
+            pass
+
+        @conditional_on_bean(DataSource)
+        @service
+        class TransactionManager:
+            pass
+
+        ctx.register_bean(TransactionManager)
+        await ctx.start()
+        with pytest.raises(KeyError):
+            ctx.get_bean(TransactionManager)
+
+
+class TestAutoConfigurationIntegration:
+    @pytest.mark.asyncio
+    async def test_auto_config_processed_after_user_config(self):
+        processing_order: list[str] = []
+
+        @configuration
+        class UserConfig:
+            @bean
+            def user_message(self) -> str:
+                processing_order.append("user")
+                return "from user"
+
+        @auto_configuration
+        class FallbackConfig:
+            @bean
+            def fallback_value(self) -> int:
+                processing_order.append("auto")
+                return 42
+
+        ctx = ApplicationContext(Config({}))
+        ctx.register_bean(UserConfig)
+        ctx.register_bean(FallbackConfig)
+        await ctx.start()
+
+        assert processing_order == ["user", "auto"]
+        assert ctx.get_bean(str) == "from user"
+        assert ctx.get_bean(int) == 42
+
+    @pytest.mark.asyncio
+    async def test_auto_config_skipped_when_user_provides_bean(self):
+        """@auto_configuration + @conditional_on_missing_bean: user bean wins."""
+        ctx = ApplicationContext(Config({}))
+
+        class CachePort:
+            pass
+
+        @service
+        class UserCache(CachePort):
+            pass
+
+        @conditional_on_missing_bean(CachePort)
+        @auto_configuration
+        class AutoCacheConfig:
+            @bean
+            def cache(self) -> CachePort:
+                return CachePort()
+
+        ctx.register_bean(UserCache)
+        ctx.register_bean(AutoCacheConfig)
+        await ctx.start()
+
+        # User bean should survive
+        assert ctx.get_bean(UserCache) is not None
+        # Auto-config should have been removed
+        with pytest.raises(KeyError):
+            ctx.get_bean(AutoCacheConfig)
+
+
+class TestStackedConditionsIntegration:
+    @pytest.mark.asyncio
+    async def test_both_conditions_pass(self):
+        config = Config({"feature": {"enabled": "true"}})
+        ctx = ApplicationContext(config)
+
+        @conditional_on_class("json")
+        @conditional_on_property("feature.enabled", having_value="true")
+        @service
+        class FeatureService:
+            pass
+
+        ctx.register_bean(FeatureService)
+        await ctx.start()
+        assert ctx.get_bean(FeatureService) is not None
+
+    @pytest.mark.asyncio
+    async def test_one_condition_fails(self):
+        config = Config({"feature": {"enabled": "true"}})
+        ctx = ApplicationContext(config)
+
+        @conditional_on_class("nonexistent_xyz_module_12345")
+        @conditional_on_property("feature.enabled", having_value="true")
+        @service
+        class FeatureService:
+            pass
+
+        ctx.register_bean(FeatureService)
+        await ctx.start()
+        with pytest.raises(KeyError):
+            ctx.get_bean(FeatureService)
+
+
+class TestSingularConditionIntegration:
+    @pytest.mark.asyncio
+    async def test_stereotype_condition_true(self):
+        ctx = ApplicationContext(Config({}))
+
+        @service(condition=lambda: True)
+        class AlwaysService:
+            pass
+
+        ctx.register_bean(AlwaysService)
+        await ctx.start()
+        assert ctx.get_bean(AlwaysService) is not None
+
+    @pytest.mark.asyncio
+    async def test_stereotype_condition_false(self):
+        ctx = ApplicationContext(Config({}))
+
+        @service(condition=lambda: False)
+        class NeverService:
+            pass
+
+        ctx.register_bean(NeverService)
+        await ctx.start()
+        with pytest.raises(KeyError):
+            ctx.get_bean(NeverService)

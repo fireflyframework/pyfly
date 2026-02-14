@@ -1,0 +1,106 @@
+# Copyright 2026 Firefly Software Solutions Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+"""Condition evaluator — evaluates @conditional_on_* decorators during startup."""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pyfly.container.container import Container
+    from pyfly.core.config import Config
+
+
+# Condition types that depend on the bean registry (must be evaluated in pass 2).
+_BEAN_DEPENDENT_TYPES = frozenset({"on_bean", "on_missing_bean"})
+
+
+class ConditionEvaluator:
+    """Evaluates @conditional_on_* decorators during ApplicationContext startup.
+
+    Uses a two-pass strategy:
+    - **Pass 1:** Evaluate conditions independent of the bean registry
+      (``on_property``, ``on_class``).
+    - **Pass 2:** Evaluate bean-dependent conditions (``on_bean``,
+      ``on_missing_bean``) against the surviving set from pass 1.
+    """
+
+    def __init__(self, config: Config, container: Container) -> None:
+        self._config = config
+        self._container = container
+
+    def should_include(self, cls: type, *, bean_pass: bool = False) -> bool:
+        """Return True if all conditions on *cls* pass.
+
+        Args:
+            cls: The class to evaluate.
+            bean_pass: When False (pass 1), only non-bean-dependent conditions
+                are checked. When True (pass 2), only bean-dependent conditions
+                are checked.
+        """
+        # Check __pyfly_condition__ (singular callable from stereotype decorators)
+        if not bean_pass:
+            single = getattr(cls, "__pyfly_condition__", None)
+            if single is not None and not single():
+                return False
+
+        # Check __pyfly_conditions__ (list of dicts from conditional decorators)
+        conditions: list[dict] = getattr(cls, "__pyfly_conditions__", [])
+        for cond in conditions:
+            is_bean_dep = cond["type"] in _BEAN_DEPENDENT_TYPES
+            if is_bean_dep != bean_pass:
+                continue  # Skip — belongs to the other pass
+            if not self._evaluate(cond, declaring_cls=cls):
+                return False
+
+        return True
+
+    # ------------------------------------------------------------------
+    # Individual condition evaluators
+    # ------------------------------------------------------------------
+
+    def _evaluate(self, cond: dict, *, declaring_cls: type | None = None) -> bool:
+        cond_type = cond["type"]
+        if cond_type == "on_property":
+            return self._eval_on_property(cond)
+        if cond_type == "on_class":
+            return cond["check"]()
+        if cond_type == "on_missing_bean":
+            return self._eval_on_missing_bean(cond, declaring_cls)
+        if cond_type == "on_bean":
+            return self._eval_on_bean(cond, declaring_cls)
+        return True  # Unknown condition type — pass
+
+    def _eval_on_property(self, cond: dict) -> bool:
+        value = self._config.get(cond["key"])
+        if value is None:
+            return False
+        if cond["having_value"]:
+            return str(value) == cond["having_value"]
+        return True  # Key exists, no specific value required
+
+    def _eval_on_missing_bean(self, cond: dict, declaring_cls: type | None = None) -> bool:
+        return not self._has_bean_of_type(cond["bean_type"], exclude=declaring_cls)
+
+    def _eval_on_bean(self, cond: dict, declaring_cls: type | None = None) -> bool:
+        return self._has_bean_of_type(cond["bean_type"], exclude=declaring_cls)
+
+    def _has_bean_of_type(self, bean_type: type, *, exclude: type | None = None) -> bool:
+        """Check if any registered bean is a subclass of the given type."""
+        for cls in self._container._registrations:
+            if cls is bean_type or cls is exclude:
+                continue
+            if issubclass(cls, bean_type):
+                return True
+        return False

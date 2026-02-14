@@ -18,6 +18,8 @@ from __future__ import annotations
 import importlib
 from typing import Any, TypeVar
 
+from pyfly.container.types import Scope
+
 T = TypeVar("T", bound=type)
 
 
@@ -82,3 +84,33 @@ def conditional_on_missing_bean(bean_type: type) -> Any:
         return cls
 
     return decorator
+
+
+def conditional_on_bean(bean_type: type) -> Any:
+    """Only register this bean if another bean of the given type exists."""
+
+    def decorator(cls: T) -> T:
+        conditions = getattr(cls, "__pyfly_conditions__", [])
+        conditions.append({"type": "on_bean", "bean_type": bean_type})
+        cls.__pyfly_conditions__ = conditions  # type: ignore[attr-defined]
+        return cls
+
+    return decorator
+
+
+def auto_configuration(cls: T) -> T:
+    """Mark a @configuration class as auto-configuration.
+
+    Auto-configuration classes:
+    - Are processed AFTER user @configuration classes
+    - Get implicit @order(1000) (lower priority)
+    - Work with @conditional_on_* decorators
+    """
+    cls.__pyfly_auto_configuration__ = True  # type: ignore[attr-defined]
+    cls.__pyfly_injectable__ = True  # type: ignore[attr-defined]
+    cls.__pyfly_stereotype__ = "configuration"  # type: ignore[attr-defined]
+    if not hasattr(cls, "__pyfly_scope__"):
+        cls.__pyfly_scope__ = Scope.SINGLETON  # type: ignore[attr-defined]
+    if not hasattr(cls, "__pyfly_order__"):
+        cls.__pyfly_order__ = 1000  # type: ignore[attr-defined]
+    return cls

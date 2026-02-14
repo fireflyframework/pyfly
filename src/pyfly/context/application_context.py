@@ -23,6 +23,7 @@ from typing import Any, TypeVar
 from pyfly.container.container import Container
 from pyfly.container.ordering import get_order
 from pyfly.container.types import Scope
+from pyfly.context.condition_evaluator import ConditionEvaluator
 from pyfly.context.environment import Environment
 from pyfly.context.events import (
     ApplicationEventBus,
@@ -136,10 +137,18 @@ class ApplicationContext:
         # 1. Filter beans by active profiles
         self._filter_by_profile()
 
-        # 2. Process @configuration classes and their @bean methods
-        self._process_configurations()
+        # 1b. Evaluate @conditional_on_* decorators (pass 1: property/class)
+        self._evaluate_conditions()
 
-        # 2b. Run auto-configuration (detect providers, wire adapter beans)
+        # 2. Process user @configuration classes and their @bean methods
+        self._process_configurations(auto=False)
+
+        # 2b. Process @auto_configuration classes (after user configs, so
+        #     @conditional_on_missing_bean can see user-provided beans)
+        self._evaluate_bean_conditions()
+        self._process_configurations(auto=True)
+
+        # 2c. Run imperative auto-configuration (detect providers, wire adapter beans)
         from pyfly.config.auto import AutoConfigurationEngine
 
         engine = AutoConfigurationEngine()
@@ -200,14 +209,46 @@ class ApplicationContext:
                 to_remove.append(cls)
 
         for cls in to_remove:
-            reg = self._container._registrations.pop(cls)
-            if reg.name and reg.name in self._container._named:
-                del self._container._named[reg.name]
+            self._remove_registration(cls)
 
-    def _process_configurations(self) -> None:
-        """Find @configuration beans, call their @bean methods, register results."""
+    def _evaluate_conditions(self) -> None:
+        """Pass 1: remove beans that fail non-bean-dependent conditions (on_property, on_class)."""
+        evaluator = ConditionEvaluator(self._config, self._container)
+        to_remove: list[type] = []
+        for cls in list(self._container._registrations):
+            if not evaluator.should_include(cls, bean_pass=False):
+                to_remove.append(cls)
+        for cls in to_remove:
+            self._remove_registration(cls)
+
+    def _evaluate_bean_conditions(self) -> None:
+        """Pass 2: remove beans that fail bean-dependent conditions (on_bean, on_missing_bean)."""
+        evaluator = ConditionEvaluator(self._config, self._container)
+        to_remove: list[type] = []
+        for cls in list(self._container._registrations):
+            if not evaluator.should_include(cls, bean_pass=True):
+                to_remove.append(cls)
+        for cls in to_remove:
+            self._remove_registration(cls)
+
+    def _remove_registration(self, cls: type) -> None:
+        """Remove a bean registration and its named entry."""
+        reg = self._container._registrations.pop(cls)
+        if reg.name and reg.name in self._container._named:
+            del self._container._named[reg.name]
+
+    def _process_configurations(self, *, auto: bool = False) -> None:
+        """Find @configuration beans, call their @bean methods, register results.
+
+        Args:
+            auto: When False, process only user @configuration classes.
+                  When True, process only @auto_configuration classes.
+        """
         for cls, _reg in list(self._container._registrations.items()):
             if getattr(cls, "__pyfly_stereotype__", "") != "configuration":
+                continue
+            is_auto = getattr(cls, "__pyfly_auto_configuration__", False)
+            if is_auto != auto:
                 continue
 
             # Resolve the configuration class itself
