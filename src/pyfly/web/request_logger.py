@@ -17,10 +17,24 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         start = time.perf_counter()
-        response = await call_next(request)
-        duration_ms = (time.perf_counter() - start) * 1000
-
         tx_id = getattr(request.state, "transaction_id", None)
+
+        try:
+            response = await call_next(request)
+        except Exception as exc:
+            duration_ms = (time.perf_counter() - start) * 1000
+            logger.error(
+                "http_request_failed",
+                method=request.method,
+                path=request.url.path,
+                duration_ms=round(duration_ms, 2),
+                transaction_id=tx_id,
+                error=str(exc),
+                error_type=type(exc).__name__,
+            )
+            raise
+
+        duration_ms = (time.perf_counter() - start) * 1000
         logger.info(
             "http_request",
             method=request.method,

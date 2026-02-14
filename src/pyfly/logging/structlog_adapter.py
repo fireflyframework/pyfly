@@ -21,7 +21,7 @@ class StructlogAdapter:
 
     def configure(self, config: Config) -> None:
         """Configure structlog from the logging section of config."""
-        level_section = config.get_section("logging.level")
+        level_section = dict(config.get_section("logging.level"))
         self._root_level = str(level_section.pop("root", "INFO")).upper()
         self._module_levels = {k: str(v).upper() for k, v in level_section.items()}
         self._format = str(config.get("logging.format", "console")).lower()

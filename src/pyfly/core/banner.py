@@ -89,13 +89,16 @@ class BannerPrinter:
         return banner_text.rstrip("\n") + "\n\n" + framework_line
 
     def _load_custom_banner(self) -> str | None:
-        """Load custom banner file, returning None if not found."""
+        """Load custom banner file, returning None if not found or unreadable."""
         if not self._custom_location:
             return None
         path = Path(self._custom_location)
         if not path.exists():
             return None
-        return path.read_text()
+        try:
+            return path.read_text()
+        except (OSError, UnicodeDecodeError):
+            return None
 
     def _replace_placeholders(self, text: str) -> str:
         """Replace ${...} placeholders in banner text."""
