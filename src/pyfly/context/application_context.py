@@ -8,6 +8,7 @@ import typing
 from typing import Any, TypeVar
 
 from pyfly.container.container import Container
+from pyfly.container.ordering import get_order
 from pyfly.container.types import Scope
 from pyfly.context.environment import Environment
 from pyfly.context.events import (
@@ -74,8 +75,9 @@ class ApplicationContext:
         return self._container.resolve_by_name(name)
 
     def get_beans_of_type(self, bean_type: type[T]) -> list[T]:
-        """Resolve all beans of the given type."""
-        return self._container.resolve_all(bean_type)
+        """Resolve all beans of the given type, sorted by @order."""
+        results = self._container.resolve_all(bean_type)
+        return sorted(results, key=lambda b: get_order(type(b)))
 
     def contains_bean(self, name: str) -> bool:
         """Check if a named bean exists."""
@@ -124,26 +126,31 @@ class ApplicationContext:
         # 2. Process @configuration classes and their @bean methods
         self._process_configurations()
 
-        # 3. Eagerly resolve all singletons
-        for cls, reg in list(self._container._registrations.items()):
+        # 3. Eagerly resolve all singletons (sorted by @order)
+        sorted_entries = sorted(
+            self._container._registrations.items(),
+            key=lambda item: get_order(item[0]),
+        )
+        for cls, reg in sorted_entries:
             if reg.scope == Scope.SINGLETON and reg.instance is None:
                 with contextlib.suppress(KeyError):
                     self._container.resolve(cls)
 
         # 4. Run post-processors and lifecycle hooks
+        sorted_pps = sorted(self._post_processors, key=lambda pp: get_order(type(pp)))
         for reg in self._container._registrations.values():
             if reg.instance is not None:
                 bean_name = reg.name or reg.impl_type.__name__
 
                 # BeanPostProcessor.before_init
-                for pp in self._post_processors:
+                for pp in sorted_pps:
                     reg.instance = pp.before_init(reg.instance, bean_name)
 
                 # @post_construct
                 await self._call_post_construct(reg.instance)
 
                 # BeanPostProcessor.after_init
-                for pp in self._post_processors:
+                for pp in sorted_pps:
                     reg.instance = pp.after_init(reg.instance, bean_name)
 
         # 5. Publish lifecycle events

@@ -239,3 +239,134 @@ class TestProfileBasedBeanFiltering:
         ctx_with_profiles.register_bean(ExcludedService)
         await ctx_with_profiles.start()
         assert ctx_with_profiles.bean_count >= 1
+
+
+class TestOrderSorting:
+    async def test_beans_initialized_in_order(self):
+        from pyfly.container.ordering import order
+
+        init_order: list[str] = []
+
+        @order(2)
+        @service
+        class SecondService:
+            def __init__(self):
+                init_order.append("second")
+
+        @order(1)
+        @service
+        class FirstService:
+            def __init__(self):
+                init_order.append("first")
+
+        @order(3)
+        @service
+        class ThirdService:
+            def __init__(self):
+                init_order.append("third")
+
+        config = Config({})
+        ctx = ApplicationContext(config)
+        ctx.register_bean(SecondService)
+        ctx.register_bean(FirstService)
+        ctx.register_bean(ThirdService)
+
+        await ctx.start()
+        assert init_order == ["first", "second", "third"]
+
+    async def test_undecorated_beans_default_to_zero(self):
+        from pyfly.container.ordering import order
+
+        init_order: list[str] = []
+
+        @order(-1)
+        @service
+        class EarlyService:
+            def __init__(self):
+                init_order.append("early")
+
+        @service
+        class DefaultService:
+            def __init__(self):
+                init_order.append("default")
+
+        @order(1)
+        @service
+        class LateService:
+            def __init__(self):
+                init_order.append("late")
+
+        config = Config({})
+        ctx = ApplicationContext(config)
+        ctx.register_bean(LateService)
+        ctx.register_bean(DefaultService)
+        ctx.register_bean(EarlyService)
+
+        await ctx.start()
+        assert init_order == ["early", "default", "late"]
+
+    async def test_post_processors_sorted_by_order(self):
+        from pyfly.container.ordering import order
+
+        call_order: list[str] = []
+
+        @order(2)
+        class SecondPP:
+            def before_init(self, bean, name):
+                call_order.append("second-before")
+                return bean
+
+            def after_init(self, bean, name):
+                return bean
+
+        @order(1)
+        class FirstPP:
+            def before_init(self, bean, name):
+                call_order.append("first-before")
+                return bean
+
+            def after_init(self, bean, name):
+                return bean
+
+        @service
+        class Svc:
+            pass
+
+        config = Config({})
+        ctx = ApplicationContext(config)
+        ctx.register_bean(Svc)
+        ctx.register_post_processor(SecondPP())
+        ctx.register_post_processor(FirstPP())
+
+        await ctx.start()
+        # Post-processors run on each bean; verify ordering is consistent per bean
+        assert call_order[0] == "first-before"
+        assert call_order[1] == "second-before"
+
+    async def test_get_beans_of_type_returns_sorted(self):
+        from pyfly.container.ordering import order
+
+        class Base:
+            pass
+
+        @order(3)
+        @service
+        class ThirdImpl(Base):
+            pass
+
+        @order(1)
+        @service
+        class FirstImpl(Base):
+            pass
+
+        config = Config({})
+        ctx = ApplicationContext(config)
+        ctx.register_bean(ThirdImpl)
+        ctx.register_bean(FirstImpl)
+        ctx.container.bind(Base, ThirdImpl)
+        ctx.container.bind(Base, FirstImpl)
+
+        await ctx.start()
+        results = ctx.get_beans_of_type(Base)
+        assert isinstance(results[0], FirstImpl)
+        assert isinstance(results[1], ThirdImpl)
