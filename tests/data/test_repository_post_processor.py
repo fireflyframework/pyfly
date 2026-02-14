@@ -81,6 +81,18 @@ class ConcreteMethodRepo(Repository[PPItem]):
         return list(result.scalars().all())
 
 
+class AllDerivedTypesRepo(Repository[PPItem]):
+    """Repository with all four derived query prefixes."""
+
+    async def find_by_name(self, name: str) -> list[PPItem]: ...
+
+    async def count_by_active(self, active: bool) -> int: ...
+
+    async def exists_by_role(self, role: str) -> bool: ...
+
+    async def delete_by_name(self, name: str) -> int: ...
+
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -349,3 +361,80 @@ class TestBaseMethodsPreserved:
         await repo.save(PPItem(name="A", role="user"))
         total = await repo.count()
         assert total == 1
+
+
+# ===========================================================================
+# 6. All derived query types work (count_by_, exists_by_, delete_by_)
+# ===========================================================================
+
+
+class TestAllDerivedQueryTypes:
+    """All four derived query prefixes must be wired correctly."""
+
+    @pytest.mark.asyncio
+    async def test_count_by_wired(
+        self,
+        processor: RepositoryBeanPostProcessor,
+        seeded_session: AsyncSession,
+    ):
+        """6a. count_by_ returns correct count."""
+        repo = AllDerivedTypesRepo(PPItem, seeded_session)
+        processor.after_init(repo, "allTypesRepo")
+
+        count = await repo.count_by_active(True)
+        assert count == 2  # Alice and Bob
+
+    @pytest.mark.asyncio
+    async def test_exists_by_wired(
+        self,
+        processor: RepositoryBeanPostProcessor,
+        seeded_session: AsyncSession,
+    ):
+        """6b. exists_by_ returns correct bool."""
+        repo = AllDerivedTypesRepo(PPItem, seeded_session)
+        processor.after_init(repo, "allTypesRepo")
+
+        assert await repo.exists_by_role("admin") is True
+        assert await repo.exists_by_role("superuser") is False
+
+    @pytest.mark.asyncio
+    async def test_delete_by_wired(
+        self,
+        processor: RepositoryBeanPostProcessor,
+        session: AsyncSession,
+    ):
+        """6c. delete_by_ deletes and returns row count."""
+        session.add_all([
+            PPItem(name="DeleteMe", role="temp", active=True),
+            PPItem(name="KeepMe", role="perm", active=True),
+        ])
+        await session.flush()
+
+        repo = AllDerivedTypesRepo(PPItem, session)
+        processor.after_init(repo, "allTypesRepo")
+
+        deleted_count = await repo.delete_by_name("DeleteMe")
+        assert deleted_count == 1
+
+
+# ===========================================================================
+# 7. Concrete methods are NOT replaced
+# ===========================================================================
+
+
+class TestConcreteMethodsPreserved:
+    """Concrete implementations of find_by_ methods must not be replaced."""
+
+    @pytest.mark.asyncio
+    async def test_concrete_find_by_not_replaced(
+        self,
+        processor: RepositoryBeanPostProcessor,
+        seeded_session: AsyncSession,
+    ):
+        """7a. Concrete find_by_ implementations are preserved."""
+        repo = ConcreteMethodRepo(PPItem, seeded_session)
+        processor.after_init(repo, "concreteRepo")
+
+        results = await repo.find_by_name("Alice")
+        assert len(results) == 1
+        assert results[0].name == "Alice"
