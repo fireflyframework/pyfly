@@ -91,11 +91,12 @@ class PyFlyApplication:
         # Create ApplicationContext
         self._context = ApplicationContext(self.config)
 
-        # Auto-discover beans from scanned packages
+        # Auto-discover beans from scanned packages (logging deferred to startup)
+        self._scan_results: list[tuple[str, int]] = []
         for package in self._scan_packages:
             try:
                 count = scan_package(package, self._context.container)
-                self._logger.info("scanned_package", package=package, beans_found=count)
+                self._scan_results.append((package, count))
             except ImportError as e:
                 self._logger.warning("scan_failed", package=package, error=str(e))
 
@@ -134,6 +135,14 @@ class PyFlyApplication:
             self._logger.info("active_profiles", profiles=profiles)
         else:
             self._logger.info("no_active_profiles", message="No active profiles set, falling back to default")
+
+        # Log loaded config sources
+        for source in self.config.loaded_sources:
+            self._logger.info("loaded_config", source=source)
+
+        # Log deferred scan results (now appears after banner)
+        for package, count in self._scan_results:
+            self._logger.info("scanned_package", package=package, beans_found=count)
 
         # Start the context (handles profile filtering, @order sorting, bean init)
         await self._context.start()

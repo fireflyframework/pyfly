@@ -55,11 +55,6 @@ def run_command(host: str, port: int | None, use_reload: bool, app_path: str | N
     if port is None:
         port = _read_port_from_config() or 8080
 
-    console.print("[info]Starting PyFly application...[/info]")
-    console.print(f"[dim]  App:    {app_path}[/dim]")
-    console.print(f"[dim]  Host:   {host}:{port}[/dim]")
-    console.print(f"[dim]  Reload: {'on' if use_reload else 'off'}[/dim]\n")
-
     try:
         import uvicorn
     except ImportError:
@@ -67,7 +62,7 @@ def run_command(host: str, port: int | None, use_reload: bool, app_path: str | N
         console.print("[dim]Install it with: pip install 'pyfly[web]'[/dim]")
         raise SystemExit(1) from None
 
-    uvicorn.run(app_path, host=host, port=port, reload=use_reload)
+    uvicorn.run(app_path, host=host, port=port, reload=use_reload, log_level="warning")
 
 
 def _read_port_from_config() -> int | None:
