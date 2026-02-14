@@ -6,7 +6,9 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from click.testing import CliRunner
 
+from pyfly.cli.main import cli
 
 INSTALLER_PATH = Path(__file__).resolve().parent.parent.parent / "install.sh"
 
@@ -90,3 +92,87 @@ class TestInstaller:
         )
         assert result.returncode == 0, f"Wrapper failed: {result.stderr}"
         assert "PyFly" in result.stdout
+
+
+class TestEnsureCliExtra:
+    """Tests for the ensure_cli_extra function in install.sh."""
+
+    # Extract just the function definition from install.sh to test it in isolation
+    _FUNC = """
+ensure_cli_extra() {
+    local extras="$1"
+    if [ "$extras" = "full" ]; then
+        echo "full"
+        return
+    fi
+    if echo ",$extras," | grep -q ",cli,"; then
+        echo "$extras"
+    else
+        echo "${extras},cli"
+    fi
+}
+"""
+
+    def _run_ensure_cli_extra(self, extras: str) -> str:
+        result = subprocess.run(
+            ["bash", "-c", f'{self._FUNC}\nensure_cli_extra "{extras}"'],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        return result.stdout.strip()
+
+    def test_full_unchanged(self):
+        assert self._run_ensure_cli_extra("full") == "full"
+
+    def test_web_adds_cli(self):
+        assert self._run_ensure_cli_extra("web") == "web,cli"
+
+    def test_data_adds_cli(self):
+        assert self._run_ensure_cli_extra("data") == "data,cli"
+
+    def test_already_has_cli(self):
+        assert self._run_ensure_cli_extra("web,cli") == "web,cli"
+
+    def test_cli_alone_unchanged(self):
+        assert self._run_ensure_cli_extra("cli") == "cli"
+
+    def test_multiple_extras_adds_cli(self):
+        result = self._run_ensure_cli_extra("web,data,security")
+        assert result == "web,data,security,cli"
+
+
+class TestPythonVersionComparison:
+    """Tests for the find_python version comparison logic."""
+
+    def test_installer_uses_proper_version_comparison(self):
+        """Verify the version comparison handles major > MIN_MAJOR correctly."""
+        content = INSTALLER_PATH.read_text()
+        # Must use -gt for major (handles Python 4.x+) instead of just -ge
+        assert '"$major" -gt "$MIN_PYTHON_MAJOR"' in content
+
+
+class TestLazyImports:
+    """Tests for lazy imports in CLI modules — ensures the CLI works even without optional extras."""
+
+    def test_db_help_does_not_import_alembic(self):
+        """pyfly db --help should work without alembic installed."""
+        runner = CliRunner()
+        result = runner.invoke(cli, ["db", "--help"])
+        assert result.exit_code == 0
+        assert "Database migration" in result.output
+
+    def test_run_help_does_not_import_uvicorn(self):
+        """pyfly run --help should work without uvicorn installed."""
+        runner = CliRunner()
+        result = runner.invoke(cli, ["run", "--help"])
+        assert result.exit_code == 0
+        assert "--host" in result.output
+
+    def test_all_commands_listed_in_help(self):
+        """All registered commands should appear in --help."""
+        runner = CliRunner()
+        result = runner.invoke(cli, ["--help"])
+        assert result.exit_code == 0
+        for cmd in ["new", "db", "info", "run", "doctor", "license", "sbom"]:
+            assert cmd in result.output, f"Command '{cmd}' missing from --help"

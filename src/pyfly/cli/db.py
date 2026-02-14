@@ -18,8 +18,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import click
-from alembic import command
-from alembic.config import Config
 
 from pyfly.cli.console import console
 
@@ -75,16 +73,29 @@ else:
 '''
 
 
-def _get_alembic_config() -> Config:
+def _require_alembic() -> tuple[object, type]:
+    """Import alembic lazily, failing with a helpful message if not installed."""
+    try:
+        from alembic import command  # noqa: N812
+        from alembic.config import Config  # noqa: N812
+    except ImportError:
+        console.print("[error]\u2717 alembic is not installed.[/error]")
+        console.print("[dim]Install it with: pip install 'pyfly[data]'[/dim]")
+        raise SystemExit(1) from None
+    return command, Config
+
+
+def _get_alembic_config() -> object:
     """Load Alembic config from the current directory.
 
-    Raises :class:`click.ClickException` when ``alembic.ini`` is missing.
+    Raises :class:`SystemExit` when ``alembic.ini`` is missing.
     """
+    _, config_cls = _require_alembic()
     ini_path = Path("alembic.ini")
     if not ini_path.exists():
         console.print("[error]\u2717[/error] alembic.ini not found. Run 'pyfly db init' first.")
         raise SystemExit(1)
-    return Config(str(ini_path))
+    return config_cls(str(ini_path))
 
 
 @click.group()
@@ -95,6 +106,8 @@ def db_group() -> None:
 @db_group.command("init")
 def init_cmd() -> None:
     """Initialize the Alembic migration environment."""
+    command, config_cls = _require_alembic()
+
     directory = "alembic"
     if Path(directory).exists():
         console.print(
@@ -103,7 +116,7 @@ def init_cmd() -> None:
         )
         raise SystemExit(1)
 
-    cfg = Config("alembic.ini")
+    cfg = config_cls("alembic.ini")
     command.init(cfg, directory)
 
     # Overwrite the generated env.py with the PyFly-customized template.
@@ -122,6 +135,7 @@ def init_cmd() -> None:
 )
 def migrate_cmd(message: str | None) -> None:
     """Auto-generate a new migration revision."""
+    command, _ = _require_alembic()
     cfg = _get_alembic_config()
     command.revision(cfg, message=message, autogenerate=True)
     console.print("[success]\u2713[/success] Migration revision created.")
@@ -131,6 +145,7 @@ def migrate_cmd(message: str | None) -> None:
 @click.argument("revision", default="head")
 def upgrade_cmd(revision: str) -> None:
     """Upgrade the database to a given revision (default: head)."""
+    command, _ = _require_alembic()
     cfg = _get_alembic_config()
     command.upgrade(cfg, revision)
     console.print(f"[success]\u2713[/success] Database upgraded to {revision}.")
@@ -140,6 +155,7 @@ def upgrade_cmd(revision: str) -> None:
 @click.argument("revision")
 def downgrade_cmd(revision: str) -> None:
     """Downgrade the database to a given revision."""
+    command, _ = _require_alembic()
     cfg = _get_alembic_config()
     command.downgrade(cfg, revision)
     console.print(f"[success]\u2713[/success] Database downgraded to {revision}.")

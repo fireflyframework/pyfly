@@ -70,9 +70,10 @@ warn()    { printf "${YELLOW}[WARN]${RESET}  %s\n" "$1"; }
 error()   { printf "${RED}[ERROR]${RESET} %s\n" "$1" >&2; }
 fatal()   { error "$1"; exit 1; }
 
-# Read a line from the user, even when piped via curl
+# Read a line from the user, even when piped via curl.
+# Returns empty string on EOF (Ctrl+D) instead of failing.
 prompt_read() {
-    read -r "$@" < "$TTY_IN"
+    read -r "$@" < "$TTY_IN" || true
 }
 
 banner() {
@@ -88,6 +89,22 @@ BANNER
     printf "${RESET}"
     printf "  ${DIM}:: PyFly Framework Installer :: (v%s)${RESET}\n" "$PYFLY_VERSION"
     printf "  ${DIM}Copyright 2026 Firefly Software Solutions Inc. | Apache 2.0 License${RESET}\n\n"
+}
+
+# Ensure the cli extra is always included in the extras list.
+# The pyfly command requires click, rich, and jinja2 from the cli extra.
+ensure_cli_extra() {
+    local extras="$1"
+    if [ "$extras" = "full" ]; then
+        echo "full"
+        return
+    fi
+    # Check if cli is already in the extras list
+    if echo ",$extras," | grep -q ",cli,"; then
+        echo "$extras"
+    else
+        echo "${extras},cli"
+    fi
 }
 
 # ── Uninstall ─────────────────────────────────────────────────────────────────
@@ -122,10 +139,9 @@ uninstall_pyfly() {
     local cleaned=false
     for profile in "$HOME/.zshrc" "$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.profile" "$HOME/.config/fish/config.fish"; do
         if [ -f "$profile" ] && grep -q "pyfly" "$profile" 2>/dev/null; then
-            # Remove lines containing "# PyFly Framework" and the PATH export that follows
             local tmp
-            tmp=$(mktemp)
-            grep -v "# PyFly Framework" "$profile" | grep -v "$install_dir/bin" > "$tmp" || true
+            tmp=$(mktemp) || { warn "Failed to create temp file; skipping $profile"; continue; }
+            grep -v "# PyFly Framework" "$profile" | grep -Fv "$install_dir/bin" > "$tmp" || true
             mv "$tmp" "$profile"
             cleaned=true
             success "Cleaned PATH entry from $profile"
@@ -146,11 +162,16 @@ find_python() {
     for cmd in python3 python; do
         if command -v "$cmd" &>/dev/null; then
             local version
-            version=$("$cmd" -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')" 2>/dev/null)
+            version=$("$cmd" -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')" 2>/dev/null) || continue
             local major minor
             major=$(echo "$version" | cut -d. -f1)
             minor=$(echo "$version" | cut -d. -f2)
-            if [ "$major" -ge "$MIN_PYTHON_MAJOR" ] && [ "$minor" -ge "$MIN_PYTHON_MINOR" ]; then
+            # Proper version comparison: major > MIN or (major == MIN and minor >= MIN_MINOR)
+            if [ "$major" -gt "$MIN_PYTHON_MAJOR" ] 2>/dev/null; then
+                PYTHON_CMD="$cmd"
+                PYTHON_VERSION="$version"
+                return 0
+            elif [ "$major" -eq "$MIN_PYTHON_MAJOR" ] && [ "$minor" -ge "$MIN_PYTHON_MINOR" ] 2>/dev/null; then
                 PYTHON_CMD="$cmd"
                 PYTHON_VERSION="$version"
                 return 0
@@ -229,6 +250,9 @@ prompt_extras() {
     else
         EXTRAS="${PYFLY_EXTRAS:-full}"
     fi
+
+    # Always include the cli extra — required for the pyfly command to work
+    EXTRAS=$(ensure_cli_extra "$EXTRAS")
     info "Selected extras: $EXTRAS"
 }
 
@@ -270,7 +294,9 @@ detect_source_dir() {
     fi
     info "Cloning PyFly from $PYFLY_REPO ..."
     SOURCE_DIR="$(mktemp -d)/pyfly"
-    git clone --depth 1 "$PYFLY_REPO" "$SOURCE_DIR" --quiet
+    if ! git clone --depth 1 "$PYFLY_REPO" "$SOURCE_DIR" --quiet; then
+        fatal "Failed to clone PyFly repository. Check your network connection and try again."
+    fi
     success "Cloned PyFly source"
 }
 
@@ -300,13 +326,19 @@ install_pyfly() {
 
     # Install PyFly
     local pip_cmd="$INSTALL_DIR/venv/bin/pip"
-    info "Installing PyFly with extras: $EXTRAS ..."
-    "$pip_cmd" install --upgrade pip --quiet
+    info "Upgrading pip..."
+    "$pip_cmd" install --upgrade pip --quiet 2>&1 || warn "pip upgrade failed, continuing with existing version"
 
-    local extras_str
-    extras_str=$(echo "$EXTRAS" | tr ',' ',')
-    "$pip_cmd" install -e "$INSTALL_DIR/source[$extras_str]" --quiet
+    info "Installing PyFly with extras: $EXTRAS ..."
+    if ! "$pip_cmd" install -e "$INSTALL_DIR/source[$EXTRAS]"; then
+        fatal "pip install failed. Check the output above for details."
+    fi
     success "PyFly installed successfully"
+
+    # Verify that the pyfly entry point was created
+    if [ ! -f "$INSTALL_DIR/venv/bin/pyfly" ]; then
+        fatal "pyfly entry point not found after install. The cli extra may not have been installed correctly."
+    fi
 
     # Create wrapper script
     info "Creating pyfly wrapper..."
@@ -344,13 +376,13 @@ configure_path() {
         *)  shell_profile="$HOME/.profile" ;;
     esac
 
-    if echo "$PATH" | tr ':' '\n' | grep -q "^${bin_dir}$"; then
+    if echo "$PATH" | tr ':' '\n' | grep -Fq "$bin_dir"; then
         info "pyfly is already in PATH"
         return
     fi
 
     if [ -n "$shell_profile" ]; then
-        if ! grep -q "$bin_dir" "$shell_profile" 2>/dev/null; then
+        if ! grep -Fq "$bin_dir" "$shell_profile" 2>/dev/null; then
             case "${SHELL:-/bin/bash}" in
                 */fish) path_line="set -gx PATH $bin_dir \$PATH" ;;
                 *)      path_line="export PATH=\"$bin_dir:\$PATH\"" ;;
