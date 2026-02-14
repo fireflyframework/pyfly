@@ -237,3 +237,63 @@ class TestSyncMethodWeaving:
 
         assert result == "Jane Doe"
         assert calls == ["before:format_name"]
+
+
+# ---------------------------------------------------------------------------
+# Test 6 — Multiple @around advice chained correctly
+# ---------------------------------------------------------------------------
+
+
+class TestMultipleAroundChaining:
+    """Two @around aspects on the same method both execute, with the
+    outermost (lowest @order) wrapping the inner."""
+
+    @pytest.mark.asyncio
+    async def test_multiple_around_chain_in_order(self) -> None:
+        calls: list[str] = []
+
+        @service
+        class DataService:
+            async def get_data(self, key: str) -> str:
+                calls.append("original")
+                return f"data:{key}"
+
+        @aspect
+        @order(1)
+        class OuterAspect:
+            @around("service.DataService.*")
+            async def outer_wrap(self, jp: JoinPoint) -> str:
+                calls.append("outer:before")
+                result = await jp.proceed()
+                calls.append("outer:after")
+                return f"outer({result})"
+
+        @aspect
+        @order(10)
+        class InnerAspect:
+            @around("service.DataService.*")
+            async def inner_wrap(self, jp: JoinPoint) -> str:
+                calls.append("inner:before")
+                result = await jp.proceed()
+                calls.append("inner:after")
+                return f"inner({result})"
+
+        ctx = ApplicationContext(Config())
+        ctx.register_bean(InnerAspect)
+        ctx.register_bean(OuterAspect)
+        ctx.register_bean(DataService)
+        ctx.register_post_processor(AspectBeanPostProcessor())
+        await ctx.start()
+
+        svc = ctx.get_bean(DataService)
+        result = await svc.get_data("x")
+
+        # Outer wraps inner wraps original
+        assert calls == [
+            "outer:before",
+            "inner:before",
+            "original",
+            "inner:after",
+            "outer:after",
+        ]
+        assert result == "outer(inner(data:x))"

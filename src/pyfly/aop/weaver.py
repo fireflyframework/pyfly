@@ -98,17 +98,16 @@ def _build_async_wrapper(
         try:
             # 2. Execute the method (with or without @around)
             if around_bindings:
-                # Set proceed to call the original async method
-                async def _proceed(*a: Any, **kw: Any) -> Any:
-                    call_args = a if a else jp.args
-                    call_kwargs = kw if kw else jp.kwargs
-                    return await original(*call_args, **call_kwargs)
+                # Build a chain: last around calls original, each prior around calls next
+                async def _invoke_original(*_a: Any, **_kw: Any) -> Any:
+                    return await original(*args, **kwargs)
 
-                jp.proceed = _proceed
-                # Call the first around handler (it may be async)
-                result = around_bindings[0].handler(jp)
-                if inspect.isawaitable(result):
-                    result = await result
+                # Build proceed chain in reverse so first around is outermost
+                proceed_fn = _invoke_original
+                for binding in reversed(around_bindings):
+                    proceed_fn = _make_around_link(binding.handler, jp, proceed_fn)
+
+                result = await proceed_fn()
             else:
                 result = await original(*args, **kwargs)
 
@@ -132,6 +131,23 @@ def _build_async_wrapper(
                 binding.handler(jp)
 
     return wrapper
+
+
+def _make_around_link(handler: Any, jp: JoinPoint, next_proceed: Any) -> Any:
+    """Build one link in the around advice chain.
+
+    Returns an async callable that sets ``jp.proceed`` to *next_proceed*
+    and then invokes *handler*.
+    """
+
+    async def chained(*_a: Any, **_kw: Any) -> Any:
+        jp.proceed = next_proceed
+        result = handler(jp)
+        if inspect.isawaitable(result):
+            result = await result
+        return result
+
+    return chained
 
 
 def _build_sync_wrapper(
