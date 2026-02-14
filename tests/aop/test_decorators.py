@@ -41,7 +41,9 @@ class TestAspectDecorator:
         class MyAspect:
             pass
 
-        assert MyAspect.__pyfly_scope__ == "SINGLETON"
+        from pyfly.container.types import Scope
+
+        assert MyAspect.__pyfly_scope__ == Scope.SINGLETON
 
 
 class TestAdviceDecorators:

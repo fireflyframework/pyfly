@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any, TypeVar
 
+from pyfly.container.types import Scope
+
 T = TypeVar("T", bound=type)
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -22,12 +24,12 @@ def aspect(cls: T) -> T:
     * ``__pyfly_aspect__``     = True
     * ``__pyfly_injectable__`` = True
     * ``__pyfly_stereotype__`` = "aspect"
-    * ``__pyfly_scope__``      = "SINGLETON"
+    * ``__pyfly_scope__``      = Scope.SINGLETON
     """
     cls.__pyfly_aspect__ = True  # type: ignore[attr-defined]
     cls.__pyfly_injectable__ = True  # type: ignore[attr-defined]
     cls.__pyfly_stereotype__ = "aspect"  # type: ignore[attr-defined]
-    cls.__pyfly_scope__ = "SINGLETON"  # type: ignore[attr-defined]
+    cls.__pyfly_scope__ = Scope.SINGLETON  # type: ignore[attr-defined]
     return cls
 
 
