@@ -205,9 +205,8 @@ class ControllerRegistrar:
                     "required": default is _MISSING,
                     "schema": {"type": _py_type_to_openapi(inner_type)},
                 })
-            elif origin is Body:
-                if isinstance(inner_type, type) and issubclass(inner_type, BaseModel):
-                    body_model = inner_type
+            elif origin is Body and isinstance(inner_type, type) and issubclass(inner_type, BaseModel):
+                body_model = inner_type
 
         return params, body_model
 
