@@ -12,6 +12,7 @@ from pyfly.web.controller import ControllerRegistrar
 from pyfly.web.docs import make_openapi_endpoint, make_redoc_endpoint, make_swagger_ui_endpoint
 from pyfly.web.errors import global_exception_handler
 from pyfly.web.middleware import TransactionIdMiddleware
+from pyfly.web.request_logger import RequestLoggingMiddleware
 
 if TYPE_CHECKING:
     from pyfly.context.application_context import ApplicationContext
@@ -37,6 +38,7 @@ def create_app(
     """
     middleware = [
         Middleware(TransactionIdMiddleware),
+        Middleware(RequestLoggingMiddleware),
     ]
 
     routes: list[Route] = []
