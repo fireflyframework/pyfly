@@ -9,7 +9,6 @@ from pyfly.context.application_context import ApplicationContext
 from pyfly.core.config import Config
 from pyfly.web.app import create_app
 from pyfly.web.mappings import get_mapping, request_mapping
-from pyfly.web.params import PathVar
 
 
 class HealthResponse(BaseModel):

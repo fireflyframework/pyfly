@@ -1,8 +1,7 @@
 """Tests for return value handler."""
 
-import pytest
 from pydantic import BaseModel
-from starlette.responses import HTMLResponse, JSONResponse, Response
+from starlette.responses import HTMLResponse, JSONResponse
 
 from pyfly.web.response import handle_return_value
 

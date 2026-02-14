@@ -13,7 +13,6 @@ from pyfly.web.exception_handler import exception_handler
 from pyfly.web.mappings import delete_mapping, get_mapping, post_mapping, request_mapping
 from pyfly.web.params import Body, PathVar, QueryParam
 
-
 # --- Domain ---
 
 

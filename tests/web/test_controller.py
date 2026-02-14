@@ -1,6 +1,5 @@
 """Tests for controller discovery and route building."""
 
-import json
 
 import pytest
 from pydantic import BaseModel

@@ -27,7 +27,7 @@ class ControllerRegistrar:
         """Collect all routes from @rest_controller beans in the ApplicationContext."""
         routes: list[Route] = []
 
-        for cls, reg in ctx.container._registrations.items():
+        for cls, _reg in ctx.container._registrations.items():
             if getattr(cls, "__pyfly_stereotype__", "") != "rest_controller":
                 continue
 
