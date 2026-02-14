@@ -32,13 +32,13 @@ class TestStructlogAdapterConfigure:
 
     def test_configure_reads_root_level(self):
         adapter = StructlogAdapter()
-        config = Config({"logging": {"level": {"root": "DEBUG"}}})
+        config = Config({"pyfly": {"logging": {"level": {"root": "DEBUG"}}}})
         adapter.configure(config)
         assert adapter._root_level == "DEBUG"
 
     def test_configure_reads_format(self):
         adapter = StructlogAdapter()
-        config = Config({"logging": {"format": "json"}})
+        config = Config({"pyfly": {"logging": {"format": "json"}}})
         adapter.configure(config)
         assert adapter._format == "json"
 
@@ -50,7 +50,7 @@ class TestStructlogAdapterConfigure:
 
     def test_configure_reads_per_module_levels(self):
         adapter = StructlogAdapter()
-        config = Config({"logging": {"level": {"root": "INFO", "myapp.services": "DEBUG"}}})
+        config = Config({"pyfly": {"logging": {"level": {"root": "INFO", "myapp.services": "DEBUG"}}}})
         adapter.configure(config)
         assert adapter._module_levels == {"myapp.services": "DEBUG"}
 

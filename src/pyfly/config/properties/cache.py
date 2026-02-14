@@ -11,11 +11,21 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""PyFly Config — Auto-configuration and provider detection."""
+"""Cache subsystem configuration properties."""
 
-from pyfly.config.auto import AutoConfiguration, AutoConfigurationEngine
+from __future__ import annotations
 
-__all__ = [
-    "AutoConfiguration",
-    "AutoConfigurationEngine",
-]
+from dataclasses import dataclass, field
+
+from pyfly.core.config import config_properties
+
+
+@config_properties(prefix="pyfly.cache")
+@dataclass
+class CacheProperties:
+    """Configuration for the cache subsystem (pyfly.cache.*)."""
+
+    enabled: bool = False
+    provider: str = "auto"
+    redis: dict = field(default_factory=lambda: {"url": "redis://localhost:6379/0"})
+    ttl: int = 300

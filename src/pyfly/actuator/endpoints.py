@@ -71,9 +71,9 @@ def make_actuator_routes(
         async def info_endpoint(request: Request) -> JSONResponse:
             info: dict[str, Any] = {
                 "app": {
-                    "name": context.config.get("app.name", ""),
-                    "version": context.config.get("app.version", ""),
-                    "description": context.config.get("app.description", ""),
+                    "name": context.config.get("pyfly.app.name", ""),
+                    "version": context.config.get("pyfly.app.version", ""),
+                    "description": context.config.get("pyfly.app.description", ""),
                 },
             }
             return JSONResponse(info)

@@ -11,9 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Tests for AutoConfiguration provider detection."""
+"""Tests for AutoConfiguration provider detection and AutoConfigurationEngine."""
 
-from pyfly.config.auto import AutoConfiguration
+import pytest
+
+from pyfly.config.auto import AutoConfiguration, AutoConfigurationEngine
+from pyfly.container.container import Container
+from pyfly.core.config import Config
 
 
 class TestAutoConfiguration:
@@ -38,3 +42,99 @@ class TestAutoConfiguration:
     def test_detect_data_provider(self):
         provider = AutoConfiguration.detect_data_provider()
         assert provider in ("sqlalchemy", "none")
+
+
+class TestAutoConfigurationEngine:
+    def test_configure_skips_disabled_cache(self):
+        config = Config({"pyfly": {"cache": {"enabled": False}}})
+        container = Container()
+        engine = AutoConfigurationEngine()
+        engine.configure(config, container)
+        assert "cache" not in engine.results
+
+    def test_configure_skips_disabled_data(self):
+        config = Config({"pyfly": {"data": {"enabled": False}}})
+        container = Container()
+        engine = AutoConfigurationEngine()
+        engine.configure(config, container)
+        assert "data" not in engine.results
+
+    def test_configure_wires_memory_cache_when_enabled(self):
+        config = Config({"pyfly": {"cache": {"enabled": True, "provider": "memory"}}})
+        container = Container()
+        engine = AutoConfigurationEngine()
+        engine.configure(config, container)
+        assert engine.results.get("cache") == "memory"
+
+    def test_configure_wires_messaging(self):
+        config = Config({"pyfly": {"messaging": {"provider": "memory"}}})
+        container = Container()
+        engine = AutoConfigurationEngine()
+        engine.configure(config, container)
+        assert engine.results.get("messaging") == "memory"
+
+    def test_configure_wires_client_httpx(self):
+        config = Config({"pyfly": {"client": {"timeout": 10}}})
+        container = Container()
+        engine = AutoConfigurationEngine()
+        engine.configure(config, container)
+        # httpx is available in dev env
+        assert engine.results.get("client") == "httpx"
+
+    def test_configure_data_enabled(self):
+        config = Config({"pyfly": {"data": {"enabled": True}}})
+        container = Container()
+        engine = AutoConfigurationEngine()
+        engine.configure(config, container)
+        assert "data" in engine.results
+
+    def test_configure_does_not_overwrite_existing_bean(self):
+        from pyfly.cache.adapters.memory import InMemoryCache
+        from pyfly.container.types import Scope
+
+        config = Config({"pyfly": {"cache": {"enabled": True, "provider": "redis"}}})
+        container = Container()
+        # Pre-register a cache adapter
+        container.register(InMemoryCache, scope=Scope.SINGLETON)
+        container._registrations[InMemoryCache].instance = InMemoryCache()
+
+        engine = AutoConfigurationEngine()
+        engine.configure(config, container)
+        # Should skip cache since it's already registered
+        assert "cache" not in engine.results
+
+    def test_results_initially_empty(self):
+        engine = AutoConfigurationEngine()
+        assert engine.results == {}
+
+    def test_configure_messaging_kafka_explicit(self):
+        config = Config(
+            {
+                "pyfly": {
+                    "messaging": {
+                        "provider": "kafka",
+                        "kafka": {"bootstrap-servers": "localhost:9092"},
+                    }
+                }
+            }
+        )
+        container = Container()
+        engine = AutoConfigurationEngine()
+        engine.configure(config, container)
+        assert engine.results.get("messaging") == "kafka"
+
+    def test_configure_messaging_rabbitmq_explicit(self):
+        config = Config(
+            {
+                "pyfly": {
+                    "messaging": {
+                        "provider": "rabbitmq",
+                        "rabbitmq": {"url": "amqp://guest:guest@localhost/"},
+                    }
+                }
+            }
+        )
+        container = Container()
+        engine = AutoConfigurationEngine()
+        engine.configure(config, container)
+        assert engine.results.get("messaging") == "rabbitmq"

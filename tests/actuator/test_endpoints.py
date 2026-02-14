@@ -121,7 +121,7 @@ class TestEnvEndpoint:
 class TestInfoEndpoint:
     @pytest.mark.asyncio
     async def test_returns_app_info(self):
-        cfg = Config({"app": {"name": "myapp", "version": "1.0.0", "description": "A test app"}})
+        cfg = Config({"pyfly": {"app": {"name": "myapp", "version": "1.0.0", "description": "A test app"}}})
         ctx = ApplicationContext(cfg)
         await ctx.start()
 

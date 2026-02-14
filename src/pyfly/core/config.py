@@ -11,12 +11,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Type-safe configuration with YAML files, env vars, and dataclass binding."""
+"""Type-safe configuration with YAML/TOML files, env vars, and dataclass binding."""
 
 from __future__ import annotations
 
 import dataclasses
+import importlib.resources
 import os
+import tomllib
 from pathlib import Path
 from typing import Any, TypeVar, get_type_hints
 
@@ -57,28 +59,59 @@ class Config:
         self._data: dict[str, Any] = data or {}
 
     @classmethod
-    def from_file(cls, path: str | Path, active_profiles: list[str] | None = None) -> Config:
-        """Load configuration from a YAML file, merging profile-specific overlays.
+    def from_file(
+        cls,
+        path: str | Path,
+        active_profiles: list[str] | None = None,
+        load_defaults: bool = True,
+    ) -> Config:
+        """Load configuration from a YAML or TOML file, merging profile-specific overlays.
 
         Merge order (later wins):
-        1. Base config (pyfly.yaml)
-        2. pyfly-{profile}.yaml for each active profile, in order
-        3. Environment variables (handled at read time in get())
+        1. Framework defaults (pyfly-defaults.yaml from pyfly.resources)
+        2. Base config (pyfly.yaml or pyfly.toml)
+        3. pyfly-{profile}.yaml/toml for each active profile, in order
+        4. Environment variables (handled at read time in get())
         """
-        path = Path(path)
-        if not path.exists():
-            return cls({})
-        with open(path) as f:
-            data = yaml.safe_load(f) or {}
+        # 1. Load framework defaults as base layer
+        data: dict[str, Any] = {}
+        if load_defaults:
+            data = cls._load_framework_defaults()
 
-        for profile in active_profiles or []:
-            profile_path = path.parent / f"{path.stem}-{profile}{path.suffix}"
-            if profile_path.exists():
-                with open(profile_path) as f:
-                    profile_data = yaml.safe_load(f) or {}
-                data = cls._deep_merge(data, profile_data)
+        # 2. Load user config file
+        path = Path(path)
+        if path.exists():
+            user_data = cls._load_config_data(path)
+            data = cls._deep_merge(data, user_data)
+
+        # 3. Merge profile overlays
+        if path.exists():
+            for profile in active_profiles or []:
+                profile_path = path.parent / f"{path.stem}-{profile}{path.suffix}"
+                if profile_path.exists():
+                    profile_data = cls._load_config_data(profile_path)
+                    data = cls._deep_merge(data, profile_data)
 
         return cls(data)
+
+    @staticmethod
+    def _load_config_data(path: Path) -> dict[str, Any]:
+        """Load config data from a YAML or TOML file."""
+        if path.suffix == ".toml":
+            with open(path, "rb") as f:
+                return tomllib.load(f) or {}
+        with open(path) as f:
+            return yaml.safe_load(f) or {}
+
+    @staticmethod
+    def _load_framework_defaults() -> dict[str, Any]:
+        """Load built-in framework defaults from pyfly.resources."""
+        defaults_file = importlib.resources.files("pyfly.resources").joinpath(
+            "pyfly-defaults.yaml"
+        )
+        with importlib.resources.as_file(defaults_file) as p:
+            with open(p) as f:
+                return yaml.safe_load(f) or {}
 
     @staticmethod
     def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
@@ -98,8 +131,9 @@ class Config:
             key: Dot-separated key path (e.g. "app.name").
             default: Value to return if key is not found.
         """
-        # Check environment variable override: app.name -> PYFLY_APP_NAME
-        env_key = "PYFLY_" + key.upper().replace(".", "_")
+        # Check environment variable override: pyfly.app.name -> PYFLY_APP_NAME
+        env_base = key.removeprefix("pyfly.") if key.startswith("pyfly.") else key
+        env_key = "PYFLY_" + env_base.upper().replace(".", "_").replace("-", "_")
         env_val = os.environ.get(env_key)
         if env_val is not None:
             return env_val

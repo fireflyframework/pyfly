@@ -11,11 +11,22 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""PyFly Config — Auto-configuration and provider detection."""
+"""Web subsystem configuration properties."""
 
-from pyfly.config.auto import AutoConfiguration, AutoConfigurationEngine
+from __future__ import annotations
 
-__all__ = [
-    "AutoConfiguration",
-    "AutoConfigurationEngine",
-]
+from dataclasses import dataclass, field
+
+from pyfly.core.config import config_properties
+
+
+@config_properties(prefix="pyfly.web")
+@dataclass
+class WebProperties:
+    """Configuration for the web subsystem (pyfly.web.*)."""
+
+    port: int = 8000
+    host: str = "0.0.0.0"
+    debug: bool = False
+    docs: dict = field(default_factory=lambda: {"enabled": True})
+    actuator: dict = field(default_factory=lambda: {"enabled": False})

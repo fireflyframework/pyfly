@@ -77,7 +77,7 @@ class PyFlyApplication:
         if config_file:
             self.config = Config.from_file(config_file, active_profiles=active_profiles)
         else:
-            self.config = Config({})
+            self.config = Config(Config._load_framework_defaults())
 
         # 2. Configure logging
         self._logging = StructlogAdapter()
@@ -155,7 +155,7 @@ class PyFlyApplication:
         """Find the configuration file path."""
         if config_path:
             return Path(config_path)
-        for candidate in ["pyfly.yaml", "pyfly.toml", "config/pyfly.yaml"]:
+        for candidate in ["pyfly.yaml", "pyfly.toml", "config/pyfly.yaml", "config/pyfly.toml"]:
             if Path(candidate).exists():
                 return Path(candidate)
         return None

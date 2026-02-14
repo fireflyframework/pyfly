@@ -11,11 +11,20 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""PyFly Config — Auto-configuration and provider detection."""
+"""Messaging subsystem configuration properties."""
 
-from pyfly.config.auto import AutoConfiguration, AutoConfigurationEngine
+from __future__ import annotations
 
-__all__ = [
-    "AutoConfiguration",
-    "AutoConfigurationEngine",
-]
+from dataclasses import dataclass, field
+
+from pyfly.core.config import config_properties
+
+
+@config_properties(prefix="pyfly.messaging")
+@dataclass
+class MessagingProperties:
+    """Configuration for the messaging subsystem (pyfly.messaging.*)."""
+
+    provider: str = "auto"
+    kafka: dict = field(default_factory=lambda: {"bootstrap-servers": "localhost:9092"})
+    rabbitmq: dict = field(default_factory=lambda: {"url": "amqp://guest:guest@localhost/"})

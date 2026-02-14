@@ -1,0 +1,47 @@
+pyfly:
+  app:
+    name: "pyfly-app"
+    version: "0.1.0"
+    description: ""
+  profiles:
+    active: ""
+  banner:
+    mode: "TEXT"
+    location: ""
+  logging:
+    level:
+      root: "INFO"
+    format: "console"
+  web:
+    port: 8000
+    host: "0.0.0.0"
+    debug: false
+    docs:
+      enabled: true
+    actuator:
+      enabled: false
+  data:
+    enabled: false
+    url: "sqlite+aiosqlite:///pyfly.db"
+    echo: false
+    pool-size: 5
+  cache:
+    enabled: false
+    provider: "auto"
+    redis:
+      url: "redis://localhost:6379/0"
+    ttl: 300
+  messaging:
+    provider: "auto"
+    kafka:
+      bootstrap-servers: "localhost:9092"
+    rabbitmq:
+      url: "amqp://guest:guest@localhost/"
+  client:
+    timeout: 30
+    retry:
+      max-attempts: 3
+      base-delay: 1.0
+    circuit-breaker:
+      failure-threshold: 5
+      recovery-timeout: 30

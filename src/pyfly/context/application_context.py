@@ -139,6 +139,12 @@ class ApplicationContext:
         # 2. Process @configuration classes and their @bean methods
         self._process_configurations()
 
+        # 2b. Run auto-configuration (detect providers, wire adapter beans)
+        from pyfly.config.auto import AutoConfigurationEngine
+
+        engine = AutoConfigurationEngine()
+        engine.configure(self._config, self._container)
+
         # 3. Eagerly resolve all singletons (sorted by @order)
         sorted_entries = sorted(
             self._container._registrations.items(),

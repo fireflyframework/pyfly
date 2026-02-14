@@ -11,11 +11,20 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""PyFly Config — Auto-configuration and provider detection."""
+"""Typed configuration property classes for each PyFly subsystem."""
 
-from pyfly.config.auto import AutoConfiguration, AutoConfigurationEngine
+from pyfly.config.properties.cache import CacheProperties
+from pyfly.config.properties.client import ClientProperties
+from pyfly.config.properties.data import DataProperties
+from pyfly.config.properties.logging import LoggingProperties
+from pyfly.config.properties.messaging import MessagingProperties
+from pyfly.config.properties.web import WebProperties
 
 __all__ = [
-    "AutoConfiguration",
-    "AutoConfigurationEngine",
+    "CacheProperties",
+    "ClientProperties",
+    "DataProperties",
+    "LoggingProperties",
+    "MessagingProperties",
+    "WebProperties",
 ]

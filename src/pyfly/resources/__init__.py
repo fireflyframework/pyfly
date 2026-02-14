@@ -11,11 +11,4 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""PyFly Config — Auto-configuration and provider detection."""
-
-from pyfly.config.auto import AutoConfiguration, AutoConfigurationEngine
-
-__all__ = [
-    "AutoConfiguration",
-    "AutoConfigurationEngine",
-]
+"""PyFly framework resource files."""

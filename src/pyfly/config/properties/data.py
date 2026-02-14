@@ -11,11 +11,21 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""PyFly Config — Auto-configuration and provider detection."""
+"""Data subsystem configuration properties."""
 
-from pyfly.config.auto import AutoConfiguration, AutoConfigurationEngine
+from __future__ import annotations
 
-__all__ = [
-    "AutoConfiguration",
-    "AutoConfigurationEngine",
-]
+from dataclasses import dataclass
+
+from pyfly.core.config import config_properties
+
+
+@config_properties(prefix="pyfly.data")
+@dataclass
+class DataProperties:
+    """Configuration for the data subsystem (pyfly.data.*)."""
+
+    enabled: bool = False
+    url: str = "sqlite+aiosqlite:///pyfly.db"
+    echo: bool = False
+    pool_size: int = 5

@@ -11,11 +11,22 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""PyFly Config — Auto-configuration and provider detection."""
+"""Client subsystem configuration properties."""
 
-from pyfly.config.auto import AutoConfiguration, AutoConfigurationEngine
+from __future__ import annotations
 
-__all__ = [
-    "AutoConfiguration",
-    "AutoConfigurationEngine",
-]
+from dataclasses import dataclass, field
+
+from pyfly.core.config import config_properties
+
+
+@config_properties(prefix="pyfly.client")
+@dataclass
+class ClientProperties:
+    """Configuration for the HTTP client subsystem (pyfly.client.*)."""
+
+    timeout: int = 30
+    retry: dict = field(default_factory=lambda: {"max-attempts": 3, "base-delay": 1.0})
+    circuit_breaker: dict = field(
+        default_factory=lambda: {"failure-threshold": 5, "recovery-timeout": 30}
+    )
