@@ -18,6 +18,7 @@
 #   Interactive:     bash install.sh
 #   Via curl:        curl -fsSL https://raw.githubusercontent.com/fireflyframework/pyfly/main/install.sh | bash
 #   Via get.pyfly:   curl -fsSL https://get.pyfly.io/ | bash
+#   Uninstall:       bash install.sh --uninstall
 #   Custom dir:      PYFLY_HOME=/opt/pyfly bash install.sh
 #   Custom extras:   PYFLY_EXTRAS=web,data bash install.sh
 
@@ -26,14 +27,15 @@ set -euo pipefail
 # ── Constants ──────────────────────────────────────────────────────────────────
 
 PYFLY_VERSION="0.1.0"
+PYFLY_REPO="https://github.com/fireflyframework/pyfly.git"
 DEFAULT_INSTALL_DIR="$HOME/.pyfly"
 MIN_PYTHON_MAJOR=3
 MIN_PYTHON_MINOR=12
 
 # ── Color support ──────────────────────────────────────────────────────────────
 
-if [ -t 1 ] && [ -t 0 ]; then
-    IS_INTERACTIVE=true
+# Enable colors when output is a terminal
+if [ -t 1 ]; then
     BOLD="\033[1m"
     DIM="\033[2m"
     RED="\033[31m"
@@ -43,8 +45,21 @@ if [ -t 1 ] && [ -t 0 ]; then
     MAGENTA="\033[35m"
     RESET="\033[0m"
 else
-    IS_INTERACTIVE=false
     BOLD="" DIM="" RED="" GREEN="" YELLOW="" CYAN="" MAGENTA="" RESET=""
+fi
+
+# Interactive detection: works both for direct execution AND curl-piped mode.
+# When piped via curl, stdin is the script — but /dev/tty is the user's terminal.
+if [ -t 0 ]; then
+    IS_INTERACTIVE=true
+    TTY_IN="/dev/stdin"
+elif [ -t 1 ] && [ -e /dev/tty ]; then
+    # curl | bash mode — stdout is a terminal, stdin is the pipe, but /dev/tty works
+    IS_INTERACTIVE=true
+    TTY_IN="/dev/tty"
+else
+    IS_INTERACTIVE=false
+    TTY_IN="/dev/null"
 fi
 
 # ── Helper functions ───────────────────────────────────────────────────────────
@@ -54,6 +69,11 @@ success() { printf "${GREEN}[OK]${RESET}    %s\n" "$1"; }
 warn()    { printf "${YELLOW}[WARN]${RESET}  %s\n" "$1"; }
 error()   { printf "${RED}[ERROR]${RESET} %s\n" "$1" >&2; }
 fatal()   { error "$1"; exit 1; }
+
+# Read a line from the user, even when piped via curl
+prompt_read() {
+    read -r "$@" < "$TTY_IN"
+}
 
 banner() {
     printf "${MAGENTA}"
@@ -70,10 +90,59 @@ BANNER
     printf "  ${DIM}Copyright 2026 Firefly Software Solutions Inc. | Apache 2.0 License${RESET}\n\n"
 }
 
+# ── Uninstall ─────────────────────────────────────────────────────────────────
+
+uninstall_pyfly() {
+    banner
+
+    local install_dir="${PYFLY_HOME:-$DEFAULT_INSTALL_DIR}"
+    install_dir="${install_dir/#\~/$HOME}"
+
+    if [ ! -d "$install_dir" ]; then
+        info "PyFly is not installed at $install_dir"
+        exit 0
+    fi
+
+    info "Found PyFly installation at: $install_dir"
+
+    if [ "$IS_INTERACTIVE" = true ]; then
+        printf "\n${BOLD}Remove PyFly installation at %s?${RESET} ${DIM}[y/N]${RESET}: " "$install_dir"
+        prompt_read confirm
+        case "${confirm:-N}" in
+            [Yy]*) ;;
+            *) info "Uninstall cancelled."; exit 0 ;;
+        esac
+    fi
+
+    info "Removing $install_dir ..."
+    rm -rf "$install_dir"
+    success "PyFly installation removed"
+
+    # Clean up PATH entries from shell profiles
+    local cleaned=false
+    for profile in "$HOME/.zshrc" "$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.profile" "$HOME/.config/fish/config.fish"; do
+        if [ -f "$profile" ] && grep -q "pyfly" "$profile" 2>/dev/null; then
+            # Remove lines containing "# PyFly Framework" and the PATH export that follows
+            local tmp
+            tmp=$(mktemp)
+            grep -v "# PyFly Framework" "$profile" | grep -v "$install_dir/bin" > "$tmp" || true
+            mv "$tmp" "$profile"
+            cleaned=true
+            success "Cleaned PATH entry from $profile"
+        fi
+    done
+
+    if [ "$cleaned" = false ]; then
+        info "No PATH entries to clean up"
+    fi
+
+    printf "\n${GREEN}${BOLD}PyFly has been uninstalled.${RESET}\n\n"
+    exit 0
+}
+
 # ── Prerequisite checks ───────────────────────────────────────────────────────
 
 find_python() {
-    # Try python3 first, then python
     for cmd in python3 python; do
         if command -v "$cmd" &>/dev/null; then
             local version
@@ -94,28 +163,24 @@ find_python() {
 check_prerequisites() {
     info "Checking prerequisites..."
 
-    # Python version
     if find_python; then
         success "Python $PYTHON_VERSION found ($PYTHON_CMD)"
     else
         fatal "Python >= ${MIN_PYTHON_MAJOR}.${MIN_PYTHON_MINOR} is required. Please install it first."
     fi
 
-    # venv module
     if "$PYTHON_CMD" -c "import venv" &>/dev/null; then
         success "venv module available"
     else
         fatal "Python venv module is required. Install it with: sudo apt install python3-venv (Debian/Ubuntu)"
     fi
 
-    # pip
     if "$PYTHON_CMD" -m pip --version &>/dev/null; then
         success "pip available"
     else
         fatal "pip is required. Install it with: $PYTHON_CMD -m ensurepip --upgrade"
     fi
 
-    # git (needed to copy source)
     if command -v git &>/dev/null; then
         success "git available"
     else
@@ -128,12 +193,11 @@ check_prerequisites() {
 prompt_install_dir() {
     if [ "$IS_INTERACTIVE" = true ] && [ -z "${PYFLY_HOME:-}" ]; then
         printf "\n${BOLD}Installation directory${RESET} ${DIM}[%s]${RESET}: " "$DEFAULT_INSTALL_DIR"
-        read -r user_dir
+        prompt_read user_dir
         INSTALL_DIR="${user_dir:-$DEFAULT_INSTALL_DIR}"
     else
         INSTALL_DIR="${PYFLY_HOME:-$DEFAULT_INSTALL_DIR}"
     fi
-    # Expand ~ if present
     INSTALL_DIR="${INSTALL_DIR/#\~/$HOME}"
     info "Install directory: $INSTALL_DIR"
 }
@@ -148,7 +212,7 @@ prompt_extras() {
         printf "  ${CYAN}5${RESET}) security  — Auth & JWT\n"
         printf "  ${CYAN}6${RESET}) custom    — Enter comma-separated extras\n"
         printf "\n${BOLD}Select extras${RESET} ${DIM}[1]${RESET}: "
-        read -r choice
+        prompt_read choice
         case "${choice:-1}" in
             1) EXTRAS="full" ;;
             2) EXTRAS="web" ;;
@@ -157,7 +221,7 @@ prompt_extras() {
             5) EXTRAS="security" ;;
             6)
                 printf "${BOLD}Enter extras${RESET} ${DIM}(comma-separated, e.g. web,data,security)${RESET}: "
-                read -r custom_extras
+                prompt_read custom_extras
                 EXTRAS="${custom_extras:-full}"
                 ;;
             *) EXTRAS="full" ;;
@@ -172,7 +236,7 @@ prompt_add_to_path() {
     ADD_TO_PATH=false
     if [ "$IS_INTERACTIVE" = true ]; then
         printf "\n${BOLD}Add pyfly to PATH?${RESET} ${DIM}[Y/n]${RESET}: "
-        read -r add_path
+        prompt_read add_path
         case "${add_path:-Y}" in
             [Yy]*) ADD_TO_PATH=true ;;
             *) ADD_TO_PATH=false ;;
@@ -183,8 +247,6 @@ prompt_add_to_path() {
 }
 
 # ── Installation ───────────────────────────────────────────────────────────────
-
-PYFLY_REPO="https://github.com/fireflyframework/pyfly.git"
 
 detect_source_dir() {
     # If this script is in a pyfly source directory, use it
@@ -221,7 +283,6 @@ install_pyfly() {
     if [ "$SOURCE_DIR" != "$INSTALL_DIR/source" ]; then
         rm -rf "$INSTALL_DIR/source"
         cp -r "$SOURCE_DIR" "$INSTALL_DIR/source"
-        # Remove any dev/test artifacts from the copy
         rm -rf "$INSTALL_DIR/source/.worktrees" \
                "$INSTALL_DIR/source/.venv" \
                "$INSTALL_DIR/source/.pytest_cache" \
@@ -242,7 +303,6 @@ install_pyfly() {
     info "Installing PyFly with extras: $EXTRAS ..."
     "$pip_cmd" install --upgrade pip --quiet
 
-    # Build the extras string for pip
     local extras_str
     extras_str=$(echo "$EXTRAS" | tr ',' ',')
     "$pip_cmd" install -e "$INSTALL_DIR/source[$extras_str]" --quiet
@@ -266,10 +326,9 @@ configure_path() {
     fi
 
     local bin_dir="$INSTALL_DIR/bin"
-    local path_line="export PATH=\"$bin_dir:\$PATH\""
 
-    # Detect shell profile
     local shell_profile=""
+    local path_line=""
     case "${SHELL:-/bin/bash}" in
         */zsh)  shell_profile="$HOME/.zshrc" ;;
         */bash)
@@ -280,23 +339,27 @@ configure_path() {
             fi
             ;;
         */fish)
-            # Fish uses a different syntax
             shell_profile="$HOME/.config/fish/config.fish"
-            path_line="set -gx PATH $bin_dir \$PATH"
             ;;
         *)  shell_profile="$HOME/.profile" ;;
     esac
 
-    # Check if already in PATH
-    if echo "$PATH" | tr ':' '\n' | grep -q "^$bin_dir$"; then
+    if echo "$PATH" | tr ':' '\n' | grep -q "^${bin_dir}$"; then
         info "pyfly is already in PATH"
         return
     fi
 
-    # Add to profile if not already there
     if [ -n "$shell_profile" ]; then
-        if ! grep -q "pyfly" "$shell_profile" 2>/dev/null; then
-            printf "\n# PyFly Framework\n%s\n" "$path_line" >> "$shell_profile"
+        if ! grep -q "$bin_dir" "$shell_profile" 2>/dev/null; then
+            case "${SHELL:-/bin/bash}" in
+                */fish) path_line="set -gx PATH $bin_dir \$PATH" ;;
+                *)      path_line="export PATH=\"$bin_dir:\$PATH\"" ;;
+            esac
+            {
+                echo ""
+                echo "# PyFly Framework"
+                echo "$path_line"
+            } >> "$shell_profile"
             success "Added pyfly to PATH in $shell_profile"
             info "Run 'source $shell_profile' or open a new terminal to use pyfly"
         else
@@ -319,6 +382,9 @@ print_summary() {
     printf "    ${CYAN}pyfly doctor${RESET}         Check your environment\n"
     printf "    ${CYAN}pyfly info${RESET}           Show framework info\n"
     printf "\n"
+    printf "  ${BOLD}Uninstall:${RESET}\n"
+    printf "    ${CYAN}bash install.sh --uninstall${RESET}\n"
+    printf "\n"
 }
 
 # ── Cleanup on failure ─────────────────────────────────────────────────────────
@@ -335,6 +401,11 @@ trap cleanup_on_failure ERR
 # ── Main ───────────────────────────────────────────────────────────────────────
 
 main() {
+    # Handle --uninstall flag
+    if [ "${1:-}" = "--uninstall" ] || [ "${1:-}" = "uninstall" ]; then
+        uninstall_pyfly
+    fi
+
     banner
     check_prerequisites
     detect_source_dir

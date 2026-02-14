@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import click
 
-from pyfly.cli.console import console, print_banner
+from pyfly.cli.console import print_banner
 
 
 class PyFlyCLI(click.Group):
@@ -31,18 +31,22 @@ class PyFlyCLI(click.Group):
 @click.group(cls=PyFlyCLI)
 @click.version_option(package_name="pyfly")
 def cli() -> None:
-    """PyFly — Enterprise Python Framework CLI."""
+    """PyFly — The official Python implementation of the Firefly Framework."""
 
 
 # Import and register commands (lazy to avoid heavy imports)
-from pyfly.cli.new import new_command
-from pyfly.cli.db import db_group
-from pyfly.cli.info import info_command
-from pyfly.cli.run import run_command
-from pyfly.cli.doctor import doctor_command
+from pyfly.cli.db import db_group  # noqa: E402
+from pyfly.cli.doctor import doctor_command  # noqa: E402
+from pyfly.cli.info import info_command  # noqa: E402
+from pyfly.cli.license import license_command  # noqa: E402
+from pyfly.cli.new import new_command  # noqa: E402
+from pyfly.cli.run import run_command  # noqa: E402
+from pyfly.cli.sbom import sbom_command  # noqa: E402
 
 cli.add_command(new_command, name="new")
 cli.add_command(db_group, name="db")
 cli.add_command(info_command, name="info")
 cli.add_command(run_command, name="run")
 cli.add_command(doctor_command, name="doctor")
+cli.add_command(license_command, name="license")
+cli.add_command(sbom_command, name="sbom")

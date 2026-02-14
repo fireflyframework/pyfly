@@ -37,6 +37,12 @@ class TestCLI:
         assert "Copyright 2026 Firefly Software Solutions Inc." in result.output
         assert "Apache 2.0 License" in result.output
 
+    def test_help_shows_aligned_tagline(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["--help"])
+        assert result.exit_code == 0
+        assert "official Python implementation of the Firefly Framework" in result.output
+
     def test_new_command_creates_project(self, tmp_path: Path):
         runner = CliRunner()
         project_name = "order-service"
@@ -399,6 +405,59 @@ class TestNewInteractive:
 
         p = tmp_path / "my-api"
         assert (p / "src" / "my_api" / "controllers" / "item_controller.py").exists()
+
+
+class TestLicenseCommand:
+    """Tests for the pyfly license command."""
+
+    def test_license_runs(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["license"])
+        assert result.exit_code == 0
+        assert "Apache License" in result.output
+
+    def test_license_shows_copyright(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["license"])
+        assert result.exit_code == 0
+        assert "Copyright 2026 Firefly Software Solutions Inc." in result.output
+
+    def test_license_shows_full_text(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["license"])
+        assert result.exit_code == 0
+        assert "TERMS AND CONDITIONS" in result.output
+
+
+class TestSbomCommand:
+    """Tests for the pyfly sbom command."""
+
+    def test_sbom_runs(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["sbom"])
+        assert result.exit_code == 0
+        assert "Software Bill of Materials" in result.output
+
+    def test_sbom_shows_dependencies(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["sbom"])
+        assert result.exit_code == 0
+        # pydantic and pyyaml are core dependencies
+        assert "pydantic" in result.output
+        assert "pyyaml" in result.output.lower() or "PyYAML" in result.output
+
+    def test_sbom_shows_total_count(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["sbom"])
+        assert result.exit_code == 0
+        assert "Total dependencies:" in result.output
+
+    def test_sbom_json_output(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["sbom", "--json"])
+        assert result.exit_code == 0
+        assert '"name": "pyfly"' in result.output
+        assert '"dependencies"' in result.output
 
 
 class TestInfoCommand:
