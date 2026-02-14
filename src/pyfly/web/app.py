@@ -12,6 +12,7 @@ from pyfly.web.controller import ControllerRegistrar
 from pyfly.web.docs import make_openapi_endpoint, make_redoc_endpoint, make_swagger_ui_endpoint
 from pyfly.web.errors import global_exception_handler
 from pyfly.web.middleware import TransactionIdMiddleware
+from pyfly.web.openapi import OpenAPIGenerator
 from pyfly.web.request_logger import RequestLoggingMiddleware
 
 if TYPE_CHECKING:
@@ -43,10 +44,10 @@ def create_app(
     ]
 
     routes: list[Route] = []
+    registrar = ControllerRegistrar()
 
     # Auto-discover controller routes from ApplicationContext
     if context is not None:
-        registrar = ControllerRegistrar()
         routes.extend(registrar.collect_routes(context))
 
     # Append caller-supplied routes (e.g. test helpers)
@@ -55,13 +56,9 @@ def create_app(
 
     # Generate OpenAPI spec and doc routes
     if docs_enabled:
-        spec: dict[str, Any] = {
-            "openapi": "3.1.0",
-            "info": {"title": title, "version": version},
-            "paths": {},
-        }
-        if description:
-            spec["info"]["description"] = description
+        generator = OpenAPIGenerator(title=title, version=version, description=description)
+        route_metadata = registrar.collect_route_metadata(context) if context else None
+        spec = generator.generate(route_metadata)
 
         routes.extend([
             Route("/openapi.json", make_openapi_endpoint(spec)),

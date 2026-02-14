@@ -3,14 +3,45 @@
 from __future__ import annotations
 
 import inspect
-from typing import Any
+import typing
+from dataclasses import dataclass, field
+from typing import Any, get_args, get_origin
 
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 
+from pyfly.web.params import Body, Cookie, Header, PathVar, QueryParam
 from pyfly.web.resolver import ParameterResolver
 from pyfly.web.response import handle_return_value
+
+_BINDING_TYPES = {PathVar, QueryParam, Body, Header, Cookie}
+_MISSING = object()
+
+
+def _py_type_to_openapi(t: type) -> str:
+    """Map a Python type to an OpenAPI schema type string."""
+    if t is int:
+        return "integer"
+    if t is float:
+        return "number"
+    if t is bool:
+        return "boolean"
+    return "string"
+
+
+@dataclass
+class RouteMetadata:
+    """Metadata extracted from a single controller handler method."""
+
+    path: str
+    http_method: str
+    status_code: int
+    handler: Any
+    handler_name: str
+    parameters: list[dict[str, Any]] = field(default_factory=list)
+    request_body_model: type | None = None
+    return_type: type | None = None
 
 
 async def _maybe_await(result: Any) -> Any:
@@ -64,6 +95,121 @@ class ControllerRegistrar:
                 routes.append(Route(full_path, handler, methods=[http_method]))
 
         return routes
+
+    def collect_route_metadata(self, ctx: Any) -> list[RouteMetadata]:
+        """Collect route metadata from all @rest_controller beans for OpenAPI generation."""
+        metadata: list[RouteMetadata] = []
+
+        for cls, _reg in ctx.container._registrations.items():
+            if getattr(cls, "__pyfly_stereotype__", "") != "rest_controller":
+                continue
+
+            instance = ctx.get_bean(cls)
+            base_path = getattr(cls, "__pyfly_request_mapping__", "")
+
+            for attr_name in dir(instance):
+                method_obj = getattr(instance, attr_name, None)
+                if method_obj is None:
+                    continue
+
+                mapping = getattr(method_obj, "__pyfly_mapping__", None)
+                if mapping is None:
+                    continue
+
+                full_path = base_path + mapping["path"]
+                http_method = mapping["method"]
+                status_code = mapping.get("status_code", 200)
+
+                # Extract parameter metadata and request body model from type hints
+                params, body_model = self._extract_param_metadata(method_obj)
+
+                # Extract return type
+                hints = typing.get_type_hints(method_obj, include_extras=True)
+                return_type = hints.get("return")
+
+                metadata.append(
+                    RouteMetadata(
+                        path=full_path,
+                        http_method=http_method,
+                        status_code=status_code,
+                        handler=method_obj,
+                        handler_name=attr_name,
+                        parameters=params,
+                        request_body_model=body_model,
+                        return_type=return_type,
+                    )
+                )
+
+        return metadata
+
+    def _extract_param_metadata(
+        self, handler: Any
+    ) -> tuple[list[dict[str, Any]], type | None]:
+        """Extract OpenAPI parameter dicts and request body model from handler type hints."""
+        from pydantic import BaseModel
+
+        hints = typing.get_type_hints(handler, include_extras=True)
+        sig = inspect.signature(handler)
+        params: list[dict[str, Any]] = []
+        body_model: type | None = None
+
+        for name, param in sig.parameters.items():
+            if name == "self":
+                continue
+
+            hint = hints.get(name)
+            if hint is None:
+                continue
+
+            origin = get_origin(hint)
+            if origin not in _BINDING_TYPES:
+                continue
+
+            args = get_args(hint)
+            inner_type = args[0] if args else str
+
+            default = (
+                param.default
+                if param.default is not inspect.Parameter.empty
+                else _MISSING
+            )
+
+            if origin is PathVar:
+                params.append({
+                    "name": name,
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": _py_type_to_openapi(inner_type)},
+                })
+            elif origin is QueryParam:
+                p: dict[str, Any] = {
+                    "name": name,
+                    "in": "query",
+                    "required": default is _MISSING,
+                    "schema": {"type": _py_type_to_openapi(inner_type)},
+                }
+                if default is not _MISSING:
+                    p["schema"]["default"] = default
+                params.append(p)
+            elif origin is Header:
+                params.append({
+                    "name": name.replace("_", "-"),
+                    "in": "header",
+                    "required": default is _MISSING,
+                    "schema": {"type": _py_type_to_openapi(inner_type)},
+                })
+            elif origin is Cookie:
+                params.append({
+                    "name": name,
+                    "in": "cookie",
+                    "required": default is _MISSING,
+                    "schema": {"type": _py_type_to_openapi(inner_type)},
+                })
+            elif origin is Body:
+                if isinstance(inner_type, type) and issubclass(inner_type, BaseModel):
+                    body_model = inner_type
+
+        return params, body_model
 
     def _collect_exception_handlers(
         self, instance: Any
