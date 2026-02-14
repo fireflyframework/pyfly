@@ -1,0 +1,13 @@
+"""Health check controller."""
+
+from pyfly.container import rest_controller
+from pyfly.web import get_mapping, request_mapping
+
+
+@rest_controller
+@request_mapping("/health")
+class HealthController:
+
+    @get_mapping("/")
+    async def health(self) -> dict[str, str]:
+        return {"status": "UP"}

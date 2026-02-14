@@ -1,0 +1,14 @@
+"""Outbound ports — repository / infrastructure interfaces."""
+
+from __future__ import annotations
+
+from typing import Protocol
+
+from {{ package_name }}.domain.models import Item
+
+
+class ItemRepositoryPort(Protocol):
+    def save(self, item: Item) -> None: ...
+    def find_by_id(self, item_id: str) -> Item: ...
+    def find_all(self) -> list[Item]: ...
+    def delete(self, item_id: str) -> None: ...

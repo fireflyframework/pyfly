@@ -16,7 +16,8 @@
 # PyFly Framework Installer
 # Usage:
 #   Interactive:     bash install.sh
-#   Non-interactive: curl -fsSL <url>/install.sh | bash
+#   Via curl:        curl -fsSL https://raw.githubusercontent.com/fireflyframework/pyfly/main/install.sh | bash
+#   Via get.pyfly:   curl -fsSL https://get.pyfly.io/ | bash
 #   Custom dir:      PYFLY_HOME=/opt/pyfly bash install.sh
 #   Custom extras:   PYFLY_EXTRAS=web,data bash install.sh
 
@@ -65,7 +66,8 @@ banner() {
       /____/        /____/
 BANNER
     printf "${RESET}"
-    printf "  ${DIM}:: PyFly Framework Installer :: (v%s)${RESET}\n\n" "$PYFLY_VERSION"
+    printf "  ${DIM}:: PyFly Framework Installer :: (v%s)${RESET}\n" "$PYFLY_VERSION"
+    printf "  ${DIM}Copyright 2026 Firefly Software Solutions Inc. | Apache 2.0 License${RESET}\n\n"
 }
 
 # ── Prerequisite checks ───────────────────────────────────────────────────────
@@ -182,10 +184,12 @@ prompt_add_to_path() {
 
 # ── Installation ───────────────────────────────────────────────────────────────
 
+PYFLY_REPO="https://github.com/fireflyframework/pyfly.git"
+
 detect_source_dir() {
     # If this script is in a pyfly source directory, use it
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
-    if [ -f "$SCRIPT_DIR/pyproject.toml" ] && grep -q 'name = "pyfly"' "$SCRIPT_DIR/pyproject.toml" 2>/dev/null; then
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd || echo "")"
+    if [ -n "$SCRIPT_DIR" ] && [ -f "$SCRIPT_DIR/pyproject.toml" ] && grep -q 'name = "pyfly"' "$SCRIPT_DIR/pyproject.toml" 2>/dev/null; then
         SOURCE_DIR="$SCRIPT_DIR"
         info "Source detected at: $SOURCE_DIR"
         return 0
@@ -198,7 +202,14 @@ detect_source_dir() {
         return 0
     fi
 
-    fatal "PyFly source not found. Run this script from the PyFly source directory, or set PYFLY_SOURCE=/path/to/pyfly."
+    # No local source — clone from GitHub (curl | bash mode)
+    if ! command -v git &>/dev/null; then
+        fatal "git is required to install PyFly via curl. Please install git first."
+    fi
+    info "Cloning PyFly from $PYFLY_REPO ..."
+    SOURCE_DIR="$(mktemp -d)/pyfly"
+    git clone --depth 1 "$PYFLY_REPO" "$SOURCE_DIR" --quiet
+    success "Cloned PyFly source"
 }
 
 install_pyfly() {

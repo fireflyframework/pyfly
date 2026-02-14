@@ -1,0 +1,48 @@
+pyfly:
+  app:
+    name: {{ name }}
+
+{% if has_web or archetype in ("web-api", "hexagonal", "core") %}
+  web:
+    port: 8080
+{% endif %}
+
+  logging:
+    level:
+      root: INFO
+{% if has_data %}
+
+  data:
+    datasource:
+      url: postgresql+asyncpg://localhost:5432/{{ package_name }}
+      pool-size: 5
+{% endif %}
+{% if has_cache %}
+
+  cache:
+    type: redis
+    redis:
+      url: redis://localhost:6379/0
+      ttl: 300
+{% endif %}
+{% if has_eda %}
+
+  eda:
+    kafka:
+      bootstrap-servers: localhost:9092
+{% endif %}
+{% if has_security %}
+
+  security:
+    jwt:
+      secret: change-me-in-production
+      expiration: 3600
+{% endif %}
+{% if has_observability %}
+
+  observability:
+    metrics:
+      enabled: true
+    tracing:
+      enabled: true
+{% endif %}

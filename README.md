@@ -133,33 +133,39 @@ PyFly detects installed libraries at startup and wires the appropriate adapters 
 
 > **Note:** PyFly is distributed exclusively via GitHub. It is **not** published to PyPI.
 
-### Quick Install (Recommended)
+### One-Line Install (Recommended)
 
 ```bash
-# Clone the repository
-git clone https://github.com/fireflyframework/pyfly.git
-cd pyfly
+# Via get.pyfly.io
+curl -fsSL https://get.pyfly.io/ | bash
 
-# Run the installer (creates a venv, installs PyFly, adds to PATH)
-bash install.sh
+# Or directly from GitHub
+curl -fsSL https://raw.githubusercontent.com/fireflyframework/pyfly/main/install.sh | bash
 ```
 
-### Manual Install
+The installer clones the repo, creates a virtual environment, installs PyFly with all extras, and adds `pyfly` to your PATH. You can customize with environment variables:
+
+```bash
+# Install to a custom directory
+PYFLY_HOME=/opt/pyfly curl -fsSL https://get.pyfly.io/ | bash
+
+# Install with specific extras only
+PYFLY_EXTRAS=web,data,security curl -fsSL https://get.pyfly.io/ | bash
+```
+
+### Local Install (from source)
 
 ```bash
 # Clone the repository
 git clone https://github.com/fireflyframework/pyfly.git
 cd pyfly
 
-# Create a virtual environment
-python3 -m venv .venv
-source .venv/bin/activate
+# Run the interactive installer
+bash install.sh
 
-# Install with all modules
+# Or install manually with pip
+python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[full]"
-
-# Or install with specific extras only
-pip install -e ".[web,data,security,cli]"
 ```
 
 ### Verify Installation
@@ -173,15 +179,98 @@ pyfly info
 ### Create Your First Project
 
 ```bash
-pyfly new my-service
+# Quick start — create a REST API with all the batteries
+pyfly new my-service --archetype web-api
 cd my-service
 pyfly run --reload
 
-# Visit the API docs
-open http://localhost:8080/docs
+# Visit http://localhost:8080/health
 ```
 
 See the [Installation Guide](docs/installation.md) for detailed options, Docker examples, and CI/CD setup.
+
+---
+
+## CLI & Project Scaffolding
+
+The `pyfly` CLI generates production-ready project structures with DI stereotypes, Docker support, and layered architecture out of the box.
+
+### Archetypes
+
+| Command | What you get |
+|---------|-------------|
+| `pyfly new my-app` | Minimal microservice (`core` archetype) |
+| `pyfly new my-api --archetype web-api` | REST API with controllers, services, repositories |
+| `pyfly new my-svc --archetype hexagonal` | Hexagonal architecture with ports & adapters |
+| `pyfly new my-lib --archetype library` | Reusable library with `py.typed` marker |
+
+### Feature Selection
+
+Choose which PyFly extras to include with `--features`:
+
+```bash
+# REST API with database and caching
+pyfly new order-service --archetype web-api --features web,data,cache
+```
+
+Available features: `web`, `data`, `eda`, `cache`, `client`, `security`, `scheduling`, `observability`, `cqrs`
+
+### Interactive Mode
+
+Run `pyfly new` without arguments for a guided experience:
+
+```
+$ pyfly new
+
+  ╭─ PyFly Project Generator ─╮
+  ╰────────────────────────────╯
+  Project name: order-service
+  Package name [order_service]:
+  Archetype:
+    1) core         Minimal microservice
+    2) web-api      Full REST API with layered architecture
+    3) hexagonal    Hexagonal architecture (ports & adapters)
+    4) library      Reusable library package
+  Select archetype [1]: 2
+  Features (comma-separated, enter for defaults) [web]: web,data
+```
+
+### Generated Web API Structure
+
+```
+order-service/
+├── Dockerfile              # Multi-stage production build
+├── README.md               # Project docs with quick start
+├── pyfly.yaml              # Framework configuration
+├── pyproject.toml           # Dependencies based on selected features
+├── .env.example
+├── src/order_service/
+│   ├── app.py              # @pyfly_application entry point
+│   ├── controllers/
+│   │   ├── health_controller.py   # @rest_controller — /health
+│   │   └── item_controller.py     # @rest_controller — CRUD /items
+│   ├── services/
+│   │   └── item_service.py        # @service — business logic
+│   ├── models/
+│   │   └── item.py                # Pydantic DTOs
+│   └── repositories/
+│       └── item_repository.py     # @repository — data access
+└── tests/
+    └── test_item_controller.py
+```
+
+### Other CLI Commands
+
+| Command | Description |
+|---------|-------------|
+| `pyfly run --reload` | Start the application server with auto-reload |
+| `pyfly info` | Show installed framework version and extras |
+| `pyfly doctor` | Diagnose your development environment |
+| `pyfly db init` | Initialize Alembic migration environment |
+| `pyfly db migrate -m "msg"` | Auto-generate a database migration |
+| `pyfly db upgrade` | Apply pending migrations |
+
+See the full [CLI Reference](docs/cli.md) for details.
 
 ---
 

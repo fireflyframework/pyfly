@@ -58,7 +58,15 @@ src/pyfly/cli/
 ├── info.py          # pyfly info — environment information
 ├── doctor.py        # pyfly doctor — environment diagnostics
 ├── db.py            # pyfly db — Alembic migration management
-└── templates.py     # Project template generators
+├── templates.py     # Jinja2-based template renderer
+└── templates/       # Jinja2 template files (.j2)
+    ├── pyproject.toml.j2
+    ├── app.py.j2
+    ├── pyfly.yaml.j2
+    ├── dockerfile.j2
+    ├── readme.md.j2
+    ├── ...
+    └── hex/         # Hexagonal archetype templates
 ```
 
 ### Rich Console Theme
@@ -90,19 +98,20 @@ The `--version` flag reads the version from the `pyfly` package metadata.
 
 ## pyfly new
 
-Create a new PyFly project with a complete directory structure, configuration files, and starter code.
+Create a new PyFly project with a complete directory structure, configuration files, and starter code. Supports four archetypes, selective feature inclusion, and an interactive mode.
 
 ### Usage
 
 ```bash
-pyfly new <name> [OPTIONS]
+pyfly new <name> [OPTIONS]    # Direct mode
+pyfly new [OPTIONS]           # Interactive mode (prompts for all options)
 ```
 
 ### Arguments
 
 | Argument | Required | Description |
 |----------|----------|-------------|
-| `name` | Yes | Project name (used for directory and Python package name) |
+| `name` | No | Project name. Omit to enter interactive mode. |
 
 The project name is converted to a valid Python package name: `my-service` becomes `my_service` for the package directory.
 
@@ -110,98 +119,193 @@ The project name is converted to a valid Python package name: `my-service` becom
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `--archetype` | `core` | Project template: `core` (microservice) or `library` (shared library) |
+| `--archetype` | `core` | Project archetype (see below) |
+| `--features` | Per archetype | Comma-separated PyFly extras (e.g. `web,data,cache`) |
 | `--directory` | `.` | Parent directory where the project folder will be created |
+
+### Archetypes
+
+| Archetype | Description | Default Features |
+|-----------|-------------|-----------------|
+| `core` | Minimal microservice | *(none)* |
+| `web-api` | Full REST API with layered architecture | `web` |
+| `hexagonal` | Hexagonal architecture (ports & adapters) | `web` |
+| `library` | Reusable library package | *(none)* |
+
+### Available Features
+
+Features control which PyFly extras are included as dependencies and which config sections are generated:
+
+| Feature | What it adds |
+|---------|-------------|
+| `web` | HTTP routing, controllers, OpenAPI |
+| `data` | Repository pattern, SQLAlchemy, database config |
+| `eda` | Event-driven architecture, Kafka config |
+| `cache` | Redis caching, cache config |
+| `client` | HTTP client (httpx) |
+| `security` | JWT authentication, password encoding |
+| `scheduling` | Cron-based scheduling |
+| `observability` | Prometheus, OpenTelemetry |
+| `cqrs` | CQRS pattern support |
 
 ### Core Archetype
 
-The `core` archetype creates a full microservice project ready to run:
+The `core` archetype creates a minimal microservice with configuration and Docker support:
 
 ```
 my-service/
-├── pyproject.toml          # Project metadata, PyFly dependency
-├── pyfly.yaml              # Framework configuration
+├── pyproject.toml
+├── pyfly.yaml
+├── Dockerfile
+├── README.md
+├── .gitignore
+├── .env.example
 ├── src/
 │   └── my_service/
 │       ├── __init__.py
-│       └── app.py          # Application entry point
+│       └── app.py
 └── tests/
-    └── __init__.py
+    ├── __init__.py
+    └── conftest.py
 ```
 
-**Generated `app.py`:**
-```python
-from pyfly.core import pyfly_application, PyFlyApplication
+### Web API Archetype
 
-@pyfly_application(
-    name="my-service",
-    version="0.1.0",
-    scan_packages=["my_service"],
-)
-class Application:
-    pass
+The `web-api` archetype creates a full REST API with layered controllers, services, models, and repositories — all using PyFly stereotypes:
+
+```
+my-api/
+├── pyproject.toml
+├── pyfly.yaml
+├── Dockerfile
+├── README.md
+├── .gitignore
+├── .env.example
+├── src/
+│   └── my_api/
+│       ├── __init__.py
+│       ├── app.py
+│       ├── controllers/
+│       │   ├── health_controller.py    # @rest_controller — /health
+│       │   └── item_controller.py      # @rest_controller — CRUD /items
+│       ├── services/
+│       │   └── item_service.py         # @service — business logic
+│       ├── models/
+│       │   └── item.py                 # Pydantic request/response DTOs
+│       └── repositories/
+│           └── item_repository.py      # @repository — in-memory store
+└── tests/
+    ├── __init__.py
+    ├── conftest.py
+    └── test_item_controller.py
 ```
 
-**Generated `pyfly.yaml`:**
-```yaml
-pyfly:
-  app:
-    name: my-service
-    version: 0.1.0
-  web:
-    port: 8080
-    docs:
-      enabled: true
-  logging:
-    level:
-      root: INFO
+### Hexagonal Archetype
+
+The `hexagonal` archetype creates a ports-and-adapters project with explicit domain, application, infrastructure, and API layers:
+
+```
+my-hex/
+├── pyproject.toml
+├── pyfly.yaml
+├── Dockerfile
+├── README.md
+├── .gitignore
+├── .env.example
+├── src/
+│   └── my_hex/
+│       ├── __init__.py
+│       ├── app.py
+│       ├── domain/
+│       │   ├── models.py              # Domain entities (dataclasses)
+│       │   ├── events.py              # Domain events
+│       │   └── ports/
+│       │       ├── inbound.py         # Use-case Protocols
+│       │       └── outbound.py        # Repository Protocols
+│       ├── application/
+│       │   └── services.py            # @service — implements inbound ports
+│       ├── infrastructure/
+│       │   ├── config.py              # @configuration beans
+│       │   └── adapters/
+│       │       └── persistence.py     # @repository — implements outbound ports
+│       └── api/
+│           ├── controllers.py         # @rest_controller
+│           └── dto.py                 # Pydantic request/response DTOs
+└── tests/
+    ├── __init__.py
+    ├── conftest.py
+    ├── domain/
+    │   └── test_models.py
+    └── application/
+        └── test_services.py
 ```
 
 ### Library Archetype
 
-The `library` archetype creates a minimal shared library project (no web server, no framework config):
+The `library` archetype creates a minimal reusable library with PEP 561 `py.typed` marker:
 
 ```
 my-library/
 ├── pyproject.toml
+├── README.md
+├── .gitignore
 ├── src/
 │   └── my_library/
-│       └── __init__.py
+│       ├── __init__.py
+│       └── py.typed
 └── tests/
-    └── __init__.py
+    ├── __init__.py
+    └── conftest.py
+```
+
+### Interactive Mode
+
+When `pyfly new` is run without a `NAME` argument, it enters interactive mode and prompts for all options:
+
+```
+$ pyfly new
+
+  ╭─ PyFly Project Generator ─╮
+  │                            │
+  ╰────────────────────────────╯
+  Project name: my-service
+  Package name [my_service]:
+  Archetype:
+    1) core         Minimal microservice
+    2) web-api      Full REST API with layered architecture
+    3) hexagonal    Hexagonal architecture (ports & adapters)
+    4) library      Reusable library package
+  Select archetype [1]: 2
+  Features (comma-separated, enter for defaults) [web]: web,data
 ```
 
 ### Error Handling
 
-If the target directory already exists, the command exits with an error message rather than overwriting.
+If the target directory already exists, the command exits with an error. If an unknown feature is specified, the command lists valid features and exits.
 
 ### Examples
 
 ```bash
-# Create a microservice
+# Create a microservice (core archetype, no features)
 pyfly new order-service
+
+# Create a REST API (includes health controller, CRUD example)
+pyfly new order-api --archetype web-api
+
+# Create a hexagonal project with data and cache
+pyfly new order-svc --archetype hexagonal --features web,data,cache
 
 # Create a shared library
 pyfly new common-utils --archetype library
 
 # Create in a specific directory
 pyfly new payment-service --directory /projects
+
+# Interactive mode
+pyfly new
 ```
 
-After creation, the CLI displays a Rich tree panel showing all created files and a hint to navigate into the project:
-
-```
-╭─ Created core project ────────────╮
-│ 📁 order-service/                 │
-│ ├── pyfly.yaml                    │
-│ ├── pyproject.toml                │
-│ ├── src/order_service/__init__.py │
-│ ├── src/order_service/app.py      │
-│ └── tests/__init__.py             │
-╰───────────────────────────────────╯
-
-  cd order-service to get started!
-```
+After creation, the CLI displays a Rich tree panel showing all created files and a hint to navigate into the project.
 
 ---
 

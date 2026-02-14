@@ -1,0 +1,38 @@
+"""Item REST controller."""
+
+from pyfly.container import rest_controller
+from pyfly.web import (
+    Body,
+    PathVar,
+    delete_mapping,
+    get_mapping,
+    post_mapping,
+    request_mapping,
+)
+
+from {{ package_name }}.models.item import ItemCreate, ItemResponse
+from {{ package_name }}.services.item_service import ItemService
+
+
+@rest_controller
+@request_mapping("/items")
+class ItemController:
+
+    def __init__(self, item_service: ItemService) -> None:
+        self._service = item_service
+
+    @get_mapping("/")
+    async def list_items(self) -> list[ItemResponse]:
+        return self._service.list_all()
+
+    @get_mapping("/{item_id}")
+    async def get_item(self, item_id: PathVar[str]) -> ItemResponse:
+        return self._service.get(item_id)
+
+    @post_mapping("/", status_code=201)
+    async def create_item(self, body: Body[ItemCreate]) -> ItemResponse:
+        return self._service.create(body)
+
+    @delete_mapping("/{item_id}", status_code=204)
+    async def delete_item(self, item_id: PathVar[str]) -> None:
+        self._service.delete(item_id)

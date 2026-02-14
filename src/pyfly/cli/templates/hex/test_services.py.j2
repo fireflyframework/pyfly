@@ -1,0 +1,30 @@
+"""Tests for application services."""
+
+from {{ package_name }}.application.services import ItemService
+from {{ package_name }}.infrastructure.adapters.persistence import InMemoryItemRepository
+
+
+class TestItemService:
+    def setup_method(self) -> None:
+        self.repository = InMemoryItemRepository()
+        self.service = ItemService(self.repository)
+
+    def test_create_item(self) -> None:
+        item = self.service.create("Widget", "A widget")
+        assert item.name == "Widget"
+        assert item.id
+
+    def test_list_items(self) -> None:
+        self.service.create("A", "")
+        self.service.create("B", "")
+        assert len(self.service.list_all()) == 2
+
+    def test_get_item(self) -> None:
+        created = self.service.create("Widget", "")
+        found = self.service.get(created.id)
+        assert found.name == "Widget"
+
+    def test_delete_item(self) -> None:
+        created = self.service.create("Widget", "")
+        self.service.delete(created.id)
+        assert len(self.service.list_all()) == 0

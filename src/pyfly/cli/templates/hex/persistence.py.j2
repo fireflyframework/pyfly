@@ -1,0 +1,27 @@
+"""Persistence adapter — implements outbound repository port."""
+
+from __future__ import annotations
+
+from pyfly.container import repository
+
+from {{ package_name }}.domain.models import Item
+
+
+@repository
+class InMemoryItemRepository:
+    """In-memory implementation. Replace with a database-backed adapter."""
+
+    def __init__(self) -> None:
+        self._store: dict[str, Item] = {}
+
+    def save(self, item: Item) -> None:
+        self._store[item.id] = item
+
+    def find_by_id(self, item_id: str) -> Item:
+        return self._store[item_id]
+
+    def find_all(self) -> list[Item]:
+        return list(self._store.values())
+
+    def delete(self, item_id: str) -> None:
+        self._store.pop(item_id, None)

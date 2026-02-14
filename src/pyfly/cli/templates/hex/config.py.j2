@@ -1,0 +1,12 @@
+"""Infrastructure configuration beans."""
+
+from pyfly.container import configuration
+
+
+@configuration
+class AppConfig:
+    """Application-level configuration.
+
+    Add ``@bean`` methods here to register custom infrastructure beans
+    (database connections, external clients, etc.).
+    """

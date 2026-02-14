@@ -1,0 +1,27 @@
+# --- Build stage ---
+FROM python:3.12-slim AS builder
+
+WORKDIR /build
+
+COPY pyproject.toml .
+COPY src/ src/
+
+RUN pip install --no-cache-dir build \
+    && python -m build --wheel --outdir /build/dist
+
+# --- Runtime stage ---
+FROM python:3.12-slim
+
+WORKDIR /app
+
+COPY --from=builder /build/dist/*.whl /tmp/
+RUN pip install --no-cache-dir /tmp/*.whl \
+    && rm /tmp/*.whl
+
+COPY pyfly.yaml .
+
+{% if has_web or archetype in ("web-api", "hexagonal", "core") %}
+EXPOSE 8080
+{% endif %}
+
+CMD ["pyfly", "run"]

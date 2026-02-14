@@ -1,0 +1,25 @@
+"""Item repository with in-memory storage."""
+
+from pyfly.container import repository
+
+from {{ package_name }}.models.item import ItemResponse
+
+
+@repository
+class ItemRepository:
+    """In-memory item store. Replace with a database-backed implementation."""
+
+    def __init__(self) -> None:
+        self._store: dict[str, ItemResponse] = {}
+
+    def save(self, item_id: str, item: ItemResponse) -> None:
+        self._store[item_id] = item
+
+    def find_by_id(self, item_id: str) -> ItemResponse:
+        return self._store[item_id]
+
+    def find_all(self) -> list[ItemResponse]:
+        return list(self._store.values())
+
+    def delete(self, item_id: str) -> None:
+        self._store.pop(item_id, None)

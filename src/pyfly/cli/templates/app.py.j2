@@ -1,0 +1,25 @@
+"""Application entry point."""
+
+from pyfly.core import pyfly_application
+
+
+@pyfly_application(
+    name="{{ name }}",
+{% if archetype == "hexagonal" %}
+    scan_packages=[
+        "{{ package_name }}.api",
+        "{{ package_name }}.application",
+        "{{ package_name }}.infrastructure",
+    ],
+{% elif archetype == "web-api" %}
+    scan_packages=[
+        "{{ package_name }}.controllers",
+        "{{ package_name }}.services",
+        "{{ package_name }}.repositories",
+    ],
+{% else %}
+    scan_packages=["{{ package_name }}"],
+{% endif %}
+)
+class Application:
+    pass

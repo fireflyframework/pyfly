@@ -1,0 +1,16 @@
+"""Domain events."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class ItemCreated:
+    item_id: str
+    name: str
+
+
+@dataclass(frozen=True)
+class ItemDeleted:
+    item_id: str

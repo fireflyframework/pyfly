@@ -1,0 +1,43 @@
+"""REST controllers — API layer."""
+
+from pyfly.container import rest_controller
+from pyfly.web import Body, PathVar, delete_mapping, get_mapping, post_mapping, request_mapping
+
+from {{ package_name }}.api.dto import ItemCreateRequest, ItemResponseDTO
+from {{ package_name }}.application.services import ItemService
+
+
+@rest_controller
+@request_mapping("/health")
+class HealthController:
+
+    @get_mapping("/")
+    async def health(self) -> dict[str, str]:
+        return {"status": "UP"}
+
+
+@rest_controller
+@request_mapping("/items")
+class ItemController:
+
+    def __init__(self, item_service: ItemService) -> None:
+        self._service = item_service
+
+    @get_mapping("/")
+    async def list_items(self) -> list[ItemResponseDTO]:
+        items = self._service.list_all()
+        return [ItemResponseDTO(id=i.id, name=i.name, description=i.description) for i in items]
+
+    @get_mapping("/{item_id}")
+    async def get_item(self, item_id: PathVar[str]) -> ItemResponseDTO:
+        item = self._service.get(item_id)
+        return ItemResponseDTO(id=item.id, name=item.name, description=item.description)
+
+    @post_mapping("/", status_code=201)
+    async def create_item(self, body: Body[ItemCreateRequest]) -> ItemResponseDTO:
+        item = self._service.create(name=body.name, description=body.description)
+        return ItemResponseDTO(id=item.id, name=item.name, description=item.description)
+
+    @delete_mapping("/{item_id}", status_code=204)
+    async def delete_item(self, item_id: PathVar[str]) -> None:
+        self._service.delete(item_id)

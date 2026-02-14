@@ -1,0 +1,16 @@
+"""Tests for domain models."""
+
+from {{ package_name }}.domain.models import Item
+
+
+class TestItem:
+    def test_create_item(self) -> None:
+        item = Item(name="Widget", description="A widget")
+        assert item.name == "Widget"
+        assert item.id  # auto-generated UUID
+
+    def test_default_values(self) -> None:
+        item = Item()
+        assert item.name == ""
+        assert item.description == ""
+        assert item.id

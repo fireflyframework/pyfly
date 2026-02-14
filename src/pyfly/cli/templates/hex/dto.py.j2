@@ -1,0 +1,14 @@
+"""Request / response DTOs for the API layer."""
+
+from pydantic import BaseModel
+
+
+class ItemCreateRequest(BaseModel):
+    name: str
+    description: str = ""
+
+
+class ItemResponseDTO(BaseModel):
+    id: str
+    name: str
+    description: str = ""

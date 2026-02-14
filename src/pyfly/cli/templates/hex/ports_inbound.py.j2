@@ -1,0 +1,23 @@
+"""Inbound ports — use-case interfaces."""
+
+from __future__ import annotations
+
+from typing import Protocol
+
+from {{ package_name }}.domain.models import Item
+
+
+class CreateItemUseCase(Protocol):
+    def create(self, name: str, description: str) -> Item: ...
+
+
+class GetItemUseCase(Protocol):
+    def get(self, item_id: str) -> Item: ...
+
+
+class ListItemsUseCase(Protocol):
+    def list_all(self) -> list[Item]: ...
+
+
+class DeleteItemUseCase(Protocol):
+    def delete(self, item_id: str) -> None: ...

@@ -44,4 +44,5 @@ def print_banner() -> None:
         "      /____/        /____/[/pyfly]"
     )
     console.print(banner)
-    console.print(f"  [dim]:: PyFly Framework :: (v{__version__})[/dim]\n")
+    console.print(f"  [dim]:: PyFly Framework :: (v{__version__})[/dim]")
+    console.print("  [dim]Copyright 2026 Firefly Software Solutions Inc. | Apache 2.0 License[/dim]\n")

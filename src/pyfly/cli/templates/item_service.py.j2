@@ -1,0 +1,30 @@
+"""Item business logic."""
+
+import uuid
+
+from pyfly.container import service
+
+from {{ package_name }}.models.item import ItemCreate, ItemResponse
+from {{ package_name }}.repositories.item_repository import ItemRepository
+
+
+@service
+class ItemService:
+
+    def __init__(self, repository: ItemRepository) -> None:
+        self._repository = repository
+
+    def create(self, data: ItemCreate) -> ItemResponse:
+        item_id = str(uuid.uuid4())
+        item = ItemResponse(id=item_id, name=data.name, description=data.description)
+        self._repository.save(item_id, item)
+        return item
+
+    def get(self, item_id: str) -> ItemResponse:
+        return self._repository.find_by_id(item_id)
+
+    def list_all(self) -> list[ItemResponse]:
+        return self._repository.find_all()
+
+    def delete(self, item_id: str) -> None:
+        self._repository.delete(item_id)

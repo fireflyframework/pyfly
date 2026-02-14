@@ -1,0 +1,89 @@
+# {{ name }}
+
+{% if archetype == "library" %}
+A reusable PyFly library.
+{% elif archetype == "hexagonal" %}
+A PyFly application using hexagonal architecture (ports & adapters).
+{% elif archetype == "web-api" %}
+A PyFly REST API with layered architecture.
+{% else %}
+A PyFly microservice.
+{% endif %}
+
+## Quick Start
+
+```bash
+# Create virtual environment
+python -m venv .venv
+source .venv/bin/activate
+
+# Install dependencies
+pip install -e ".[dev]"
+{% if archetype != "library" %}
+
+# Run the application
+pyfly run --reload
+{% endif %}
+
+# Run tests
+pytest
+```
+{% if archetype != "library" %}
+
+## Project Structure
+
+```
+{{ name }}/
+{% if archetype == "hexagonal" %}
+  src/{{ package_name }}/
+    app.py                          # Application entry point
+    domain/                         # Domain layer (entities, events, ports)
+      models.py                     # Domain entities
+      events.py                     # Domain events
+      ports/
+        inbound.py                  # Use-case interfaces (Protocols)
+        outbound.py                 # Repository interfaces
+    application/                    # Application layer (use cases)
+      services.py                   # Service implementations
+    infrastructure/                 # Infrastructure layer (adapters)
+      adapters/
+        persistence.py              # Repository implementations
+      config.py                     # Configuration beans
+    api/                            # API layer (controllers, DTOs)
+      controllers.py                # REST controllers
+      dto.py                        # Request/response models
+{% elif archetype == "web-api" %}
+  src/{{ package_name }}/
+    app.py                          # Application entry point
+    controllers/                    # REST controllers
+      health_controller.py          # Health check endpoint
+      item_controller.py            # Example CRUD controller
+    services/                       # Business logic
+      item_service.py               # Example service
+    models/                         # Pydantic models
+      item.py                       # Request/response DTOs
+    repositories/                   # Data access
+      item_repository.py            # Example repository
+{% else %}
+  src/{{ package_name }}/
+    app.py                          # Application entry point
+{% endif %}
+  tests/                            # Test suite
+  pyfly.yaml                        # Framework configuration
+  pyproject.toml                    # Project metadata
+  Dockerfile                        # Container build
+```
+{% endif %}
+
+## Development
+
+```bash
+# Lint
+ruff check src/
+
+# Type check
+mypy src/
+
+# Test with coverage
+pytest --cov={{ package_name }}
+```
