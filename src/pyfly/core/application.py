@@ -20,6 +20,7 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeVar
 
+from pyfly.container.exceptions import BeanCreationException
 from pyfly.container.scanner import scan_package
 from pyfly.core.banner import BannerPrinter
 from pyfly.core.config import Config
@@ -145,7 +146,17 @@ class PyFlyApplication:
             self._logger.info("scanned_package", package=package, beans_found=count)
 
         # Start the context (handles profile filtering, @order sorting, bean init)
-        await self._context.start()
+        try:
+            await self._context.start()
+        except BeanCreationException as exc:
+            self._logger.error(
+                "application_failed",
+                app=self._name,
+                error=str(exc),
+                subsystem=exc.subsystem,
+                provider=exc.provider,
+            )
+            raise
 
         self._startup_time = time.perf_counter() - start
 

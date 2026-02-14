@@ -16,6 +16,7 @@
 import pytest
 
 from pyfly.container import Container, service
+from pyfly.container.exceptions import BeanCreationException
 from pyfly.core.application import PyFlyApplication, pyfly_application
 
 
@@ -226,5 +227,49 @@ class TestRouteAndDocsLogging:
 
         app = PyFlyApplication(App, config_path=config_file)
         app._docs_enabled = False
+        await app.startup()
+        await app.shutdown()
+
+
+class TestFailFastStartup:
+    """Verify that BeanCreationException propagates through application startup."""
+
+    async def test_startup_fails_on_bean_creation_error(self, tmp_path):
+        """When Kafka is explicitly configured but unreachable, startup must crash."""
+        @pyfly_application(name="FailApp", version="0.1.0", scan_packages=[])
+        class App:
+            pass
+
+        config_file = tmp_path / "pyfly.yaml"
+        config_file.write_text(
+            "pyfly:\n"
+            "  banner:\n"
+            "    mode: 'OFF'\n"
+            "  messaging:\n"
+            "    provider: 'kafka'\n"
+            "    kafka:\n"
+            "      bootstrap-servers: 'localhost:19999'\n"
+        )
+
+        app = PyFlyApplication(App, config_path=config_file)
+        with pytest.raises(BeanCreationException, match="messaging.*kafka"):
+            await app.startup()
+
+    async def test_startup_succeeds_with_memory_providers(self, tmp_path):
+        """When using memory providers, startup should succeed without validation."""
+        @pyfly_application(name="MemApp", version="0.1.0", scan_packages=[])
+        class App:
+            pass
+
+        config_file = tmp_path / "pyfly.yaml"
+        config_file.write_text(
+            "pyfly:\n"
+            "  banner:\n"
+            "    mode: 'OFF'\n"
+            "  messaging:\n"
+            "    provider: 'memory'\n"
+        )
+
+        app = PyFlyApplication(App, config_path=config_file)
         await app.startup()
         await app.shutdown()
