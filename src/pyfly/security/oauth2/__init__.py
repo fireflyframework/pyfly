@@ -13,8 +13,22 @@
 # limitations under the License.
 """PyFly OAuth2 — Resource Server and Client Registration."""
 
+from pyfly.security.oauth2.client import (
+    ClientRegistration,
+    ClientRegistrationRepository,
+    InMemoryClientRegistrationRepository,
+    github,
+    google,
+    keycloak,
+)
 from pyfly.security.oauth2.resource_server import JWKSTokenValidator
 
 __all__ = [
+    "ClientRegistration",
+    "ClientRegistrationRepository",
+    "InMemoryClientRegistrationRepository",
     "JWKSTokenValidator",
+    "github",
+    "google",
+    "keycloak",
 ]
