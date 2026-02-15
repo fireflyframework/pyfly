@@ -11,8 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""PyFly OAuth2 — Resource Server and Client Registration."""
+"""PyFly OAuth2 — Authorization Server, Resource Server, and Client Registration."""
 
+from pyfly.security.oauth2.authorization_server import (
+    AuthorizationServer,
+    InMemoryTokenStore,
+    TokenStore,
+)
 from pyfly.security.oauth2.client import (
     ClientRegistration,
     ClientRegistrationRepository,
@@ -24,10 +29,13 @@ from pyfly.security.oauth2.client import (
 from pyfly.security.oauth2.resource_server import JWKSTokenValidator
 
 __all__ = [
+    "AuthorizationServer",
     "ClientRegistration",
     "ClientRegistrationRepository",
     "InMemoryClientRegistrationRepository",
+    "InMemoryTokenStore",
     "JWKSTokenValidator",
+    "TokenStore",
     "github",
     "google",
     "keycloak",
