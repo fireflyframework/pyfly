@@ -45,6 +45,14 @@ class TestMetrics:
         histogram = registry.histogram("test_duration_seconds", "Request duration")
         histogram.observe(0.5)
 
+    def test_registry_creates_gauge(self):
+        registry = MetricsRegistry()
+        gauge = registry.gauge("test_gauge_active_connections", "Active connections")
+        gauge.inc()
+        gauge.inc()
+        gauge.dec()
+        assert gauge._value.get() == 1.0
+
     @pytest.mark.asyncio
     async def test_timed_decorator(self):
         registry = MetricsRegistry()
