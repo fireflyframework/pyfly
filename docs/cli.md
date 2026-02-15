@@ -53,7 +53,7 @@ src/pyfly/cli/
 ├── __init__.py
 ├── main.py          # PyFlyCLI group, command registration
 ├── console.py       # Shared Rich console, theme, print_banner()
-├── new.py           # pyfly new — project scaffolding
+├── new.py           # pyfly new — project scaffolding (questionary TUI + Click CLI)
 ├── run.py           # pyfly run — application server
 ├── info.py          # pyfly info — environment information
 ├── doctor.py        # pyfly doctor — environment diagnostics
@@ -260,24 +260,51 @@ my-library/
 
 ### Interactive Mode
 
-When `pyfly new` is run without a `NAME` argument, it enters interactive mode and prompts for all options:
+When `pyfly new` is run without a `NAME` argument, it enters interactive mode with a full-featured TUI experience powered by [questionary](https://questionary.readthedocs.io/):
 
 ```
 $ pyfly new
 
-  ╭─ PyFly Project Generator ─╮
-  │                            │
-  ╰────────────────────────────╯
-  Project name: my-service
-  Package name [my_service]:
-  Archetype:
-    1) core         Minimal microservice
-    2) web-api      Full REST API with layered architecture
-    3) hexagonal    Hexagonal architecture (ports & adapters)
-    4) library      Reusable library package
-  Select archetype [1]: 2
-  Features (comma-separated, enter for defaults) [web]: web,data
+  ╭─────────────────────────────────╮
+  │   PyFly Project Generator       │
+  ╰─────────────────────────────────╯
+
+  ? Project name: my-service
+  ? Package name: my_service
+  ? Select archetype: (use arrow keys)
+    ❯ core          Minimal microservice
+      web-api       Full REST API with layered architecture
+      hexagonal     Hexagonal architecture (ports & adapters)
+      library       Reusable library package
+
+  ? Select features: (space to toggle, enter to confirm)
+    ❯ [x] web          HTTP routing, controllers, OpenAPI
+      [ ] data         Repository pattern, SQLAlchemy
+      [ ] cache        Caching with Redis adapter
+      [ ] security     JWT, password encoding
+      [ ] eda          Event-driven architecture
+      [ ] client       HTTP client (httpx)
+      [ ] scheduling   Cron-based scheduling
+      [ ] observability  Prometheus, OpenTelemetry
+      [ ] cqrs         CQRS pattern support
+
+  ╭─ Project Summary ───────────────╮
+  │   Name:      my-service         │
+  │   Package:   my_service         │
+  │   Archetype: web-api            │
+  │   Features:  web, data          │
+  ╰─────────────────────────────────╯
+
+  ? Create this project? Yes
 ```
+
+**Features:**
+- Arrow-key navigation for archetype selection (single-select)
+- Space-bar toggling for feature selection (multi-select with checkbox)
+- Confirmation summary with Rich-styled panel before creation
+- Graceful handling of Ctrl+C (exits cleanly without traceback)
+
+The library archetype skips the feature selection step since libraries don't include PyFly extras.
 
 ### Error Handling
 

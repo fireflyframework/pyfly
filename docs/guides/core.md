@@ -49,6 +49,7 @@ The `pyfly.core` module provides three concerns that every application needs:
 | **Bootstrap** | `@pyfly_application`, `PyFlyApplication` | Mark an entry-point class and orchestrate the startup/shutdown lifecycle. |
 | **Configuration** | `Config`, `@config_properties` | Load, layer, and access configuration from YAML/TOML files, profiles, and environment variables. |
 | **Banner** | `BannerMode`, `BannerPrinter` | Render a startup banner to stdout (ASCII art, minimal one-liner, or off). |
+| **Lifecycle** | `Lifecycle` protocol | Unified `start()`/`stop()` contract for all infrastructure adapters. |
 
 All public symbols are re-exported from `pyfly.core`:
 
@@ -61,6 +62,7 @@ from pyfly.core import (
     BannerMode,
     BannerPrinter,
 )
+from pyfly.kernel import Lifecycle
 ```
 
 ---
@@ -157,13 +159,16 @@ docstring):
 2. Print banner (respecting `pyfly.banner.mode`)
 3. Log `"Starting {app} v{version}"`
 4. Log `"Active profiles: {profiles}"` or `"No active profiles set"`
-5. Load profile-specific config files
-6. Filter beans by active profiles
-7. Sort beans by `@order` value
-8. Initialize beans (respecting order)
-9. Log `"Started {app} in {time}s ({count} beans initialized)"`
+5. Log loaded configuration sources
+6. Load profile-specific config files
+7. Filter beans by active profiles
+8. Sort beans by `@order` value
+9. Initialize beans (respecting order)
+10. Start infrastructure adapters (fail-fast validation)
+11. Log `"Started {app} in {time}s ({count} beans initialized)"`
+12. Log mapped endpoints and API documentation URLs
 
-Steps 1, 5, and part of 6 happen in the constructor. Steps 2-4 and 6-9 happen in the
+Steps 1, 6, and part of 7 happen in the constructor. Steps 2-5 and 7-12 happen in the
 async `startup()` method.
 
 ### startup() Method
@@ -177,8 +182,11 @@ This is the async entry point you call to bring the application to life. It:
 1. Renders and prints the startup banner.
 2. Logs the starting message with the app name and version.
 3. Logs the active profiles (or a "no active profiles" fallback).
-4. Calls `ApplicationContext.start()`, which handles profile filtering, condition evaluation, bean ordering, eager singleton resolution, lifecycle hooks (`@post_construct`), post-processors, and event publishing (`ContextRefreshedEvent`, `ApplicationReadyEvent`).
-5. Records startup time and logs the completion message.
+4. Logs loaded configuration sources (`config.loaded_sources`).
+5. Logs deferred package scan results.
+6. Calls `ApplicationContext.start()`, which handles profile filtering, condition evaluation, bean ordering, eager singleton resolution, lifecycle hooks (`@post_construct`), post-processors, event publishing (`ContextRefreshedEvent`, `ApplicationReadyEvent`), and adapter lifecycle. If any adapter fails to start, it logs the error and raises `BeanCreationException`.
+7. Records startup time and logs the completion message.
+8. Logs mapped routes and API documentation URLs after startup.
 
 ### shutdown() Method
 
@@ -189,6 +197,32 @@ async def shutdown(self) -> None:
 Logs a shutdown message and delegates to `ApplicationContext.stop()`, which calls
 `@pre_destroy` on all resolved beans in reverse initialization order and publishes
 `ContextClosedEvent`.
+
+### Fail-Fast Startup
+
+PyFly follows Spring Boot's fail-fast principle: if explicitly configured infrastructure
+(database, cache, message broker) cannot be reached at startup, the application fails
+immediately with a clear error rather than starting in a broken state.
+
+When an infrastructure adapter's `start()` method fails (e.g., Redis is unreachable,
+Kafka broker is down), the framework:
+
+1. Catches the exception.
+2. Wraps it in a `BeanCreationException` with the subsystem name and provider.
+3. Logs a structured error: `application_failed app={name} error={detail} subsystem={subsystem} provider={provider}`.
+4. Re-raises the exception, terminating startup.
+
+```python
+from pyfly.container.exceptions import BeanCreationException
+
+try:
+    await app.startup()
+except BeanCreationException as e:
+    print(f"Startup failed: {e.subsystem}/{e.provider}: {e.reason}")
+```
+
+This ensures you detect infrastructure problems at deploy time, not when the first
+request hits a broken adapter at runtime.
 
 ### Properties
 
@@ -241,6 +275,47 @@ Merge order (later wins):
 | `path` | `str \| Path` | Path to the base configuration file. |
 | `active_profiles` | `list[str] \| None` | Profiles whose overlays should be merged. |
 | `load_defaults` | `bool` | Whether to load the bundled framework defaults as the base layer. Defaults to `True`. |
+
+### Loading Configuration: from_sources()
+
+```python
+@classmethod
+def from_sources(
+    cls,
+    config_dir: str | Path,
+    active_profiles: list[str] | None = None,
+) -> Config:
+```
+
+Multi-source configuration loading with source tracking. Unlike `from_file()` which
+takes a single file path, `from_sources()` auto-discovers all config files in the
+given directory:
+
+1. Loads framework defaults (`pyfly-defaults.yaml`)
+2. Discovers and loads `pyfly.yaml` or `pyfly.toml` in the directory
+3. Loads profile overlay files for each active profile
+4. Records which sources were loaded in `loaded_sources`
+
+### Config Source Tracking: loaded_sources
+
+```python
+@property
+def loaded_sources(self) -> list[str]:
+```
+
+Returns a list of human-readable strings describing which configuration sources were
+loaded and in what order. Useful for debugging configuration issues:
+
+```python
+config = Config.from_sources(".", active_profiles=["prod"])
+for source in config.loaded_sources:
+    print(source)
+# pyfly-defaults.yaml (framework defaults)
+# pyfly.yaml
+# pyfly-prod.yaml (profile: prod)
+```
+
+These sources are also logged during startup for visibility.
 
 ### Reading Values: get()
 

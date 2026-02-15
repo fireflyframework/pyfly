@@ -81,6 +81,9 @@ cd my-service
 
 This generates a complete project structure with sensible defaults.
 
+> **Tip:** Run `pyfly new` without arguments to enter interactive mode, which guides
+> you through archetype and feature selection with arrow-key navigation.
+
 ---
 
 ## Step 2: Understand the Project Structure
@@ -471,8 +474,12 @@ You should see output like:
 
 2026-01-15T10:30:00Z [info] starting_application  app=my-service version=0.1.0
 2026-01-15T10:30:00Z [info] no_active_profiles     message=No active profiles set, falling back to default
+2026-01-15T10:30:00Z [info] loaded_config          source=pyfly-defaults.yaml (framework defaults)
+2026-01-15T10:30:00Z [info] loaded_config          source=pyfly.yaml
 2026-01-15T10:30:00Z [info] scanned_package        package=my_service beans_found=2
 2026-01-15T10:30:00Z [info] application_started    app=my-service startup_time_s=0.015 beans_initialized=2
+2026-01-15T10:30:00Z [info] mapped_endpoints       count=3 routes=...
+2026-01-15T10:30:00Z [info] api_documentation      swagger_ui=http://0.0.0.0:8080/docs redoc=http://0.0.0.0:8080/redoc
 INFO:     Uvicorn running on http://0.0.0.0:8080
 ```
 

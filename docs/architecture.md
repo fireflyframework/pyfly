@@ -163,6 +163,41 @@ requires only changing a binding -- no business logic changes.
 
 ---
 
+## Unified Lifecycle Protocol
+
+All infrastructure adapters implement the `Lifecycle` protocol from `pyfly.kernel`:
+
+```python
+from typing import Protocol, runtime_checkable
+
+@runtime_checkable
+class Lifecycle(Protocol):
+    async def start(self) -> None: ...
+    async def stop(self) -> None: ...
+```
+
+This provides a standard contract for managing infrastructure connections:
+
+- **`start()`** — Initialize connections, validate connectivity (e.g., Redis `PING`, Kafka broker connect). Called during application startup.
+- **`stop()`** — Release resources, close connections. Called during application shutdown in reverse order.
+
+All port protocols include `start()` and `stop()` alongside their domain methods:
+
+| Port | Domain Methods | Lifecycle |
+|---|---|---|
+| `MessageBrokerPort` | `publish()`, `subscribe()` | `start()`, `stop()` |
+| `CacheAdapter` | `get()`, `put()`, `evict()`, `exists()`, `clear()` | `start()`, `stop()` |
+| `HttpClientPort` | `request()` | `start()`, `stop()` |
+| `TaskExecutorPort` | `submit()` | `start()`, `stop()` |
+| `EventPublisher` | `publish()`, `subscribe()` | `start()`, `stop()` |
+
+This unified lifecycle enables:
+- **Fail-fast startup**: adapters validate connectivity in `start()`, failing immediately if infrastructure is unreachable.
+- **Graceful shutdown**: adapters release resources in `stop()`, called in reverse initialization order.
+- **Consistent testing**: mock adapters implement the same `start()`/`stop()` contract.
+
+---
+
 ## Module Layer Organization
 
 PyFly's modules are organized into four layers. Dependencies flow downward only: higher
@@ -174,7 +209,7 @@ The foundation provides primitives with zero or minimal external dependencies.
 
 | Module | Package | Purpose |
 |---|---|---|
-| **Kernel** | `pyfly.kernel` | Exception hierarchy (`PyFlyException` and 25+ domain-specific subclasses), error types (`ErrorResponse`, `ErrorCategory`, `ErrorSeverity`, `FieldError`). Zero external dependencies. |
+| **Kernel** | `pyfly.kernel` | Exception hierarchy (`PyFlyException` and 25+ domain-specific subclasses), error types (`ErrorResponse`, `ErrorCategory`, `ErrorSeverity`, `FieldError`), `Lifecycle` protocol for unified adapter lifecycle. Zero external dependencies. |
 | **Core** | `pyfly.core` | Application bootstrap (`PyFlyApplication`, `@pyfly_application`), configuration (`Config`, `@config_properties`), and banner rendering (`BannerPrinter`, `BannerMode`). |
 | **Container** | `pyfly.container` | DI container (`Container`), stereotypes (`@service`, `@component`, `@repository`, `@controller`, `@rest_controller`, `@configuration`), scopes (`Scope`), `@bean`, `@primary`, `@order`, `Qualifier`, component scanning. |
 | **Context** | `pyfly.context` | `ApplicationContext`, lifecycle hooks (`@post_construct`, `@pre_destroy`), `BeanPostProcessor` protocol, conditions (`@conditional_on_property`, `@conditional_on_class`, `@conditional_on_bean`, `@conditional_on_missing_bean`), events (`ApplicationReadyEvent`, `ContextRefreshedEvent`, `ContextClosedEvent`, `@app_event_listener`), `Environment`. |
@@ -392,6 +427,9 @@ await app.startup()
     |       +-- 4. Evaluate conditions (pass 2: on_bean, on_missing_bean)
     |       +-- 5. Process @auto_configuration classes + @bean methods
     |       +-- 6. Run AutoConfigurationEngine (provider detection)
+    |       +-- 6a. Start infrastructure adapters (fail-fast)
+    |       |       +-- For each adapter: await adapter.start()
+    |       |       +-- On failure: BeanCreationException
     |       +-- 7. Eagerly resolve singletons (sorted by @order)
     |       +-- 8. For each bean:
     |       |       +-- BeanPostProcessor.before_init()
@@ -412,6 +450,8 @@ await app.shutdown()
     +-- Log "Shutting down {app}"
     +-- await ApplicationContext.stop()
             |
+            +-- Stop infrastructure adapters (reverse order)
+            |       +-- For each adapter: await adapter.stop()
             +-- Call @pre_destroy on all beans (reverse order)
             +-- Publish ContextClosedEvent
 ```

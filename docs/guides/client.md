@@ -12,7 +12,7 @@ module, featuring circuit breakers, retry policies, and declarative clients.
    - [Creating a Client](#creating-a-client)
    - [Fluent Builder API](#fluent-builder-api)
    - [Making Requests](#making-requests)
-   - [Closing the Client](#closing-the-client)
+   - [Stopping the Client](#stopping-the-client)
 3. [CircuitBreaker](#circuitbreaker)
    - [States](#states)
    - [State Transitions](#state-transitions)
@@ -146,15 +146,16 @@ The retry wraps the circuit breaker, so a request that trips the circuit
 breaker will be retried (and the next retry attempt may succeed if the circuit
 transitions to half-open).
 
-### Closing the Client
+### Stopping the Client
 
-Always close the client when done to release connection pool resources:
+Always stop the client when done to release connection pool resources:
 
 ```python
-await client.close()
+await client.start()   # Start the underlying HTTP client
+await client.stop()    # Stop and release resources
 ```
 
-This delegates to the underlying `HttpClientPort.close()` method.
+This delegates to the underlying `HttpClientPort.stop()` method.
 
 ---
 
@@ -467,12 +468,11 @@ interface for HTTP communication:
 ```python
 from pyfly.client import HttpClientPort
 
+@runtime_checkable
 class HttpClientPort(Protocol):
-    async def request(self, method: str, url: str, **kwargs: Any) -> Any:
-        ...
-
-    async def close(self) -> None:
-        ...
+    async def request(self, method: str, url: str, **kwargs: Any) -> Any: ...
+    async def start(self) -> None: ...
+    async def stop(self) -> None: ...
 ```
 
 This abstraction allows:
@@ -513,7 +513,10 @@ class AioHttpAdapter:
         async with self._session.request(method, url, **kwargs) as resp:
             return await resp.json()
 
-    async def close(self):
+    async def start(self) -> None:
+        await self._ensure_session()
+
+    async def stop(self) -> None:
         if self._session:
             await self._session.close()
 ```
@@ -653,8 +656,8 @@ class OrderService:
             json={"order_id": order_id, "amount": amount},
         )
 
-    async def close(self):
-        await self._payments.close()
+    async def stop(self):
+        await self._payments.stop()
 ```
 
 ### Declarative Client
@@ -735,7 +738,7 @@ async def test_order_service():
         "POST", "/payments", json={"amount": 99.99}
     )
 
-    await client.close()
+    await client.stop()
 ```
 
 This demonstrates the value of the `HttpClientPort` abstraction: your tests

@@ -301,14 +301,16 @@ print(f"Found {count} scheduled methods")
 
 `start()` and `stop()` are async methods. `start()` creates an
 `asyncio.Task` for each discovered entry. `stop()` cancels all loop tasks,
-gathers them, clears the task list, and shuts down the executor:
+gathers them, clears the task list, and stops the executor:
 
 ```python
 await scheduler.start()
 # ... application runs ...
-await scheduler.stop()         # Waits for pending tasks
-await scheduler.stop(wait=False)  # Cancels immediately
+await scheduler.stop()
 ```
+
+Stops all scheduling loops and the executor. Always waits for pending tasks
+to complete (graceful shutdown).
 
 ### How Loops Work Internally
 
@@ -338,14 +340,11 @@ contract for task execution:
 ```python
 from pyfly.scheduling import TaskExecutorPort
 
+@runtime_checkable
 class TaskExecutorPort(Protocol):
-    async def submit(self, coro: Coroutine[Any, Any, T]) -> asyncio.Task[T]:
-        """Submit a coroutine for execution. Returns an asyncio.Task."""
-        ...
-
-    async def shutdown(self, wait: bool = True) -> None:
-        """Shutdown the executor, optionally waiting for pending tasks."""
-        ...
+    async def submit(self, coro: Coroutine[Any, Any, T]) -> asyncio.Task[T]: ...
+    async def start(self) -> None: ...
+    async def stop(self) -> None: ...
 ```
 
 You can implement this protocol to create custom executors -- for example, one
@@ -363,13 +362,13 @@ from pyfly.scheduling import AsyncIOTaskExecutor
 
 executor = AsyncIOTaskExecutor()
 task = await executor.submit(some_coroutine())
-await executor.shutdown()  # Wait for all pending tasks
+await executor.stop()  # Wait for all pending tasks
 ```
 
 - **submit()**: Creates an `asyncio.Task` via `create_task()`, adds it to an
   internal tracking set, and registers a done-callback that removes it.
-- **shutdown(wait=True)**: Gathers all tracked tasks (waits for completion).
-- **shutdown(wait=False)**: Cancels all tracked tasks, then gathers them.
+- **start()**: No-op (ready after construction).
+- **stop()**: Waits for all pending tasks to complete, then clears the task set.
 
 This executor is ideal for I/O-bound tasks that use `async`/`await`.
 
@@ -407,8 +406,10 @@ task = executor.submit_sync(cpu_heavy_function, arg1, arg2)
 |---|---|---|---|
 | `max_workers` | `int` | `4` | Number of threads in the pool |
 
-**shutdown()** cleans up both the asyncio tasks and the underlying
-`ThreadPoolExecutor`.
+**API:**
+
+- **start()**: No-op (ready after construction).
+- **stop()**: Waits for all pending tasks, clears task set, shuts down the thread pool.
 
 ---
 
@@ -588,8 +589,11 @@ class LoggingTaskExecutor:
         task.add_done_callback(self._tasks.discard)
         return task
 
-    async def shutdown(self, wait: bool = True) -> None:
-        if wait and self._tasks:
+    async def start(self) -> None:
+        pass  # Ready after construction
+
+    async def stop(self) -> None:
+        if self._tasks:
             await asyncio.gather(*self._tasks, return_exceptions=True)
         self._tasks.clear()
 

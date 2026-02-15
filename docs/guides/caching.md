@@ -151,8 +151,9 @@ await cache.exists("user:123")  # False
 # Clear the entire Redis database
 await cache.clear()
 
-# Close the connection when done
-await cache.close()
+await cache.start()   # Validate Redis connectivity
+# ... use cache ...
+await cache.stop()    # Close Redis connection
 ```
 
 ### Constructor
@@ -178,7 +179,12 @@ removed server-side without any lazy-deletion overhead.
 
 | Method    | Description |
 |-----------|-------------|
-| `close()` | Closes the underlying Redis connection by calling `client.aclose()`. Call this during application shutdown. |
+| `start()` | Validates connectivity by pinging Redis (`await client.ping()`). Called automatically during application startup. |
+| `stop()` | Closes the underlying Redis connection (`await client.aclose()`). Called automatically during application shutdown. |
+
+> **Note:** When using auto-configuration, `start()` and `stop()` are called automatically
+> by the `ApplicationContext` during startup and shutdown. You only need to call them
+> manually if you create a cache adapter outside the DI container.
 
 ---
 
