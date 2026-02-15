@@ -44,6 +44,24 @@ class TestBannerPrinterText:
         output = printer.render()
         assert ":: PyFly Framework ::" in output
 
+    def test_default_banner_contains_python_version(self):
+        import sys
+
+        printer = BannerPrinter(mode=BannerMode.TEXT, version="0.1.0")
+        output = printer.render()
+        py_ver = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+        assert f"Python {py_ver}" in output
+
+    def test_default_banner_contains_copyright(self):
+        printer = BannerPrinter(mode=BannerMode.TEXT, version="0.1.0")
+        output = printer.render()
+        assert "Copyright 2026 Firefly Software Solutions Inc." in output
+
+    def test_default_banner_contains_license(self):
+        printer = BannerPrinter(mode=BannerMode.TEXT, version="0.1.0")
+        output = printer.render()
+        assert "Apache License 2.0" in output
+
 
 class TestBannerPrinterMinimal:
     def test_minimal_banner_one_line(self):
@@ -76,6 +94,20 @@ class TestBannerPrinterCustomFile:
         )
         output = printer.render()
         assert "Hello 0.1.0 - OrderService" in output
+
+    def test_custom_banner_python_version_placeholder(self, tmp_path):
+        import sys
+
+        banner_file = tmp_path / "banner.txt"
+        banner_file.write_text("Running on Python ${python.version}")
+        printer = BannerPrinter(
+            mode=BannerMode.TEXT,
+            version="0.1.0",
+            custom_location=str(banner_file),
+        )
+        output = printer.render()
+        py_ver = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+        assert f"Running on Python {py_ver}" in output
 
     def test_custom_banner_profiles_placeholder(self, tmp_path):
         banner_file = tmp_path / "banner.txt"

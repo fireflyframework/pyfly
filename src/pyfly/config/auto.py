@@ -113,7 +113,7 @@ class AutoConfigurationEngine:
 
         enabled = config.get("pyfly.cache.enabled", False)
         if not _as_bool(enabled):
-            logger.info("auto_config_skip", subsystem="cache", reason="disabled")
+            logger.info("auto_configuration", subsystem="cache", status="skipped", reason="disabled")
             return
 
         configured_provider = str(config.get("pyfly.cache.provider", "auto"))
@@ -147,7 +147,7 @@ class AutoConfigurationEngine:
 
         # Skip if no messaging section exists at all (Config({}) case)
         if config.get("pyfly.messaging") is None:
-            logger.info("auto_config_skip", subsystem="messaging", reason="not configured")
+            logger.info("auto_configuration", subsystem="messaging", status="skipped", reason="not configured")
             return
 
         configured_provider = str(config.get("pyfly.messaging.provider", "auto"))
@@ -198,21 +198,22 @@ class AutoConfigurationEngine:
             adapter = HttpxClientAdapter(timeout=timedelta(seconds=timeout_s))
             self._register(container, HttpClientPort, adapter, "client", provider)
         else:
-            logger.info("auto_config_skip", subsystem="client", reason="no provider")
+            logger.info("auto_configuration", subsystem="client", status="skipped", reason="no provider")
 
     def _configure_data(self, config: Config, container: Container) -> None:
         """Auto-configure data layer if enabled and not already registered."""
         enabled = config.get("pyfly.data.enabled", False)
         if not _as_bool(enabled):
-            logger.info("auto_config_skip", subsystem="data", reason="disabled")
+            logger.info("auto_configuration", subsystem="data", status="skipped", reason="disabled")
             return
 
         provider = AutoConfiguration.detect_data_provider()
         if provider == "none":
-            logger.info("auto_config_skip", subsystem="data", reason="no provider")
+            logger.info("auto_configuration", subsystem="data", status="skipped", reason="no provider")
+            return
 
         self._results["data"] = provider
-        logger.info("auto_configured_data", provider=provider)
+        logger.info("auto_configuration", subsystem="data", status="configured", provider=provider)
 
     @staticmethod
     def _already_registered(container: Container, port_type: type) -> bool:
@@ -239,7 +240,7 @@ class AutoConfigurationEngine:
         container._registrations[adapter_type].instance = instance
         self._results[subsystem] = provider
         self._adapters.append(instance)
-        logger.info("auto_configured", subsystem=subsystem, provider=provider)
+        logger.info("auto_configuration", subsystem=subsystem, status="configured", provider=provider)
 
 
 def _as_bool(value: Any) -> bool:

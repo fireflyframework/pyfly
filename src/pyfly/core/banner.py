@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 import enum
+import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -98,8 +99,10 @@ class BannerPrinter:
             banner_text = _DEFAULT_BANNER
 
         banner_text = self._replace_placeholders(banner_text)
-        framework_line = f":: PyFly Framework :: (v{self._version})"
-        return banner_text.rstrip("\n") + "\n\n" + framework_line
+        py_ver = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+        framework_line = f":: PyFly Framework :: (v{self._version}) (Python {py_ver})"
+        copyright_line = "Copyright 2026 Firefly Software Solutions Inc. | Apache License 2.0"
+        return banner_text.rstrip("\n") + "\n\n" + framework_line + "\n" + copyright_line
 
     def _load_custom_banner(self) -> str | None:
         """Load custom banner file, returning None if not found or unreadable."""
@@ -116,8 +119,10 @@ class BannerPrinter:
     def _replace_placeholders(self, text: str) -> str:
         """Replace ${...} placeholders in banner text."""
         profiles_str = ", ".join(self._active_profiles) if self._active_profiles else ""
+        py_ver = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
         replacements = {
             "${pyfly.version}": self._version,
+            "${python.version}": py_ver,
             "${app.name}": self._app_name,
             "${app.version}": self._app_version,
             "${profiles.active}": profiles_str,

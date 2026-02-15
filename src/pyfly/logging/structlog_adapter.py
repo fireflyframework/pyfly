@@ -67,7 +67,7 @@ class StructlogAdapter:
         if self._format == "json":
             processors.append(structlog.processors.JSONRenderer())
         else:
-            processors.append(structlog.dev.ConsoleRenderer())
+            processors.append(structlog.dev.ConsoleRenderer(sort_keys=False))
 
         structlog.configure(
             processors=processors,
