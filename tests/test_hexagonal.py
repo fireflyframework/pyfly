@@ -105,6 +105,12 @@ class TestPortSwappability:
             async def request(self, method: str, url: str, **kwargs: Any) -> Any:
                 return {"method": method, "url": url, "status": 200}
 
+            async def start(self) -> None:
+                pass
+
+            async def stop(self) -> None:
+                pass
+
             async def close(self) -> None:
                 pass
 

@@ -39,5 +39,13 @@ class HttpxClientAdapter:
     async def request(self, method: str, url: str, **kwargs: Any) -> httpx.Response:
         return await self._client.request(method, url, **kwargs)
 
+    async def start(self) -> None:
+        """No-op -- httpx client is ready after construction."""
+
+    async def stop(self) -> None:
+        """Close the underlying HTTP client."""
+        await self.close()
+
     async def close(self) -> None:
+        """Close the underlying HTTP client."""
         await self._client.aclose()

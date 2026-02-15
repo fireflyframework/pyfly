@@ -52,3 +52,9 @@ class InMemoryEventBus:
         for pattern, handler in self._handlers:
             if fnmatch.fnmatch(event_type, pattern):
                 await handler(envelope)
+
+    async def start(self) -> None:
+        """No-op for in-memory event bus."""
+
+    async def stop(self) -> None:
+        """No-op for in-memory event bus."""

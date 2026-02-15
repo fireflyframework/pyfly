@@ -13,6 +13,7 @@
 # limitations under the License.
 """PyFly Kernel — Foundation layer with zero external dependencies."""
 
+from pyfly.kernel.lifecycle import Lifecycle
 from pyfly.kernel.exceptions import (
     AuthorizationException,
     BadGatewayException,
@@ -55,6 +56,8 @@ from pyfly.kernel.types import (
 )
 
 __all__ = [
+    # Lifecycle
+    "Lifecycle",
     # Types
     "ErrorCategory",
     "ErrorSeverity",

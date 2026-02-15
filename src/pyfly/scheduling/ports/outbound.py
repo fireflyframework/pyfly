@@ -29,6 +29,14 @@ class TaskExecutorPort(Protocol):
         """Submit a coroutine for execution. Returns an asyncio.Task."""
         ...
 
+    async def start(self) -> None:
+        """Initialize the executor."""
+        ...
+
+    async def stop(self) -> None:
+        """Stop the executor, releasing resources."""
+        ...
+
     async def shutdown(self, wait: bool = True) -> None:
         """Shutdown the executor, optionally waiting for pending tasks."""
         ...

@@ -249,11 +249,19 @@ class ApplicationContext:
             return "messaging"
         if "redis" in name_lower:
             return "cache"
+        if "httpx" in name_lower or "httpclient" in name_lower:
+            return "client"
+        if "executor" in name_lower or "threadpool" in name_lower:
+            return "scheduling"
+        if "eventbus" in name_lower or "eventpublisher" in name_lower:
+            return "eda"
         if "memory" in name_lower:
             if "cache" in name_lower:
                 return "cache"
             if "broker" in name_lower or "message" in name_lower:
                 return "messaging"
+            if "event" in name_lower:
+                return "eda"
         return "infrastructure"
 
     def _filter_by_profile(self) -> None:

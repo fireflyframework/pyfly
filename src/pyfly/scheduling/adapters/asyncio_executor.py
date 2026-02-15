@@ -34,6 +34,13 @@ class AsyncIOTaskExecutor:
         task.add_done_callback(self._tasks.discard)
         return task
 
+    async def start(self) -> None:
+        """No-op -- asyncio executor is ready after construction."""
+
+    async def stop(self) -> None:
+        """Shutdown the executor, waiting for pending tasks."""
+        await self.shutdown(wait=True)
+
     async def shutdown(self, wait: bool = True) -> None:
         """Shutdown the executor, optionally waiting for pending tasks."""
         if wait and self._tasks:

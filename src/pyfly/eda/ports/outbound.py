@@ -37,6 +37,10 @@ class EventPublisher(Protocol):
         headers: dict[str, str] | None = None,
     ) -> None: ...
 
+    async def start(self) -> None: ...
+
+    async def stop(self) -> None: ...
+
 
 @runtime_checkable
 class EventConsumer(Protocol):
