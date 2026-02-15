@@ -24,7 +24,7 @@ Usage in handler signatures::
 
 from __future__ import annotations
 
-from typing import Generic, TypeVar
+from typing import Any, Generic, TypeVar
 
 T = TypeVar("T")
 
@@ -61,3 +61,66 @@ class Valid(Generic[T]):
         async def search(self, filters: Valid[QueryParam[SearchFilters]]) -> list: ...
         async def create(self, body: Valid[Body[CreateOrderDTO]]) -> OrderResponse: ...
     """
+
+
+class File(Generic[T]):
+    """Multipart file upload parameter.
+
+    Single file::
+
+        async def upload(self, file: File[UploadedFile]) -> dict: ...
+
+    Multiple files::
+
+        async def upload(self, files: File[list[UploadedFile]]) -> dict: ...
+    """
+
+
+class UploadedFile:
+    """Represents an uploaded file from a multipart request.
+
+    Attributes:
+        filename: Original filename from the client.
+        content_type: MIME type of the uploaded file.
+        size: File size in bytes.
+    """
+
+    def __init__(
+        self,
+        filename: str,
+        content_type: str,
+        size: int,
+        _file: Any,
+    ) -> None:
+        self._filename = filename
+        self._content_type = content_type
+        self._size = size
+        self._file = _file
+
+    @property
+    def filename(self) -> str:
+        return self._filename
+
+    @property
+    def content_type(self) -> str:
+        return self._content_type
+
+    @property
+    def size(self) -> int:
+        return self._size
+
+    async def read(self) -> bytes:
+        """Read the entire file content into memory."""
+        if hasattr(self._file, "read"):
+            data = self._file.read()
+            if hasattr(data, "__await__"):
+                return await data
+            return data
+        return b""
+
+    async def save(self, path: Any) -> None:
+        """Save the file to the given path."""
+        from pathlib import Path
+
+        content = await self.read()
+        Path(path).write_bytes(content)
