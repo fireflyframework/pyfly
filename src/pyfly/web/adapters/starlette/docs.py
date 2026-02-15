@@ -28,11 +28,12 @@ SWAGGER_UI_HTML = """<!DOCTYPE html>
 <body>
     <div id="swagger-ui"></div>
     <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+    <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-standalone-preset.js"></script>
     <script>
         SwaggerUIBundle({{
             url: "{openapi_url}",
             dom_id: '#swagger-ui',
-            presets: [SwaggerUIBundle.presets.apis, SwaggerUIBundle.SwaggerUIStandalonePreset],
+            presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
             layout: "StandaloneLayout"
         }})
     </script>

@@ -178,24 +178,25 @@ class PyFlyApplication:
         port = getattr(self, "_port", None) or int(self.config.get("pyfly.web.port", 8080))
 
         if route_metadata:
-            lines = []
+            self._logger.info("mapped_endpoints", count=len(route_metadata))
             for rm in route_metadata:
                 method = rm.http_method.upper()
                 handler_name = rm.handler_name
                 controller_name = ""
                 if hasattr(rm, "handler") and hasattr(rm.handler, "__self__"):
                     controller_name = type(rm.handler.__self__).__name__ + "."
-                lines.append(f"  {method:7s} {rm.path:30s} {controller_name}{handler_name}")
-            self._logger.info("mapped_endpoints", count=len(route_metadata), routes="\n" + "\n".join(lines))
+                self._logger.info(
+                    "request_mapping",
+                    method=method,
+                    path=rm.path,
+                    handler=f"{controller_name}{handler_name}",
+                )
 
         if docs_enabled:
             base_url = f"http://{host}:{port}"
-            self._logger.info(
-                "api_documentation",
-                swagger_ui=f"{base_url}/docs",
-                redoc=f"{base_url}/redoc",
-                openapi=f"{base_url}/openapi.json",
-            )
+            self._logger.info("api_documentation", swagger_ui=f"{base_url}/docs")
+            self._logger.info("api_documentation", redoc=f"{base_url}/redoc")
+            self._logger.info("api_documentation", openapi=f"{base_url}/openapi.json")
 
     async def shutdown(self) -> None:
         """Shutdown the application — stop the ApplicationContext."""
