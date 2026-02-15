@@ -117,11 +117,35 @@ class Container:
         if reg.scope == Scope.SINGLETON and reg.instance is not None:
             return reg.instance
 
+        if reg.scope == Scope.REQUEST:
+            return self._resolve_request_scoped(reg)
+
         instance = self._create_instance(reg)
 
         if reg.scope == Scope.SINGLETON:
             reg.instance = instance
 
+        return instance
+
+    def _resolve_request_scoped(self, reg: Registration) -> Any:
+        """Resolve a REQUEST-scoped bean from the active RequestContext."""
+        from pyfly.context.request_context import RequestContext
+
+        ctx = RequestContext.current()
+        if ctx is None:
+            raise RuntimeError(
+                f"No active request context for REQUEST-scoped bean "
+                f"{reg.impl_type.__name__}. Ensure a RequestContextFilter is active."
+            )
+
+        # Store request-scoped instances in the context's attributes
+        cache_key = f"__pyfly_bean_{reg.impl_type.__qualname__}"
+        existing = ctx.get(cache_key)
+        if existing is not None:
+            return existing
+
+        instance = self._create_instance(reg)
+        ctx.set(cache_key, instance)
         return instance
 
     def _create_instance(self, reg: Registration) -> Any:
