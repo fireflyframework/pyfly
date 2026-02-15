@@ -153,34 +153,79 @@ The container inspects `__init__` parameters, resolves dependencies recursively,
 
 ### Hexagonal Architecture
 
-Every module that interacts with external systems follows the ports-and-adapters pattern. Your services depend on `Protocol` contracts; the DI container binds concrete implementations at startup:
+Every PyFly module that touches external systems is split into two halves: **ports** and **adapters**. Ports are abstract `Protocol` interfaces that your business logic depends on. Adapters are concrete implementations backed by real libraries. The DI container connects them at startup.
+
+This separation is not conceptual — it is enforced by package structure:
 
 ```
-┌──────────────────────────────────────────────┐
-│              Your Application                │
-│                                              │
-│   @service                 @repository       │
-│   class OrderService:      class OrderRepo:  │
-│       repo: RepositoryPort     ...           │
-│       broker: MessageBrokerPort              │
-│       cache: CachePort                       │
-│                                              │
-│           Depends on PORTS (Protocols)       │
-│                    │                         │
-├────────────────────┼─────────────────────────┤
-│                    │                         │
-│    ┌──────────┐ ┌──────────┐ ┌──────────┐    │
-│    │SQLAlchemy│ │  Kafka   │ │  Redis   │    │
-│    │ Adapter  │ │ Adapter  │ │ Adapter  │    │
-│    └──────────┘ └──────────┘ └──────────┘    │
-│                                              │
-│           ADAPTERS (Implementations)         │
-└──────────────────────────────────────────────┘
+                    ┌──────────────────────────────────────────┐
+                    │           APPLICATION LAYER               │
+                    │                                           │
+                    │  Your services, controllers, and domain   │
+                    │  logic. They depend ONLY on ports.        │
+                    │                                           │
+                    │  @service                                 │
+                    │  class OrderService:                      │
+                    │      repo: RepositoryPort[Order, int]     │
+                    │      events: EventPublisher               │
+                    │      cache: CacheAdapter                  │
+                    │                                           │
+                    └─────────────────┬─────────────────────────┘
+                                      │ depends on
+                    ┌─────────────────┴─────────────────────────┐
+                    │          PORTS  (Python Protocols)         │
+                    │                                           │
+                    │  pyfly.data         RepositoryPort[T, ID] │
+                    │  pyfly.messaging    MessageBrokerPort      │
+                    │  pyfly.cache        CacheAdapter           │
+                    │  pyfly.eda          EventPublisher         │
+                    │  pyfly.client       HttpClientPort         │
+                    │  pyfly.scheduling   TaskExecutorPort       │
+                    │  pyfly.web          WebServerPort          │
+                    │                                           │
+                    └─────────────────┬─────────────────────────┘
+                                      │ implements
+                    ┌─────────────────┴─────────────────────────┐
+                    │     ADAPTERS  (Concrete Implementations)  │
+                    │                                           │
+                    │  pyfly.data.relational.sqlalchemy          │
+                    │  pyfly.data.document.mongodb               │
+                    │  pyfly.messaging.adapters.kafka            │
+                    │  pyfly.messaging.adapters.rabbitmq         │
+                    │  pyfly.cache.adapters.redis                │
+                    │  pyfly.eda.adapters.memory                 │
+                    │  pyfly.client.adapters.httpx_adapter       │
+                    │  pyfly.scheduling.adapters.asyncio_executor│
+                    │  pyfly.web.adapters.starlette              │
+                    │                                           │
+                    └───────────────────────────────────────────┘
+```
+
+The practical result — swap any adapter without changing a single line of business logic:
+
+```python
+# Your service depends on the port, never on the adapter
+@service
+class OrderService:
+    def __init__(self, repo: RepositoryPort[Order, int]) -> None:
+        self._repo = repo
+
+    async def place_order(self, cmd: PlaceOrder) -> Order:
+        return await self._repo.save(Order(name=cmd.name))
+
+# The @repository stereotype wires the adapter at startup.
+# Switch from SQL to MongoDB by changing one class declaration:
+
+# SQL:     class OrderRepo(Repository[OrderEntity, int]): ...
+# MongoDB: class OrderRepo(MongoRepository[OrderDoc, str]): ...
+# Custom:  class OrderRepo(DynamoRepository[OrderItem, str]): ...
+#
+# OrderService never changes. Tests never change. Controllers never change.
 ```
 
 ### Auto-Configuration
 
-PyFly detects installed libraries at startup and wires the right adapters automatically. `sqlalchemy` installed? Data uses `Repository`. `redis` installed? Cache uses `RedisCacheAdapter`. No broker library? Messaging falls back to `InMemoryMessageBroker`. You can always override with explicit configuration — but you rarely need to.
+PyFly detects installed libraries at startup and wires the right adapters automatically. Install `sqlalchemy` and it binds the relational adapter. Install `redis` and it binds the Redis cache. No broker library installed? Messaging falls back to in-memory. You can always override with explicit configuration in `pyfly.yaml` — but you rarely need to.
 
 ---
 
