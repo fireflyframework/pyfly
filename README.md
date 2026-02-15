@@ -22,65 +22,128 @@
 
 ---
 
+## The Problem
+
+You've been here before. A new Python microservice needs to ship. Before writing a single line of business logic, you spend the first two weeks making choices:
+
+- Which web framework? (FastAPI, Flask, Starlette, Django...)
+- Which ORM? (SQLAlchemy, Tortoise, Django ORM...)
+- Which message broker? (aiokafka, aio-pika, kombu...)
+- How do you wire dependencies? (dependency-injector, python-inject, manual...)
+- How do you structure the project? (Everyone invents their own layout)
+
+You assemble a bespoke stack, glue it together, and move on. Six months later, another team builds a second service — and makes entirely different choices. Now you have two codebases with different conventions, different testing strategies, different deployment patterns, and no shared understanding of how things work.
+
+**Python gives you infinite choice. What it doesn't give you is cohesion.**
+
+---
+
 ## What is PyFly?
 
-PyFly is the **official native Python implementation** of the [Firefly Framework](https://github.com/fireflyframework) — a comprehensive enterprise framework originally built on **Spring Boot** for the Java ecosystem.
+PyFly makes these decisions for you.
 
-The Firefly Framework provides a battle-tested set of enterprise patterns: dependency injection, CQRS, event-driven architecture, hexagonal design, distributed transactions, and more. With **PyFly**, all of these patterns come to Python 3.12+ — reimagined from the ground up for `async/await`, type hints, protocols, and the full power of modern Python.
+It is a **cohesive, full-stack framework** for building production-grade Python applications — microservices, monoliths, and libraries — where every module is designed to work together seamlessly. Dependency injection, HTTP routing, database access, messaging, caching, security, observability, and more — all integrated, all consistent, all with production-ready defaults from day one.
 
-> **Why PyFly?** The Firefly Framework's Java implementation (`fireflyframework-*`) consists of 40+ Spring Boot modules covering everything from kernel abstractions to workflow engines, event sourcing, and enterprise content management. PyFly brings this same cohesive programming model to Python — not as a port or wrapper, but as a **native implementation** that embraces Python's strengths while preserving the architectural patterns that make the Firefly Framework production-ready.
+```python
+from pyfly.container import service
+from pyfly.web import rest_controller, get_mapping
+
+@service
+class OrderService:
+    def __init__(self, repo: OrderRepository, events: EventPublisher) -> None:
+        self._repo = repo
+        self._events = events
+
+    async def place_order(self, order: Order) -> Order:
+        saved = await self._repo.save(order)
+        await self._events.publish(OrderPlaced(order_id=saved.id))
+        return saved
+
+@rest_controller("/orders")
+class OrderController:
+    def __init__(self, service: OrderService) -> None:
+        self._service = service
+
+    @post_mapping
+    async def create(self, order: Valid[Body[Order]]) -> Order:
+        return await self._service.place_order(order)
+```
+
+No boilerplate. No manual wiring. The DI container resolves `OrderRepository` and `EventPublisher` from type hints, validates the request body, and publishes domain events — all out of the box.
+
+PyFly is the **official Python implementation** of the [Firefly Framework](https://github.com/fireflyframework), a battle-tested enterprise platform originally built on Spring Boot for Java (40+ modules in production). PyFly brings the same cohesive programming model to Python 3.12+ — not as a port, but as a **native implementation** reimagined for `async/await`, type hints, protocols, and the full power of modern Python.
 
 ### Who is PyFly for?
 
-- **Firefly Framework users** who need Python services that share the same architecture and patterns as their Java services
-- **Teams migrating from Java/Spring Boot** who want familiar concepts expressed natively in Python
-- **Python developers** who want enterprise-grade patterns without reinventing the wheel
-- **Architects** building polyglot microservice platforms who need consistency across Java and Python services
+- **Python developers** who want enterprise-grade patterns without reinventing the wheel for every project
+- **Teams** tired of assembling bespoke stacks and want every service to follow the same conventions
+- **Architects** building polyglot platforms who need consistency across Java and Python services
+- **Anyone migrating from Spring Boot** who wants familiar concepts expressed natively in Python
 
-If you're coming from Spring Boot or the Firefly Framework for Java, check out our [Spring Boot Comparison Guide](docs/spring-comparison.md) for a detailed mapping of concepts.
+Coming from Spring Boot? See the [Spring Boot Comparison Guide](docs/spring-comparison.md) for a side-by-side concept mapping.
 
 ---
 
 ## Philosophy
 
-PyFly is guided by the same core beliefs as the Firefly Framework:
+Four principles shape every design decision in PyFly. Together, they answer a single question: *how do you build applications that are easy to start, easy to change, and ready for production from the first commit?*
 
 ### Convention Over Configuration
 
-A new project works out of the box with zero configuration. The framework ships with production-ready defaults for every module — logging levels, connection pool sizes, retry policies, security headers, and more. When you need to customize, override only what matters.
+Starting a new project should take seconds, not days. PyFly ships with production-ready defaults for every module — logging formats, connection pool sizes, retry policies, security headers, health endpoints — so a new service works immediately with minimal configuration:
 
 ```yaml
-# This is ALL you need for a working web service:
+# A complete, production-ready web service:
 pyfly:
   web:
     port: 8080
 ```
 
-### Framework-Agnostic Domain Logic
+When you need to customize, you override only what matters. Everything else stays sensible.
 
-Your business code should never depend on infrastructure libraries. PyFly enforces this through **hexagonal architecture (ports and adapters)** — the same pattern used across all Firefly Framework modules:
+### Your Code, Not Ours
 
-- **Ports** are Python `Protocol` classes defining contracts
-- **Adapters** are concrete implementations (SQLAlchemy, Redis, Kafka, etc.)
-- Your services depend on ports, never on adapters
+Your business logic should never import `sqlalchemy`, `redis`, `aiokafka`, or any other infrastructure library. PyFly enforces this through **hexagonal architecture** — the same ports-and-adapters pattern used across all Firefly Framework modules:
 
-This means you can swap your database, message broker, or cache backend without touching a single line of business logic.
+- **Ports** are Python `Protocol` classes that define contracts
+- **Adapters** are concrete implementations that fulfill those contracts
+- Your services depend on ports. The DI container wires the adapters at startup.
 
-### Async-First, Type-Safe
+The result: you can swap your database from PostgreSQL to MongoDB, your broker from Kafka to RabbitMQ, or your cache from Redis to in-memory — without touching a single line of business logic.
 
-Every PyFly API is designed for `asyncio` from the ground up — no sync-to-async bridges, no thread pool workarounds. Every public API has complete type annotations, validated by mypy in strict mode.
+### Async-Native, Type-Safe
 
-### Production-Ready by Default
+Every PyFly API is designed for `asyncio` from the ground up — no sync-to-async bridges, no thread pool workarounds. Every public surface has complete type annotations validated by mypy in strict mode. If it compiles, it's consistent.
 
-Every PyFly application ships with structured logging, correlation IDs, health check endpoints, Prometheus metrics, OWASP security headers, graceful startup/shutdown, and more — built in from day one.
+### Production-Ready from Day One
+
+The first time you run `pyfly run`, your application already has structured logging with correlation IDs, health check endpoints, Prometheus metrics, OWASP security headers, and graceful shutdown. These aren't features you opt into — they're the baseline.
 
 ---
 
-## Core Concepts
+## How It Works
+
+### Dependency Injection
+
+PyFly's DI container resolves dependencies from type hints — no XML, no reflection, just decorators and annotations:
+
+```python
+from pyfly.container import Autowired, service
+
+@service
+class OrderService:
+    metrics: MetricsCollector = Autowired(required=False)  # field injection
+
+    def __init__(self, repo: OrderRepository, events: EventPublisher) -> None:
+        self._repo = repo      # constructor injection (preferred)
+        self._events = events
+```
+
+The container inspects `__init__` parameters and `Autowired()` fields, resolves dependencies recursively, and manages bean lifecycles (singleton, transient, request-scoped). It supports `Optional[T]` (resolves to `None` when missing), `list[T]` (collects all implementations), `Qualifier` for named beans, and automatic circular dependency detection.
 
 ### Hexagonal Architecture
 
-Every module that interacts with external systems follows the ports and adapters pattern. Your services depend on `Protocol` contracts; concrete implementations are resolved by the DI container at startup.
+Every module that interacts with external systems follows the ports-and-adapters pattern. Your services depend on `Protocol` contracts; the DI container binds concrete implementations at startup:
 
 ```
 ┌──────────────────────────────────────────────┐
@@ -90,7 +153,7 @@ Every module that interacts with external systems follows the ports and adapters
 │   class OrderService:      class OrderRepo:  │
 │       repo: RepositoryPort     ...           │
 │       broker: MessageBrokerPort              │
-│       cache: CacheAdapter                    │
+│       cache: CachePort                       │
 │                                              │
 │           Depends on PORTS (Protocols)       │
 │                    │                         │
@@ -105,27 +168,9 @@ Every module that interacts with external systems follows the ports and adapters
 └──────────────────────────────────────────────┘
 ```
 
-### Dependency Injection
-
-PyFly's DI container supports **constructor injection** and **field injection** based on type hints — no XML, no reflection, just Python decorators and type annotations:
-
-```python
-from pyfly.container import Autowired, service
-
-@service
-class OrderService:
-    metrics: MetricsCollector = Autowired(required=False)  # field injection
-
-    def __init__(self, repo: OrderRepository, events: EventPublisher) -> None:
-        self._repo = repo      # constructor injection (preferred)
-        self._events = events
-```
-
-The container inspects `__init__` parameters and `Autowired()` fields, resolves dependencies recursively, and manages bean lifecycles (singleton, transient, request-scoped). It also supports `Optional[T]` (resolves to `None` when missing), `list[T]` (collects all implementations), `Qualifier` for named beans, and automatic circular dependency detection.
-
 ### Auto-Configuration
 
-PyFly detects installed libraries at startup and wires the appropriate adapters automatically. Redis installed? Cache uses `RedisCacheAdapter`. No broker library? Messaging uses `InMemoryMessageBroker`. You can always override with explicit configuration.
+PyFly detects installed libraries at startup and wires the right adapters automatically. `sqlalchemy` installed? Data uses `Repository`. `redis` installed? Cache uses `RedisCacheAdapter`. No broker library? Messaging falls back to `InMemoryMessageBroker`. You can always override with explicit configuration — but you rarely need to.
 
 ---
 
@@ -232,7 +277,7 @@ $ pyfly new
     3) hexagonal    Hexagonal architecture (ports & adapters)
     4) library      Reusable library package
   Select archetype [1]: 2
-  Features (comma-separated, enter for defaults) [web]: web,data
+  Features (comma-separated, enter for defaults) [web]: web,data-relational
 ```
 
 ### Generated Web API Structure
@@ -276,7 +321,7 @@ See the full [CLI Reference](docs/cli.md) for details.
 
 ## Modules
 
-PyFly currently implements **22 modules** organized into four layers:
+PyFly currently implements **23 modules** organized into four layers:
 
 ### Foundation Layer
 
@@ -294,7 +339,8 @@ PyFly currently implements **22 modules** organized into four layers:
 | Module | Description | Firefly Java Equivalent |
 |--------|-------------|------------------------|
 | **Web** | HTTP routing, controllers, middleware, OpenAPI | `fireflyframework-web` |
-| **Data** | Repository pattern, specifications, pagination (SQLAlchemy + MongoDB) | `fireflyframework-r2dbc` |
+| **Data Relational** | Repository pattern, specifications, pagination (SQLAlchemy) | `fireflyframework-r2dbc` |
+| **Data Document** | Document database support (MongoDB via Beanie ODM) | `fireflyframework-mongodb` |
 | **CQRS** | Command/Query segregation with mediator | `fireflyframework-cqrs` |
 | **Validation** | Input validation with Pydantic | `fireflyframework-validators` |
 
