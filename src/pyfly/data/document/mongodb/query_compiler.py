@@ -21,10 +21,12 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable, Coroutine, Sequence
-from typing import Any, TypeVar
+from types import SimpleNamespace
+from typing import Any, TypeVar, get_args, get_origin
 
 import pymongo
 
+from pyfly.data.projection import is_projection, projection_fields
 from pyfly.data.query_parser import FieldPredicate, ParsedQuery
 
 T = TypeVar("T")
@@ -49,6 +51,8 @@ class MongoQueryMethodCompiler:
         self,
         parsed: ParsedQuery,
         entity: type[T],
+        *,
+        return_type: type | None = None,
     ) -> Callable[..., Coroutine[Any, Any, Any]]:
         """Dispatch to the correct compile method based on prefix."""
         dispatch = {
@@ -60,6 +64,8 @@ class MongoQueryMethodCompiler:
         builder = dispatch.get(parsed.prefix)
         if builder is None:
             raise ValueError(f"Unknown prefix: {parsed.prefix}")
+        if parsed.prefix == "find_by":
+            return builder(parsed, entity, return_type=return_type)
         return builder(parsed, entity)
 
     # ------------------------------------------------------------------
@@ -70,14 +76,37 @@ class MongoQueryMethodCompiler:
         self,
         parsed: ParsedQuery,
         entity: type[T],
+        *,
+        return_type: type | None = None,
     ) -> Callable[..., Coroutine[Any, Any, list[T]]]:
+        # Detect projection type from list[ProjectionType] annotation
+        proj_type: type | None = None
+        if return_type is not None:
+            origin = get_origin(return_type)
+            if origin is list:
+                type_args = get_args(return_type)
+                if type_args and is_projection(type_args[0]):
+                    proj_type = type_args[0]
+
         async def _execute(model: type[T], *args: Any) -> list[T]:
             filter_doc = self._build_filter(parsed, args)
             query = model.find(filter_doc)  # type: ignore[union-attr]
             sort_spec = self._build_sort(parsed)
             if sort_spec:
                 query = query.sort(sort_spec)
-            return await query.to_list()
+            docs = await query.to_list()
+            if proj_type is not None:
+                fields = projection_fields(proj_type)
+                return [
+                    SimpleNamespace(
+                        **{
+                            f: getattr(doc, f, doc.get(f) if isinstance(doc, dict) else None)
+                            for f in fields
+                        }
+                    )
+                    for doc in docs
+                ]
+            return docs
 
         return _execute
 
