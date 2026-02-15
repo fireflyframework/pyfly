@@ -72,7 +72,12 @@ fatal()   { error "$1"; exit 1; }
 
 # Read a line from the user, even when piped via curl.
 # Returns empty string on EOF (Ctrl+D) instead of failing.
+# Discards any buffered input (e.g. arrow keys pressed before the prompt).
 prompt_read() {
+    # Flush any stale input from the terminal (non-blocking discard)
+    if [ "$TTY_IN" = "/dev/tty" ]; then
+        read -r -t 0.1 _discard < /dev/tty 2>/dev/null || true
+    fi
     read -r "$@" < "$TTY_IN" || true
 }
 
@@ -215,11 +220,19 @@ prompt_install_dir() {
     if [ "$IS_INTERACTIVE" = true ] && [ -z "${PYFLY_HOME:-}" ]; then
         printf "\n${BOLD}Installation directory${RESET} ${DIM}[%s]${RESET}: " "$DEFAULT_INSTALL_DIR"
         prompt_read user_dir
+        # Strip control characters (arrow keys, escape sequences) and whitespace
+        user_dir=$(printf '%s' "${user_dir:-}" | tr -d '[:cntrl:]' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
         INSTALL_DIR="${user_dir:-$DEFAULT_INSTALL_DIR}"
     else
         INSTALL_DIR="${PYFLY_HOME:-$DEFAULT_INSTALL_DIR}"
     fi
     INSTALL_DIR="${INSTALL_DIR/#\~/$HOME}"
+
+    # Final validation: must be a non-empty absolute-ish path
+    if [ -z "$INSTALL_DIR" ] || [ "$INSTALL_DIR" = "/" ]; then
+        INSTALL_DIR="$DEFAULT_INSTALL_DIR"
+        warn "Invalid directory — falling back to $INSTALL_DIR"
+    fi
     info "Install directory: $INSTALL_DIR"
 }
 
@@ -357,7 +370,19 @@ configure_path() {
         return
     fi
 
+    # Guard: INSTALL_DIR must be a non-empty, absolute path
+    if [ -z "$INSTALL_DIR" ] || [ "$INSTALL_DIR" = "/" ]; then
+        warn "Invalid INSTALL_DIR ('$INSTALL_DIR') — skipping PATH configuration"
+        return
+    fi
+
     local bin_dir="$INSTALL_DIR/bin"
+
+    # Sanity check: bin_dir must point inside the install directory, not system /bin
+    if [ "$bin_dir" = "/bin" ] || [ "$bin_dir" = "/usr/bin" ]; then
+        warn "Refusing to add system path '$bin_dir' to shell profile"
+        return
+    fi
 
     local shell_profile=""
     local path_line=""
