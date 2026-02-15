@@ -20,11 +20,13 @@ SQLAlchemy data adapter.
 from __future__ import annotations
 
 from collections.abc import Callable, Coroutine, Sequence
-from typing import Any, TypeVar
+from types import SimpleNamespace
+from typing import Any, TypeVar, get_args, get_origin
 
 from sqlalchemy import Select, delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from pyfly.data.projection import is_projection, projection_fields
 from pyfly.data.query_parser import FieldPredicate, ParsedQuery
 
 T = TypeVar("T")
@@ -49,9 +51,11 @@ class QueryMethodCompiler:
         self,
         parsed: ParsedQuery,
         entity: type[T],
+        *,
+        return_type: type | None = None,
     ) -> Callable[..., Coroutine[Any, Any, Any]]:
         """Dispatch to the correct compile method based on prefix."""
-        dispatch = {
+        dispatch: dict[str, Callable[..., Callable[..., Coroutine[Any, Any, Any]]]] = {
             "find_by": self._compile_find,
             "count_by": self._compile_count,
             "exists_by": self._compile_exists,
@@ -60,6 +64,8 @@ class QueryMethodCompiler:
         builder = dispatch.get(parsed.prefix)
         if builder is None:
             raise ValueError(f"Unknown prefix: {parsed.prefix}")
+        if parsed.prefix == "find_by":
+            return builder(parsed, entity, return_type=return_type)
         return builder(parsed, entity)
 
     # ------------------------------------------------------------------
@@ -70,15 +76,41 @@ class QueryMethodCompiler:
         self,
         parsed: ParsedQuery,
         entity: type[T],
+        *,
+        return_type: type | None = None,
     ) -> Callable[..., Coroutine[Any, Any, list[T]]]:
-        async def _execute(session: AsyncSession, *args: Any) -> list[T]:
-            stmt = select(entity)
-            stmt = self._apply_where(stmt, parsed, entity, args)
-            stmt = self._apply_order(stmt, parsed, entity)
-            result = await session.execute(stmt)
-            return list(result.scalars().all())
+        # Detect projection type from list[ProjectionType] annotation
+        proj_type: type | None = None
+        if return_type is not None:
+            origin = get_origin(return_type)
+            if origin is list:
+                type_args = get_args(return_type)
+                if type_args and is_projection(type_args[0]):
+                    proj_type = type_args[0]
 
-        return _execute
+        if proj_type is not None:
+            fields = projection_fields(proj_type)
+            columns = [getattr(entity, f) for f in fields]
+
+            async def _execute_projected(session: AsyncSession, *args: Any) -> list[Any]:
+                stmt = select(*columns)
+                stmt = self._apply_where(stmt, parsed, entity, args)
+                stmt = self._apply_order(stmt, parsed, entity)
+                result = await session.execute(stmt)
+                rows = result.all()
+                return [SimpleNamespace(**dict(zip(fields, row, strict=False))) for row in rows]
+
+            return _execute_projected
+        else:
+
+            async def _execute(session: AsyncSession, *args: Any) -> list[T]:
+                stmt = select(entity)
+                stmt = self._apply_where(stmt, parsed, entity, args)
+                stmt = self._apply_order(stmt, parsed, entity)
+                result = await session.execute(stmt)
+                return list(result.scalars().all())
+
+            return _execute
 
     # ------------------------------------------------------------------
     # count_by
