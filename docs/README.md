@@ -1,6 +1,14 @@
-# PyFly Documentation
+<p align="center">
+  <img src="../assets/pyfly-logo.png" alt="PyFly Logo" width="600" />
+</p>
 
-Welcome to the PyFly Framework documentation. This is your starting point for learning how to build enterprise-grade Python applications with PyFly.
+<p align="center">
+  <strong>PyFly Framework Documentation</strong>
+</p>
+
+<p align="center">
+  <em>Everything you need to build production-grade Python applications with PyFly.</em>
+</p>
 
 ---
 
@@ -17,6 +25,8 @@ Welcome to the PyFly Framework documentation. This is your starting point for le
 
 ## Framework Guides
 
+All module guides are organized in the [`guides/`](guides/README.md) directory. Here's a quick reference:
+
 ### Foundation
 
 | Guide | Description |
@@ -31,13 +41,17 @@ Welcome to the PyFly Framework documentation. This is your starting point for le
 | Guide | Description |
 |-------|-------------|
 | [Web Layer](guides/web.md) | REST controllers, routing, parameter binding, middleware, CORS, OpenAPI |
-| [Actuator](guides/actuator.md) | Health checks, beans endpoint, environment info, application metadata |
+| [Validation](guides/validation.md) | `Valid[T]` annotation, Pydantic model validation, structured 422 errors |
+| [WebFilters](guides/web-filters.md) | Request/response filter chain — `TransactionIdFilter`, `RequestLoggingFilter`, `SecurityHeadersFilter` |
+| [Actuator](guides/actuator.md) | Health checks, beans endpoint, environment info, loggers, metrics |
+| [Custom Actuator Endpoints](guides/custom-actuator-endpoints.md) | Build your own actuator endpoints with the `ActuatorEndpoint` protocol |
 
 ### Data & Persistence
 
 | Guide | Description |
 |-------|-------------|
-| [Data Access](guides/data.md) | Repositories, derived queries, specifications, pagination, transactions |
+| [Data Access (SQL)](guides/data.md) | Repositories, derived queries, specifications, pagination, transactions (SQLAlchemy) |
+| [MongoDB](guides/mongodb.md) | Document database support via Beanie ODM — `MongoRepository[T, ID]`, `BaseDocument`, derived queries |
 
 ### Messaging & Events
 
@@ -73,7 +87,6 @@ Welcome to the PyFly Framework documentation. This is your starting point for le
 | Guide | Description |
 |-------|-------------|
 | [AOP](guides/aop.md) | Aspect-oriented programming, pointcuts, advice types, weaving |
-| [Validation](guides/validation.md) | Pydantic model validation, custom validators, input validation decorators |
 | [Testing](guides/testing.md) | Test fixtures, mock containers, event assertions, testing patterns |
 
 ---
@@ -92,5 +105,7 @@ Welcome to the PyFly Framework documentation. This is your starting point for le
 - **New to PyFly?** Start with the [Getting Started Tutorial](getting-started.md)
 - **Coming from Spring Boot?** Read the [Spring Boot Comparison](spring-comparison.md)
 - **Building a web service?** See the [Web Layer Guide](guides/web.md)
-- **Setting up a database?** See the [Data Access Guide](guides/data.md)
+- **Setting up a SQL database?** See the [Data Access Guide](guides/data.md)
+- **Setting up MongoDB?** See the [MongoDB Guide](guides/mongodb.md)
 - **Need messaging?** See [Messaging](guides/messaging.md) and [Events](guides/events.md)
+- **Browse all guides:** See the [Guides Index](guides/README.md)

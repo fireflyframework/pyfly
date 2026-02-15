@@ -213,7 +213,7 @@ Choose which PyFly extras to include with `--features`:
 pyfly new order-service --archetype web-api --features web,data,cache
 ```
 
-Available features: `web`, `data`, `eda`, `cache`, `client`, `security`, `scheduling`, `observability`, `cqrs`
+Available features: `web`, `data`, `mongodb`, `eda`, `cache`, `client`, `security`, `scheduling`, `observability`, `cqrs`
 
 ### Interactive Mode
 
@@ -294,7 +294,7 @@ PyFly currently implements **22 modules** organized into four layers:
 | Module | Description | Firefly Java Equivalent |
 |--------|-------------|------------------------|
 | **Web** | HTTP routing, controllers, middleware, OpenAPI | `fireflyframework-web` |
-| **Data** | Repository pattern, specifications, pagination | `fireflyframework-r2dbc` |
+| **Data** | Repository pattern, specifications, pagination (SQLAlchemy + MongoDB) | `fireflyframework-r2dbc` |
 | **CQRS** | Command/Query segregation with mediator | `fireflyframework-cqrs` |
 | **Validation** | Input validation with Pydantic | `fireflyframework-validators` |
 
@@ -332,7 +332,19 @@ Full documentation lives in the [`docs/`](docs/README.md) directory:
 - [CLI Reference](docs/cli.md) — Command-line tools (new, run, db, info, doctor)
 - [Spring Boot Comparison](docs/spring-comparison.md) — Side-by-side concept mapping for Java developers
 
-Browse all guides in the [Documentation Table of Contents](docs/README.md).
+### Module Guides
+
+Browse all guides in the [Guides Index](docs/guides/README.md):
+
+- [Web Layer](docs/guides/web.md) — REST controllers, routing, parameter binding, OpenAPI
+- [Data Access (SQL)](docs/guides/data.md) — Repositories, derived queries, pagination, transactions
+- [MongoDB](docs/guides/mongodb.md) — Document database support via Beanie ODM
+- [Validation](docs/guides/validation.md) — `Valid[T]` annotation, structured 422 errors
+- [WebFilters](docs/guides/web-filters.md) — Request/response filter chain
+- [Actuator](docs/guides/actuator.md) — Health checks, extensible endpoints
+- [Custom Actuator Endpoints](docs/guides/custom-actuator-endpoints.md) — Build your own actuator endpoints
+
+Browse the full list in the [Documentation Table of Contents](docs/README.md).
 
 ---
 
@@ -353,7 +365,7 @@ See **[ROADMAP.md](ROADMAP.md)** for the full roadmap toward feature parity with
 
 See **[CHANGELOG.md](CHANGELOG.md)** for detailed release notes.
 
-**Current:** v0.1.0-alpha (2026-02-14) — 22 modules across 4 layers, interactive installer, full CLI tooling.
+**Current:** v0.1.0-alpha.3 (2026-02-15) — MongoDB support via Beanie ODM, WebFilter chain, `Valid[T]` validation, extensible actuator, config-driven web adapter.
 
 ---
 
