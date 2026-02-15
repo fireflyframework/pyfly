@@ -1,6 +1,18 @@
-# MongoDB Data Access Guide
+# Data Document Guide
 
-The PyFly MongoDB module provides a document-oriented data access layer built on Beanie ODM and Motor. It implements the same Repository pattern and derived query method convention as the relational (SQLAlchemy) adapter, sharing the framework-agnostic core -- `RepositoryPort`, `QueryMethodParser`, `Page`, `Pageable`, `Sort` -- while translating operations into native MongoDB queries. If you are coming from Spring Data MongoDB, the architecture will feel immediately familiar: PyFly Data is the commons layer, and the MongoDB adapter is a pluggable backend just like Spring Data MongoDB is to Spring Data Commons.
+> **PyFly Data** follows the Spring Data umbrella architecture. The framework is organized into three layers:
+>
+> | Layer | Package | Purpose |
+> |-------|---------|---------|
+> | **Data Commons** | `pyfly.data` | Shared abstractions — `RepositoryPort[T, ID]`, `Page`, `Pageable`, `Sort`, `QueryMethodParser`, `QueryMethodCompilerPort` |
+> | **Data Document** | `pyfly.data.document` | Abstract document layer — re-exports from the active document adapter |
+> | **MongoDB Adapter** | `pyfly.data.document.mongodb` | Concrete adapter — `BaseDocument`, `MongoRepository[T, ID]`, `mongo_transactional` |
+>
+> This guide covers the **document** layer and its default **MongoDB adapter** (Beanie ODM + Motor). For relational databases, see the [Data Relational Guide](data-relational.md). Both adapters share the same commons layer and can coexist in the same project.
+>
+> **Hexagonal by design:** your services depend on `RepositoryPort[T, ID]` (the port), never on `MongoRepository[T, ID]` (the adapter). MongoDB is the default document adapter today — but the layer is designed so any document backend (DynamoDB, Elasticsearch, etc.) can be added by implementing the same ports.
+
+PyFly Data Document provides a document-oriented data access layer that implements the same Repository pattern and derived query method convention as the relational adapter. It shares the framework-agnostic core — `RepositoryPort`, `QueryMethodParser`, `Page`, `Pageable`, `Sort` — while translating operations into native document database queries.
 
 ---
 
@@ -111,21 +123,31 @@ The left column is the relational path (covered in the [Data Access Guide](./dat
 
 ### Imports
 
-The MongoDB adapter is accessible from the `pyfly.data.document` package:
+Imports are organized by layer:
+
+**Layer 1 — Data Commons** (shared with the relational adapter):
 
 ```python
-from pyfly.data.document import (
-    # Framework-agnostic (shared with SQLAlchemy adapter)
-    Page, Pageable, Sort, Order, Mapper,
-    RepositoryPort, QueryMethodParser, QueryMethodCompilerPort,
-    # MongoDB adapter
-    BaseDocument, MongoRepository,
-    MongoQueryMethodCompiler, MongoRepositoryBeanPostProcessor,
-    mongo_transactional,
+from pyfly.data import (
+    Page, Pageable, Sort, Order,        # Pagination
+    Mapper,                              # Entity ↔ DTO mapping
+    RepositoryPort, SessionPort,         # Port interfaces
+    QueryMethodParser,                   # Derived query parsing (shared)
+    QueryMethodCompilerPort,             # Compiler contract
 )
 ```
 
-You can also import directly from the adapter package:
+**Layer 2 — Data Document** (re-exports from the active document adapter):
+
+```python
+from pyfly.data.document import (
+    BaseDocument, MongoRepository,
+    MongoQueryMethodCompiler, MongoRepositoryBeanPostProcessor,
+    initialize_beanie, mongo_transactional,
+)
+```
+
+**Layer 3 — MongoDB Adapter** (direct adapter imports, equivalent to above):
 
 ```python
 from pyfly.data.document.mongodb import (
@@ -138,7 +160,10 @@ from pyfly.data.document.mongodb import (
 )
 ```
 
+> **Note:** `pyfly.data.document` re-exports the MongoDB adapter types for convenience, just as `pyfly.data.relational` re-exports the SQLAlchemy adapter. Commons types like `Page`, `Pageable`, and `RepositoryPort` are always imported from `pyfly.data`.
+
 Source files:
+- `src/pyfly/data/__init__.py` -- commons layer (Page, Pageable, ports)
 - `src/pyfly/data/document/__init__.py` -- document sub-layer re-exports
 - `src/pyfly/data/document/mongodb/__init__.py` -- MongoDB adapter package exports
 

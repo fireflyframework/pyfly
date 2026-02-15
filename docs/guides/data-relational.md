@@ -1,14 +1,18 @@
-# Data Access Guide — Relational (SQLAlchemy)
+# Data Relational Guide
 
-> **PyFly Data** is the umbrella module (like Spring Data Commons). It provides shared abstractions — `RepositoryPort[T, ID]`, `QueryMethodParser`, `QueryMethodCompilerPort`, `Page`, `Pageable` — that all data adapters build on.
+> **PyFly Data** follows the Spring Data umbrella architecture. The framework is organized into three layers:
 >
-> **Adapters:**
-> - **PyFly Data Relational** (`pyfly.data.relational.sqlalchemy`) — SQLAlchemy async ORM. **This guide.**
-> - **PyFly Data Document** (`pyfly.data.document.mongodb`) — MongoDB via Beanie ODM. See [MongoDB Guide](data-document.md).
+> | Layer | Package | Purpose |
+> |-------|---------|---------|
+> | **Data Commons** | `pyfly.data` | Shared abstractions — `RepositoryPort[T, ID]`, `Page`, `Pageable`, `Sort`, `QueryMethodParser`, `QueryMethodCompilerPort` |
+> | **Data Relational** | `pyfly.data.relational` | Abstract relational layer — `Specification`, `FilterOperator`, `FilterUtils`, `@query` |
+> | **SQLAlchemy Adapter** | `pyfly.data.relational.sqlalchemy` | Concrete adapter — `Base`, `BaseEntity`, `Repository[T, ID]`, `reactive_transactional` |
 >
-> Adding a new data adapter requires: a repository class implementing `RepositoryPort[T, ID]`, a query compiler implementing `QueryMethodCompilerPort`, and a `BeanPostProcessor`. Both adapters can coexist in the same project.
+> This guide covers the **relational** layer and its default **SQLAlchemy adapter**. For document databases, see the [Data Document Guide](data-document.md). Both adapters share the same commons layer and can coexist in the same project.
+>
+> **Hexagonal by design:** your services depend on `RepositoryPort[T, ID]` (the port), never on `Repository[T, ID]` (the adapter). SQLAlchemy is the default relational adapter today — but the layer is designed so any relational backend (Tortoise ORM, Django ORM, etc.) can be added by implementing the same ports.
 
-The PyFly data module implements the Repository pattern with Spring Data-style derived query methods, composable specifications, pagination, entity mapping, and declarative transaction management. It follows a hexagonal architecture: framework-agnostic ports define the repository and session contracts, while the SQLAlchemy adapter provides the relational implementation.
+PyFly Data Relational implements the Repository pattern with Spring Data-style derived query methods, composable specifications, pagination, entity mapping, and declarative transaction management. Framework-agnostic ports define the repository and session contracts; the SQLAlchemy adapter provides the concrete implementation.
 
 ---
 
@@ -73,28 +77,52 @@ The PyFly data module implements the Repository pattern with Spring Data-style d
 
 ## Architecture Overview
 
-The data module is organized into three layers:
+The data module follows a hexagonal architecture with three distinct layers:
 
-1. **Framework-agnostic core** (`pyfly.data`): `Page`, `Pageable`, `Sort`, `Order`, `Mapper`, and the `QueryMethodParser` pipeline. These contain no SQLAlchemy-specific code.
+### Layer 1: Data Commons (`pyfly.data`)
 
-2. **Port interfaces** (`pyfly.data.ports`): `RepositoryPort`, `SessionPort`, `CrudRepository`, and `PagingRepository` define abstract contracts. Your service layer should depend on these ports, not on the SQLAlchemy adapter.
+Framework-agnostic types shared by **all** data adapters (relational and document). These contain zero backend-specific code:
 
-3. **SQLAlchemy adapter** (`pyfly.data.relational.sqlalchemy`): The default implementation providing `Base`, `BaseEntity`, `Repository`, `reactive_transactional`, and `RepositoryBeanPostProcessor`.
+```python
+from pyfly.data import (
+    Page, Pageable, Sort, Order,       # Pagination
+    Mapper,                             # Entity ↔ DTO mapping
+    RepositoryPort, SessionPort,        # Port interfaces
+    CrudRepository, PagingRepository,   # Extended port interfaces
+    QueryMethodParser,                  # Derived query parsing (shared)
+    QueryMethodCompilerPort,            # Compiler contract
+)
+```
 
-For convenience, the `pyfly.data.relational` package re-exports everything:
+Your service layer should depend on these ports — never on the adapter directly.
+
+### Layer 2: Data Relational (`pyfly.data.relational`)
+
+Relational-specific abstractions that apply to any SQL backend:
 
 ```python
 from pyfly.data.relational import (
-    # Framework-agnostic
-    Page, Pageable, Sort, Order, Specification,
-    FilterOperator, FilterUtils, Mapper,
-    query, QueryMethodParser, QueryMethodCompiler,
-    RepositoryPort, SessionPort,
-    # SQLAlchemy adapter
-    Base, BaseEntity, Repository,
-    RepositoryBeanPostProcessor, reactive_transactional,
+    Specification,                      # Composable query predicates
+    FilterOperator, FilterUtils,        # Query-by-example utilities
+    QueryExecutor, query,               # Custom @query decorator
 )
 ```
+
+### Layer 3: SQLAlchemy Adapter (`pyfly.data.relational.sqlalchemy`)
+
+The concrete adapter providing the relational implementation. Imported via the convenience re-exports on `pyfly.data.relational`:
+
+```python
+from pyfly.data.relational import (
+    Base, BaseEntity,                   # SQLAlchemy entity base classes
+    Repository,                         # Repository[T, ID] implementation
+    QueryMethodCompiler,                # Derived query → SQLAlchemy compiler
+    RepositoryBeanPostProcessor,        # Auto-wires query methods
+    reactive_transactional,             # Declarative transaction management
+)
+```
+
+> **Note:** `pyfly.data.relational` re-exports the SQLAlchemy adapter types for convenience. You can also import directly from `pyfly.data.relational.sqlalchemy` if you prefer explicit adapter imports.
 
 ---
 
