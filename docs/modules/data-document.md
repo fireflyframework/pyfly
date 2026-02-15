@@ -1804,3 +1804,9 @@ Source files:
 - `src/pyfly/data/query_parser.py` -- `QueryMethodParser` (shared)
 - `src/pyfly/data/document/mongodb/query_compiler.py` -- `MongoQueryMethodCompiler` (MongoDB implementation)
 - `src/pyfly/data/relational/sqlalchemy/query_compiler.py` -- `QueryMethodCompiler` (SQLAlchemy implementation)
+
+---
+
+## Adapters
+
+- [MongoDB Adapter](../adapters/mongodb.md) — Setup, configuration reference, and adapter-specific features for the Beanie ODM backend

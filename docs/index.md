@@ -158,47 +158,47 @@ Every PyFly module that touches external systems is split into two halves: **por
 This separation is not conceptual — it is enforced by package structure:
 
 ```
-                    ┌──────────────────────────────────────────┐
-                    │           APPLICATION LAYER               │
-                    │                                           │
-                    │  Your services, controllers, and domain   │
-                    │  logic. They depend ONLY on ports.        │
-                    │                                           │
-                    │  @service                                 │
-                    │  class OrderService:                      │
-                    │      repo: RepositoryPort[Order, int]     │
-                    │      events: EventPublisher               │
-                    │      cache: CacheAdapter                  │
-                    │                                           │
-                    └─────────────────┬─────────────────────────┘
-                                      │ depends on
-                    ┌─────────────────┴─────────────────────────┐
-                    │          PORTS  (Python Protocols)         │
-                    │                                           │
-                    │  pyfly.data         RepositoryPort[T, ID] │
-                    │  pyfly.messaging    MessageBrokerPort      │
-                    │  pyfly.cache        CacheAdapter           │
-                    │  pyfly.eda          EventPublisher         │
-                    │  pyfly.client       HttpClientPort         │
-                    │  pyfly.scheduling   TaskExecutorPort       │
-                    │  pyfly.web          WebServerPort          │
-                    │                                           │
-                    └─────────────────┬─────────────────────────┘
-                                      │ implements
-                    ┌─────────────────┴─────────────────────────┐
-                    │     ADAPTERS  (Concrete Implementations)  │
-                    │                                           │
-                    │  pyfly.data.relational.sqlalchemy          │
-                    │  pyfly.data.document.mongodb               │
-                    │  pyfly.messaging.adapters.kafka            │
-                    │  pyfly.messaging.adapters.rabbitmq         │
-                    │  pyfly.cache.adapters.redis                │
-                    │  pyfly.eda.adapters.memory                 │
-                    │  pyfly.client.adapters.httpx_adapter       │
-                    │  pyfly.scheduling.adapters.asyncio_executor│
-                    │  pyfly.web.adapters.starlette              │
-                    │                                           │
-                    └───────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│                    APPLICATION LAYER                     │
+│                                                          │
+│  Your services, controllers, and domain logic.           │
+│  They depend ONLY on ports.                              │
+│                                                          │
+│    @service                                              │
+│    class OrderService:                                   │
+│        repo: RepositoryPort[Order, int]                  │
+│        events: EventPublisher                            │
+│        cache: CacheAdapter                               │
+│                                                          │
+└────────────────────────────┬─────────────────────────────┘
+                             │ depends on
+┌────────────────────────────┴─────────────────────────────┐
+│                 PORTS  (Python Protocols)                │
+│                                                          │
+│  pyfly.data           RepositoryPort[T, ID]              │
+│  pyfly.messaging      MessageBrokerPort                  │
+│  pyfly.cache          CacheAdapter                       │
+│  pyfly.eda            EventPublisher                     │
+│  pyfly.client         HttpClientPort                     │
+│  pyfly.scheduling     TaskExecutorPort                   │
+│  pyfly.web            WebServerPort                      │
+│                                                          │
+└────────────────────────────┬─────────────────────────────┘
+                             │ implements
+┌────────────────────────────┴─────────────────────────────┐
+│            ADAPTERS  (Concrete Implementations)          │
+│                                                          │
+│  pyfly.data.relational.sqlalchemy                        │
+│  pyfly.data.document.mongodb                             │
+│  pyfly.messaging.adapters.kafka                          │
+│  pyfly.messaging.adapters.rabbitmq                       │
+│  pyfly.cache.adapters.redis                              │
+│  pyfly.eda.adapters.memory                               │
+│  pyfly.client.adapters.httpx_adapter                     │
+│  pyfly.scheduling.adapters.asyncio_executor              │
+│  pyfly.web.adapters.starlette                            │
+│                                                          │
+└──────────────────────────────────────────────────────────┘
 ```
 
 The practical result — swap any adapter without changing a single line of business logic:
@@ -262,42 +262,42 @@ PyFly is organized into four layers:
 
 | Module | Description | Guide |
 |--------|-------------|-------|
-| **Core** | Application bootstrap, lifecycle, banner, configuration | [Core & Lifecycle](guides/core.md) |
-| **Kernel** | Exception hierarchy, structured error types | [Error Handling](guides/error-handling.md) |
-| **Container** | Dependency injection, stereotypes, bean factories | [Dependency Injection](guides/dependency-injection.md) |
-| **Context** | ApplicationContext, events, lifecycle hooks, conditions | [Dependency Injection](guides/dependency-injection.md) |
+| **Core** | Application bootstrap, lifecycle, banner, configuration | [Core & Lifecycle](modules/core.md) |
+| **Kernel** | Exception hierarchy, structured error types | [Error Handling](modules/error-handling.md) |
+| **Container** | Dependency injection, stereotypes, bean factories | [Dependency Injection](modules/dependency-injection.md) |
+| **Context** | ApplicationContext, events, lifecycle hooks, conditions | [Dependency Injection](modules/dependency-injection.md) |
 
 ### Application Layer
 
 | Module | Description | Guide |
 |--------|-------------|-------|
-| **Web** | HTTP routing, controllers, middleware, OpenAPI | [Web Layer](guides/web.md) |
-| **Data Relational** | Repository pattern, specifications, pagination (SQLAlchemy) | [Data Relational](guides/data-relational.md) |
-| **Data Document** | Document database support (MongoDB via Beanie ODM) | [Data Document](guides/data-document.md) |
-| **CQRS** | Command/Query segregation with mediator | [CQRS](guides/cqrs.md) |
-| **Validation** | Input validation with Pydantic | [Validation](guides/validation.md) |
+| **Web** | HTTP routing, controllers, middleware, OpenAPI | [Web Layer](modules/web.md) |
+| **Data Relational** | Repository pattern, specifications, pagination (SQLAlchemy) | [Data Relational](modules/data-relational.md) |
+| **Data Document** | Document database support (MongoDB via Beanie ODM) | [Data Document](modules/data-document.md) |
+| **CQRS** | Command/Query segregation with mediator | [CQRS](modules/cqrs.md) |
+| **Validation** | Input validation with Pydantic | [Validation](modules/validation.md) |
 
 ### Infrastructure Layer
 
 | Module | Description | Guide |
 |--------|-------------|-------|
-| **Security** | JWT, password encoding, authorization | [Security](guides/security.md) |
-| **Messaging** | Kafka, RabbitMQ, in-memory broker | [Messaging](guides/messaging.md) |
-| **EDA** | Event-driven architecture, event bus | [Events](guides/events.md) |
-| **Cache** | Caching decorators, Redis adapter | [Caching](guides/caching.md) |
-| **Client** | HTTP client, circuit breaker, retry | [HTTP Client](guides/client.md) |
-| **Scheduling** | Cron jobs, fixed-rate tasks | [Scheduling](guides/scheduling.md) |
-| **Resilience** | Rate limiter, bulkhead, timeout, fallback | [Resilience](guides/resilience.md) |
+| **Security** | JWT, password encoding, authorization | [Security](modules/security.md) |
+| **Messaging** | Kafka, RabbitMQ, in-memory broker | [Messaging](modules/messaging.md) |
+| **EDA** | Event-driven architecture, event bus | [Events](modules/events.md) |
+| **Cache** | Caching decorators, Redis adapter | [Caching](modules/caching.md) |
+| **Client** | HTTP client, circuit breaker, retry | [HTTP Client](modules/client.md) |
+| **Scheduling** | Cron jobs, fixed-rate tasks | [Scheduling](modules/scheduling.md) |
+| **Resilience** | Rate limiter, bulkhead, timeout, fallback | [Resilience](modules/resilience.md) |
 
 ### Cross-Cutting Layer
 
 | Module | Description | Guide |
 |--------|-------------|-------|
-| **AOP** | Aspect-oriented programming | [AOP](guides/aop.md) |
-| **Observability** | Prometheus metrics, OpenTelemetry tracing | [Observability](guides/observability.md) |
-| **Logging** | Structured logging with structlog | [Observability](guides/observability.md) |
-| **Actuator** | Health checks, monitoring endpoints | [Actuator](guides/actuator.md) |
-| **Testing** | Test fixtures and assertions | [Testing](guides/testing.md) |
+| **AOP** | Aspect-oriented programming | [AOP](modules/aop.md) |
+| **Observability** | Prometheus metrics, OpenTelemetry tracing | [Observability](modules/observability.md) |
+| **Logging** | Structured logging with structlog | [Observability](modules/observability.md) |
+| **Actuator** | Health checks, monitoring endpoints | [Actuator](modules/actuator.md) |
+| **Testing** | Test fixtures and assertions | [Testing](modules/testing.md) |
 | **CLI** | Command-line tools | [CLI Reference](cli.md) |
 
 ---
@@ -312,25 +312,25 @@ PyFly is organized into four layers:
 
 ### Guides
 
-- [Core & Lifecycle](guides/core.md) — Application bootstrap, configuration, profiles, banner
-- [Dependency Injection](guides/dependency-injection.md) — Container, stereotypes, scopes, bean factories
-- [Configuration](guides/configuration.md) — YAML config, profiles, property binding, environment variables
-- [Error Handling](guides/error-handling.md) — Exception hierarchy, structured error responses
-- [Web Layer](guides/web.md) — Controllers, routing, parameter binding, middleware, CORS, OpenAPI
-- [Actuator](guides/actuator.md) — Health checks, beans, environment, info endpoints
-- [Data Relational](guides/data-relational.md) — Repositories, derived queries, specifications, pagination
-- [Messaging](guides/messaging.md) — Kafka, RabbitMQ, in-memory message broker
-- [Events](guides/events.md) — Event-driven architecture, domain events, application events
-- [CQRS](guides/cqrs.md) — Command/Query separation, mediator pattern
-- [Security](guides/security.md) — JWT authentication, password encoding, authorization
-- [Resilience](guides/resilience.md) — Rate limiting, bulkhead, timeout, fallback
-- [HTTP Client](guides/client.md) — Service client, circuit breaker, retry
-- [Caching](guides/caching.md) — Cache decorators, Redis adapter
-- [Observability](guides/observability.md) — Metrics, tracing, health checks
-- [Scheduling](guides/scheduling.md) — Cron jobs, fixed-rate/delay tasks
-- [AOP](guides/aop.md) — Aspect-oriented programming, pointcuts, advice
-- [Validation](guides/validation.md) — Input validation with Pydantic
-- [Testing](guides/testing.md) — Test fixtures, assertions, mock containers
+- [Core & Lifecycle](modules/core.md) — Application bootstrap, configuration, profiles, banner
+- [Dependency Injection](modules/dependency-injection.md) — Container, stereotypes, scopes, bean factories
+- [Configuration](modules/configuration.md) — YAML config, profiles, property binding, environment variables
+- [Error Handling](modules/error-handling.md) — Exception hierarchy, structured error responses
+- [Web Layer](modules/web.md) — Controllers, routing, parameter binding, middleware, CORS, OpenAPI
+- [Actuator](modules/actuator.md) — Health checks, beans, environment, info endpoints
+- [Data Relational](modules/data-relational.md) — Repositories, derived queries, specifications, pagination
+- [Messaging](modules/messaging.md) — Kafka, RabbitMQ, in-memory message broker
+- [Events](modules/events.md) — Event-driven architecture, domain events, application events
+- [CQRS](modules/cqrs.md) — Command/Query separation, mediator pattern
+- [Security](modules/security.md) — JWT authentication, password encoding, authorization
+- [Resilience](modules/resilience.md) — Rate limiting, bulkhead, timeout, fallback
+- [HTTP Client](modules/client.md) — Service client, circuit breaker, retry
+- [Caching](modules/caching.md) — Cache decorators, Redis adapter
+- [Observability](modules/observability.md) — Metrics, tracing, health checks
+- [Scheduling](modules/scheduling.md) — Cron jobs, fixed-rate/delay tasks
+- [AOP](modules/aop.md) — Aspect-oriented programming, pointcuts, advice
+- [Validation](modules/validation.md) — Input validation with Pydantic
+- [Testing](modules/testing.md) — Test fixtures, assertions, mock containers
 
 ### Reference
 

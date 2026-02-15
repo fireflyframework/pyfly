@@ -725,3 +725,9 @@ async def test_cache_evict_all_entries(cache_backend: InMemoryCache) -> None:
     assert await cache_backend.get("a") is None
     assert await cache_backend.get("b") is None
 ```
+
+---
+
+## Adapters
+
+- [Redis Adapter](../adapters/redis.md) — Setup, configuration reference, and adapter-specific features for the Redis cache backend

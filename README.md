@@ -125,7 +125,7 @@ The first time you run `pyfly run`, your application already has structured logg
 
 ### Dependency Injection
 
-PyFly's DI container resolves dependencies from type hints — no XML, no reflection, just decorators and annotations:
+PyFly's DI container resolves dependencies from **type hints** — no XML, no service locators, just decorators and Python annotations. The container scans packages listed in `scan_packages`, discovers all decorated classes, and builds a complete dependency graph at startup.
 
 ```python
 from pyfly.container import Autowired, service
@@ -139,7 +139,21 @@ class OrderService:
         self._events = events
 ```
 
-The container inspects `__init__` parameters and `Autowired()` fields, resolves dependencies recursively, and manages bean lifecycles (singleton, transient, request-scoped). It supports `Optional[T]` (resolves to `None` when missing), `list[T]` (collects all implementations), `Qualifier` for named beans, and automatic circular dependency detection.
+**How resolution works:** When the container creates `OrderService`, it inspects the `__init__` type hints, finds `OrderRepository` and `EventPublisher` in the bean registry, resolves them recursively (including *their* dependencies), and injects the fully-initialized instances. After construction, it sets any `Autowired()` fields via `setattr`. The entire graph is resolved before your application handles its first request.
+
+**Stereotypes** mark classes with their architectural role and register them with the container:
+
+| Stereotype | Purpose | Layer |
+|------------|---------|-------|
+| `@component` | Generic managed bean | Any |
+| `@service` | Business logic | Service |
+| `@repository` | Data access | Data |
+| `@rest_controller` | REST endpoints (JSON) | Web |
+| `@configuration` + `@bean` | Bean factory methods | Infrastructure |
+
+All stereotypes default to **singleton scope** (one instance per application). You can override with `@service(scope=Scope.TRANSIENT)` for a new instance on every injection, or `Scope.REQUEST` for one instance per HTTP request.
+
+**Advanced capabilities:** `Optional[T]` resolves to `None` when no bean is registered. `list[T]` collects all implementations of a type. `Qualifier("name")` selects a specific named bean when multiple candidates exist. `@primary` marks the default when there are multiple implementations of the same port. The container detects circular dependencies at startup and reports them clearly rather than deadlocking at runtime.
 
 ### Hexagonal Architecture
 
@@ -148,47 +162,47 @@ Every PyFly module that touches external systems is split into two halves: **por
 This separation is not conceptual — it is enforced by package structure:
 
 ```
-                    ┌──────────────────────────────────────────┐
-                    │           APPLICATION LAYER               │
-                    │                                           │
-                    │  Your services, controllers, and domain   │
-                    │  logic. They depend ONLY on ports.        │
-                    │                                           │
-                    │  @service                                 │
-                    │  class OrderService:                      │
-                    │      repo: RepositoryPort[Order, int]     │
-                    │      events: EventPublisher               │
-                    │      cache: CacheAdapter                  │
-                    │                                           │
-                    └─────────────────┬─────────────────────────┘
-                                      │ depends on
-                    ┌─────────────────┴─────────────────────────┐
-                    │          PORTS  (Python Protocols)         │
-                    │                                           │
-                    │  pyfly.data         RepositoryPort[T, ID] │
-                    │  pyfly.messaging    MessageBrokerPort      │
-                    │  pyfly.cache        CacheAdapter           │
-                    │  pyfly.eda          EventPublisher         │
-                    │  pyfly.client       HttpClientPort         │
-                    │  pyfly.scheduling   TaskExecutorPort       │
-                    │  pyfly.web          WebServerPort          │
-                    │                                           │
-                    └─────────────────┬─────────────────────────┘
-                                      │ implements
-                    ┌─────────────────┴─────────────────────────┐
-                    │     ADAPTERS  (Concrete Implementations)  │
-                    │                                           │
-                    │  pyfly.data.relational.sqlalchemy          │
-                    │  pyfly.data.document.mongodb               │
-                    │  pyfly.messaging.adapters.kafka            │
-                    │  pyfly.messaging.adapters.rabbitmq         │
-                    │  pyfly.cache.adapters.redis                │
-                    │  pyfly.eda.adapters.memory                 │
-                    │  pyfly.client.adapters.httpx_adapter       │
-                    │  pyfly.scheduling.adapters.asyncio_executor│
-                    │  pyfly.web.adapters.starlette              │
-                    │                                           │
-                    └───────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│                    APPLICATION LAYER                     │
+│                                                          │
+│  Your services, controllers, and domain logic.           │
+│  They depend ONLY on ports.                              │
+│                                                          │
+│    @service                                              │
+│    class OrderService:                                   │
+│        repo: RepositoryPort[Order, int]                  │
+│        events: EventPublisher                            │
+│        cache: CacheAdapter                               │
+│                                                          │
+└────────────────────────────┬─────────────────────────────┘
+                             │ depends on
+┌────────────────────────────┴─────────────────────────────┐
+│                 PORTS  (Python Protocols)                │
+│                                                          │
+│  pyfly.data           RepositoryPort[T, ID]              │
+│  pyfly.messaging      MessageBrokerPort                  │
+│  pyfly.cache          CacheAdapter                       │
+│  pyfly.eda            EventPublisher                     │
+│  pyfly.client         HttpClientPort                     │
+│  pyfly.scheduling     TaskExecutorPort                   │
+│  pyfly.web            WebServerPort                      │
+│                                                          │
+└────────────────────────────┬─────────────────────────────┘
+                             │ implements
+┌────────────────────────────┴─────────────────────────────┐
+│            ADAPTERS  (Concrete Implementations)          │
+│                                                          │
+│  pyfly.data.relational.sqlalchemy                        │
+│  pyfly.data.document.mongodb                             │
+│  pyfly.messaging.adapters.kafka                          │
+│  pyfly.messaging.adapters.rabbitmq                       │
+│  pyfly.cache.adapters.redis                              │
+│  pyfly.eda.adapters.memory                               │
+│  pyfly.client.adapters.httpx_adapter                     │
+│  pyfly.scheduling.adapters.asyncio_executor              │
+│  pyfly.web.adapters.starlette                            │
+│                                                          │
+└──────────────────────────────────────────────────────────┘
 ```
 
 The practical result — swap any adapter without changing a single line of business logic:
@@ -215,7 +229,36 @@ class OrderService:
 
 ### Auto-Configuration
 
-PyFly detects installed libraries at startup and wires the right adapters automatically. Install `sqlalchemy` and it binds the relational adapter. Install `redis` and it binds the Redis cache. No broker library installed? Messaging falls back to in-memory. You can always override with explicit configuration in `pyfly.yaml` — but you rarely need to.
+PyFly detects installed libraries at startup and wires the right adapters automatically — no manual bean registration needed.
+
+This works through two complementary mechanisms:
+
+**1. Declarative auto-configuration** — `@configuration` classes guarded by conditions. They act as "default with override" factories:
+
+```python
+@auto_configuration
+@conditional_on_missing_bean(CacheAdapter)    # only if user hasn't registered one
+@conditional_on_class("redis.asyncio")        # only if redis is installed
+class RedisCacheAutoConfig:
+    @bean
+    def cache(self) -> CacheAdapter:
+        return RedisCacheAdapter(url=self._props.redis.url)
+```
+
+This bean is created only when (1) no user-provided `CacheAdapter` exists and (2) the `redis` library is installed. If the user registers their own `CacheAdapter` via `@bean`, the auto-configuration is silently skipped.
+
+**2. Imperative provider detection** — The `AutoConfigurationEngine` runs after all declarative configuration. For each subsystem, it checks which libraries are on the Python path and selects the appropriate adapter:
+
+| Subsystem | Detects | Binds | Fallback |
+|-----------|---------|-------|----------|
+| Web | `starlette` | `StarletteWebAdapter` | none |
+| Data (SQL) | `sqlalchemy` | `Repository[T, ID]` | none |
+| Data (Document) | `motor`, `beanie` | `MongoRepository[T, ID]` | none |
+| Messaging | `aiokafka` / `aio-pika` | `KafkaAdapter` / `RabbitMQAdapter` | `InMemoryMessageBroker` |
+| Cache | `redis.asyncio` | `RedisCacheAdapter` | `InMemoryCache` |
+| HTTP Client | `httpx` | `HttpxClientAdapter` | none |
+
+**The practical workflow:** During development, install `pip install pyfly[full]` and everything auto-wires. In production Docker images, install only the extras you need (e.g., `pip install pyfly[web,data-relational,cache]`) and the engine binds exactly those adapters. You can always override any auto-configured adapter with explicit `provider` settings in `pyfly.yaml` or by registering your own bean.
 
 ---
 
@@ -425,15 +468,21 @@ Full documentation lives in the [`docs/`](docs/README.md) directory:
 
 ### Module Guides
 
-Browse all guides in the [Guides Index](docs/guides/README.md):
+Browse all guides in the [Module Guides Index](docs/modules/README.md):
 
-- [Web Layer](docs/guides/web.md) — REST controllers, routing, parameter binding, OpenAPI
-- [Data Relational (SQL)](docs/guides/data-relational.md) — Repositories, derived queries, pagination, transactions
-- [Data Document (MongoDB)](docs/guides/data-document.md) — Document database support via Beanie ODM
-- [Validation](docs/guides/validation.md) — `Valid[T]` annotation, structured 422 errors
-- [WebFilters](docs/guides/web-filters.md) — Request/response filter chain
-- [Actuator](docs/guides/actuator.md) — Health checks, extensible endpoints
-- [Custom Actuator Endpoints](docs/guides/custom-actuator-endpoints.md) — Build your own actuator endpoints
+- [Web Layer](docs/modules/web.md) — REST controllers, routing, parameter binding, OpenAPI
+- [Data Relational (SQL)](docs/modules/data-relational.md) — Repositories, derived queries, pagination, transactions
+- [Data Document (MongoDB)](docs/modules/data-document.md) — Document database support via Beanie ODM
+- [Validation](docs/modules/validation.md) — `Valid[T]` annotation, structured 422 errors
+- [WebFilters](docs/modules/web-filters.md) — Request/response filter chain
+- [Actuator](docs/modules/actuator.md) — Health checks, extensible endpoints
+- [Custom Actuator Endpoints](docs/modules/custom-actuator-endpoints.md) — Build your own actuator endpoints
+
+### Adapter Reference
+
+Browse the [Adapter Catalog](docs/adapters/README.md) for setup and configuration of each concrete backend:
+
+- [SQLAlchemy](docs/adapters/sqlalchemy.md) · [MongoDB](docs/adapters/mongodb.md) · [Starlette](docs/adapters/starlette.md) · [Kafka](docs/adapters/kafka.md) · [RabbitMQ](docs/adapters/rabbitmq.md) · [Redis](docs/adapters/redis.md) · [HTTPX](docs/adapters/httpx.md)
 
 Browse the full list in the [Documentation Table of Contents](docs/README.md).
 

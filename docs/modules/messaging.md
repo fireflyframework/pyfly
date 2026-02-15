@@ -564,3 +564,10 @@ async def test_consumer_group_round_robin(broker: InMemoryMessageBroker) -> None
 
 Because `InMemoryMessageBroker` satisfies `MessageBrokerPort`, you can inject
 it anywhere the protocol is expected -- no mocking required.
+
+---
+
+## Adapters
+
+- [Kafka Adapter](../adapters/kafka.md) — Setup, configuration reference, and adapter-specific features for the Apache Kafka backend
+- [RabbitMQ Adapter](../adapters/rabbitmq.md) — Setup, configuration reference, and adapter-specific features for the RabbitMQ backend

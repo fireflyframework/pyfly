@@ -673,33 +673,33 @@ Here is where to go next:
 
 - [Architecture Guide](architecture.md) -- Understand the hexagonal architecture and
   module layers
-- [Dependency Injection](guides/dependency-injection.md) -- Constructor injection,
+- [Dependency Injection](modules/dependency-injection.md) -- Constructor injection,
   `@primary`, `@Qualifier`, scopes, and the full DI container API
-- [Configuration](guides/configuration.md) -- Profiles, `@config_properties`,
+- [Configuration](modules/configuration.md) -- Profiles, `@config_properties`,
   environment variables, and property binding
 
 ### Web Layer
 
-- [Web Guide](guides/web.md) -- Controllers, request parameters (`PathVar`,
+- [Web Guide](modules/web.md) -- Controllers, request parameters (`PathVar`,
   `QueryParam`, `Body`, `Header`, `Cookie`), response handling, CORS, middleware
-- [Validation Guide](guides/validation.md) -- `validate_model()`, `@validate_input`,
+- [Validation Guide](modules/validation.md) -- `validate_model()`, `@validate_input`,
   `@validator`, and Pydantic integration
-- [Error Handling](guides/error-handling.md) -- Full exception hierarchy, HTTP status
+- [Error Handling](modules/error-handling.md) -- Full exception hierarchy, HTTP status
   mapping, `ErrorResponse`, and `FieldError`
 
 ### Data and Events
 
-- [Data Relational](guides/data-relational.md) -- Repositories, SQLAlchemy integration, pagination
-- [Events](guides/events.md) -- Event-driven architecture, `@event_listener`,
+- [Data Relational](modules/data-relational.md) -- Repositories, SQLAlchemy integration, pagination
+- [Events](modules/events.md) -- Event-driven architecture, `@event_listener`,
   `InMemoryEventBus`
-- [Messaging](guides/messaging.md) -- Kafka and RabbitMQ integration
+- [Messaging](modules/messaging.md) -- Kafka and RabbitMQ integration
 
 ### Production
 
-- [Actuator](guides/actuator.md) -- Health checks, beans endpoint, environment info
-- [Observability](guides/observability.md) -- Metrics, tracing, and structured logging
-- [Resilience](guides/resilience.md) -- Circuit breakers, retry policies, bulkheads
-- [Testing](guides/testing.md) -- `PyFlyTestCase`, `create_test_container()`, event
+- [Actuator](modules/actuator.md) -- Health checks, beans endpoint, environment info
+- [Observability](modules/observability.md) -- Metrics, tracing, and structured logging
+- [Resilience](modules/resilience.md) -- Circuit breakers, retry policies, bulkheads
+- [Testing](modules/testing.md) -- `PyFlyTestCase`, `create_test_container()`, event
   assertions
 
 ### Tools

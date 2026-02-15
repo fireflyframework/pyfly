@@ -476,7 +476,7 @@ pyfly new my-service
 cd my-service
 ```
 
-This generates a `pyfly.yaml` with sensible defaults. See the [Configuration Guide](guides/configuration.md) for detailed configuration options.
+This generates a `pyfly.yaml` with sensible defaults. See the [Configuration Guide](modules/configuration.md) for detailed configuration options.
 
 ---
 

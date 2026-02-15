@@ -1721,3 +1721,9 @@ The WebFilter chain executes in this order for every request:
 3. `SecurityHeadersFilter` (order: `HIGHEST_PRECEDENCE + 300`) -- adds security headers
 4. `ApiKeyFilter` (order: `10`) -- validates API key (custom, only for `/api/*`)
 5. Route handler -- the controller method
+
+---
+
+## Adapters
+
+- [Starlette Adapter](../adapters/starlette.md) — Setup, configuration reference, and adapter-specific features for the Starlette / Uvicorn backend

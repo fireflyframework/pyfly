@@ -65,7 +65,7 @@ await app.startup()
 
 **Key difference:** In Spring, component scanning is classpath-based and implicit. In PyFly, `scan_packages` explicitly lists which Python packages to scan for decorated classes. This is deliberate — Python's import system doesn't have Java's classpath scanning, so explicit package listing is more predictable and avoids accidental imports from third-party libraries.
 
-**Configuration:** Spring uses `application.yml` or `application.properties`. PyFly uses `pyfly.yaml` with the same hierarchical structure. See [Configuration Guide](guides/configuration.md).
+**Configuration:** Spring uses `application.yml` or `application.properties`. PyFly uses `pyfly.yaml` with the same hierarchical structure. See [Configuration Guide](modules/configuration.md).
 
 ---
 

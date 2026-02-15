@@ -23,71 +23,89 @@
 
 ---
 
-## Framework Guides
+## Module Guides
 
-All module guides are organized in the [`guides/`](guides/README.md) directory. Here's a quick reference:
+All module guides are organized in the [`modules/`](modules/README.md) directory. Here's a quick reference:
 
 ### Foundation
 
 | Guide | Description |
 |-------|-------------|
-| [Core & Lifecycle](guides/core.md) | Application bootstrap, startup sequence, configuration, profiles, banner |
-| [Dependency Injection](guides/dependency-injection.md) | Container, stereotypes, scopes, bean factories, conditional beans, lifecycle hooks |
-| [Configuration](guides/configuration.md) | YAML/TOML config, profiles, property binding, environment variables |
-| [Error Handling](guides/error-handling.md) | Exception hierarchy, HTTP status mapping, structured error responses |
+| [Core & Lifecycle](modules/core.md) | Application bootstrap, startup sequence, configuration, profiles, banner |
+| [Dependency Injection](modules/dependency-injection.md) | Container, stereotypes, scopes, bean factories, conditional beans, lifecycle hooks |
+| [Configuration](modules/configuration.md) | YAML/TOML config, profiles, property binding, environment variables |
+| [Error Handling](modules/error-handling.md) | Exception hierarchy, HTTP status mapping, structured error responses |
 
 ### Web Development
 
 | Guide | Description |
 |-------|-------------|
-| [Web Layer](guides/web.md) | REST controllers, routing, parameter binding, middleware, CORS, OpenAPI |
-| [Validation](guides/validation.md) | `Valid[T]` annotation, Pydantic model validation, structured 422 errors |
-| [WebFilters](guides/web-filters.md) | Request/response filter chain — `TransactionIdFilter`, `RequestLoggingFilter`, `SecurityHeadersFilter` |
-| [Actuator](guides/actuator.md) | Health checks, beans endpoint, environment info, loggers, metrics |
-| [Custom Actuator Endpoints](guides/custom-actuator-endpoints.md) | Build your own actuator endpoints with the `ActuatorEndpoint` protocol |
+| [Web Layer](modules/web.md) | REST controllers, routing, parameter binding, middleware, CORS, OpenAPI |
+| [Validation](modules/validation.md) | `Valid[T]` annotation, Pydantic model validation, structured 422 errors |
+| [WebFilters](modules/web-filters.md) | Request/response filter chain — `TransactionIdFilter`, `RequestLoggingFilter`, `SecurityHeadersFilter` |
+| [Actuator](modules/actuator.md) | Health checks, beans endpoint, environment info, loggers, metrics |
+| [Custom Actuator Endpoints](modules/custom-actuator-endpoints.md) | Build your own actuator endpoints with the `ActuatorEndpoint` protocol |
 
 ### Data & Persistence
 
 | Guide | Description |
 |-------|-------------|
-| [Data Relational (SQL)](guides/data-relational.md) | Repositories, derived queries, specifications, pagination, transactions (SQLAlchemy) |
-| [Data Document (MongoDB)](guides/data-document.md) | Document database support via Beanie ODM — `MongoRepository[T, ID]`, `BaseDocument`, derived queries |
+| [Data Relational (SQL)](modules/data-relational.md) | Repositories, derived queries, specifications, pagination, transactions (SQLAlchemy) |
+| [Data Document (MongoDB)](modules/data-document.md) | Document database support via Beanie ODM — `MongoRepository[T, ID]`, `BaseDocument`, derived queries |
 
 ### Messaging & Events
 
 | Guide | Description |
 |-------|-------------|
-| [Messaging](guides/messaging.md) | Kafka, RabbitMQ, in-memory broker, message publishing and consumption |
-| [Events (EDA)](guides/events.md) | Event-driven architecture, domain events, application events, event bus |
-| [CQRS](guides/cqrs.md) | Command/Query separation, mediator pattern, middleware pipeline |
+| [Messaging](modules/messaging.md) | Kafka, RabbitMQ, in-memory broker, message publishing and consumption |
+| [Events (EDA)](modules/events.md) | Event-driven architecture, domain events, application events, event bus |
+| [CQRS](modules/cqrs.md) | Command/Query separation, mediator pattern, middleware pipeline |
 
 ### Security
 
 | Guide | Description |
 |-------|-------------|
-| [Security](guides/security.md) | JWT authentication, password encoding, authorization, protected endpoints |
+| [Security](modules/security.md) | JWT authentication, password encoding, authorization, protected endpoints |
 
 ### Resilience & Performance
 
 | Guide | Description |
 |-------|-------------|
-| [Resilience](guides/resilience.md) | Rate limiting, bulkhead, timeout, fallback patterns |
-| [HTTP Client](guides/client.md) | Service client builder, circuit breaker, retry, declarative clients |
-| [Caching](guides/caching.md) | Cache decorators, Redis adapter, in-memory cache, cache management |
+| [Resilience](modules/resilience.md) | Rate limiting, bulkhead, timeout, fallback patterns |
+| [HTTP Client](modules/client.md) | Service client builder, circuit breaker, retry, declarative clients |
+| [Caching](modules/caching.md) | Cache decorators, Redis adapter, in-memory cache, cache management |
 
 ### Operations
 
 | Guide | Description |
 |-------|-------------|
-| [Observability](guides/observability.md) | Prometheus metrics, OpenTelemetry tracing, structured logging, health checks |
-| [Scheduling](guides/scheduling.md) | Cron jobs, fixed-rate tasks, fixed-delay tasks, async execution |
+| [Observability](modules/observability.md) | Prometheus metrics, OpenTelemetry tracing, structured logging, health checks |
+| [Scheduling](modules/scheduling.md) | Cron jobs, fixed-rate tasks, fixed-delay tasks, async execution |
 
 ### Advanced
 
 | Guide | Description |
 |-------|-------------|
-| [AOP](guides/aop.md) | Aspect-oriented programming, pointcuts, advice types, weaving |
-| [Testing](guides/testing.md) | Test fixtures, mock containers, event assertions, testing patterns |
+| [AOP](modules/aop.md) | Aspect-oriented programming, pointcuts, advice types, weaving |
+| [Testing](modules/testing.md) | Test fixtures, mock containers, event assertions, testing patterns |
+
+---
+
+## Adapter Reference
+
+Adapters are the concrete implementations behind PyFly's port contracts. Each adapter doc covers setup, configuration, and adapter-specific features.
+
+Browse the full [Adapter Catalog](adapters/README.md), or jump directly:
+
+| Adapter | Backend | Module |
+|---------|---------|--------|
+| [SQLAlchemy](adapters/sqlalchemy.md) | PostgreSQL, MySQL, SQLite | Data Relational |
+| [MongoDB](adapters/mongodb.md) | MongoDB (Beanie ODM) | Data Document |
+| [Starlette](adapters/starlette.md) | Starlette / Uvicorn | Web |
+| [Kafka](adapters/kafka.md) | Apache Kafka (aiokafka) | Messaging |
+| [RabbitMQ](adapters/rabbitmq.md) | RabbitMQ (aio-pika) | Messaging |
+| [Redis](adapters/redis.md) | Redis (async) | Caching |
+| [HTTPX](adapters/httpx.md) | HTTPX | Client |
 
 ---
 
@@ -104,8 +122,9 @@ All module guides are organized in the [`guides/`](guides/README.md) directory. 
 
 - **New to PyFly?** Start with the [Getting Started Tutorial](getting-started.md)
 - **Coming from Spring Boot?** Read the [Spring Boot Comparison](spring-comparison.md)
-- **Building a web service?** See the [Web Layer Guide](guides/web.md)
-- **Setting up a SQL database?** See the [Data Relational Guide](guides/data-relational.md)
-- **Setting up MongoDB?** See the [Data Document Guide](guides/data-document.md)
-- **Need messaging?** See [Messaging](guides/messaging.md) and [Events](guides/events.md)
-- **Browse all guides:** See the [Guides Index](guides/README.md)
+- **Building a web service?** See the [Web Layer Guide](modules/web.md)
+- **Setting up a SQL database?** See the [Data Relational Guide](modules/data-relational.md) and [SQLAlchemy Adapter](adapters/sqlalchemy.md)
+- **Setting up MongoDB?** See the [Data Document Guide](modules/data-document.md) and [MongoDB Adapter](adapters/mongodb.md)
+- **Need messaging?** See [Messaging](modules/messaging.md), [Kafka](adapters/kafka.md), and [RabbitMQ](adapters/rabbitmq.md)
+- **Browse all modules:** See the [Module Guides Index](modules/README.md)
+- **Browse all adapters:** See the [Adapter Catalog](adapters/README.md)

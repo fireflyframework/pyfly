@@ -744,3 +744,9 @@ async def test_order_service():
 This demonstrates the value of the `HttpClientPort` abstraction: your tests
 never make real HTTP calls, yet they exercise the full `ServiceClient`
 interface.
+
+---
+
+## Adapters
+
+- [HTTPX Adapter](../adapters/httpx.md) — Setup, configuration reference, and adapter-specific features for the HTTPX HTTP client backend

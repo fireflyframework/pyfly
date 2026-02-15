@@ -1090,3 +1090,9 @@ class ProductService:
     async def count_in_category(self, category: str) -> int:
         return await self._repo.count_by_category(category)
 ```
+
+---
+
+## Adapters
+
+- [SQLAlchemy Adapter](../adapters/sqlalchemy.md) — Setup, configuration reference, and adapter-specific features for the SQLAlchemy backend
