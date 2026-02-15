@@ -14,6 +14,7 @@
 """PyFly Testing — Test utilities, assertions, and fixtures."""
 
 from pyfly.testing.assertions import assert_event_published, assert_no_events_published
+from pyfly.testing.client import PyFlyTestClient, TestResponse
 from pyfly.testing.containers import create_test_container
 from pyfly.testing.fixtures import PyFlyTestCase
 from pyfly.testing.mock import mock_bean
@@ -22,7 +23,9 @@ from pyfly.testing.slices import DataTest, ServiceTest, WebTest, get_test_slice
 __all__ = [
     "DataTest",
     "PyFlyTestCase",
+    "PyFlyTestClient",
     "ServiceTest",
+    "TestResponse",
     "WebTest",
     "assert_event_published",
     "assert_no_events_published",
