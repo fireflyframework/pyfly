@@ -11,22 +11,29 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Built-in actuator endpoint implementations."""
+"""Tests for PrometheusEndpoint — Prometheus text exposition."""
 
-from pyfly.actuator.endpoints.beans_endpoint import BeansEndpoint
-from pyfly.actuator.endpoints.env_endpoint import EnvEndpoint
-from pyfly.actuator.endpoints.health_endpoint import HealthEndpoint
-from pyfly.actuator.endpoints.info_endpoint import InfoEndpoint
-from pyfly.actuator.endpoints.loggers_endpoint import LoggersEndpoint
-from pyfly.actuator.endpoints.metrics_endpoint import MetricsEndpoint
+from __future__ import annotations
+
+import pytest
+
 from pyfly.actuator.endpoints.prometheus_endpoint import PrometheusEndpoint
 
-__all__ = [
-    "BeansEndpoint",
-    "EnvEndpoint",
-    "HealthEndpoint",
-    "InfoEndpoint",
-    "LoggersEndpoint",
-    "MetricsEndpoint",
-    "PrometheusEndpoint",
-]
+
+class TestPrometheusEndpoint:
+    def test_endpoint_id(self) -> None:
+        ep = PrometheusEndpoint()
+        assert ep.endpoint_id == "prometheus"
+
+    def test_enabled_by_default(self) -> None:
+        ep = PrometheusEndpoint()
+        assert ep.enabled is True
+
+    @pytest.mark.asyncio
+    async def test_handle_returns_text_body(self) -> None:
+        ep = PrometheusEndpoint()
+        data = await ep.handle()
+
+        assert "body" in data
+        assert isinstance(data["body"], str)
+        assert "content_type" in data
