@@ -170,7 +170,7 @@ class Repository(Generic[T, ID]):
         if not ids:
             return []
         stmt = select(self._model).where(
-            getattr(self._model, "id").in_(ids)
+            self._model.id.in_(ids)
         )
         result = await self._session.execute(stmt)
         return list(result.scalars().all())
@@ -181,7 +181,7 @@ class Repository(Generic[T, ID]):
             return 0
         from sqlalchemy import delete as sa_delete
         stmt = sa_delete(self._model).where(
-            getattr(self._model, "id").in_(ids)
+            self._model.id.in_(ids)
         )
         result = await self._session.execute(stmt)
         await self._session.flush()

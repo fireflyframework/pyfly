@@ -38,7 +38,7 @@ class RequestContextFilter(OncePerRequestFilter):
 
     async def do_filter(self, request: Any, call_next: CallNext) -> Any:
         request_id = getattr(request, "headers", {}).get("x-request-id")
-        ctx = RequestContext.init(request_id=request_id)
+        RequestContext.init(request_id=request_id)
         try:
             response = await call_next(request)
             return response

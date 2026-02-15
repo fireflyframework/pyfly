@@ -84,6 +84,10 @@ scheduling = [
 security = [
     "pyjwt[crypto]>=2.8",
     "bcrypt>=4.0",
+    "cryptography>=42.0",
+]
+testing = [
+    "jsonpath-ng>=1.6",
 ]
 cli = [
     "click>=8.1",
@@ -92,7 +96,7 @@ cli = [
     "questionary>=2.0",
 ]
 full = [
-    "pyfly[web,data-relational,data-document,postgresql,eda,cqrs,cache,client,observability,security,scheduling,cli,kafka,rabbitmq,redis]",
+    "pyfly[web,data-relational,data-document,postgresql,eda,cqrs,cache,client,observability,security,scheduling,cli,kafka,rabbitmq,redis,testing]",
 ]
 dev = [
     "pyfly[full]",

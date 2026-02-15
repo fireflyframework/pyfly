@@ -147,7 +147,7 @@ class MongoRepository(Generic[T, ID]):
         if not entities:
             return []
         result = await self._model.insert_many(entities)  # type: ignore[union-attr]
-        for entity, oid in zip(entities, result.inserted_ids):
+        for entity, oid in zip(entities, result.inserted_ids, strict=False):
             entity.id = oid  # type: ignore[union-attr]
         return entities
 
