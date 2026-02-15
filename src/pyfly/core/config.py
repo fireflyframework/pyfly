@@ -18,6 +18,7 @@ from __future__ import annotations
 import dataclasses
 import importlib.resources
 import os
+import re
 import tomllib
 from pathlib import Path
 from typing import Any, TypeVar, get_type_hints
@@ -25,6 +26,8 @@ from typing import Any, TypeVar, get_type_hints
 import yaml
 
 T = TypeVar("T")
+
+_PLACEHOLDER_RE = re.compile(r"\$\{([^}]+)\}")
 
 _CONFIG_PROPERTIES_ATTR = "__pyfly_config_prefix__"
 
@@ -197,9 +200,10 @@ class Config:
     def get(self, key: str, default: Any = None) -> Any:
         """Get a value by dot-notation key, checking env vars first.
 
-        Args:
-            key: Dot-separated key path (e.g. "app.name").
-            default: Value to return if key is not found.
+        String values containing ``${...}`` placeholders are resolved:
+        - ``${ENV_VAR}`` — resolved from environment variables
+        - ``${config.key}`` — resolved from other config values
+        - ``${key:default}`` — uses default if key/env not found
         """
         # Check environment variable override: pyfly.app.name -> PYFLY_APP_NAME
         env_base = key.removeprefix("pyfly.") if key.startswith("pyfly.") else key
@@ -218,7 +222,67 @@ class Config:
                     return default
             else:
                 return default
+
+        # Resolve placeholders in string values
+        if isinstance(current, str) and "${" in current:
+            return self._resolve_placeholders(current)
+
         return current
+
+    def _resolve_placeholders(self, value: str, _depth: int = 0) -> str:
+        """Resolve ``${...}`` placeholders in a string value.
+
+        Supports environment variables, config references, and defaults.
+        Guards against circular references with a max recursion depth.
+        """
+        if _depth > 10:
+            raise ValueError(
+                f"Max recursion depth exceeded resolving placeholders in '{value}'. "
+                "Check for circular references."
+            )
+
+        def _replace(match: re.Match) -> str:
+            inner = match.group(1)
+
+            # Check for default: ${key:default}
+            if ":" in inner:
+                ref_key, default_val = inner.split(":", 1)
+            else:
+                ref_key, default_val = inner, None
+
+            # Try environment variable first
+            env_val = os.environ.get(ref_key)
+            if env_val is not None:
+                return env_val
+
+            # Try config reference (raw, without placeholder resolution)
+            parts = ref_key.split(".")
+            current: Any = self._data
+            for part in parts:
+                if isinstance(current, dict):
+                    current = current.get(part)
+                    if current is None:
+                        break
+                else:
+                    current = None
+                    break
+
+            if current is not None:
+                resolved = str(current)
+                # Recursively resolve if the resolved value also has placeholders
+                if "${" in resolved:
+                    resolved = self._resolve_placeholders(resolved, _depth + 1)
+                return resolved
+
+            if default_val is not None:
+                return default_val
+
+            raise ValueError(
+                f"Cannot resolve placeholder '${{{inner}}}': "
+                f"not found in environment or config"
+            )
+
+        return _PLACEHOLDER_RE.sub(_replace, value)
 
     def get_section(self, prefix: str) -> dict[str, Any]:
         """Get all values under a prefix as a flat dict."""
