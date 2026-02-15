@@ -156,3 +156,42 @@ class Repository(Generic[T, ID]):
         """Check if an entity with the given ID exists."""
         entity = await self.find_by_id(id)
         return entity is not None
+
+    async def save_all(self, entities: list[T]) -> list[T]:
+        """Persist multiple entities in a single batch."""
+        self._session.add_all(entities)
+        await self._session.flush()
+        for entity in entities:
+            await self._session.refresh(entity)
+        return entities
+
+    async def find_all_by_ids(self, ids: list[ID]) -> list[T]:
+        """Find all entities with IDs in the given list."""
+        if not ids:
+            return []
+        stmt = select(self._model).where(
+            getattr(self._model, "id").in_(ids)
+        )
+        result = await self._session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def delete_all(self, ids: list[ID]) -> int:
+        """Delete all entities with IDs in the given list. Returns count deleted."""
+        if not ids:
+            return 0
+        from sqlalchemy import delete as sa_delete
+        stmt = sa_delete(self._model).where(
+            getattr(self._model, "id").in_(ids)
+        )
+        result = await self._session.execute(stmt)
+        await self._session.flush()
+        return result.rowcount
+
+    async def delete_all_entities(self, entities: list[T]) -> int:
+        """Delete all given entity instances. Returns count deleted."""
+        count = 0
+        for entity in entities:
+            await self._session.delete(entity)
+            count += 1
+        await self._session.flush()
+        return count

@@ -141,6 +141,28 @@ class TestPortSwappability:
             async def exists(self, id: UUID) -> bool:
                 return id in self._store
 
+            async def save_all(self, entities: list[Any]) -> list[Any]:
+                for e in entities:
+                    self._store[e.id] = e
+                return entities
+
+            async def find_all_by_ids(self, ids: list[UUID]) -> list[Any]:
+                return [self._store[i] for i in ids if i in self._store]
+
+            async def delete_all(self, ids: list[UUID]) -> int:
+                count = 0
+                for i in ids:
+                    if self._store.pop(i, None) is not None:
+                        count += 1
+                return count
+
+            async def delete_all_entities(self, entities: list[Any]) -> int:
+                count = 0
+                for e in entities:
+                    if self._store.pop(e.id, None) is not None:
+                        count += 1
+                return count
+
         repo = MockRepo()
         assert isinstance(repo, RepositoryPort)
 
