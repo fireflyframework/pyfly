@@ -77,6 +77,7 @@ class Mapper:
 
     def __init__(self) -> None:
         self._mappings: dict[tuple[type, type], MappingConfig] = {}
+        self._projections: dict[tuple[type, type], dict[str, Callable[[Any], Any]]] = {}
 
     def add_mapping(
         self,
@@ -140,6 +141,47 @@ class Mapper:
     def map_list(self, sources: list[S], dest_type: type[D]) -> list[D]:
         """Map a list of source objects to destination type."""
         return [self.map(s, dest_type) for s in sources]
+
+    def register_projection(
+        self,
+        source_type: type[S],
+        projection_type: type[D],
+        *,
+        transforms: dict[str, Callable[[Any], Any]] | None = None,
+    ) -> None:
+        """Register a projection with optional computed-field transforms.
+
+        Transforms are keyed by destination field name. The callable
+        receives the *entire source object* (not just a single field).
+
+        Usage::
+
+            mapper.register_projection(Order, OrderSummary, transforms={
+                "total": lambda o: o.quantity * o.unit_price,
+            })
+        """
+        self._projections[(source_type, projection_type)] = transforms or {}
+
+    def project(self, source: S, projection_type: type[D]) -> D:
+        """Map source to a projection type, applying registered transforms.
+
+        Falls back to standard field-name matching for fields without
+        explicit transforms.
+        """
+        transforms = self._projections.get(
+            (type(source), projection_type), {}
+        )
+        dest_fields = self._get_field_names(projection_type)
+        source_data = self._extract_fields(source)
+
+        kwargs: dict[str, object] = {}
+        for field in dest_fields:
+            if field in transforms:
+                kwargs[field] = transforms[field](source)
+            elif field in source_data:
+                kwargs[field] = source_data[field]
+
+        return projection_type(**kwargs)
 
     # ------------------------------------------------------------------
     # Internal helpers
