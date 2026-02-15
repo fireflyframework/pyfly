@@ -74,9 +74,9 @@ fatal()   { error "$1"; exit 1; }
 # Returns empty string on EOF (Ctrl+D) instead of failing.
 # Discards any buffered input (e.g. arrow keys pressed before the prompt).
 prompt_read() {
-    # Flush any stale input from the terminal (non-blocking discard)
+    # Flush ALL stale input from the terminal (arrow keys, escape sequences)
     if [ "$TTY_IN" = "/dev/tty" ]; then
-        read -r -t 0.1 _discard < /dev/tty 2>/dev/null || true
+        while read -r -t 0.1 _discard < /dev/tty 2>/dev/null; do :; done
     fi
     read -r "$@" < "$TTY_IN" || true
 }
@@ -220,8 +220,18 @@ prompt_install_dir() {
     if [ "$IS_INTERACTIVE" = true ] && [ -z "${PYFLY_HOME:-}" ]; then
         printf "\n${BOLD}Installation directory${RESET} ${DIM}[%s]${RESET}: " "$DEFAULT_INSTALL_DIR"
         prompt_read user_dir
-        # Strip control characters (arrow keys, escape sequences) and whitespace
-        user_dir=$(printf '%s' "${user_dir:-}" | tr -d '[:cntrl:]' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        # Strip control characters (ESC, etc.) AND leftover ANSI sequences ([A, [B, [1;5C, ...)
+        user_dir=$(printf '%s' "${user_dir:-}" | tr -d '[:cntrl:]' | sed 's/\[[0-9;]*[A-Za-z]//g; s/^[[:space:]]*//; s/[[:space:]]*$//')
+        # Validate: must be empty (→ default) or a real path (starts with / or ~)
+        if [ -n "$user_dir" ]; then
+            case "$user_dir" in
+                /*|~*)  ;;  # Valid absolute or home-relative path
+                *)
+                    warn "Invalid input detected — using default directory"
+                    user_dir=""
+                    ;;
+            esac
+        fi
         INSTALL_DIR="${user_dir:-$DEFAULT_INSTALL_DIR}"
     else
         INSTALL_DIR="${PYFLY_HOME:-$DEFAULT_INSTALL_DIR}"
