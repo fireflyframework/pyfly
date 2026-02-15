@@ -32,6 +32,7 @@ from pyfly.data.pageable import Order, Pageable, Sort
 from pyfly.data.ports.compiler import QueryMethodCompilerPort
 from pyfly.data.ports.outbound import CrudRepository, PagingRepository, RepositoryPort, SessionPort
 from pyfly.data.post_processor import DERIVED_PREFIXES, BaseRepositoryPostProcessor
+from pyfly.data.projection import is_projection, projection, projection_fields
 from pyfly.data.query_parser import QueryMethodParser
 from pyfly.data.specification import Specification
 
@@ -46,6 +47,9 @@ __all__ = [
     "Pageable",
     "PagingRepository",
     "QueryMethodCompilerPort",
+    "is_projection",
+    "projection",
+    "projection_fields",
     "QueryMethodParser",
     "RepositoryPort",
     "SessionPort",
