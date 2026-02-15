@@ -18,7 +18,7 @@ from __future__ import annotations
 _SLICE_MARKER = "__pyfly_test_slice__"
 
 
-def WebTest(cls: type) -> type:
+def WebTest(cls: type) -> type:  # noqa: N802
     """Mark test class as a web-layer test slice.
 
     Loads web controllers and filters; mocks service layer.
@@ -27,7 +27,7 @@ def WebTest(cls: type) -> type:
     return cls
 
 
-def DataTest(cls: type) -> type:
+def DataTest(cls: type) -> type:  # noqa: N802
     """Mark test class as a data-layer test slice.
 
     Loads repositories with in-memory backends; mocks service layer.
@@ -36,7 +36,7 @@ def DataTest(cls: type) -> type:
     return cls
 
 
-def ServiceTest(cls: type) -> type:
+def ServiceTest(cls: type) -> type:  # noqa: N802
     """Mark test class as a service-layer test slice.
 
     Loads services; mocks repositories.
