@@ -23,9 +23,9 @@ from typing import Any, get_args, get_origin
 from pydantic import BaseModel
 from starlette.requests import Request
 
-from pyfly.web.params import Body, Cookie, Header, PathVar, QueryParam, Valid
+from pyfly.web.params import Body, Cookie, File, Header, PathVar, QueryParam, UploadedFile, Valid
 
-_BINDING_TYPES = {PathVar, QueryParam, Body, Header, Cookie}
+_BINDING_TYPES = {PathVar, QueryParam, Body, Header, Cookie, File}
 _MISSING = object()
 
 
@@ -124,6 +124,8 @@ class ParameterResolver:
             return self._resolve_header(request, param)
         if param.binding_type is Cookie:
             return self._resolve_cookie(request, param)
+        if param.binding_type is File:
+            return await self._resolve_file(request, param)
         return None  # pragma: no cover
 
     def _resolve_path_var(self, request: Request, param: ResolvedParam) -> Any:
@@ -211,3 +213,30 @@ class ParameterResolver:
         if target_type is str:
             return value
         return target_type(value)
+
+    async def _resolve_file(self, request: Request, param: ResolvedParam) -> Any:
+        """Resolve a File[UploadedFile] or File[list[UploadedFile]] parameter."""
+        form = await request.form()
+
+        # Check if inner type is list[UploadedFile] (multi-file)
+        if get_origin(param.inner_type) is list:
+            files = form.getlist(param.name)
+            return [self._wrap_upload(f) for f in files if hasattr(f, "filename")]
+
+        # Single file
+        upload = form.get(param.name)
+        if upload is None or not hasattr(upload, "filename"):
+            if param.default is not _MISSING:
+                return param.default
+            return None
+        return self._wrap_upload(upload)
+
+    @staticmethod
+    def _wrap_upload(upload: Any) -> UploadedFile:
+        """Wrap a Starlette UploadFile into PyFly's UploadedFile."""
+        return UploadedFile(
+            filename=upload.filename or "",
+            content_type=upload.content_type or "application/octet-stream",
+            size=upload.size or 0,
+            _file=upload.file,
+        )

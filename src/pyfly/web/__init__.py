@@ -30,7 +30,7 @@ from pyfly.web.mappings import (
     put_mapping,
     request_mapping,
 )
-from pyfly.web.params import Body, Cookie, Header, PathVar, QueryParam, Valid
+from pyfly.web.params import Body, Cookie, File, Header, PathVar, QueryParam, UploadedFile, Valid
 from pyfly.web.ports.filter import WebFilter
 from pyfly.web.security_headers import SecurityHeadersConfig
 
@@ -38,11 +38,13 @@ __all__ = [
     "Body",
     "CORSConfig",
     "Cookie",
+    "File",
     "Header",
     "OncePerRequestFilter",
     "PathVar",
     "QueryParam",
     "SecurityHeadersConfig",
+    "UploadedFile",
     "Valid",
     "WebFilter",
     "delete_mapping",
