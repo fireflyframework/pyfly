@@ -36,14 +36,16 @@ Example::
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Generic, TypeVar
+from typing import TypeVar
 
 from sqlalchemy import Select
+
+from pyfly.data.specification import Specification as SpecificationBase
 
 T = TypeVar("T")
 
 
-class Specification(Generic[T]):
+class Specification(SpecificationBase[T, Select]):
     """Composable query predicate for type-safe dynamic queries.
 
     A *Specification* wraps a callable that receives an entity class

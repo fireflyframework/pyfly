@@ -15,12 +15,15 @@
 
 from __future__ import annotations
 
-from typing import Any, Generic, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 import pymongo
 
 from pyfly.data.page import Page
 from pyfly.data.pageable import Pageable
+
+if TYPE_CHECKING:
+    from pyfly.data.document.mongodb.specification import MongoSpecification
 
 T = TypeVar("T")
 ID = TypeVar("ID")
@@ -103,6 +106,32 @@ class MongoRepository(Generic[T, ID]):
         """Check if a document with the given ID exists."""
         entity = await self.find_by_id(id)
         return entity is not None
+
+    async def find_all_by_spec(self, spec: MongoSpecification[T]) -> list[T]:
+        """Find all documents matching a specification."""
+        filter_doc = spec.to_predicate(self._model, {})
+        if filter_doc:
+            return await self._model.find(filter_doc).to_list()  # type: ignore[union-attr]
+        return await self._model.find_all().to_list()  # type: ignore[union-attr]
+
+    async def find_all_by_spec_paged(
+        self, spec: MongoSpecification[T], pageable: Pageable
+    ) -> Page[T]:
+        """Find documents matching a specification with pagination."""
+        filter_doc = spec.to_predicate(self._model, {})
+        if filter_doc:
+            total = await self._model.find(filter_doc).count()  # type: ignore[union-attr]
+            query = self._model.find(filter_doc)  # type: ignore[union-attr]
+        else:
+            total = await self._model.find_all().count()  # type: ignore[union-attr]
+            query = self._model.find_all()  # type: ignore[union-attr]
+
+        sort_spec = self._build_sort(pageable)
+        if sort_spec:
+            query = query.sort(sort_spec)
+
+        items = await query.skip(pageable.offset).limit(pageable.size).to_list()
+        return Page(items=items, total=total, page=pageable.page, size=pageable.size)
 
     @staticmethod
     def _build_sort(pageable: Pageable) -> list[tuple[str, int]]:

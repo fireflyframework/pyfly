@@ -17,16 +17,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from pyfly.data.query_parser import QueryMethodParser
+from pyfly.data.post_processor import BaseRepositoryPostProcessor
 from pyfly.data.relational.sqlalchemy.query import QueryExecutor
 from pyfly.data.relational.sqlalchemy.query_compiler import QueryMethodCompiler
 from pyfly.data.relational.sqlalchemy.repository import Repository
 
-# Prefixes that indicate a derived query method.
-_DERIVED_PREFIXES = ("find_by_", "count_by_", "exists_by_", "delete_by_")
 
-
-class RepositoryBeanPostProcessor:
+class RepositoryBeanPostProcessor(BaseRepositoryPostProcessor):
     """Replaces stub methods on :class:`Repository` subclasses with real query implementations.
 
     For each method decorated with ``@query``, compiles the annotated SQL/JPQL
@@ -37,50 +34,38 @@ class RepositoryBeanPostProcessor:
     """
 
     def __init__(self) -> None:
+        super().__init__()
         self._query_executor = QueryExecutor()
-        self._query_parser = QueryMethodParser()
         self._query_compiler = QueryMethodCompiler()
 
-    def before_init(self, bean: Any, bean_name: str) -> Any:
-        return bean
+    # ------------------------------------------------------------------
+    # Hook implementations
+    # ------------------------------------------------------------------
 
-    def after_init(self, bean: Any, bean_name: str) -> Any:
-        if not isinstance(bean, Repository):
-            return bean
+    def _get_repository_type(self) -> type:
+        return Repository
 
-        entity = bean._model
-        cls = type(bean)
+    def _compile_derived(self, parsed: Any, entity: Any, bean: Any) -> Any:
+        return self._query_compiler.compile(parsed, entity)
 
-        # Collect names defined on the base Repository class so we never
-        # replace them.
-        base_names = set(dir(Repository))
+    def _wrap_derived_method(self, compiled_fn: Any) -> Any:
+        """Wrap a derived-query-compiled function to inject ``bean._session``."""
 
-        for attr_name in list(vars(cls)):
-            if attr_name.startswith("_"):
-                continue
+        async def wrapper(self_arg: Any, *args: Any) -> Any:
+            return await compiled_fn(self_arg._session, *args)
 
-            attr = getattr(cls, attr_name, None)
-            if attr is None or not callable(attr):
-                continue
+        return wrapper
 
-            # --- @query-decorated methods ---
-            if hasattr(attr, "__pyfly_query__"):
-                compiled_fn = self._query_executor.compile_query_method(attr, entity)
-                wrapper = self._wrap_query_method(compiled_fn)
-                setattr(bean, attr_name, wrapper.__get__(bean, cls))
-                continue
-
-            # --- Derived query methods ---
-            if attr_name in base_names:
-                continue
-
-            if any(attr_name.startswith(prefix) for prefix in _DERIVED_PREFIXES) and self._is_stub(attr):
-                    parsed = self._query_parser.parse(attr_name)
-                    compiled_fn = self._query_compiler.compile(parsed, entity)
-                    wrapper = self._wrap_derived_method(compiled_fn)
-                    setattr(bean, attr_name, wrapper.__get__(bean, cls))
-
-        return bean
+    def _process_query_decorated(
+        self, bean: Any, cls: type, attr_name: str, attr: Any, entity: Any
+    ) -> bool:
+        """Process ``@query``-decorated methods."""
+        if hasattr(attr, "__pyfly_query__"):
+            compiled_fn = self._query_executor.compile_query_method(attr, entity)
+            wrapper = self._wrap_query_method(compiled_fn)
+            setattr(bean, attr_name, wrapper.__get__(bean, cls))
+            return True
+        return False
 
     # ------------------------------------------------------------------
     # Wrapper factories
@@ -94,46 +79,3 @@ class RepositoryBeanPostProcessor:
             return await compiled_fn(self_arg._session, **kwargs)
 
         return wrapper
-
-    @staticmethod
-    def _wrap_derived_method(compiled_fn: Any) -> Any:
-        """Wrap a derived-query-compiled function to inject ``bean._session``."""
-
-        async def wrapper(self_arg: Any, *args: Any) -> Any:
-            return await compiled_fn(self_arg._session, *args)
-
-        return wrapper
-
-    # ------------------------------------------------------------------
-    # Stub detection
-    # ------------------------------------------------------------------
-
-    @staticmethod
-    def _is_stub(method: Any) -> bool:
-        """Return ``True`` if *method* appears to be a stub (body is ``...`` or ``pass``).
-
-        A method is considered a stub when its code object contains no
-        meaningful constants beyond ``None`` (which is the implicit return
-        for ``pass`` bodies and ``...`` / ``Ellipsis`` stubs).
-        """
-        func = method
-        # Unwrap staticmethod / classmethod / descriptors
-        if isinstance(func, (staticmethod, classmethod)):
-            func = func.__func__
-        if hasattr(func, "__wrapped__"):
-            func = func.__wrapped__
-
-        code = getattr(func, "__code__", None)
-        if code is None:
-            return False
-
-        # A stub function compiled from ``...`` or ``pass`` has
-        # co_consts == (None,) — the implicit ``return None``.
-        # Some versions of Python also include Ellipsis for ``...``.
-        consts = set(code.co_consts)
-        consts.discard(None)
-        consts.discard(Ellipsis)
-
-        # If nothing meaningful remains in the constants and there is
-        # very little bytecode, treat as a stub.
-        return len(consts) == 0 and code.co_code is not None

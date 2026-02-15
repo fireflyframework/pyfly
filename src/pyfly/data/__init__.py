@@ -25,15 +25,21 @@ This module exports ONLY framework-agnostic commons. Import backend-specific
 types from ``pyfly.data.relational`` or ``pyfly.data.document`` directly.
 """
 
+from pyfly.data.filter import BaseFilterUtils
 from pyfly.data.mapper import Mapper
 from pyfly.data.page import Page
 from pyfly.data.pageable import Order, Pageable, Sort
 from pyfly.data.ports.compiler import QueryMethodCompilerPort
 from pyfly.data.ports.outbound import CrudRepository, PagingRepository, RepositoryPort, SessionPort
+from pyfly.data.post_processor import DERIVED_PREFIXES, BaseRepositoryPostProcessor
 from pyfly.data.query_parser import QueryMethodParser
+from pyfly.data.specification import Specification
 
 __all__ = [
+    "BaseFilterUtils",
+    "BaseRepositoryPostProcessor",
     "CrudRepository",
+    "DERIVED_PREFIXES",
     "Mapper",
     "Order",
     "Page",
@@ -44,4 +50,5 @@ __all__ = [
     "RepositoryPort",
     "SessionPort",
     "Sort",
+    "Specification",
 ]

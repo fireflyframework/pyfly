@@ -36,9 +36,9 @@ Example::
 
 from __future__ import annotations
 
-import dataclasses
 from typing import Any, TypeVar
 
+from pyfly.data.filter import BaseFilterUtils
 from pyfly.data.relational.sqlalchemy.specification import Specification
 
 T = TypeVar("T")
@@ -131,7 +131,7 @@ class FilterOperator:
         )
 
 
-class FilterUtils:
+class FilterUtils(BaseFilterUtils):
     """Generate Specifications dynamically from entities, dicts, or kwargs.
 
     This is PyFly's equivalent of Spring Data's *Query by Example*.
@@ -149,52 +149,9 @@ class FilterUtils:
     """
 
     @staticmethod
-    def by(**kwargs: Any) -> Specification[Any]:
-        """Create a specification from keyword arguments (all eq, ANDed)."""
-        specs = [FilterOperator.eq(field, value) for field, value in kwargs.items()]
-        return FilterUtils._combine_and(specs)
+    def _create_eq(field: str, value: Any) -> Specification[Any]:
+        return FilterOperator.eq(field, value)
 
     @staticmethod
-    def from_dict(filters: dict[str, Any]) -> Specification[Any]:
-        """Create a specification from a dict of field->value pairs (all eq, ANDed).
-
-        ``None`` values are skipped.
-        """
-        specs = [
-            FilterOperator.eq(field, value)
-            for field, value in filters.items()
-            if value is not None
-        ]
-        return FilterUtils._combine_and(specs)
-
-    @staticmethod
-    def from_example(example: Any) -> Specification[Any]:
-        """Create a specification from an example entity/DTO.
-
-        Extracts non-``None`` field values and creates eq filters for each.
-        Supports dataclasses and any object with ``__dict__``.
-        """
-        if dataclasses.is_dataclass(example) and not isinstance(example, type):
-            fields = {
-                f.name: getattr(example, f.name)
-                for f in dataclasses.fields(example)
-            }
-        else:
-            fields = vars(example)
-
-        specs = [
-            FilterOperator.eq(field, value)
-            for field, value in fields.items()
-            if value is not None
-        ]
-        return FilterUtils._combine_and(specs)
-
-    @staticmethod
-    def _combine_and(specs: list[Specification[Any]]) -> Specification[Any]:
-        """AND-combine a list of specs.  Returns a no-op if empty."""
-        if not specs:
-            return Specification(lambda root, q: q)
-        result = specs[0]
-        for s in specs[1:]:
-            result = result & s
-        return result
+    def _create_noop() -> Specification[Any]:
+        return Specification(lambda root, q: q)

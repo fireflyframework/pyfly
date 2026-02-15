@@ -56,6 +56,14 @@ PyFly Data Document provides a document-oriented data access layer that implemen
   - [Paginated Queries](#paginated-queries)
   - [Sort Specification Building](#sort-specification-building)
   - [Page Result](#page-result)
+- [Specifications](#specifications)
+  - [Creating Specifications](#creating-specifications)
+  - [Combining Specifications](#combining-specifications)
+  - [Using Specifications with Repositories](#using-specifications-with-repositories)
+- [MongoFilterOperator](#mongofilteroperator)
+  - [Available Operators](#available-operators)
+  - [Composing Filters](#composing-filters)
+- [MongoFilterUtils: Query by Example](#mongofilterutils-query-by-example)
 - [Integration with Web Layer](#integration-with-web-layer)
   - [Controller with Valid\[T\] and MongoRepository](#controller-with-validt-and-mongorepository)
 - [Complete CRUD Example](#complete-crud-example)
@@ -1120,6 +1128,203 @@ dto_page: Page[ProductDTO] = page.map(
     lambda doc: ProductDTO(id=str(doc.id), name=doc.name, price=doc.price)
 )
 ```
+
+---
+
+## Specifications
+
+`MongoSpecification[T]` provides composable query predicates for MongoDB, implementing the commons `Specification[T, Q]` port. Each specification wraps a callable that produces a MongoDB filter document (`dict`). Specifications combine with standard Python operators (`&`, `|`, `~`), producing `$and`, `$or`, and `$nor` MongoDB expressions.
+
+> **Commons port:** `MongoSpecification` extends `pyfly.data.Specification[T, dict]`, the same abstract base used by the SQLAlchemy adapter's `Specification[T]`. Both adapters share the same combinator contract — only the query representation differs (SQLAlchemy `Select` vs. MongoDB `dict`).
+
+```python
+from pyfly.data.document.mongodb import MongoSpecification
+```
+
+### Creating Specifications
+
+A specification takes a callable `(root, query) -> dict` where `root` is the entity class and `query` is the current filter document:
+
+```python
+# Filter for active documents
+active = MongoSpecification(lambda root, q: {"active": True})
+
+# Filter for a specific role
+admin = MongoSpecification(lambda root, q: {"role": "admin"})
+
+# Filter with a dynamic value
+def min_age(age: int) -> MongoSpecification:
+    return MongoSpecification(lambda root, q, _a=age: {"age": {"$gte": _a}})
+```
+
+An empty dict (`{}`) is treated as a no-op — combinators skip empty predicates rather than wrapping them.
+
+### Combining Specifications
+
+Use `&` (AND), `|` (OR), and `~` (NOT) to build complex queries from simple building blocks:
+
+```python
+active = MongoSpecification(lambda root, q: {"active": True})
+admin  = MongoSpecification(lambda root, q: {"role": "admin"})
+senior = MongoSpecification(lambda root, q: {"age": {"$gte": 65}})
+
+# AND: {"$and": [{"active": true}, {"role": "admin"}]}
+active_admins = active & admin
+
+# OR: {"$or": [{"role": "admin"}, {"age": {"$gte": 65}}]}
+admin_or_senior = admin | senior
+
+# NOT: {"$nor": [{"active": true}]}
+inactive = ~active
+
+# Complex composition:
+# active admins OR senior users
+spec = (active & admin) | senior
+```
+
+### Using Specifications with Repositories
+
+`MongoRepository` provides two methods for specification-based queries:
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `find_all_by_spec(spec)` | `list[T]` | Find all documents matching the specification |
+| `find_all_by_spec_paged(spec, pageable)` | `Page[T]` | Find matching documents with pagination and sorting |
+
+```python
+from pyfly.data import Pageable, Sort
+from pyfly.data.document.mongodb import MongoSpecification
+
+# Simple query
+active = MongoSpecification(lambda root, q: {"active": True})
+results = await repo.find_all_by_spec(active)
+
+# Paginated query with sorting
+pageable = Pageable.of(page=1, size=20, sort=Sort.by("name"))
+page = await repo.find_all_by_spec_paged(active, pageable)
+print(page.items)       # list[T]
+print(page.total)       # total matching documents
+print(page.has_next)    # whether there is a next page
+```
+
+Source file: `src/pyfly/data/document/mongodb/specification.py`
+
+---
+
+## MongoFilterOperator
+
+`MongoFilterOperator` provides static factory methods for common field-level predicates, each returning a `MongoSpecification`. This is the MongoDB counterpart to the SQLAlchemy adapter's `FilterOperator`.
+
+```python
+from pyfly.data.document.mongodb import MongoFilterOperator
+```
+
+### Available Operators
+
+| Method | MongoDB Expression | Args | Description |
+|--------|--------------------|------|-------------|
+| `eq(field, value)` | `{field: value}` | 2 | Equal to |
+| `neq(field, value)` | `{field: {"$ne": value}}` | 2 | Not equal to |
+| `gt(field, value)` | `{field: {"$gt": value}}` | 2 | Greater than |
+| `gte(field, value)` | `{field: {"$gte": value}}` | 2 | Greater than or equal |
+| `lt(field, value)` | `{field: {"$lt": value}}` | 2 | Less than |
+| `lte(field, value)` | `{field: {"$lte": value}}` | 2 | Less than or equal |
+| `like(field, pattern)` | `{field: {"$regex": ...}}` | 2 | SQL LIKE pattern (`%` = `.*`, `_` = `.`) |
+| `contains(field, value)` | `{field: {"$regex": escaped}}` | 2 | Substring match (case-sensitive) |
+| `in_list(field, values)` | `{field: {"$in": values}}` | 2 | Value in list |
+| `is_null(field)` | `{field: None}` | 1 | Field is null |
+| `is_not_null(field)` | `{field: {"$ne": None}}` | 1 | Field is not null |
+| `between(field, low, high)` | `{field: {"$gte": low, "$lte": high}}` | 3 | Inclusive range |
+
+```python
+# Price range
+spec = MongoFilterOperator.between("price", 10.0, 100.0)
+# -> {"price": {"$gte": 10.0, "$lte": 100.0}}
+
+# Name pattern (SQL LIKE syntax)
+spec = MongoFilterOperator.like("name", "A%")
+# -> {"name": {"$regex": "^A.*$"}}
+
+# Status in list
+spec = MongoFilterOperator.in_list("status", ["PENDING", "ACTIVE"])
+# -> {"status": {"$in": ["PENDING", "ACTIVE"]}}
+```
+
+### Composing Filters
+
+Because each operator returns a `MongoSpecification`, you can chain them with `&`, `|`, and `~`:
+
+```python
+# Adults with premium status
+spec = MongoFilterOperator.gte("age", 18) & MongoFilterOperator.eq("tier", "premium")
+
+# Cheap OR on sale
+spec = MongoFilterOperator.lt("price", 5.0) | MongoFilterOperator.eq("on_sale", True)
+
+# NOT deleted
+spec = ~MongoFilterOperator.is_not_null("deleted_at")
+
+# Use with repository
+results = await repo.find_all_by_spec(spec)
+```
+
+Source file: `src/pyfly/data/document/mongodb/filter.py`
+
+---
+
+## MongoFilterUtils: Query by Example
+
+`MongoFilterUtils` provides a shorthand for building equality-based specifications from keyword arguments, dictionaries, or partial entity objects. It extends the commons `BaseFilterUtils` ABC — the same base class used by the SQLAlchemy adapter's `FilterUtils`.
+
+```python
+from pyfly.data.document.mongodb import MongoFilterUtils
+```
+
+| Method | Description |
+|--------|-------------|
+| `by(**kwargs)` | Build an AND specification from keyword equality filters |
+| `from_dict(filters)` | Build an AND specification from a dict (skips `None` values) |
+| `from_example(example)` | Build an AND specification from a dataclass or object (non-`None` fields) |
+
+```python
+# From keyword arguments
+spec = MongoFilterUtils.by(role="admin", active=True)
+# Equivalent to: MongoFilterOperator.eq("role", "admin") & MongoFilterOperator.eq("active", True)
+
+# From a dictionary (None values are skipped)
+filters = {"status": "ACTIVE", "category": None, "tier": "premium"}
+spec = MongoFilterUtils.from_dict(filters)
+# Only "status" and "tier" are included
+
+# From a partial entity (dataclass or object with __dict__)
+from dataclasses import dataclass
+
+@dataclass
+class UserFilter:
+    role: str | None = None
+    active: bool | None = None
+
+spec = MongoFilterUtils.from_example(UserFilter(role="admin"))
+# Only non-None fields become eq filters
+```
+
+All three methods return a `MongoSpecification` that can be passed to `find_all_by_spec()` or `find_all_by_spec_paged()`, and can be further composed with `&`, `|`, `~`:
+
+```python
+# Base filter from user input
+base = MongoFilterUtils.by(active=True, category="electronics")
+
+# Combine with a richer predicate
+expensive = MongoFilterOperator.gt("price", 500.0)
+spec = base & expensive
+
+results = await repo.find_all_by_spec(spec)
+page = await repo.find_all_by_spec_paged(spec, Pageable.of(page=1, size=20))
+```
+
+Source files:
+- `src/pyfly/data/document/mongodb/filter.py` — `MongoFilterOperator`, `MongoFilterUtils`
+- `src/pyfly/data/filter.py` — `BaseFilterUtils` (commons ABC)
 
 ---
 
