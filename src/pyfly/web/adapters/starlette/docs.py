@@ -22,19 +22,30 @@ SWAGGER_UI_HTML = """<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{title} - Swagger UI</title>
-    <link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css">
+    <link rel="stylesheet" type="text/css"
+          href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css">
 </head>
 <body>
     <div id="swagger-ui"></div>
-    <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
-    <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-standalone-preset.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
     <script>
         SwaggerUIBundle({{
             url: "{openapi_url}",
             dom_id: '#swagger-ui',
-            presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
-            layout: "StandaloneLayout"
+            presets: [SwaggerUIBundle.presets.apis],
+            layout: "BaseLayout",
+            deepLinking: true,
+            filter: true,
+            persistAuthorization: true,
+            showExtensions: true,
+            showCommonExtensions: true,
+            displayRequestDuration: true,
+            docExpansion: "list",
+            operationsSorter: "alpha",
+            tagsSorter: "alpha",
+            validatorUrl: null
         }})
     </script>
 </body>
@@ -44,13 +55,36 @@ REDOC_HTML = """<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>{title} - ReDoc</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link href="https://fonts.googleapis.com/css?family=Montserrat:300,400,700|Roboto:300,400,700" rel="stylesheet">
+    <title>{title} - ReDoc</title>
+    <link href="https://fonts.googleapis.com/css?family=Montserrat:300,400,700|Roboto:300,400,700"
+          rel="stylesheet">
+    <style>body {{ margin: 0; padding: 0; }}</style>
 </head>
 <body>
-    <redoc spec-url="{openapi_url}"></redoc>
-    <script src="https://cdn.redoc.ly/redoc/latest/bundles/redoc.standalone.js"></script>
+    <div id="redoc-container"></div>
+    <script src="https://cdn.jsdelivr.net/npm/redoc@2/bundles/redoc.standalone.js"></script>
+    <script>
+        Redoc.init("{openapi_url}", {{
+            expandResponses: "200,201",
+            pathInMiddlePanel: true,
+            nativeScrollbars: true,
+            requiredPropsFirst: true,
+            sortPropsAlphabetically: false,
+            hideDownloadButton: false,
+            theme: {{
+                typography: {{
+                    fontSize: '15px',
+                    fontFamily: 'Roboto, sans-serif',
+                    headings: {{ fontFamily: 'Montserrat, sans-serif' }}
+                }},
+                rightPanel: {{
+                    backgroundColor: '#263238'
+                }}
+            }}
+        }}, document.getElementById('redoc-container'))
+    </script>
+    <noscript>ReDoc requires JavaScript to render the API documentation.</noscript>
 </body>
 </html>"""
 

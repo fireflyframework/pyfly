@@ -36,6 +36,17 @@ from pyfly.web.params import Body, Cookie, Header, PathVar, QueryParam
 # ---- Test models and controllers -------------------------------------------
 
 
+class Address(BaseModel):
+    street: str
+    city: str
+
+
+class ItemResponse(BaseModel):
+    id: str
+    name: str
+    description: str = ""
+
+
 class CreateItemRequest(BaseModel):
     name: str
     description: str = ""
@@ -43,6 +54,11 @@ class CreateItemRequest(BaseModel):
 
 class UpdateItemRequest(BaseModel):
     name: str
+
+
+class PersonRequest(BaseModel):
+    name: str
+    address: Address
 
 
 @service
@@ -87,6 +103,38 @@ class CatalogController:
     @delete_mapping("/{item_id}", status_code=204)
     async def delete_item(self, item_id: PathVar[str]) -> None:
         pass
+
+
+@rest_controller
+@request_mapping("/api/typed")
+class TypedController:
+    """Controller with fully typed responses and docstrings."""
+
+    def __init__(self, catalog_service: CatalogService):
+        self._svc = catalog_service
+
+    @get_mapping("/{item_id}")
+    async def get_item(self, item_id: PathVar[str]) -> ItemResponse:
+        """Retrieve a single item by ID.
+
+        Returns the item with all its details including description.
+        """
+        return ItemResponse(id=item_id, name="Widget")
+
+    @get_mapping("/")
+    async def list_items(self) -> list[ItemResponse]:
+        """List all available items."""
+        return [ItemResponse(id="1", name="Widget")]
+
+    @post_mapping("/", status_code=201)
+    async def create_item(self, body: Body[CreateItemRequest]) -> ItemResponse:
+        """Create a new item."""
+        return ItemResponse(id="new", name=body.name)
+
+    @post_mapping("/person")
+    async def create_person(self, body: Body[PersonRequest]) -> dict:
+        """Create a person with nested address."""
+        return {"name": body.name}
 
 
 @rest_controller
@@ -398,3 +446,363 @@ class TestCreateAppOpenAPI:
         spec = response.json()
         assert spec["paths"] == {}
         assert spec["info"]["title"] == "Empty API"
+
+
+class TestTags:
+    """Tests for automatic tag derivation from controller class names."""
+
+    @pytest.mark.asyncio
+    async def test_tag_derived_from_controller_name(self):
+        ctx = ApplicationContext(Config({}))
+        ctx.register_bean(CatalogService)
+        ctx.register_bean(CatalogController)
+        await ctx.start()
+
+        registrar = ControllerRegistrar()
+        metadata = registrar.collect_route_metadata(ctx)
+
+        # Tag derived: CatalogController → "Catalog"
+        for m in metadata:
+            assert m.tag == "Catalog"
+
+    @pytest.mark.asyncio
+    async def test_tags_in_spec(self):
+        ctx = ApplicationContext(Config({}))
+        ctx.register_bean(CatalogService)
+        ctx.register_bean(CatalogController)
+        await ctx.start()
+
+        registrar = ControllerRegistrar()
+        metadata = registrar.collect_route_metadata(ctx)
+
+        gen = OpenAPIGenerator(title="Test", version="1.0")
+        spec = gen.generate(route_metadata=metadata)
+
+        assert "tags" in spec
+        tag_names = [t["name"] for t in spec["tags"]]
+        assert "Catalog" in tag_names
+
+    @pytest.mark.asyncio
+    async def test_operation_has_tag(self):
+        ctx = ApplicationContext(Config({}))
+        ctx.register_bean(CatalogService)
+        ctx.register_bean(CatalogController)
+        await ctx.start()
+
+        registrar = ControllerRegistrar()
+        metadata = registrar.collect_route_metadata(ctx)
+
+        gen = OpenAPIGenerator(title="Test", version="1.0")
+        spec = gen.generate(route_metadata=metadata)
+
+        get_op = spec["paths"]["/api/items/{item_id}"]["get"]
+        assert get_op["tags"] == ["Catalog"]
+
+    @pytest.mark.asyncio
+    async def test_multiple_controller_tags(self):
+        ctx = ApplicationContext(Config({}))
+        ctx.register_bean(CatalogService)
+        ctx.register_bean(CatalogController)
+        ctx.register_bean(AdvancedController)
+        await ctx.start()
+
+        registrar = ControllerRegistrar()
+        metadata = registrar.collect_route_metadata(ctx)
+
+        gen = OpenAPIGenerator(title="Test", version="1.0")
+        spec = gen.generate(route_metadata=metadata)
+
+        tag_names = [t["name"] for t in spec["tags"]]
+        assert "Catalog" in tag_names
+        assert "Advanced" in tag_names
+
+
+class TestDocstrings:
+    """Tests for automatic summary/description from handler docstrings."""
+
+    @pytest.mark.asyncio
+    async def test_summary_from_docstring_first_line(self):
+        ctx = ApplicationContext(Config({}))
+        ctx.register_bean(CatalogService)
+        ctx.register_bean(TypedController)
+        await ctx.start()
+
+        registrar = ControllerRegistrar()
+        metadata = registrar.collect_route_metadata(ctx)
+        get_item = next(m for m in metadata if m.handler_name == "get_item" and m.tag == "Typed")
+        assert get_item.summary == "Retrieve a single item by ID."
+
+    @pytest.mark.asyncio
+    async def test_description_from_docstring_body(self):
+        ctx = ApplicationContext(Config({}))
+        ctx.register_bean(CatalogService)
+        ctx.register_bean(TypedController)
+        await ctx.start()
+
+        registrar = ControllerRegistrar()
+        metadata = registrar.collect_route_metadata(ctx)
+        get_item = next(m for m in metadata if m.handler_name == "get_item" and m.tag == "Typed")
+        assert "all its details" in get_item.description
+
+    @pytest.mark.asyncio
+    async def test_summary_and_description_in_spec(self):
+        ctx = ApplicationContext(Config({}))
+        ctx.register_bean(CatalogService)
+        ctx.register_bean(TypedController)
+        await ctx.start()
+
+        registrar = ControllerRegistrar()
+        metadata = registrar.collect_route_metadata(ctx)
+
+        gen = OpenAPIGenerator(title="Test", version="1.0")
+        spec = gen.generate(route_metadata=metadata)
+
+        get_op = spec["paths"]["/api/typed/{item_id}"]["get"]
+        assert get_op["summary"] == "Retrieve a single item by ID."
+        assert "all its details" in get_op["description"]
+
+
+class TestResponseSchemas:
+    """Tests for automatic response schema generation from return type hints."""
+
+    @pytest.mark.asyncio
+    async def test_pydantic_return_type_generates_response_schema(self):
+        ctx = ApplicationContext(Config({}))
+        ctx.register_bean(CatalogService)
+        ctx.register_bean(TypedController)
+        await ctx.start()
+
+        registrar = ControllerRegistrar()
+        metadata = registrar.collect_route_metadata(ctx)
+
+        gen = OpenAPIGenerator(title="Test", version="1.0")
+        spec = gen.generate(route_metadata=metadata)
+
+        get_op = spec["paths"]["/api/typed/{item_id}"]["get"]
+        resp_200 = get_op["responses"]["200"]
+        schema = resp_200["content"]["application/json"]["schema"]
+        assert schema["$ref"] == "#/components/schemas/ItemResponse"
+
+        # Verify ItemResponse schema is registered
+        assert "ItemResponse" in spec["components"]["schemas"]
+        item_schema = spec["components"]["schemas"]["ItemResponse"]
+        assert "name" in item_schema["properties"]
+        assert "id" in item_schema["properties"]
+
+    @pytest.mark.asyncio
+    async def test_list_pydantic_return_type_generates_array_schema(self):
+        ctx = ApplicationContext(Config({}))
+        ctx.register_bean(CatalogService)
+        ctx.register_bean(TypedController)
+        await ctx.start()
+
+        registrar = ControllerRegistrar()
+        metadata = registrar.collect_route_metadata(ctx)
+
+        gen = OpenAPIGenerator(title="Test", version="1.0")
+        spec = gen.generate(route_metadata=metadata)
+
+        list_op = spec["paths"]["/api/typed/"]["get"]
+        resp_200 = list_op["responses"]["200"]
+        schema = resp_200["content"]["application/json"]["schema"]
+        assert schema["type"] == "array"
+        assert schema["items"]["$ref"] == "#/components/schemas/ItemResponse"
+
+    @pytest.mark.asyncio
+    async def test_create_response_with_201_status(self):
+        ctx = ApplicationContext(Config({}))
+        ctx.register_bean(CatalogService)
+        ctx.register_bean(TypedController)
+        await ctx.start()
+
+        registrar = ControllerRegistrar()
+        metadata = registrar.collect_route_metadata(ctx)
+
+        gen = OpenAPIGenerator(title="Test", version="1.0")
+        spec = gen.generate(route_metadata=metadata)
+
+        create_op = spec["paths"]["/api/typed/"]["post"]
+        assert "201" in create_op["responses"]
+        schema = create_op["responses"]["201"]["content"]["application/json"]["schema"]
+        assert schema["$ref"] == "#/components/schemas/ItemResponse"
+
+    @pytest.mark.asyncio
+    async def test_dict_return_type_has_no_response_schema(self):
+        """When return type is dict, no response body schema is generated."""
+        ctx = ApplicationContext(Config({}))
+        ctx.register_bean(CatalogService)
+        ctx.register_bean(CatalogController)
+        await ctx.start()
+
+        registrar = ControllerRegistrar()
+        metadata = registrar.collect_route_metadata(ctx)
+
+        gen = OpenAPIGenerator(title="Test", version="1.0")
+        spec = gen.generate(route_metadata=metadata)
+
+        get_op = spec["paths"]["/api/items/{item_id}"]["get"]
+        resp_200 = get_op["responses"]["200"]
+        assert "content" not in resp_200
+        assert resp_200["description"] == "Successful response"
+
+
+class TestValidationErrors:
+    """Tests for automatic 422 validation error responses."""
+
+    @pytest.mark.asyncio
+    async def test_422_added_for_request_body_endpoints(self):
+        ctx = ApplicationContext(Config({}))
+        ctx.register_bean(CatalogService)
+        ctx.register_bean(CatalogController)
+        await ctx.start()
+
+        registrar = ControllerRegistrar()
+        metadata = registrar.collect_route_metadata(ctx)
+
+        gen = OpenAPIGenerator(title="Test", version="1.0")
+        spec = gen.generate(route_metadata=metadata)
+
+        create_op = spec["paths"]["/api/items/"]["post"]
+        assert "422" in create_op["responses"]
+        schema = create_op["responses"]["422"]["content"]["application/json"]["schema"]
+        assert schema["$ref"] == "#/components/schemas/HTTPValidationError"
+
+        # Validation error schemas registered
+        assert "HTTPValidationError" in spec["components"]["schemas"]
+        assert "ValidationError" in spec["components"]["schemas"]
+
+    @pytest.mark.asyncio
+    async def test_no_422_for_get_endpoints(self):
+        ctx = ApplicationContext(Config({}))
+        ctx.register_bean(CatalogService)
+        ctx.register_bean(CatalogController)
+        await ctx.start()
+
+        registrar = ControllerRegistrar()
+        metadata = registrar.collect_route_metadata(ctx)
+
+        gen = OpenAPIGenerator(title="Test", version="1.0")
+        spec = gen.generate(route_metadata=metadata)
+
+        get_op = spec["paths"]["/api/items/"]["get"]
+        assert "422" not in get_op["responses"]
+
+
+class TestNestedModelSchemas:
+    """Tests for Pydantic $defs hoisting to components/schemas."""
+
+    @pytest.mark.asyncio
+    async def test_nested_model_hoisted_to_components(self):
+        ctx = ApplicationContext(Config({}))
+        ctx.register_bean(CatalogService)
+        ctx.register_bean(TypedController)
+        await ctx.start()
+
+        registrar = ControllerRegistrar()
+        metadata = registrar.collect_route_metadata(ctx)
+
+        gen = OpenAPIGenerator(title="Test", version="1.0")
+        spec = gen.generate(route_metadata=metadata)
+
+        # PersonRequest has nested Address — both should be in schemas
+        assert "PersonRequest" in spec["components"]["schemas"]
+        assert "Address" in spec["components"]["schemas"]
+
+        # PersonRequest.address should $ref to components/schemas, not $defs
+        person_schema = spec["components"]["schemas"]["PersonRequest"]
+        address_ref = person_schema["properties"]["address"]["$ref"]
+        assert address_ref == "#/components/schemas/Address"
+
+        # Address should have its fields
+        address_schema = spec["components"]["schemas"]["Address"]
+        assert "street" in address_schema["properties"]
+        assert "city" in address_schema["properties"]
+
+
+class TestSwaggerUIHTML:
+    """Tests for Swagger UI HTML template best practices."""
+
+    @pytest.mark.asyncio
+    async def test_swagger_ui_uses_jsdelivr_cdn(self):
+        ctx = ApplicationContext(Config({}))
+        await ctx.start()
+        app = create_app(title="Test", context=ctx)
+        client = TestClient(app)
+        response = client.get("/docs")
+        assert "cdn.jsdelivr.net/npm/swagger-ui-dist@5" in response.text
+
+    @pytest.mark.asyncio
+    async def test_swagger_ui_uses_base_layout(self):
+        ctx = ApplicationContext(Config({}))
+        await ctx.start()
+        app = create_app(title="Test", context=ctx)
+        client = TestClient(app)
+        response = client.get("/docs")
+        assert "BaseLayout" in response.text
+
+    @pytest.mark.asyncio
+    async def test_swagger_ui_has_deep_linking(self):
+        ctx = ApplicationContext(Config({}))
+        await ctx.start()
+        app = create_app(title="Test", context=ctx)
+        client = TestClient(app)
+        response = client.get("/docs")
+        assert "deepLinking: true" in response.text
+
+    @pytest.mark.asyncio
+    async def test_swagger_ui_has_filter(self):
+        ctx = ApplicationContext(Config({}))
+        await ctx.start()
+        app = create_app(title="Test", context=ctx)
+        client = TestClient(app)
+        response = client.get("/docs")
+        assert "filter: true" in response.text
+
+    @pytest.mark.asyncio
+    async def test_swagger_ui_has_viewport_meta(self):
+        ctx = ApplicationContext(Config({}))
+        await ctx.start()
+        app = create_app(title="Test", context=ctx)
+        client = TestClient(app)
+        response = client.get("/docs")
+        assert "viewport" in response.text
+
+
+class TestReDocHTML:
+    """Tests for ReDoc HTML template best practices."""
+
+    @pytest.mark.asyncio
+    async def test_redoc_uses_jsdelivr_cdn(self):
+        ctx = ApplicationContext(Config({}))
+        await ctx.start()
+        app = create_app(title="Test", context=ctx)
+        client = TestClient(app)
+        response = client.get("/redoc")
+        assert "cdn.jsdelivr.net/npm/redoc@2" in response.text
+
+    @pytest.mark.asyncio
+    async def test_redoc_uses_redoc_init(self):
+        ctx = ApplicationContext(Config({}))
+        await ctx.start()
+        app = create_app(title="Test", context=ctx)
+        client = TestClient(app)
+        response = client.get("/redoc")
+        assert "Redoc.init" in response.text
+
+    @pytest.mark.asyncio
+    async def test_redoc_has_noscript_fallback(self):
+        ctx = ApplicationContext(Config({}))
+        await ctx.start()
+        app = create_app(title="Test", context=ctx)
+        client = TestClient(app)
+        response = client.get("/redoc")
+        assert "<noscript>" in response.text
+
+    @pytest.mark.asyncio
+    async def test_redoc_has_expand_responses(self):
+        ctx = ApplicationContext(Config({}))
+        await ctx.start()
+        app = create_app(title="Test", context=ctx)
+        client = TestClient(app)
+        response = client.get("/redoc")
+        assert "expandResponses" in response.text

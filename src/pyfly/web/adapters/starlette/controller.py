@@ -55,6 +55,10 @@ class RouteMetadata:
     parameters: list[dict[str, Any]] = field(default_factory=list)
     request_body_model: type | None = None
     return_type: type | None = None
+    tag: str = ""
+    summary: str = ""
+    description: str = ""
+    deprecated: bool = False
 
 
 async def _maybe_await(result: Any) -> Any:
@@ -119,6 +123,7 @@ class ControllerRegistrar:
 
             instance = ctx.get_bean(cls)
             base_path = getattr(cls, "__pyfly_request_mapping__", "")
+            tag = self._derive_tag(cls)
 
             for attr_name in dir(instance):
                 method_obj = getattr(instance, attr_name, None)
@@ -140,6 +145,12 @@ class ControllerRegistrar:
                 hints = typing.get_type_hints(method_obj, include_extras=True)
                 return_type = hints.get("return")
 
+                # Extract summary and description from docstring
+                summary, description = self._parse_docstring(method_obj)
+
+                # Check deprecated flag
+                deprecated = getattr(method_obj, "__pyfly_deprecated__", False)
+
                 metadata.append(
                     RouteMetadata(
                         path=full_path,
@@ -150,10 +161,42 @@ class ControllerRegistrar:
                         parameters=params,
                         request_body_model=body_model,
                         return_type=return_type,
+                        tag=tag,
+                        summary=summary,
+                        description=description,
+                        deprecated=deprecated,
                     )
                 )
 
         return metadata
+
+    @staticmethod
+    def _derive_tag(cls: type) -> str:
+        """Derive an OpenAPI tag from the controller class name.
+
+        ``CatalogController`` → ``Catalog``, ``HealthController`` → ``Health``.
+        """
+        name = cls.__name__
+        if name.endswith("Controller"):
+            name = name[: -len("Controller")]
+        return name
+
+    @staticmethod
+    def _parse_docstring(handler: Any) -> tuple[str, str]:
+        """Extract summary and description from handler docstring.
+
+        First non-empty line → summary.
+        Remaining lines (after a blank line separator) → description.
+        """
+        doc = inspect.getdoc(handler)
+        if not doc:
+            return "", ""
+        lines = doc.strip().splitlines()
+        summary = lines[0].strip()
+        description = ""
+        if len(lines) > 2 and not lines[1].strip():
+            description = "\n".join(line.strip() for line in lines[2:]).strip()
+        return summary, description
 
     def _extract_param_metadata(
         self, handler: Any
