@@ -21,7 +21,7 @@ import pytest
 from beanie import init_beanie
 from mongomock_motor import AsyncMongoMockClient
 
-from pyfly.data.adapters.mongodb.document import BaseDocument
+from pyfly.data.document.mongodb.document import BaseDocument
 
 
 # ---------------------------------------------------------------------------

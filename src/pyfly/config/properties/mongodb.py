@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""MongoDB subsystem configuration properties."""
+"""Document data subsystem configuration properties."""
 
 from __future__ import annotations
 
@@ -20,10 +20,10 @@ from dataclasses import dataclass
 from pyfly.core.config import config_properties
 
 
-@config_properties(prefix="pyfly.mongodb")
+@config_properties(prefix="pyfly.data.document")
 @dataclass
-class MongoDBProperties:
-    """Configuration for the MongoDB subsystem (pyfly.mongodb.*)."""
+class DocumentProperties:
+    """Configuration for the document data subsystem (pyfly.data.document.*)."""
 
     enabled: bool = False
     uri: str = "mongodb://localhost:27017"

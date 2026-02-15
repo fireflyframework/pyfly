@@ -63,15 +63,15 @@ class AutoConfiguration:
         return "none"
 
     @staticmethod
-    def detect_data_provider() -> str:
-        """Detect the best available data / ORM provider."""
+    def detect_relational_provider() -> str:
+        """Detect the best available relational / ORM provider."""
         if AutoConfiguration.is_available("sqlalchemy"):
             return "sqlalchemy"
         return "none"
 
     @staticmethod
-    def detect_mongodb_provider() -> str:
-        """Detect the best available MongoDB / document DB provider."""
+    def detect_document_provider() -> str:
+        """Detect the best available document DB provider."""
         if AutoConfiguration.is_available("beanie"):
             return "beanie"
         return "none"
@@ -117,8 +117,8 @@ class AutoConfigurationEngine:
         self._configure_cache(config, container)
         self._configure_messaging(config, container)
         self._configure_client(config, container)
-        self._configure_data(config, container)
-        self._configure_mongodb(config, container)
+        self._configure_relational(config, container)
+        self._configure_document(config, container)
 
     def _configure_web(self, config: Config, container: Container) -> None:
         """Auto-configure web adapter if not already registered."""
@@ -238,41 +238,41 @@ class AutoConfigurationEngine:
         else:
             logger.info("auto_configuration", subsystem="client", status="skipped", reason="no provider")
 
-    def _configure_data(self, config: Config, container: Container) -> None:
-        """Auto-configure data layer if enabled and not already registered."""
-        enabled = config.get("pyfly.data.enabled", False)
+    def _configure_relational(self, config: Config, container: Container) -> None:
+        """Auto-configure relational data layer if enabled and not already registered."""
+        enabled = config.get("pyfly.data.relational.enabled", False)
         if not _as_bool(enabled):
-            logger.info("auto_configuration", subsystem="data", status="skipped", reason="disabled")
+            logger.info("auto_configuration", subsystem="relational", status="skipped", reason="disabled")
             return
 
-        provider = AutoConfiguration.detect_data_provider()
+        provider = AutoConfiguration.detect_relational_provider()
         if provider == "none":
-            logger.info("auto_configuration", subsystem="data", status="skipped", reason="no provider")
+            logger.info("auto_configuration", subsystem="relational", status="skipped", reason="no provider")
             return
 
-        self._results["data"] = provider
-        logger.info("auto_configuration", subsystem="data", status="configured", provider=provider)
+        self._results["relational"] = provider
+        logger.info("auto_configuration", subsystem="relational", status="configured", provider=provider)
 
-    def _configure_mongodb(self, config: Config, container: Container) -> None:
-        """Auto-configure MongoDB layer if enabled."""
-        enabled = config.get("pyfly.mongodb.enabled", False)
+    def _configure_document(self, config: Config, container: Container) -> None:
+        """Auto-configure document data layer if enabled."""
+        enabled = config.get("pyfly.data.document.enabled", False)
         if not _as_bool(enabled):
-            logger.info("auto_configuration", subsystem="mongodb", status="skipped", reason="disabled")
+            logger.info("auto_configuration", subsystem="document", status="skipped", reason="disabled")
             return
 
-        provider = AutoConfiguration.detect_mongodb_provider()
+        provider = AutoConfiguration.detect_document_provider()
         if provider == "none":
-            logger.info("auto_configuration", subsystem="mongodb", status="skipped", reason="no provider")
+            logger.info("auto_configuration", subsystem="document", status="skipped", reason="no provider")
             return
 
-        uri = str(config.get("pyfly.mongodb.uri", "mongodb://localhost:27017"))
-        database = str(config.get("pyfly.mongodb.database", "pyfly"))
+        uri = str(config.get("pyfly.data.document.uri", "mongodb://localhost:27017"))
+        database = str(config.get("pyfly.data.document.database", "pyfly"))
 
-        self._results["mongodb"] = provider
-        self._mongodb_config = {"uri": uri, "database": database}
+        self._results["document"] = provider
+        self._document_config = {"uri": uri, "database": database}
         logger.info(
             "auto_configuration",
-            subsystem="mongodb",
+            subsystem="document",
             status="configured",
             provider=provider,
             database=database,

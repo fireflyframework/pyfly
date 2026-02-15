@@ -9,11 +9,11 @@ from dataclasses import dataclass, field
 from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column
 
-from pyfly.data import Base
+from pyfly.data.relational import Base
 {% endif %}
 {% if has_mongodb %}
 
-from pyfly.data import BaseDocument
+from pyfly.data.document import BaseDocument
 {% endif %}
 
 

@@ -28,7 +28,7 @@ from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
-from pyfly.data import Base
+from pyfly.data.relational import Base
 
 config = context.config
 if config.config_file_name is not None:
@@ -89,7 +89,7 @@ def _require_alembic() -> tuple[object, type]:
         from alembic.config import Config  # noqa: N812
     except ImportError:
         console.print("[error]\u2717 alembic is not installed.[/error]")
-        console.print("[dim]Install it with: pip install 'pyfly[data]'[/dim]")
+        console.print("[dim]Install it with: pip install 'pyfly[data-relational]'[/dim]")
         raise SystemExit(1) from None
     return command, Config
 

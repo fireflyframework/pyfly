@@ -17,10 +17,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from pyfly.data.adapters.sqlalchemy.query_compiler import QueryMethodCompiler
-from pyfly.data.adapters.sqlalchemy.repository import Repository
-from pyfly.data.query import QueryExecutor
 from pyfly.data.query_parser import QueryMethodParser
+from pyfly.data.relational.query import QueryExecutor
+from pyfly.data.relational.sqlalchemy.query_compiler import QueryMethodCompiler
+from pyfly.data.relational.sqlalchemy.repository import Repository
 
 # Prefixes that indicate a derived query method.
 _DERIVED_PREFIXES = ("find_by_", "count_by_", "exists_by_", "delete_by_")

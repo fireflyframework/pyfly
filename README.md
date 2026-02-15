@@ -210,10 +210,10 @@ Choose which PyFly extras to include with `--features`:
 
 ```bash
 # REST API with database and caching
-pyfly new order-service --archetype web-api --features web,data,cache
+pyfly new order-service --archetype web-api --features web,data-relational,cache
 ```
 
-Available features: `web`, `data`, `mongodb`, `eda`, `cache`, `client`, `security`, `scheduling`, `observability`, `cqrs`
+Available features: `web`, `data-relational`, `data-document`, `eda`, `cache`, `client`, `security`, `scheduling`, `observability`, `cqrs`
 
 ### Interactive Mode
 
@@ -337,8 +337,8 @@ Full documentation lives in the [`docs/`](docs/README.md) directory:
 Browse all guides in the [Guides Index](docs/guides/README.md):
 
 - [Web Layer](docs/guides/web.md) — REST controllers, routing, parameter binding, OpenAPI
-- [Data Access (SQL)](docs/guides/data.md) — Repositories, derived queries, pagination, transactions
-- [MongoDB](docs/guides/mongodb.md) — Document database support via Beanie ODM
+- [Data Relational (SQL)](docs/guides/data-relational.md) — Repositories, derived queries, pagination, transactions
+- [Data Document (MongoDB)](docs/guides/data-document.md) — Document database support via Beanie ODM
 - [Validation](docs/guides/validation.md) — `Valid[T]` annotation, structured 422 errors
 - [WebFilters](docs/guides/web-filters.md) — Request/response filter chain
 - [Actuator](docs/guides/actuator.md) — Health checks, extensible endpoints

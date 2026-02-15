@@ -237,30 +237,30 @@ class TestNewFeatures:
     def test_features_flag_sets_dependencies(self, tmp_path: Path):
         runner = CliRunner()
         result = runner.invoke(cli, [
-            "new", "my-svc", "--features", "web,data,cache", "--directory", str(tmp_path),
+            "new", "my-svc", "--features", "web,data-relational,cache", "--directory", str(tmp_path),
         ])
         assert result.exit_code == 0, result.output
 
         pyproject = (tmp_path / "my-svc" / "pyproject.toml").read_text()
-        assert "pyfly[web,data,cache]" in pyproject
+        assert "pyfly[web,data-relational,cache]" in pyproject
 
     def test_features_affect_config(self, tmp_path: Path):
         runner = CliRunner()
         result = runner.invoke(cli, [
-            "new", "my-svc", "--features", "web,data", "--directory", str(tmp_path),
+            "new", "my-svc", "--features", "web,data-relational", "--directory", str(tmp_path),
         ])
         assert result.exit_code == 0, result.output
 
         config = (tmp_path / "my-svc" / "pyfly.yaml").read_text()
         assert "data:" in config
-        assert "datasource:" in config
+        assert "relational:" in config
         assert "sqlite+aiosqlite://" in config
         assert "port: 8080" in config
 
     def test_features_data_adds_database_url_to_env(self, tmp_path: Path):
         runner = CliRunner()
         result = runner.invoke(cli, [
-            "new", "my-svc", "--features", "data", "--directory", str(tmp_path),
+            "new", "my-svc", "--features", "data-relational", "--directory", str(tmp_path),
         ])
         assert result.exit_code == 0, result.output
 
@@ -598,7 +598,7 @@ class TestPostGenerationGuidance:
     def test_data_feature_shows_tips(self, tmp_path: Path):
         runner = CliRunner()
         result = runner.invoke(cli, [
-            "new", "my-svc", "--features", "data", "--directory", str(tmp_path),
+            "new", "my-svc", "--features", "data-relational", "--directory", str(tmp_path),
         ])
         assert result.exit_code == 0, result.output
         assert "pyfly db init" in result.output
@@ -665,13 +665,13 @@ class TestTemplateContent:
     def test_data_feature_generates_sqlalchemy_repo(self, tmp_path: Path):
         runner = CliRunner()
         result = runner.invoke(cli, [
-            "new", "my-api", "--archetype", "web-api", "--features", "web,data",
+            "new", "my-api", "--archetype", "web-api", "--features", "web,data-relational",
             "--directory", str(tmp_path),
         ])
         assert result.exit_code == 0, result.output
         repo = (tmp_path / "my-api" / "src" / "my_api" / "repositories" / "item_repository.py").read_text()
         assert "Repository[ItemEntity, int]" in repo
-        assert "from pyfly.data import Repository" in repo
+        assert "from pyfly.data.relational import Repository" in repo
 
     def test_no_data_feature_generates_in_memory_repo(self, tmp_path: Path):
         runner = CliRunner()
@@ -687,7 +687,7 @@ class TestTemplateContent:
     def test_data_feature_generates_entity_in_model(self, tmp_path: Path):
         runner = CliRunner()
         result = runner.invoke(cli, [
-            "new", "my-api", "--archetype", "web-api", "--features", "web,data",
+            "new", "my-api", "--archetype", "web-api", "--features", "web,data-relational",
             "--directory", str(tmp_path),
         ])
         assert result.exit_code == 0, result.output
@@ -709,7 +709,7 @@ class TestTemplateContent:
     def test_data_feature_controller_uses_int_path_var(self, tmp_path: Path):
         runner = CliRunner()
         result = runner.invoke(cli, [
-            "new", "my-api", "--archetype", "web-api", "--features", "web,data",
+            "new", "my-api", "--archetype", "web-api", "--features", "web,data-relational",
             "--directory", str(tmp_path),
         ])
         assert result.exit_code == 0, result.output
@@ -742,40 +742,40 @@ class TestMongoDBFeature:
     def test_mongodb_feature_generates_document_model(self, tmp_path: Path):
         runner = CliRunner()
         result = runner.invoke(cli, [
-            "new", "my-api", "--archetype", "web-api", "--features", "web,mongodb",
+            "new", "my-api", "--archetype", "web-api", "--features", "web,data-document",
             "--directory", str(tmp_path),
         ])
         assert result.exit_code == 0, result.output
         model = (tmp_path / "my-api" / "src" / "my_api" / "models" / "item.py").read_text()
         assert "class ItemDocument(BaseDocument):" in model
-        assert "from pyfly.data import BaseDocument" in model
+        assert "from pyfly.data.document import BaseDocument" in model
 
     def test_mongodb_feature_generates_mongo_repo(self, tmp_path: Path):
         runner = CliRunner()
         result = runner.invoke(cli, [
-            "new", "my-api", "--archetype", "web-api", "--features", "web,mongodb",
+            "new", "my-api", "--archetype", "web-api", "--features", "web,data-document",
             "--directory", str(tmp_path),
         ])
         assert result.exit_code == 0, result.output
         repo = (tmp_path / "my-api" / "src" / "my_api" / "repositories" / "item_repository.py").read_text()
         assert "MongoRepository[ItemDocument, str]" in repo
-        assert "from pyfly.data import MongoRepository" in repo
+        assert "from pyfly.data.document import MongoRepository" in repo
 
     def test_mongodb_config_in_yaml(self, tmp_path: Path):
         runner = CliRunner()
         result = runner.invoke(cli, [
-            "new", "my-api", "--features", "mongodb", "--directory", str(tmp_path),
+            "new", "my-api", "--features", "data-document", "--directory", str(tmp_path),
         ])
         assert result.exit_code == 0, result.output
         config = (tmp_path / "my-api" / "pyfly.yaml").read_text()
-        assert "mongodb:" in config
+        assert "document:" in config
         assert "uri: mongodb://localhost:27017" in config
         assert "database: my_api" in config
 
     def test_mongodb_env_example(self, tmp_path: Path):
         runner = CliRunner()
         result = runner.invoke(cli, [
-            "new", "my-api", "--features", "mongodb", "--directory", str(tmp_path),
+            "new", "my-api", "--features", "data-document", "--directory", str(tmp_path),
         ])
         assert result.exit_code == 0, result.output
         env = (tmp_path / "my-api" / ".env.example").read_text()
@@ -784,16 +784,16 @@ class TestMongoDBFeature:
     def test_mongodb_feature_sets_dependencies(self, tmp_path: Path):
         runner = CliRunner()
         result = runner.invoke(cli, [
-            "new", "my-svc", "--features", "web,mongodb", "--directory", str(tmp_path),
+            "new", "my-svc", "--features", "web,data-document", "--directory", str(tmp_path),
         ])
         assert result.exit_code == 0, result.output
         pyproject = (tmp_path / "my-svc" / "pyproject.toml").read_text()
-        assert "pyfly[web,mongodb]" in pyproject
+        assert "pyfly[web,data-document]" in pyproject
 
     def test_mongodb_shows_tips(self, tmp_path: Path):
         runner = CliRunner()
         result = runner.invoke(cli, [
-            "new", "my-svc", "--features", "mongodb", "--directory", str(tmp_path),
+            "new", "my-svc", "--features", "data-document", "--directory", str(tmp_path),
         ])
         assert result.exit_code == 0, result.output
         assert "Beanie ODM" in result.output
@@ -801,7 +801,7 @@ class TestMongoDBFeature:
     def test_hexagonal_mongodb_persistence(self, tmp_path: Path):
         runner = CliRunner()
         result = runner.invoke(cli, [
-            "new", "my-hex", "--archetype", "hexagonal", "--features", "web,mongodb",
+            "new", "my-hex", "--archetype", "hexagonal", "--features", "web,data-document",
             "--directory", str(tmp_path),
         ])
         assert result.exit_code == 0, result.output
@@ -811,7 +811,7 @@ class TestMongoDBFeature:
     def test_hexagonal_mongodb_domain_model(self, tmp_path: Path):
         runner = CliRunner()
         result = runner.invoke(cli, [
-            "new", "my-hex", "--archetype", "hexagonal", "--features", "web,mongodb",
+            "new", "my-hex", "--archetype", "hexagonal", "--features", "web,data-document",
             "--directory", str(tmp_path),
         ])
         assert result.exit_code == 0, result.output
@@ -821,7 +821,7 @@ class TestMongoDBFeature:
     def test_mongodb_controller_uses_str_path_var(self, tmp_path: Path):
         runner = CliRunner()
         result = runner.invoke(cli, [
-            "new", "my-api", "--archetype", "web-api", "--features", "web,mongodb",
+            "new", "my-api", "--archetype", "web-api", "--features", "web,data-document",
             "--directory", str(tmp_path),
         ])
         assert result.exit_code == 0, result.output
@@ -831,7 +831,7 @@ class TestMongoDBFeature:
     def test_mongodb_service_is_async(self, tmp_path: Path):
         runner = CliRunner()
         result = runner.invoke(cli, [
-            "new", "my-api", "--archetype", "web-api", "--features", "web,mongodb",
+            "new", "my-api", "--archetype", "web-api", "--features", "web,data-document",
             "--directory", str(tmp_path),
         ])
         assert result.exit_code == 0, result.output
@@ -840,10 +840,10 @@ class TestMongoDBFeature:
         assert "await self._repository" in service
 
     def test_both_data_and_mongodb_generates_both(self, tmp_path: Path):
-        """When both data and mongodb features are selected, both backends are scaffolded."""
+        """When both data-relational and data-document features are selected, both backends are scaffolded."""
         runner = CliRunner()
         result = runner.invoke(cli, [
-            "new", "my-api", "--archetype", "web-api", "--features", "web,data,mongodb",
+            "new", "my-api", "--archetype", "web-api", "--features", "web,data-relational,data-document",
             "--directory", str(tmp_path),
         ])
         assert result.exit_code == 0, result.output

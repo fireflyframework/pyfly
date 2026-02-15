@@ -43,8 +43,8 @@ class TestAutoConfiguration:
         provider = AutoConfiguration.detect_client_provider()
         assert provider in ("httpx", "none")
 
-    def test_detect_data_provider(self):
-        provider = AutoConfiguration.detect_data_provider()
+    def test_detect_relational_provider(self):
+        provider = AutoConfiguration.detect_relational_provider()
         assert provider in ("sqlalchemy", "none")
 
 
@@ -56,12 +56,12 @@ class TestAutoConfigurationEngine:
         engine.configure(config, container)
         assert "cache" not in engine.results
 
-    def test_configure_skips_disabled_data(self):
-        config = Config({"pyfly": {"data": {"enabled": False}}})
+    def test_configure_skips_disabled_relational(self):
+        config = Config({"pyfly": {"data": {"relational": {"enabled": False}}}})
         container = Container()
         engine = AutoConfigurationEngine()
         engine.configure(config, container)
-        assert "data" not in engine.results
+        assert "relational" not in engine.results
 
     def test_configure_wires_memory_cache_when_enabled(self):
         config = Config({"pyfly": {"cache": {"enabled": True, "provider": "memory"}}})
@@ -85,12 +85,12 @@ class TestAutoConfigurationEngine:
         # httpx is available in dev env
         assert engine.results.get("client") == "httpx"
 
-    def test_configure_data_enabled(self):
-        config = Config({"pyfly": {"data": {"enabled": True}}})
+    def test_configure_relational_enabled(self):
+        config = Config({"pyfly": {"data": {"relational": {"enabled": True}}}})
         container = Container()
         engine = AutoConfigurationEngine()
         engine.configure(config, container)
-        assert "data" in engine.results
+        assert "relational" in engine.results
 
     def test_configure_does_not_overwrite_existing_bean(self):
         from pyfly.cache.adapters.memory import InMemoryCache

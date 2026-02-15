@@ -11,14 +11,19 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""MongoDB data access adapter — Beanie ODM RepositoryPort implementation."""
+"""PyFly Data Document — abstract document data access layer.
 
-from pyfly.data.adapters.mongodb.document import BaseDocument
-from pyfly.data.adapters.mongodb.initializer import initialize_beanie
-from pyfly.data.adapters.mongodb.post_processor import MongoRepositoryBeanPostProcessor
-from pyfly.data.adapters.mongodb.query_compiler import MongoQueryMethodCompiler
-from pyfly.data.adapters.mongodb.repository import MongoRepository
-from pyfly.data.adapters.mongodb.transactional import mongo_transactional
+Re-exports from the active document adapter (MongoDB via Beanie by default).
+"""
+
+from pyfly.data.document.mongodb import (
+    BaseDocument,
+    MongoQueryMethodCompiler,
+    MongoRepository,
+    MongoRepositoryBeanPostProcessor,
+    initialize_beanie,
+    mongo_transactional,
+)
 
 __all__ = [
     "BaseDocument",

@@ -19,7 +19,7 @@ decorated methods into executable async callables backed by SQLAlchemy.
 
 Usage::
 
-    from pyfly.data.query import query
+    from pyfly.data.relational.query import query
 
     class UserRepository(Repository[User]):
 

@@ -20,8 +20,8 @@ from sqlalchemy import Integer, String
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import Mapped, mapped_column
 
-from pyfly.data.adapters.sqlalchemy.entity import Base, BaseEntity
-from pyfly.data.adapters.sqlalchemy.query_compiler import QueryMethodCompiler
+from pyfly.data.relational.sqlalchemy.entity import Base, BaseEntity
+from pyfly.data.relational.sqlalchemy.query_compiler import QueryMethodCompiler
 from pyfly.data.query_parser import (
     FieldPredicate,
     OrderClause,

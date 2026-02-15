@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from pyfly.data.adapters.mongodb.query_compiler import MongoQueryMethodCompiler
-from pyfly.data.adapters.mongodb.repository import MongoRepository
+from pyfly.data.document.mongodb.query_compiler import MongoQueryMethodCompiler
+from pyfly.data.document.mongodb.repository import MongoRepository
 from pyfly.data.query_parser import QueryMethodParser
 
 # Prefixes that indicate a derived query method.
@@ -32,7 +32,7 @@ class MongoRepositoryBeanPostProcessor:
     ``count_by_``, ``exists_by_``, or ``delete_by_``), parses the method
     name and compiles a corresponding MongoDB query.
 
-    Mirrors :class:`~pyfly.data.adapters.sqlalchemy.post_processor.RepositoryBeanPostProcessor`
+    Mirrors :class:`~pyfly.data.relational.sqlalchemy.post_processor.RepositoryBeanPostProcessor`
     but targets MongoDB via Beanie ODM.
     """
 

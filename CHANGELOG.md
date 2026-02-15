@@ -10,16 +10,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- **Spring Data architecture refactoring** — `QueryMethodCompilerPort` protocol extracted to `pyfly.data.ports.compiler`; `QueryMethodCompiler` moved to `pyfly.data.adapters.sqlalchemy.query_compiler`. Shared query parser is now 100% framework-agnostic. Future data adapters implement `QueryMethodCompilerPort` with zero changes to shared code
-- **MongoDB/Document Database Support** (`pyfly.data.adapters.mongodb`) — `MongoRepository[T, ID]`, `BaseDocument`, `MongoQueryMethodCompiler`, `MongoRepositoryBeanPostProcessor`, `mongo_transactional`, `initialize_beanie()`. Install via `pip install pyfly[mongodb]`
-- `MongoDBProperties` configuration (`pyfly.mongodb.*` — uri, database, pool sizes)
-- Auto-detection of Beanie ODM via `AutoConfiguration.detect_mongodb_provider()`
-- CLI scaffolding: `--features mongodb` generates Beanie documents, MongoRepository, and MongoDB config. Both `data` and `mongodb` can be selected together for multi-backend projects
+- **Spring Data umbrella refactoring** — `pyfly.data` is now a pure commons layer (Page, Pageable, ports, QueryMethodParser). Relational modules moved to `pyfly.data.relational` (Specification, Filter, Query, SQLAlchemy adapter). Document modules moved to `pyfly.data.document` (MongoDB/Beanie adapter). Config prefixes changed to `pyfly.data.relational.*` and `pyfly.data.document.*`. Feature names renamed to `data-relational` and `data-document`. Properties renamed to `RelationalProperties` and `DocumentProperties`
+- **MongoDB/Document Database Support** (`pyfly.data.document.mongodb`) — `MongoRepository[T, ID]`, `BaseDocument`, `MongoQueryMethodCompiler`, `MongoRepositoryBeanPostProcessor`, `mongo_transactional`, `initialize_beanie()`. Install via `pip install pyfly[data-document]`
+- `DocumentProperties` configuration (`pyfly.data.document.*` — uri, database, pool sizes)
+- Auto-detection of Beanie ODM via `AutoConfiguration.detect_document_provider()`
+- CLI scaffolding: `--features data-document` generates Beanie documents, MongoRepository, and MongoDB config. Both `data-relational` and `data-document` can be selected together for multi-backend projects
 - Derived query method compilation for MongoDB (reuses shared `QueryMethodParser` + `MongoQueryMethodCompiler`)
-- New documentation guide: `docs/guides/mongodb.md`
+- New documentation guide: `docs/guides/data-document.md`
 - **Generic repository IDs** — `RepositoryPort[T, ID]` and `Repository[T, ID]` are now dual-generic, accepting any primary key type (UUID, int, str). `CrudRepository[T, ID]` and `PagingRepository[T, ID]` were already dual-generic
 - **CLI wizard revamp** — Interactive `pyfly new` wizard now uses 4 numbered steps with archetype comparison table, grouped feature selection with `questionary.Separator`, and feature-aware post-generation tips
-- **Feature-aware scaffolding** — Templates generate code based on selected features: `Valid[T]` in controllers (replaces `Body[T]`), `Field()` constraints in models, conditional SQLAlchemy `Repository[ItemEntity, int]` (with `data` feature) vs in-memory store, actuator config, `adapter: auto` in pyfly.yaml
+- **Feature-aware scaffolding** — Templates generate code based on selected features: `Valid[T]` in controllers (replaces `Body[T]`), `Field()` constraints in models, conditional SQLAlchemy `Repository[ItemEntity, int]` (with `data-relational` feature) vs in-memory store, actuator config, `adapter: auto` in pyfly.yaml
 
 ### Changed
 

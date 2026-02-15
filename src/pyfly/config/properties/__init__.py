@@ -15,18 +15,18 @@
 
 from pyfly.config.properties.cache import CacheProperties
 from pyfly.config.properties.client import ClientProperties
-from pyfly.config.properties.data import DataProperties
+from pyfly.config.properties.data import RelationalProperties
 from pyfly.config.properties.logging import LoggingProperties
 from pyfly.config.properties.messaging import MessagingProperties
-from pyfly.config.properties.mongodb import MongoDBProperties
+from pyfly.config.properties.mongodb import DocumentProperties
 from pyfly.config.properties.web import WebProperties
 
 __all__ = [
     "CacheProperties",
     "ClientProperties",
-    "DataProperties",
+    "DocumentProperties",
     "LoggingProperties",
     "MessagingProperties",
-    "MongoDBProperties",
+    "RelationalProperties",
     "WebProperties",
 ]

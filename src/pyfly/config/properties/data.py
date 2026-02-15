@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Data subsystem configuration properties."""
+"""Relational data subsystem configuration properties."""
 
 from __future__ import annotations
 
@@ -20,10 +20,10 @@ from dataclasses import dataclass
 from pyfly.core.config import config_properties
 
 
-@config_properties(prefix="pyfly.data")
+@config_properties(prefix="pyfly.data.relational")
 @dataclass
-class DataProperties:
-    """Configuration for the data subsystem (pyfly.data.*)."""
+class RelationalProperties:
+    """Configuration for the relational data subsystem (pyfly.data.relational.*)."""
 
     enabled: bool = False
     url: str = "sqlite+aiosqlite:///pyfly.db"

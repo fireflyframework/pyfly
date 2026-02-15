@@ -118,7 +118,7 @@ Examples of adapters:
 
 | Adapter | Module | Implements | Technology |
 |---|---|---|---|
-| `Repository` | `pyfly.data.adapters.sqlalchemy` | `RepositoryPort` | SQLAlchemy |
+| `Repository` | `pyfly.data.relational.sqlalchemy` | `RepositoryPort` | SQLAlchemy |
 | `KafkaAdapter` | `pyfly.messaging.adapters.kafka` | `MessageBrokerPort` | aiokafka |
 | `RabbitMQAdapter` | `pyfly.messaging.adapters.rabbitmq` | `MessageBrokerPort` | aio_pika |
 | `InMemoryMessageBroker` | `pyfly.messaging.adapters.memory` | `MessageBrokerPort` | In-process |
@@ -571,7 +571,8 @@ availability via `importlib.import_module()`:
 | Cache | `detect_cache_provider()` | `redis.asyncio` | `"redis"` or `"memory"` |
 | Messaging | `detect_eda_provider()` | `aiokafka`, then `aio_pika` | `"kafka"`, `"rabbitmq"`, or `"memory"` |
 | HTTP Client | `detect_client_provider()` | `httpx` | `"httpx"` or `"none"` |
-| Data | `detect_data_provider()` | `sqlalchemy` | `"sqlalchemy"` or `"none"` |
+| Data Relational | `detect_relational_provider()` | `sqlalchemy` | `"sqlalchemy"` or `"none"` |
+| Data Document | `detect_document_provider()` | `motor`, then `beanie` | `"mongodb"` or `"none"` |
 
 ---
 

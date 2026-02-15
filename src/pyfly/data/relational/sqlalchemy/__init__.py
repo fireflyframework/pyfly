@@ -13,11 +13,11 @@
 # limitations under the License.
 """SQLAlchemy data access adapter — default RepositoryPort implementation."""
 
-from pyfly.data.adapters.sqlalchemy.entity import Base, BaseEntity
-from pyfly.data.adapters.sqlalchemy.post_processor import RepositoryBeanPostProcessor
-from pyfly.data.adapters.sqlalchemy.query_compiler import QueryMethodCompiler
-from pyfly.data.adapters.sqlalchemy.repository import Repository
-from pyfly.data.adapters.sqlalchemy.transactional import reactive_transactional
+from pyfly.data.relational.sqlalchemy.entity import Base, BaseEntity
+from pyfly.data.relational.sqlalchemy.post_processor import RepositoryBeanPostProcessor
+from pyfly.data.relational.sqlalchemy.query_compiler import QueryMethodCompiler
+from pyfly.data.relational.sqlalchemy.repository import Repository
+from pyfly.data.relational.sqlalchemy.transactional import reactive_transactional
 
 __all__ = [
     "Base",

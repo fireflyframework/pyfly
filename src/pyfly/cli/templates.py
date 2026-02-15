@@ -21,15 +21,15 @@ from jinja2 import Environment, PackageLoader
 
 # Available features that map to PyFly extras
 AVAILABLE_FEATURES: list[str] = [
-    "web", "data", "mongodb", "eda", "cache", "client",
+    "web", "data-relational", "data-document", "eda", "cache", "client",
     "security", "scheduling", "observability", "cqrs",
 ]
 
 # Human-readable descriptions for features (shown in interactive mode)
 FEATURE_DESCRIPTIONS: dict[str, str] = {
     "web": "HTTP server, REST controllers, OpenAPI docs",
-    "data": "Data layer — Relational backend (SQLAlchemy ORM, repositories, migrations)",
-    "mongodb": "Data layer — Document backend (MongoDB with Beanie ODM, repositories)",
+    "data-relational": "Data Relational — SQL databases (SQLAlchemy ORM, repositories, migrations)",
+    "data-document": "Data Document — Document databases (MongoDB with Beanie ODM, repositories)",
     "eda": "Event-driven architecture, in-memory event bus",
     "cache": "Caching with in-memory adapter (Redis optional)",
     "client": "Resilient HTTP client with retry and circuit breaker",
@@ -86,7 +86,7 @@ ARCHETYPE_DETAILS: dict[str, dict[str, str | list[str]]] = {
 # Feature groups for categorized display in the wizard
 FEATURE_GROUPS: list[tuple[str, list[str]]] = [
     ("Web & API", ["web"]),
-    ("Data & Storage", ["data", "mongodb", "cache"]),
+    ("Data & Storage", ["data-relational", "data-document", "cache"]),
     ("Messaging & Events", ["eda", "cqrs"]),
     ("Infrastructure", ["client", "security", "scheduling", "observability"]),
 ]
@@ -97,12 +97,12 @@ FEATURE_DETAILS: dict[str, dict[str, str]] = {
         "short": "HTTP server, REST controllers, OpenAPI docs",
         "adds": "Starlette server, @rest_controller, Swagger UI, ReDoc, WebFilters",
     },
-    "data": {
-        "short": "Data layer — Relational backend (SQLAlchemy ORM)",
+    "data-relational": {
+        "short": "Data Relational — SQL databases (SQLAlchemy ORM)",
         "adds": "Repository[T, ID], BaseEntity, Alembic, SQLite default, RepositoryPort",
     },
-    "mongodb": {
-        "short": "Data layer — Document backend (Beanie ODM)",
+    "data-document": {
+        "short": "Data Document — Document databases (Beanie ODM)",
         "adds": "MongoRepository[T, ID], BaseDocument, Beanie, Motor async driver, RepositoryPort",
     },
     "eda": {
@@ -141,12 +141,12 @@ FEATURE_TIPS: dict[str, list[str]] = {
         "Visit http://localhost:8080/docs for Swagger UI",
         "Visit http://localhost:8080/redoc for ReDoc",
     ],
-    "data": [
+    "data-relational": [
         "Run 'pyfly db init' to set up Alembic migrations",
         "SQLite is configured by default (zero infrastructure)",
     ],
-    "mongodb": [
-        "Configure MongoDB URI in pyfly.yaml under pyfly.mongodb.uri",
+    "data-document": [
+        "Configure MongoDB URI in pyfly.yaml under pyfly.data.document.uri",
         "Documents use Beanie ODM (Pydantic models + Motor async driver)",
     ],
     "eda": [
@@ -285,8 +285,8 @@ def _build_context(name: str, archetype: str, features: list[str]) -> dict[str, 
         "archetype": archetype,
         "features": features,
         "has_web": "web" in features,
-        "has_data": "data" in features,
-        "has_mongodb": "mongodb" in features,
+        "has_data": "data-relational" in features,
+        "has_mongodb": "data-document" in features,
         "has_eda": "eda" in features,
         "has_cache": "cache" in features,
         "has_client": "client" in features,
@@ -314,7 +314,7 @@ def generate_project(name: str, project_dir: Path, archetype: str, features: lis
         name: Project name (e.g. ``"my-service"``).
         project_dir: Target directory to create.
         archetype: One of ``core``, ``web-api``, ``hexagonal``, ``library``.
-        features: Selected PyFly extras (e.g. ``["web", "data"]``).
+        features: Selected PyFly extras (e.g. ``["web", "data-relational"]``).
     """
     env = _get_env()
     context = _build_context(name, archetype, features)

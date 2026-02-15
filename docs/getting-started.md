@@ -689,7 +689,7 @@ Here is where to go next:
 
 ### Data and Events
 
-- [Data Access](guides/data.md) -- Repositories, SQLAlchemy integration, pagination
+- [Data Relational](guides/data-relational.md) -- Repositories, SQLAlchemy integration, pagination
 - [Events](guides/events.md) -- Event-driven architecture, `@event_listener`,
   `InMemoryEventBus`
 - [Messaging](guides/messaging.md) -- Kafka and RabbitMQ integration

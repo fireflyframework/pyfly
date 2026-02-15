@@ -545,7 +545,7 @@ class SecurityConfig:
 ### User Entity and Repository
 
 ```python
-from pyfly.data import BaseEntity, Repository
+from pyfly.data.relational import BaseEntity, Repository
 from pyfly.container import repository as repo_stereotype
 from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column

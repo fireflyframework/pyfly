@@ -22,10 +22,10 @@ from sqlalchemy import String
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import Mapped, mapped_column
 
-from pyfly.data.adapters.sqlalchemy.entity import Base, BaseEntity
-from pyfly.data.adapters.sqlalchemy.post_processor import RepositoryBeanPostProcessor
-from pyfly.data.adapters.sqlalchemy.repository import Repository
-from pyfly.data.query import query
+from pyfly.data.relational.sqlalchemy.entity import Base, BaseEntity
+from pyfly.data.relational.sqlalchemy.post_processor import RepositoryBeanPostProcessor
+from pyfly.data.relational.sqlalchemy.repository import Repository
+from pyfly.data.relational.query import query
 
 
 # ---------------------------------------------------------------------------

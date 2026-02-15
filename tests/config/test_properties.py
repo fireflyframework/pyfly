@@ -16,7 +16,7 @@
 from pyfly.config.properties import (
     CacheProperties,
     ClientProperties,
-    DataProperties,
+    RelationalProperties,
     LoggingProperties,
     MessagingProperties,
     WebProperties,
@@ -40,18 +40,18 @@ class TestWebProperties:
         assert props.debug is True
 
 
-class TestDataProperties:
+class TestRelationalProperties:
     def test_bind_defaults(self):
-        config = Config({"pyfly": {"data": {}}})
-        props = config.bind(DataProperties)
+        config = Config({"pyfly": {"data": {"relational": {}}}})
+        props = config.bind(RelationalProperties)
         assert props.enabled is False
         assert props.url == "sqlite+aiosqlite:///pyfly.db"
         assert props.echo is False
         assert props.pool_size == 5
 
     def test_bind_enabled(self):
-        config = Config({"pyfly": {"data": {"enabled": True, "url": "postgresql://localhost/db"}}})
-        props = config.bind(DataProperties)
+        config = Config({"pyfly": {"data": {"relational": {"enabled": True, "url": "postgresql://localhost/db"}}}})
+        props = config.bind(RelationalProperties)
         assert props.enabled is True
         assert props.url == "postgresql://localhost/db"
 

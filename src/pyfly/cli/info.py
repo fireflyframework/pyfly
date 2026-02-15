@@ -26,7 +26,8 @@ from pyfly.cli.console import console
 
 _EXTRAS = [
     ("web", "starlette"),
-    ("data", "sqlalchemy"),
+    ("data-relational", "sqlalchemy"),
+    ("data-document", "beanie"),
     ("eda", "aiokafka"),
     ("kafka", "aiokafka"),
     ("rabbitmq", "aio_pika"),

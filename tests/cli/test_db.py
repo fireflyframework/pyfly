@@ -44,7 +44,7 @@ class TestDbInit:
         runner.invoke(cli, ["db", "init"])
 
         env_py = (tmp_path / "alembic" / "env.py").read_text()
-        assert "from pyfly.data import Base" in env_py
+        assert "from pyfly.data.relational import Base" in env_py
 
     def test_db_init_env_py_has_async_support(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch

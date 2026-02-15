@@ -120,7 +120,7 @@ The project name is converted to a valid Python package name: `my-service` becom
 | Option | Default | Description |
 |--------|---------|-------------|
 | `--archetype` | `core` | Project archetype (see below) |
-| `--features` | Per archetype | Comma-separated PyFly extras (e.g. `web,data,cache`) |
+| `--features` | Per archetype | Comma-separated PyFly extras (e.g. `web,data-relational,cache`) |
 | `--directory` | `.` | Parent directory where the project folder will be created |
 
 ### Archetypes
@@ -320,7 +320,7 @@ pyfly new order-service
 pyfly new order-api --archetype web-api
 
 # Create a hexagonal project with data and cache
-pyfly new order-svc --archetype hexagonal --features web,data,cache
+pyfly new order-svc --archetype hexagonal --features web,data-relational,cache
 
 # Create a shared library
 pyfly new common-utils --archetype library

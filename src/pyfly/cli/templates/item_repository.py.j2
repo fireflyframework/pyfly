@@ -3,12 +3,12 @@
 
 from pyfly.container import repository
 {% if has_data %}
-from pyfly.data import Repository
+from pyfly.data.relational import Repository
 
 from {{ package_name }}.models.item import ItemEntity
 {% endif %}
 {% if has_mongodb %}
-from pyfly.data import MongoRepository
+from pyfly.data.document import MongoRepository
 
 from {{ package_name }}.models.item import ItemDocument
 {% endif %}

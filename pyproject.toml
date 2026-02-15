@@ -39,12 +39,12 @@ web = [
     "uvicorn[standard]>=0.30",
     "python-multipart>=0.0.9",
 ]
-data = [
+data-relational = [
     "sqlalchemy[asyncio]>=2.0",
     "alembic>=1.13",
     "aiosqlite>=0.20",
 ]
-mongodb = [
+data-document = [
     "motor>=3.3",
     "beanie>=1.25",
 ]
@@ -92,7 +92,7 @@ cli = [
     "questionary>=2.0",
 ]
 full = [
-    "pyfly[web,data,mongodb,postgresql,eda,cqrs,cache,client,observability,security,scheduling,cli,kafka,rabbitmq,redis]",
+    "pyfly[web,data-relational,data-document,postgresql,eda,cqrs,cache,client,observability,security,scheduling,cli,kafka,rabbitmq,redis]",
 ]
 dev = [
     "pyfly[full]",

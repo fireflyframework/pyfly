@@ -23,15 +23,16 @@ pyfly:
 {% if has_data %}
 
   data:
-    datasource:
+    relational:
       url: sqlite+aiosqlite:///{{ package_name }}.db
 {% endif %}
 {% if has_mongodb %}
 
-  mongodb:
-    enabled: true
-    uri: mongodb://localhost:27017
-    database: {{ package_name }}
+  data:
+    document:
+      enabled: true
+      uri: mongodb://localhost:27017
+      database: {{ package_name }}
 {% endif %}
 {% if has_cache %}
 

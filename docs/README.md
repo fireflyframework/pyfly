@@ -50,8 +50,8 @@ All module guides are organized in the [`guides/`](guides/README.md) directory. 
 
 | Guide | Description |
 |-------|-------------|
-| [Data Access (SQL)](guides/data.md) | Repositories, derived queries, specifications, pagination, transactions (SQLAlchemy) |
-| [MongoDB](guides/mongodb.md) | Document database support via Beanie ODM — `MongoRepository[T, ID]`, `BaseDocument`, derived queries |
+| [Data Relational (SQL)](guides/data-relational.md) | Repositories, derived queries, specifications, pagination, transactions (SQLAlchemy) |
+| [Data Document (MongoDB)](guides/data-document.md) | Document database support via Beanie ODM — `MongoRepository[T, ID]`, `BaseDocument`, derived queries |
 
 ### Messaging & Events
 
@@ -105,7 +105,7 @@ All module guides are organized in the [`guides/`](guides/README.md) directory. 
 - **New to PyFly?** Start with the [Getting Started Tutorial](getting-started.md)
 - **Coming from Spring Boot?** Read the [Spring Boot Comparison](spring-comparison.md)
 - **Building a web service?** See the [Web Layer Guide](guides/web.md)
-- **Setting up a SQL database?** See the [Data Access Guide](guides/data.md)
-- **Setting up MongoDB?** See the [MongoDB Guide](guides/mongodb.md)
+- **Setting up a SQL database?** See the [Data Relational Guide](guides/data-relational.md)
+- **Setting up MongoDB?** See the [Data Document Guide](guides/data-document.md)
 - **Need messaging?** See [Messaging](guides/messaging.md) and [Events](guides/events.md)
 - **Browse all guides:** See the [Guides Index](guides/README.md)

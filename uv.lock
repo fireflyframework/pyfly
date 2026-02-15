@@ -1376,7 +1376,11 @@ cli = [
 client = [
     { name = "httpx" },
 ]
-data = [
+data-document = [
+    { name = "beanie" },
+    { name = "motor" },
+]
+data-relational = [
     { name = "aiosqlite" },
     { name = "alembic" },
     { name = "sqlalchemy", extra = ["asyncio"] },
@@ -1448,10 +1452,6 @@ full = [
 kafka = [
     { name = "aiokafka" },
 ]
-mongodb = [
-    { name = "beanie" },
-    { name = "motor" },
-]
 observability = [
     { name = "opentelemetry-api" },
     { name = "opentelemetry-instrumentation-starlette" },
@@ -1487,17 +1487,17 @@ requires-dist = [
     { name = "aio-pika", marker = "extra == 'rabbitmq'", specifier = ">=9.0" },
     { name = "aiokafka", marker = "extra == 'eda'", specifier = ">=0.10" },
     { name = "aiokafka", marker = "extra == 'kafka'", specifier = ">=0.10" },
-    { name = "aiosqlite", marker = "extra == 'data'", specifier = ">=0.20" },
-    { name = "alembic", marker = "extra == 'data'", specifier = ">=1.13" },
+    { name = "aiosqlite", marker = "extra == 'data-relational'", specifier = ">=0.20" },
+    { name = "alembic", marker = "extra == 'data-relational'", specifier = ">=1.13" },
     { name = "asyncpg", marker = "extra == 'postgresql'", specifier = ">=0.29" },
     { name = "bcrypt", marker = "extra == 'security'", specifier = ">=4.0" },
-    { name = "beanie", marker = "extra == 'mongodb'", specifier = ">=1.25" },
+    { name = "beanie", marker = "extra == 'data-document'", specifier = ">=1.25" },
     { name = "click", marker = "extra == 'cli'", specifier = ">=8.1" },
     { name = "coverage", extras = ["toml"], marker = "extra == 'dev'", specifier = ">=7.0" },
     { name = "croniter", marker = "extra == 'scheduling'", specifier = ">=2.0" },
     { name = "httpx", marker = "extra == 'client'", specifier = ">=0.27" },
     { name = "jinja2", marker = "extra == 'cli'", specifier = ">=3.1" },
-    { name = "motor", marker = "extra == 'mongodb'", specifier = ">=3.3" },
+    { name = "motor", marker = "extra == 'data-document'", specifier = ">=3.3" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.8" },
     { name = "opentelemetry-api", marker = "extra == 'observability'", specifier = ">=1.24" },
     { name = "opentelemetry-instrumentation-starlette", marker = "extra == 'observability'", specifier = ">=0.45b0" },
@@ -1505,7 +1505,7 @@ requires-dist = [
     { name = "prometheus-client", marker = "extra == 'observability'", specifier = ">=0.20" },
     { name = "pydantic", specifier = ">=2.0" },
     { name = "pyfly", extras = ["full"], marker = "extra == 'dev'" },
-    { name = "pyfly", extras = ["web", "data", "mongodb", "postgresql", "eda", "cqrs", "cache", "client", "observability", "security", "scheduling", "cli", "kafka", "rabbitmq", "redis"], marker = "extra == 'full'" },
+    { name = "pyfly", extras = ["web", "data-relational", "data-document", "postgresql", "eda", "cqrs", "cache", "client", "observability", "security", "scheduling", "cli", "kafka", "rabbitmq", "redis"], marker = "extra == 'full'" },
     { name = "pyjwt", extras = ["crypto"], marker = "extra == 'security'", specifier = ">=2.8" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.23" },
@@ -1517,12 +1517,12 @@ requires-dist = [
     { name = "redis", extras = ["hiredis"], marker = "extra == 'redis'", specifier = ">=5.0" },
     { name = "rich", marker = "extra == 'cli'", specifier = ">=13.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.3" },
-    { name = "sqlalchemy", extras = ["asyncio"], marker = "extra == 'data'", specifier = ">=2.0" },
+    { name = "sqlalchemy", extras = ["asyncio"], marker = "extra == 'data-relational'", specifier = ">=2.0" },
     { name = "starlette", marker = "extra == 'web'", specifier = ">=0.40" },
     { name = "structlog", marker = "extra == 'observability'", specifier = ">=24.0" },
     { name = "uvicorn", extras = ["standard"], marker = "extra == 'web'", specifier = ">=0.30" },
 ]
-provides-extras = ["web", "data", "mongodb", "postgresql", "eda", "kafka", "rabbitmq", "redis", "cqrs", "cache", "client", "observability", "scheduling", "security", "cli", "full", "dev"]
+provides-extras = ["web", "data-relational", "data-document", "postgresql", "eda", "kafka", "rabbitmq", "redis", "cqrs", "cache", "client", "observability", "scheduling", "security", "cli", "full", "dev"]
 
 [[package]]
 name = "pygments"

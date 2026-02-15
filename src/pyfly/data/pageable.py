@@ -110,7 +110,7 @@ class Pageable:
 
     @property
     def offset(self) -> int:
-        """Calculate the SQL offset."""
+        """Calculate the pagination offset."""
         return (self.page - 1) * self.size
 
     def next(self) -> Pageable:

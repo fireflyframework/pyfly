@@ -27,7 +27,7 @@ The PyFly MongoDB module provides a document-oriented data access layer built on
   - [Ordering](#ordering)
   - [Complete Derived Query Examples](#complete-derived-query-examples)
 - [Configuration](#configuration)
-  - [MongoDBProperties](#mongodbproperties)
+  - [DocumentProperties](#documentproperties)
   - [pyfly.yaml Keys](#pyflyyaml-keys)
   - [Environment Variables](#environment-variables)
 - [Auto-Configuration](#auto-configuration)
@@ -65,8 +65,8 @@ PyFly Data maps directly to Spring Data's modular structure:
 | Spring Data Module       | PyFly Equivalent                         | Purpose                                    |
 |--------------------------|------------------------------------------|--------------------------------------------|
 | Spring Data Commons      | `pyfly.data`                             | Shared ports, types, parser, `Page`, `Sort`|
-| Spring Data JPA          | `pyfly.data.adapters.sqlalchemy`         | Relational database adapter (SQLAlchemy)   |
-| Spring Data MongoDB      | `pyfly.data.adapters.mongodb`            | Document database adapter (Beanie/Motor)   |
+| Spring Data JPA          | `pyfly.data.relational.sqlalchemy`         | Relational database adapter (SQLAlchemy)   |
+| Spring Data MongoDB      | `pyfly.data.document.mongodb`            | Document database adapter (Beanie/Motor)   |
 
 Both adapters build on the same framework-agnostic core. The `QueryMethodParser` lives in the commons layer and produces `ParsedQuery` objects. Each adapter provides its own `QueryMethodCompiler` implementation that translates those parsed queries into backend-specific operations -- SQLAlchemy column expressions for the relational adapter, or MongoDB filter documents for the document adapter.
 
@@ -89,7 +89,7 @@ Both adapters build on the same framework-agnostic core. The `QueryMethodParser`
           |                                        |
           v                                        v
 +-----------------------------+    +-------------------------------+
-| pyfly.data.adapters         |    | pyfly.data.adapters           |
+| pyfly.data.relational       |    | pyfly.data.document           |
 |        .sqlalchemy          |    |        .mongodb               |
 |                             |    |                               |
 | Repository[T, ID]           |    | MongoRepository[T, ID]        |
@@ -107,14 +107,14 @@ Both adapters build on the same framework-agnostic core. The `QueryMethodParser`
 +-----------------------------+    +-------------------------------+
 ```
 
-The left column is the relational path (covered in the [Data Access Guide](./data.md)). The right column is the document path covered in this guide. Both paths share the top commons layer, so concepts like `Page`, `Pageable`, `Sort`, derived query naming conventions, and the `RepositoryPort` protocol are identical.
+The left column is the relational path (covered in the [Data Access Guide](./data-relational.md)). The right column is the document path covered in this guide. Both paths share the top commons layer, so concepts like `Page`, `Pageable`, `Sort`, derived query naming conventions, and the `RepositoryPort` protocol are identical.
 
 ### Imports
 
-The MongoDB adapter is accessible directly from the top-level `pyfly.data` package when Beanie is installed:
+The MongoDB adapter is accessible from the `pyfly.data.document` package:
 
 ```python
-from pyfly.data import (
+from pyfly.data.document import (
     # Framework-agnostic (shared with SQLAlchemy adapter)
     Page, Pageable, Sort, Order, Mapper,
     RepositoryPort, QueryMethodParser, QueryMethodCompilerPort,
@@ -128,7 +128,7 @@ from pyfly.data import (
 You can also import directly from the adapter package:
 
 ```python
-from pyfly.data.adapters.mongodb import (
+from pyfly.data.document.mongodb import (
     BaseDocument,
     MongoRepository,
     MongoQueryMethodCompiler,
@@ -139,8 +139,8 @@ from pyfly.data.adapters.mongodb import (
 ```
 
 Source files:
-- `src/pyfly/data/__init__.py` -- top-level re-exports (conditional on Beanie being installed)
-- `src/pyfly/data/adapters/mongodb/__init__.py` -- MongoDB adapter package exports
+- `src/pyfly/data/document/__init__.py` -- document sub-layer re-exports
+- `src/pyfly/data/document/mongodb/__init__.py` -- MongoDB adapter package exports
 
 ---
 
@@ -151,7 +151,7 @@ Source files:
 `BaseDocument` is the base class for all MongoDB documents in a PyFly application. It extends `beanie.Document` and provides audit trail fields that are automatically populated on insert and update.
 
 ```python
-from pyfly.data.adapters.mongodb import BaseDocument
+from pyfly.data.document.mongodb import BaseDocument
 ```
 
 All domain documents should inherit from `BaseDocument` to gain the automatic audit trail, just as all relational entities inherit from `BaseEntity` in the SQLAlchemy adapter.
@@ -256,7 +256,7 @@ Indexes are created automatically when Beanie initializes the document models du
 Extend `BaseDocument` and declare your domain fields using standard Pydantic field declarations:
 
 ```python
-from pyfly.data.adapters.mongodb import BaseDocument
+from pyfly.data.document.mongodb import BaseDocument
 from beanie import Indexed
 from pydantic import Field
 
@@ -299,7 +299,7 @@ class CustomerDocument(BaseDocument):
         name = "customers"
 ```
 
-Source file: `src/pyfly/data/adapters/mongodb/document.py`
+Source file: `src/pyfly/data/document/mongodb/document.py`
 
 ---
 
@@ -313,7 +313,7 @@ The `MongoRepository[T, ID]` class provides generic async CRUD operations for Be
 Unlike the SQLAlchemy `Repository`, `MongoRepository` does not require a session to be injected. Beanie uses a globally initialized Motor client, so the repository only needs the document model class:
 
 ```python
-from pyfly.data.adapters.mongodb import MongoRepository, BaseDocument
+from pyfly.data.document.mongodb import MongoRepository, BaseDocument
 
 repo = MongoRepository[ProductDocument, str](ProductDocument)
 product = await repo.save(ProductDocument(name="Widget", price=9.99, category="gadgets"))
@@ -325,7 +325,7 @@ found = await repo.find_by_id(product.id)
 Subclass `MongoRepository[T, ID]` and register it as a bean with the `@repository` stereotype:
 
 ```python
-from pyfly.data.adapters.mongodb import MongoRepository
+from pyfly.data.document.mongodb import MongoRepository
 from pyfly.container import repository as repo_stereotype
 
 
@@ -417,7 +417,7 @@ class RepositoryPort(Protocol[T, ID]):
 
 This shared interface allows you to swap between the SQLAlchemy and MongoDB adapters without changing service layer code, as long as the entity/document types align.
 
-Source file: `src/pyfly/data/adapters/mongodb/repository.py`
+Source file: `src/pyfly/data/document/mongodb/repository.py`
 
 ---
 
@@ -431,9 +431,9 @@ The derived query pipeline consists of two stages, split between the shared comm
 
 1. **Parsing (shared):** The `QueryMethodParser` (from `pyfly.data.query_parser`) parses the method name into a `ParsedQuery` containing predicates, connectors, and order clauses. This parser is identical for both the SQLAlchemy and MongoDB adapters.
 
-2. **Compilation (adapter-specific):** The `MongoQueryMethodCompiler` (from `pyfly.data.adapters.mongodb.query_compiler`) takes the `ParsedQuery` and compiles it into an async callable that builds a MongoDB filter document and executes it via Beanie.
+2. **Compilation (adapter-specific):** The `MongoQueryMethodCompiler` (from `pyfly.data.document.mongodb.query_compiler`) takes the `ParsedQuery` and compiles it into an async callable that builds a MongoDB filter document and executes it via Beanie.
 
-Because the parser is shared, the naming convention is identical to the one documented in the [Data Access Guide](./data.md). The prefixes, operators, connectors, and ordering suffixes are the same -- only the compiled output differs.
+Because the parser is shared, the naming convention is identical to the one documented in the [Data Access Guide](./data-relational.md). The prefixes, operators, connectors, and ordering suffixes are the same -- only the compiled output differs.
 
 ### MongoQueryMethodCompiler Operator Mapping
 
@@ -575,24 +575,24 @@ class OrderRepository(MongoRepository[OrderDocument, PydanticObjectId]):
 
 Each method body should be a stub (`...` or `pass`). The `MongoRepositoryBeanPostProcessor` detects them and replaces them with real implementations at startup.
 
-Source file: `src/pyfly/data/adapters/mongodb/query_compiler.py`
+Source file: `src/pyfly/data/document/mongodb/query_compiler.py`
 
 ---
 
 ## Configuration
 
-### MongoDBProperties
+### DocumentProperties
 
-The `MongoDBProperties` dataclass captures all MongoDB configuration under the `pyfly.mongodb.*` namespace:
+The `DocumentProperties` dataclass captures all document database configuration under the `pyfly.data.document.*` namespace:
 
 ```python
 from pyfly.core.config import config_properties
 from dataclasses import dataclass
 
 
-@config_properties(prefix="pyfly.mongodb")
+@config_properties(prefix="pyfly.data.document")
 @dataclass
-class MongoDBProperties:
+class DocumentProperties:
     enabled: bool = False
     uri: str = "mongodb://localhost:27017"
     database: str = "pyfly"
@@ -614,36 +614,39 @@ Configure MongoDB in your `pyfly.yaml` (or `application.yml`):
 
 ```yaml
 pyfly:
-  mongodb:
-    enabled: true
-    uri: mongodb://localhost:27017
-    database: my_app
-    min_pool_size: 5
-    max_pool_size: 50
+  data:
+    document:
+      enabled: true
+      uri: mongodb://localhost:27017
+      database: my_app
+      min_pool_size: 5
+      max_pool_size: 50
 ```
 
 For a MongoDB Atlas connection:
 
 ```yaml
 pyfly:
-  mongodb:
-    enabled: true
-    uri: mongodb+srv://user:password@cluster.mongodb.net/?retryWrites=true&w=majority
-    database: production_db
-    min_pool_size: 10
-    max_pool_size: 100
+  data:
+    document:
+      enabled: true
+      uri: mongodb+srv://user:password@cluster.mongodb.net/?retryWrites=true&w=majority
+      database: production_db
+      min_pool_size: 10
+      max_pool_size: 100
 ```
 
 For a replica set deployment (required for transactions):
 
 ```yaml
 pyfly:
-  mongodb:
-    enabled: true
-    uri: mongodb://mongo1:27017,mongo2:27017,mongo3:27017/?replicaSet=rs0
-    database: my_app
-    min_pool_size: 5
-    max_pool_size: 50
+  data:
+    document:
+      enabled: true
+      uri: mongodb://mongo1:27017,mongo2:27017,mongo3:27017/?replicaSet=rs0
+      database: my_app
+      min_pool_size: 5
+      max_pool_size: 50
 ```
 
 ### Environment Variables
@@ -652,21 +655,21 @@ Following PyFly's configuration resolution order, you can override any MongoDB p
 
 | Environment Variable       | Overrides                   | Example                          |
 |----------------------------|-----------------------------|----------------------------------|
-| `PYFLY_MONGODB_ENABLED`   | `pyfly.mongodb.enabled`    | `true`                           |
-| `PYFLY_MONGODB_URI`       | `pyfly.mongodb.uri`        | `mongodb://prod-host:27017`      |
-| `PYFLY_MONGODB_DATABASE`  | `pyfly.mongodb.database`   | `production_db`                  |
-| `PYFLY_MONGODB_MIN_POOL_SIZE` | `pyfly.mongodb.min_pool_size` | `10`                       |
-| `PYFLY_MONGODB_MAX_POOL_SIZE` | `pyfly.mongodb.max_pool_size` | `200`                      |
+| `PYFLY_DATA_DOCUMENT_ENABLED`   | `pyfly.data.document.enabled`    | `true`                           |
+| `PYFLY_DATA_DOCUMENT_URI`       | `pyfly.data.document.uri`        | `mongodb://prod-host:27017`      |
+| `PYFLY_DATA_DOCUMENT_DATABASE`  | `pyfly.data.document.database`   | `production_db`                  |
+| `PYFLY_DATA_DOCUMENT_MIN_POOL_SIZE` | `pyfly.data.document.min_pool_size` | `10`                       |
+| `PYFLY_DATA_DOCUMENT_MAX_POOL_SIZE` | `pyfly.data.document.max_pool_size` | `200`                      |
 
 This is useful for containerized deployments where secrets and connection strings are injected via environment:
 
 ```bash
-export PYFLY_MONGODB_ENABLED=true
-export PYFLY_MONGODB_URI="mongodb+srv://user:secret@cluster.mongodb.net"
-export PYFLY_MONGODB_DATABASE=production_db
+export PYFLY_DATA_DOCUMENT_ENABLED=true
+export PYFLY_DATA_DOCUMENT_URI="mongodb+srv://user:secret@cluster.mongodb.net"
+export PYFLY_DATA_DOCUMENT_DATABASE=production_db
 ```
 
-Source file: `src/pyfly/config/properties/mongodb.py`
+Source file: `src/pyfly/config/properties/mongodb.py` (class `DocumentProperties`)
 
 ---
 
@@ -676,46 +679,46 @@ PyFly uses a config-driven auto-configuration system to detect and wire the Mong
 
 ### Detection Flow
 
-The `AutoConfigurationEngine` processes the MongoDB subsystem in its `_configure_mongodb()` method. The flow is:
+The `AutoConfigurationEngine` processes the MongoDB subsystem in its `_configure_document()` method. The flow is:
 
-1. **Check enabled flag.** Read `pyfly.mongodb.enabled` from config. If `false` (the default), the MongoDB subsystem is skipped entirely.
+1. **Check enabled flag.** Read `pyfly.data.document.enabled` from config. If `false` (the default), the MongoDB subsystem is skipped entirely.
 
-2. **Detect provider.** Call `AutoConfiguration.detect_mongodb_provider()`, which checks whether the `beanie` package is importable. If it is, the provider is `"beanie"`. If not, the provider is `"none"` and MongoDB is skipped.
+2. **Detect provider.** Call `AutoConfiguration.detect_document_provider()`, which checks whether the `beanie` package is importable. If it is, the provider is `"beanie"`. If not, the provider is `"none"` and MongoDB is skipped.
 
-3. **Read connection settings.** Extract `pyfly.mongodb.uri` and `pyfly.mongodb.database` from config.
+3. **Read connection settings.** Extract `pyfly.data.document.uri` and `pyfly.data.document.database` from config.
 
 4. **Register results.** Store the provider name and connection configuration for use during application startup.
 
 ```python
 class AutoConfiguration:
     @staticmethod
-    def detect_mongodb_provider() -> str:
+    def detect_document_provider() -> str:
         """Detect the best available MongoDB / document DB provider."""
         if AutoConfiguration.is_available("beanie"):
             return "beanie"
         return "none"
 ```
 
-The detection is purely library-based: if Beanie is installed in your Python environment, the MongoDB adapter is available. You still need to set `pyfly.mongodb.enabled: true` in config to activate it.
+The detection is purely library-based: if Beanie is installed in your Python environment, the MongoDB adapter is available. You still need to set `pyfly.data.document.enabled: true` in config to activate it.
 
 ```python
-def _configure_mongodb(self, config: Config, container: Container) -> None:
+def _configure_document(self, config: Config, container: Container) -> None:
     """Auto-configure MongoDB layer if enabled."""
-    enabled = config.get("pyfly.mongodb.enabled", False)
+    enabled = config.get("pyfly.data.document.enabled", False)
     if not _as_bool(enabled):
         logger.info("auto_configuration", subsystem="mongodb", status="skipped", reason="disabled")
         return
 
-    provider = AutoConfiguration.detect_mongodb_provider()
+    provider = AutoConfiguration.detect_document_provider()
     if provider == "none":
         logger.info("auto_configuration", subsystem="mongodb", status="skipped", reason="no provider")
         return
 
-    uri = str(config.get("pyfly.mongodb.uri", "mongodb://localhost:27017"))
-    database = str(config.get("pyfly.mongodb.database", "pyfly"))
+    uri = str(config.get("pyfly.data.document.uri", "mongodb://localhost:27017"))
+    database = str(config.get("pyfly.data.document.database", "pyfly"))
 
     self._results["mongodb"] = provider
-    self._mongodb_config = {"uri": uri, "database": database}
+    self._document_config = {"uri": uri, "database": database}
     logger.info(
         "auto_configuration",
         subsystem="mongodb",
@@ -730,7 +733,7 @@ def _configure_mongodb(self, config: Config, container: Container) -> None:
 Beanie requires explicit initialization before any document operations can be performed. The `initialize_beanie()` helper function in the MongoDB adapter handles this:
 
 ```python
-from pyfly.data.adapters.mongodb import initialize_beanie
+from pyfly.data.document.mongodb import initialize_beanie
 
 
 client = await initialize_beanie(
@@ -776,7 +779,7 @@ Then pass them during initialization:
 
 ```python
 from documents import ALL_DOCUMENTS
-from pyfly.data.adapters.mongodb import initialize_beanie
+from pyfly.data.document.mongodb import initialize_beanie
 
 
 async def startup():
@@ -788,8 +791,8 @@ async def startup():
 ```
 
 Source files:
-- `src/pyfly/config/auto.py` -- `AutoConfiguration`, `AutoConfigurationEngine._configure_mongodb()`
-- `src/pyfly/data/adapters/mongodb/initializer.py` -- `initialize_beanie()`
+- `src/pyfly/config/auto.py` -- `AutoConfiguration`, `AutoConfigurationEngine._configure_document()`
+- `src/pyfly/data/document/mongodb/initializer.py` -- `initialize_beanie()`
 
 ---
 
@@ -800,7 +803,7 @@ Source files:
 The `@mongo_transactional` decorator provides declarative async transaction management for MongoDB, mirroring the `@reactive_transactional` decorator from the SQLAlchemy adapter:
 
 ```python
-from pyfly.data.adapters.mongodb import mongo_transactional
+from pyfly.data.document.mongodb import mongo_transactional
 from motor.motor_asyncio import AsyncIOMotorClient
 
 client: AsyncIOMotorClient = ...
@@ -879,7 +882,7 @@ services:
 A complete example showing transactional order processing:
 
 ```python
-from pyfly.data.adapters.mongodb import mongo_transactional, initialize_beanie
+from pyfly.data.document.mongodb import mongo_transactional, initialize_beanie
 
 # Initialize Beanie during startup
 client = await initialize_beanie(
@@ -914,7 +917,7 @@ async def place_order(customer_id: str, product_id: str, quantity: int) -> Order
     # Both operations commit together, or both are rolled back
 ```
 
-Source file: `src/pyfly/data/adapters/mongodb/transactional.py`
+Source file: `src/pyfly/data/document/mongodb/transactional.py`
 
 ---
 
@@ -1013,12 +1016,12 @@ def _is_stub(method: Any) -> bool:
 Register the post-processor in your application context:
 
 ```python
-from pyfly.data.adapters.mongodb import MongoRepositoryBeanPostProcessor
+from pyfly.data.document.mongodb import MongoRepositoryBeanPostProcessor
 
 context.register_post_processor(MongoRepositoryBeanPostProcessor())
 ```
 
-Source file: `src/pyfly/data/adapters/mongodb/post_processor.py`
+Source file: `src/pyfly/data/document/mongodb/post_processor.py`
 
 ---
 
@@ -1116,7 +1119,7 @@ The MongoDB adapter integrates seamlessly with PyFly's web layer. Here is a comp
 ```python
 # --- Document ---
 
-from pyfly.data.adapters.mongodb import BaseDocument
+from pyfly.data.document.mongodb import BaseDocument
 from beanie import Indexed
 from pydantic import Field
 
@@ -1134,7 +1137,7 @@ class TaskDocument(BaseDocument):
 
 # --- Repository ---
 
-from pyfly.data.adapters.mongodb import MongoRepository
+from pyfly.data.document.mongodb import MongoRepository
 from pyfly.container import repository as repo_stereotype
 
 
@@ -1286,7 +1289,7 @@ The following example demonstrates a full Product document, repository with deri
 # Document
 # ==========================================================================
 
-from pyfly.data.adapters.mongodb import BaseDocument
+from pyfly.data.document.mongodb import BaseDocument
 from beanie import Indexed, PydanticObjectId
 from pydantic import Field
 
@@ -1310,7 +1313,7 @@ class ProductDocument(BaseDocument):
 # Repository
 # ==========================================================================
 
-from pyfly.data.adapters.mongodb import MongoRepository
+from pyfly.data.document.mongodb import MongoRepository
 from pyfly.container import repository as repo_stereotype
 
 
@@ -1584,7 +1587,7 @@ class ProductController:
 
 from pyfly.core import pyfly_application, PyFlyApplication
 from pyfly.web import create_app
-from pyfly.data.adapters.mongodb import initialize_beanie, MongoRepositoryBeanPostProcessor
+from pyfly.data.document.mongodb import initialize_beanie, MongoRepositoryBeanPostProcessor
 
 
 @pyfly_application(
@@ -1634,12 +1637,13 @@ pyfly:
     version: 1.0.0
     description: Product catalog microservice backed by MongoDB
 
-  mongodb:
-    enabled: true
-    uri: mongodb://localhost:27017
-    database: product_catalog
-    min_pool_size: 5
-    max_pool_size: 50
+  data:
+    document:
+      enabled: true
+      uri: mongodb://localhost:27017
+      database: product_catalog
+      min_pool_size: 5
+      max_pool_size: 50
 
   web:
     port: 8080
@@ -1705,12 +1709,12 @@ This is a structural protocol (using `Protocol` from `typing`), so any class wit
 
 To add support for a new document database (say, DynamoDB), you would:
 
-1. **Create the adapter package:** `pyfly/data/adapters/dynamodb/`
+1. **Create the adapter package:** `pyfly/data/document/dynamodb/`
 
 2. **Implement a base document class** (analogous to `BaseDocument`):
 
 ```python
-# pyfly/data/adapters/dynamodb/document.py
+# pyfly/data/document/dynamodb/document.py
 class BaseDynamoDocument:
     """Base document for DynamoDB items with audit fields."""
     created_at: datetime
@@ -1722,7 +1726,7 @@ class BaseDynamoDocument:
 3. **Implement the repository** (analogous to `MongoRepository`):
 
 ```python
-# pyfly/data/adapters/dynamodb/repository.py
+# pyfly/data/document/dynamodb/repository.py
 class DynamoRepository(Generic[T, ID]):
     """Generic CRUD repository for DynamoDB."""
     async def save(self, entity: T) -> T: ...
@@ -1737,7 +1741,7 @@ class DynamoRepository(Generic[T, ID]):
 4. **Implement the query compiler** (satisfying `QueryMethodCompilerPort`):
 
 ```python
-# pyfly/data/adapters/dynamodb/query_compiler.py
+# pyfly/data/document/dynamodb/query_compiler.py
 from pyfly.data.query_parser import ParsedQuery
 
 
@@ -1755,7 +1759,7 @@ class DynamoQueryMethodCompiler:
 5. **Implement the post-processor** (analogous to `MongoRepositoryBeanPostProcessor`):
 
 ```python
-# pyfly/data/adapters/dynamodb/post_processor.py
+# pyfly/data/document/dynamodb/post_processor.py
 class DynamoRepositoryBeanPostProcessor:
     def __init__(self) -> None:
         self._query_parser = QueryMethodParser()
@@ -1785,5 +1789,5 @@ This architecture means that the naming convention for derived query methods (`f
 Source files:
 - `src/pyfly/data/ports/compiler.py` -- `QueryMethodCompilerPort` protocol
 - `src/pyfly/data/query_parser.py` -- `QueryMethodParser` (shared)
-- `src/pyfly/data/adapters/mongodb/query_compiler.py` -- `MongoQueryMethodCompiler` (MongoDB implementation)
-- `src/pyfly/data/adapters/sqlalchemy/query_compiler.py` -- `QueryMethodCompiler` (SQLAlchemy implementation)
+- `src/pyfly/data/document/mongodb/query_compiler.py` -- `MongoQueryMethodCompiler` (MongoDB implementation)
+- `src/pyfly/data/relational/sqlalchemy/query_compiler.py` -- `QueryMethodCompiler` (SQLAlchemy implementation)

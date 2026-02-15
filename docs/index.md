@@ -198,7 +198,7 @@ PyFly is organized into four layers:
 | Module | Description | Guide |
 |--------|-------------|-------|
 | **Web** | HTTP routing, controllers, middleware, OpenAPI | [Web Layer](guides/web.md) |
-| **Data** | Repository pattern, specifications, pagination | [Data Access](guides/data.md) |
+| **Data** | Repository pattern, specifications, pagination | [Data Relational](guides/data-relational.md) |
 | **CQRS** | Command/Query segregation with mediator | [CQRS](guides/cqrs.md) |
 | **Validation** | Input validation with Pydantic | [Validation](guides/validation.md) |
 
@@ -243,7 +243,7 @@ PyFly is organized into four layers:
 - [Error Handling](guides/error-handling.md) — Exception hierarchy, structured error responses
 - [Web Layer](guides/web.md) — Controllers, routing, parameter binding, middleware, CORS, OpenAPI
 - [Actuator](guides/actuator.md) — Health checks, beans, environment, info endpoints
-- [Data Access](guides/data.md) — Repositories, derived queries, specifications, pagination
+- [Data Relational](guides/data-relational.md) — Repositories, derived queries, specifications, pagination
 - [Messaging](guides/messaging.md) — Kafka, RabbitMQ, in-memory message broker
 - [Events](guides/events.md) — Event-driven architecture, domain events, application events
 - [CQRS](guides/cqrs.md) — Command/Query separation, mediator pattern
