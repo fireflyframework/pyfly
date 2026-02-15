@@ -16,13 +16,9 @@
 from __future__ import annotations
 
 import importlib
-import socket
 from typing import TYPE_CHECKING, Any
-from urllib.parse import urlparse
 
 import structlog
-
-from pyfly.container.exceptions import BeanCreationException
 
 if TYPE_CHECKING:
     from pyfly.container.container import Container
@@ -85,60 +81,17 @@ class AutoConfigurationEngine:
 
     def __init__(self) -> None:
         self._results: dict[str, str] = {}
+        self._adapters: list[Any] = []
 
     @property
     def results(self) -> dict[str, str]:
         """Map of subsystem -> provider that was auto-configured."""
         return dict(self._results)
 
-    # ------------------------------------------------------------------
-    # Connectivity validation (fail-fast for explicitly-configured providers)
-    # ------------------------------------------------------------------
-
-    @staticmethod
-    def _check_connectivity(host: str, port: int, timeout: float = 3.0) -> bool:
-        """Check if a host:port is reachable via TCP."""
-        try:
-            with socket.create_connection((host, port), timeout=timeout):
-                return True
-        except (OSError, TimeoutError):
-            return False
-
-    def _validate_provider(
-        self,
-        subsystem: str,
-        provider: str,
-        host: str,
-        port: int,
-        address_display: str,
-    ) -> None:
-        """Validate connectivity for an explicitly-configured provider.
-
-        Raises ``BeanCreationException`` when the infrastructure is unreachable.
-        """
-        if not self._check_connectivity(host, port):
-            raise BeanCreationException(
-                subsystem,
-                provider,
-                f"Cannot connect to {provider} at {address_display} "
-                f"(connection refused or timed out)",
-            )
-
-    @staticmethod
-    def _parse_host_port(address: str, default_port: int) -> tuple[str, int]:
-        """Extract (host, port) from a ``host:port`` string."""
-        parts = address.rsplit(":", 1)
-        host = parts[0]
-        port = int(parts[1]) if len(parts) == 2 else default_port
-        return host, port
-
-    @staticmethod
-    def _parse_url_host_port(url: str, default_port: int) -> tuple[str, int]:
-        """Extract (host, port) from a URL (amqp://, redis://, etc.)."""
-        parsed = urlparse(url)
-        host = parsed.hostname or "localhost"
-        port = parsed.port or default_port
-        return host, port
+    @property
+    def adapters(self) -> list[Any]:
+        """Adapter instances created by auto-configuration (for lifecycle management)."""
+        return list(self._adapters)
 
     # ------------------------------------------------------------------
     # Main entry point
@@ -164,7 +117,6 @@ class AutoConfigurationEngine:
             return
 
         configured_provider = str(config.get("pyfly.cache.provider", "auto"))
-        explicitly_configured = configured_provider not in ("auto", "memory")
         provider = (
             configured_provider
             if configured_provider != "auto"
@@ -177,12 +129,6 @@ class AutoConfigurationEngine:
             from pyfly.cache.adapters.redis import RedisCacheAdapter
 
             url = str(config.get("pyfly.cache.redis.url", "redis://localhost:6379/0"))
-
-            # Fail-fast: validate connectivity when explicitly configured
-            if explicitly_configured:
-                host, port = self._parse_url_host_port(url, 6379)
-                self._validate_provider("cache", "redis", host, port, url)
-
             client = aioredis.from_url(url)
             adapter = RedisCacheAdapter(client=client)
             self._register(container, CacheAdapter, adapter, "cache", provider)
@@ -199,8 +145,12 @@ class AutoConfigurationEngine:
         if self._already_registered(container, MessageBrokerPort):
             return
 
+        # Skip if no messaging section exists at all (Config({}) case)
+        if config.get("pyfly.messaging") is None:
+            logger.info("auto_config_skip", subsystem="messaging", reason="not configured")
+            return
+
         configured_provider = str(config.get("pyfly.messaging.provider", "auto"))
-        explicitly_configured = configured_provider not in ("auto", "memory")
         provider = (
             configured_provider
             if configured_provider != "auto"
@@ -213,12 +163,6 @@ class AutoConfigurationEngine:
             servers = str(
                 config.get("pyfly.messaging.kafka.bootstrap-servers", "localhost:9092")
             )
-
-            # Fail-fast: validate connectivity when explicitly configured
-            if explicitly_configured:
-                host, port = self._parse_host_port(servers, 9092)
-                self._validate_provider("messaging", "kafka", host, port, servers)
-
             adapter = KafkaAdapter(bootstrap_servers=servers)
             self._register(container, MessageBrokerPort, adapter, "messaging", provider)
         elif provider == "rabbitmq":
@@ -229,12 +173,6 @@ class AutoConfigurationEngine:
                     "pyfly.messaging.rabbitmq.url", "amqp://guest:guest@localhost/"
                 )
             )
-
-            # Fail-fast: validate connectivity when explicitly configured
-            if explicitly_configured:
-                host, port = self._parse_url_host_port(url, 5672)
-                self._validate_provider("messaging", "rabbitmq", host, port, url)
-
             adapter = RabbitMQAdapter(url=url)
             self._register(container, MessageBrokerPort, adapter, "messaging", provider)
         else:
@@ -300,6 +238,7 @@ class AutoConfigurationEngine:
         container.register(adapter_type, scope=Scope.SINGLETON)
         container._registrations[adapter_type].instance = instance
         self._results[subsystem] = provider
+        self._adapters.append(instance)
         logger.info("auto_configured", subsystem=subsystem, provider=provider)
 
 

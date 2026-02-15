@@ -13,6 +13,8 @@
 # limitations under the License.
 """Tests for PyFly application bootstrap."""
 
+from unittest.mock import AsyncMock, patch
+
 import pytest
 
 from pyfly.container import Container, service
@@ -234,8 +236,8 @@ class TestRouteAndDocsLogging:
 class TestFailFastStartup:
     """Verify that BeanCreationException propagates through application startup."""
 
-    async def test_startup_fails_on_bean_creation_error(self, tmp_path):
-        """When Kafka is explicitly configured but unreachable, startup must crash."""
+    async def test_startup_wraps_adapter_failure(self, tmp_path):
+        """When an adapter's start() fails, startup raises BeanCreationException."""
         @pyfly_application(name="FailApp", version="0.1.0", scan_packages=[])
         class App:
             pass
@@ -243,33 +245,113 @@ class TestFailFastStartup:
         config_file = tmp_path / "pyfly.yaml"
         config_file.write_text(
             "pyfly:\n"
-            "  banner:\n"
-            "    mode: 'OFF'\n"
+            "  banner:\n    mode: 'OFF'\n"
             "  messaging:\n"
             "    provider: 'kafka'\n"
             "    kafka:\n"
-            "      bootstrap-servers: 'localhost:19999'\n"
+            "      bootstrap-servers: 'localhost:9092'\n"
         )
 
         app = PyFlyApplication(App, config_path=config_file)
-        with pytest.raises(BeanCreationException, match="messaging.*kafka"):
-            await app.startup()
+
+        # Mock KafkaAdapter.start() to simulate connection failure
+        with patch(
+            "pyfly.messaging.adapters.kafka.KafkaAdapter.start",
+            new_callable=AsyncMock,
+        ) as mock_start:
+            mock_start.side_effect = Exception("Connection refused")
+            with pytest.raises(BeanCreationException, match="messaging"):
+                await app.startup()
+
+    async def test_startup_wraps_general_errors(self, tmp_path):
+        """Any exception during startup is wrapped in BeanCreationException."""
+        @pyfly_application(name="ErrorApp", version="0.1.0", scan_packages=[])
+        class App:
+            pass
+
+        config_file = tmp_path / "pyfly.yaml"
+        config_file.write_text("pyfly:\n  banner:\n    mode: 'OFF'\n")
+
+        app = PyFlyApplication(App, config_path=config_file)
+
+        # Mock context._do_start() to raise a generic error
+        with patch.object(
+            app._context, '_do_start', side_effect=RuntimeError("Something broke")
+        ):
+            with pytest.raises(BeanCreationException, match="startup"):
+                await app.startup()
 
     async def test_startup_succeeds_with_memory_providers(self, tmp_path):
-        """When using memory providers, startup should succeed without validation."""
-        @pyfly_application(name="MemApp", version="0.1.0", scan_packages=[])
+        """Memory providers start without errors."""
+        @pyfly_application(name="MemoryApp", version="0.1.0", scan_packages=[])
         class App:
             pass
 
         config_file = tmp_path / "pyfly.yaml"
         config_file.write_text(
             "pyfly:\n"
-            "  banner:\n"
-            "    mode: 'OFF'\n"
+            "  banner:\n    mode: 'OFF'\n"
             "  messaging:\n"
             "    provider: 'memory'\n"
         )
 
         app = PyFlyApplication(App, config_path=config_file)
         await app.startup()
+        assert app.startup_time_seconds > 0
         await app.shutdown()
+
+    async def test_startup_wraps_redis_adapter_failure(self, tmp_path):
+        """When a Redis adapter's start() fails, startup raises BeanCreationException."""
+        @pyfly_application(name="RedisFailApp", version="0.1.0", scan_packages=[])
+        class App:
+            pass
+
+        config_file = tmp_path / "pyfly.yaml"
+        config_file.write_text(
+            "pyfly:\n"
+            "  banner:\n    mode: 'OFF'\n"
+            "  cache:\n"
+            "    enabled: true\n"
+            "    provider: 'redis'\n"
+            "    redis:\n"
+            "      url: 'redis://localhost:6379/0'\n"
+        )
+
+        app = PyFlyApplication(App, config_path=config_file)
+
+        # Mock RedisCacheAdapter.start() to simulate connection failure
+        with patch(
+            "pyfly.cache.adapters.redis.RedisCacheAdapter.start",
+            new_callable=AsyncMock,
+        ) as mock_start:
+            mock_start.side_effect = Exception("Connection refused")
+            with pytest.raises(BeanCreationException, match="cache"):
+                await app.startup()
+
+    async def test_bean_creation_exception_preserves_cause(self, tmp_path):
+        """The original exception should be chained as __cause__."""
+        @pyfly_application(name="CauseApp", version="0.1.0", scan_packages=[])
+        class App:
+            pass
+
+        config_file = tmp_path / "pyfly.yaml"
+        config_file.write_text(
+            "pyfly:\n"
+            "  banner:\n    mode: 'OFF'\n"
+            "  messaging:\n"
+            "    provider: 'kafka'\n"
+            "    kafka:\n"
+            "      bootstrap-servers: 'localhost:9092'\n"
+        )
+
+        app = PyFlyApplication(App, config_path=config_file)
+
+        original_error = ConnectionError("Connection refused")
+        with patch(
+            "pyfly.messaging.adapters.kafka.KafkaAdapter.start",
+            new_callable=AsyncMock,
+        ) as mock_start:
+            mock_start.side_effect = original_error
+            with pytest.raises(BeanCreationException) as exc_info:
+                await app.startup()
+            assert exc_info.value.__cause__ is original_error

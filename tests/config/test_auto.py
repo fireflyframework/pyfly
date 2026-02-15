@@ -15,14 +15,13 @@
 
 from __future__ import annotations
 
-from unittest.mock import patch
-
 import pytest
 
 from pyfly.config.auto import AutoConfiguration, AutoConfigurationEngine
 from pyfly.container.container import Container
 from pyfly.container.exceptions import BeanCreationException
 from pyfly.core.config import Config
+from pyfly.kernel.exceptions import InfrastructureException
 
 
 class TestAutoConfiguration:
@@ -112,8 +111,7 @@ class TestAutoConfigurationEngine:
         engine = AutoConfigurationEngine()
         assert engine.results == {}
 
-    @patch.object(AutoConfigurationEngine, "_check_connectivity", return_value=True)
-    def test_configure_messaging_kafka_explicit(self, _mock_conn):
+    def test_configure_messaging_kafka_explicit(self):
         config = Config(
             {
                 "pyfly": {
@@ -129,8 +127,7 @@ class TestAutoConfigurationEngine:
         engine.configure(config, container)
         assert engine.results.get("messaging") == "kafka"
 
-    @patch.object(AutoConfigurationEngine, "_check_connectivity", return_value=True)
-    def test_configure_messaging_rabbitmq_explicit(self, _mock_conn):
+    def test_configure_messaging_rabbitmq_explicit(self):
         config = Config(
             {
                 "pyfly": {
@@ -146,61 +143,32 @@ class TestAutoConfigurationEngine:
         engine.configure(config, container)
         assert engine.results.get("messaging") == "rabbitmq"
 
+    def test_adapters_tracks_auto_configured_instances(self):
+        """engine.adapters should contain all auto-configured adapter instances."""
+        config = Config(
+            {
+                "pyfly": {
+                    "messaging": {"provider": "memory"},
+                    "cache": {"enabled": True, "provider": "memory"},
+                }
+            }
+        )
+        container = Container()
+        engine = AutoConfigurationEngine()
+        engine.configure(config, container)
+        # Should have at least cache + messaging adapters
+        assert len(engine.adapters) >= 2
+        adapter_types = {type(a).__name__ for a in engine.adapters}
+        assert "InMemoryCache" in adapter_types
+        assert "InMemoryMessageBroker" in adapter_types
+
+    def test_adapters_initially_empty(self):
+        engine = AutoConfigurationEngine()
+        assert engine.adapters == []
+
 
 class TestFailFast:
-    """Fail-fast: explicitly-configured infrastructure must be reachable."""
-
-    def test_kafka_unreachable_raises(self):
-        """When provider=kafka and Kafka is unreachable, should raise BeanCreationException."""
-        config = Config(
-            {
-                "pyfly": {
-                    "messaging": {
-                        "provider": "kafka",
-                        "kafka": {"bootstrap-servers": "localhost:19999"},
-                    }
-                }
-            }
-        )
-        container = Container()
-        engine = AutoConfigurationEngine()
-        with pytest.raises(BeanCreationException, match="messaging.*kafka"):
-            engine.configure(config, container)
-
-    def test_rabbitmq_unreachable_raises(self):
-        """When provider=rabbitmq and RabbitMQ is unreachable, should raise BeanCreationException."""
-        config = Config(
-            {
-                "pyfly": {
-                    "messaging": {
-                        "provider": "rabbitmq",
-                        "rabbitmq": {"url": "amqp://guest:guest@localhost:19998/"},
-                    }
-                }
-            }
-        )
-        container = Container()
-        engine = AutoConfigurationEngine()
-        with pytest.raises(BeanCreationException, match="messaging.*rabbitmq"):
-            engine.configure(config, container)
-
-    def test_redis_unreachable_raises(self):
-        """When provider=redis and Redis is unreachable, should raise BeanCreationException."""
-        config = Config(
-            {
-                "pyfly": {
-                    "cache": {
-                        "enabled": True,
-                        "provider": "redis",
-                        "redis": {"url": "redis://localhost:19997/0"},
-                    }
-                }
-            }
-        )
-        container = Container()
-        engine = AutoConfigurationEngine()
-        with pytest.raises(BeanCreationException, match="cache.*redis"):
-            engine.configure(config, container)
+    """Fail-fast: adapter lifecycle validates connectivity during context startup."""
 
     def test_memory_provider_does_not_validate(self):
         """Memory providers should not trigger connectivity checks."""
@@ -243,43 +211,13 @@ class TestFailFast:
         assert "kafka" in str(exc)
         assert "Connection refused" in str(exc)
 
-    @patch.object(AutoConfigurationEngine, "_check_connectivity", return_value=True)
-    def test_kafka_reachable_does_not_raise(self, _mock_conn):
-        """When Kafka IS reachable, explicit config should succeed."""
-        config = Config(
-            {
-                "pyfly": {
-                    "messaging": {
-                        "provider": "kafka",
-                        "kafka": {"bootstrap-servers": "localhost:9092"},
-                    }
-                }
-            }
-        )
-        container = Container()
-        engine = AutoConfigurationEngine()
-        engine.configure(config, container)
-        assert engine.results.get("messaging") == "kafka"
+    def test_bean_creation_exception_inherits_infrastructure(self):
+        """BeanCreationException should be an InfrastructureException."""
+        exc = BeanCreationException("messaging", "kafka", "Connection refused")
+        assert isinstance(exc, InfrastructureException)
+        assert exc.code == "BEAN_CREATION_MESSAGING"
 
-    @patch.object(AutoConfigurationEngine, "_check_connectivity", return_value=True)
-    def test_redis_reachable_does_not_raise(self, _mock_conn):
-        """When Redis IS reachable, explicit config should succeed."""
-        config = Config(
-            {
-                "pyfly": {
-                    "cache": {
-                        "enabled": True,
-                        "provider": "redis",
-                        "redis": {"url": "redis://localhost:6379/0"},
-                    }
-                }
-            }
-        )
-        container = Container()
-        engine = AutoConfigurationEngine()
-        engine.configure(config, container)
-        assert engine.results.get("cache") == "redis"
-
-    def test_check_connectivity_helper(self):
-        """The _check_connectivity helper should return False for unreachable port."""
-        assert AutoConfigurationEngine._check_connectivity("localhost", 19999, timeout=0.5) is False
+    def test_bean_creation_exception_has_error_code(self):
+        """BeanCreationException should have a structured error code."""
+        exc = BeanCreationException("cache", "redis", "timeout")
+        assert exc.code == "BEAN_CREATION_CACHE"

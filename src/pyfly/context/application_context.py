@@ -21,6 +21,7 @@ import typing
 from typing import Any, TypeVar
 
 from pyfly.container.container import Container
+from pyfly.container.exceptions import BeanCreationException
 from pyfly.container.ordering import get_order
 from pyfly.container.types import Scope
 from pyfly.context.condition_evaluator import ConditionEvaluator
@@ -57,6 +58,7 @@ class ApplicationContext:
         self._event_bus = ApplicationEventBus()
         self._post_processors: list[BeanPostProcessor] = []
         self._started = False
+        self._infrastructure_adapters: list[Any] = []
 
         # Register config as a singleton bean
         self._container.register(Config, scope=Scope.SINGLETON)
@@ -134,6 +136,19 @@ class ApplicationContext:
 
     async def start(self) -> None:
         """Start the context: resolve @configuration beans, call lifecycle hooks, publish events."""
+        try:
+            await self._do_start()
+        except BeanCreationException:
+            raise  # Already a clear error, propagate as-is
+        except Exception as exc:
+            raise BeanCreationException(
+                subsystem="startup",
+                provider="unknown",
+                reason=str(exc),
+            ) from exc
+
+    async def _do_start(self) -> None:
+        """Internal startup logic."""
         # 1. Filter beans by active profiles
         self._filter_by_profile()
 
@@ -153,6 +168,22 @@ class ApplicationContext:
 
         engine = AutoConfigurationEngine()
         engine.configure(self._config, self._container)
+
+        # 2d. Start infrastructure adapters (fail-fast: validates connectivity)
+        self._infrastructure_adapters = engine.adapters
+        for adapter in self._infrastructure_adapters:
+            if hasattr(adapter, 'start'):
+                try:
+                    await adapter.start()
+                except Exception as exc:
+                    adapter_name = type(adapter).__name__
+                    subsystem = self._infer_subsystem(adapter_name)
+                    provider = engine.results.get(subsystem, "unknown")
+                    raise BeanCreationException(
+                        subsystem=subsystem,
+                        provider=provider,
+                        reason=str(exc),
+                    ) from exc
 
         # 3. Eagerly resolve all singletons (sorted by @order)
         sorted_entries = sorted(
@@ -188,6 +219,14 @@ class ApplicationContext:
 
     async def stop(self) -> None:
         """Stop the context: call @pre_destroy, publish ContextClosedEvent."""
+        # Stop infrastructure adapters (reverse order)
+        for adapter in reversed(self._infrastructure_adapters):
+            if hasattr(adapter, 'stop'):
+                try:
+                    await adapter.stop()
+                except Exception:
+                    pass  # Best-effort cleanup
+
         # Call @pre_destroy on all resolved beans (reverse order)
         for reg in reversed(list(self._container._registrations.values())):
             if reg.instance is not None:
@@ -199,6 +238,23 @@ class ApplicationContext:
     # ------------------------------------------------------------------
     # Private helpers
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _infer_subsystem(adapter_name: str) -> str:
+        """Infer subsystem from adapter class name."""
+        name_lower = adapter_name.lower()
+        if "kafka" in name_lower:
+            return "messaging"
+        if "rabbit" in name_lower:
+            return "messaging"
+        if "redis" in name_lower:
+            return "cache"
+        if "memory" in name_lower:
+            if "cache" in name_lower:
+                return "cache"
+            if "broker" in name_lower or "message" in name_lower:
+                return "messaging"
+        return "infrastructure"
 
     def _filter_by_profile(self) -> None:
         """Remove beans whose profile expression does not match active profiles."""

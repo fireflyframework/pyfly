@@ -71,3 +71,9 @@ class InMemoryCache:
     async def clear(self) -> None:
         """Remove all entries."""
         self._store.clear()
+
+    async def start(self) -> None:
+        """No-op for in-memory cache."""
+
+    async def stop(self) -> None:
+        """No-op for in-memory cache."""

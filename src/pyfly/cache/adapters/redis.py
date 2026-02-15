@@ -57,6 +57,14 @@ class RedisCacheAdapter:
         """Flush the entire database."""
         await self._client.flushdb()
 
-    async def close(self) -> None:
+    async def start(self) -> None:
+        """Validate connectivity by pinging Redis."""
+        await self._client.ping()
+
+    async def stop(self) -> None:
         """Close the underlying Redis connection."""
+        await self._client.aclose()
+
+    async def close(self) -> None:
+        """Close the underlying Redis connection (backward compatibility)."""
         await self._client.aclose()

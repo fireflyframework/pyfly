@@ -15,18 +15,18 @@
 
 from __future__ import annotations
 
+from pyfly.kernel.exceptions import InfrastructureException
 
-class BeanCreationException(Exception):
-    """Fatal error during bean creation -- application cannot start.
 
-    Raised when explicitly-configured infrastructure is unavailable
-    or misconfigured.  Analogous to Spring Boot's BeanCreationException.
+class BeanCreationException(InfrastructureException):
+    """Fatal error during bean creation — application cannot start.
+
+    Analogous to Spring Boot's BeanCreationException.
     """
 
     def __init__(self, subsystem: str, provider: str, reason: str) -> None:
         self.subsystem = subsystem
         self.provider = provider
         self.reason = reason
-        super().__init__(
-            f"Failed to configure {subsystem} with provider '{provider}': {reason}"
-        )
+        message = f"Failed to configure {subsystem} with provider '{provider}': {reason}"
+        super().__init__(message=message, code=f"BEAN_CREATION_{subsystem.upper()}")
