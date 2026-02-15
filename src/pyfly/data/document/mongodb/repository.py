@@ -141,3 +141,37 @@ class MongoRepository(Generic[T, ID]):
             direction = pymongo.ASCENDING if order.direction == "asc" else pymongo.DESCENDING
             sort_spec.append((order.property, direction))
         return sort_spec
+
+    async def save_all(self, entities: list[T]) -> list[T]:
+        """Persist multiple documents."""
+        if not entities:
+            return []
+        result = await self._model.insert_many(entities)  # type: ignore[union-attr]
+        for entity, oid in zip(entities, result.inserted_ids):
+            entity.id = oid  # type: ignore[union-attr]
+        return entities
+
+    async def find_all_by_ids(self, ids: list[ID]) -> list[T]:
+        """Find all documents with IDs in the given list."""
+        if not ids:
+            return []
+        return await self._model.find(  # type: ignore[union-attr]
+            {"_id": {"$in": ids}}
+        ).to_list()
+
+    async def delete_all(self, ids: list[ID]) -> int:
+        """Delete all documents with IDs in the given list. Returns count deleted."""
+        if not ids:
+            return 0
+        result = await self._model.find(  # type: ignore[union-attr]
+            {"_id": {"$in": ids}}
+        ).delete()
+        return result.deleted_count if result else 0
+
+    async def delete_all_entities(self, entities: list[T]) -> int:
+        """Delete all given document instances. Returns count deleted."""
+        count = 0
+        for entity in entities:
+            await entity.delete()  # type: ignore[union-attr]
+            count += 1
+        return count
