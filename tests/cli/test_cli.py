@@ -265,7 +265,7 @@ class TestNewFeatures:
         assert result.exit_code == 0, result.output
 
         env = (tmp_path / "my-svc" / ".env.example").read_text()
-        assert "DATABASE_URL" in env
+        assert "PYFLY_DATA_RELATIONAL_URL" in env
         assert "sqlite+aiosqlite://" in env
 
     def test_features_eda_defaults_to_memory(self, tmp_path: Path):
@@ -779,7 +779,7 @@ class TestMongoDBFeature:
         ])
         assert result.exit_code == 0, result.output
         env = (tmp_path / "my-api" / ".env.example").read_text()
-        assert "MONGODB_URI" in env
+        assert "PYFLY_DATA_DOCUMENT_URI" in env
 
     def test_mongodb_feature_sets_dependencies(self, tmp_path: Path):
         runner = CliRunner()
