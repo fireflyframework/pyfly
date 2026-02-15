@@ -32,6 +32,7 @@ from pyfly.context.events import (
 )
 from pyfly.context.lifecycle import post_construct, pre_destroy
 from pyfly.context.post_processor import BeanPostProcessor
+from pyfly.context.request_context import RequestContext
 
 __all__ = [
     "ApplicationContext",
@@ -42,6 +43,7 @@ __all__ = [
     "ContextClosedEvent",
     "ContextRefreshedEvent",
     "Environment",
+    "RequestContext",
     "app_event_listener",
     "auto_configuration",
     "conditional_on_bean",
