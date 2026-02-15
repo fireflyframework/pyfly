@@ -293,7 +293,7 @@ class TestLifecycle:
 
     @pytest.mark.asyncio
     async def test_stop_shuts_down_executor(self) -> None:
-        """stop() calls executor.shutdown()."""
+        """stop() calls executor.stop()."""
         mock_executor = AsyncMock()
 
         async def _mock_submit(coro: object) -> asyncio.Task[None]:
@@ -310,9 +310,9 @@ class TestLifecycle:
 
         # Let it run briefly
         await asyncio.sleep(0.02)
-        await scheduler.stop(wait=True)
+        await scheduler.stop()
 
-        mock_executor.shutdown.assert_awaited_once_with(wait=True)
+        mock_executor.stop.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_stop_with_no_started_tasks(self) -> None:

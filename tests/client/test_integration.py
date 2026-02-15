@@ -35,7 +35,10 @@ class FakeHttpClient:
         body = self.responses.get(f"{method}:{url}", b'{}')
         return FakeResponse(body)
 
-    async def close(self) -> None:
+    async def start(self) -> None:
+        pass
+
+    async def stop(self) -> None:
         pass
 
 

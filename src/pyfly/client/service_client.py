@@ -92,9 +92,9 @@ class ServiceClient:
 
         return await operation()
 
-    async def close(self) -> None:
-        """Close the underlying HTTP client."""
-        await self._client.close()
+    async def stop(self) -> None:
+        """Stop the underlying HTTP client."""
+        await self._client.stop()
 
     @staticmethod
     def rest(name: str) -> ServiceClientBuilder:

@@ -126,8 +126,8 @@ class TaskScheduler:
             task.add_done_callback(self._loop_done_callback)
             self._loop_tasks.append(task)
 
-    async def stop(self, wait: bool = True) -> None:
-        """Stop all scheduling loops and shutdown the executor."""
+    async def stop(self) -> None:
+        """Stop all scheduling loops and the executor."""
         self._running = False
 
         for task in self._loop_tasks:
@@ -137,7 +137,7 @@ class TaskScheduler:
             await asyncio.gather(*self._loop_tasks, return_exceptions=True)
 
         self._loop_tasks.clear()
-        await self._executor.shutdown(wait=wait)
+        await self._executor.stop()
 
     @staticmethod
     def _loop_done_callback(task: asyncio.Task[Any]) -> None:

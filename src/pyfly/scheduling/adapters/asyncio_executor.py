@@ -38,16 +38,7 @@ class AsyncIOTaskExecutor:
         """No-op -- asyncio executor is ready after construction."""
 
     async def stop(self) -> None:
-        """Shutdown the executor, waiting for pending tasks."""
-        await self.shutdown(wait=True)
-
-    async def shutdown(self, wait: bool = True) -> None:
-        """Shutdown the executor, optionally waiting for pending tasks."""
-        if wait and self._tasks:
+        """Stop the executor, waiting for pending tasks to complete."""
+        if self._tasks:
             await asyncio.gather(*self._tasks, return_exceptions=True)
-        else:
-            for task in self._tasks:
-                task.cancel()
-            if self._tasks:
-                await asyncio.gather(*self._tasks, return_exceptions=True)
         self._tasks.clear()

@@ -111,9 +111,6 @@ class TestPortSwappability:
             async def stop(self) -> None:
                 pass
 
-            async def close(self) -> None:
-                pass
-
         client = MockHttpClient()
         assert isinstance(client, HttpClientPort)
         resp = await client.request("GET", "/test")

@@ -36,7 +36,3 @@ class TaskExecutorPort(Protocol):
     async def stop(self) -> None:
         """Stop the executor, releasing resources."""
         ...
-
-    async def shutdown(self, wait: bool = True) -> None:
-        """Shutdown the executor, optionally waiting for pending tasks."""
-        ...

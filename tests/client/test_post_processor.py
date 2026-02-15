@@ -32,7 +32,10 @@ class FakeHttpClient:
         self.calls.append({"method": method, "url": url, **kwargs})
         return FakeResponse(self.response_body, self.response_status)
 
-    async def close(self) -> None:
+    async def start(self) -> None:
+        pass
+
+    async def stop(self) -> None:
         pass
 
 

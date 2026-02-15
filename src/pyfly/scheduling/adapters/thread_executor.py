@@ -54,17 +54,8 @@ class ThreadPoolTaskExecutor:
         """No-op -- thread pool is ready after construction."""
 
     async def stop(self) -> None:
-        """Shutdown the executor and thread pool."""
-        await self.shutdown(wait=True)
-
-    async def shutdown(self, wait: bool = True) -> None:
-        """Shutdown the executor, optionally waiting for pending tasks."""
-        if wait and self._tasks:
+        """Stop the executor and thread pool, waiting for pending tasks."""
+        if self._tasks:
             await asyncio.gather(*self._tasks, return_exceptions=True)
-        else:
-            for task in self._tasks:
-                task.cancel()
-            if self._tasks:
-                await asyncio.gather(*self._tasks, return_exceptions=True)
         self._tasks.clear()
-        self._executor.shutdown(wait=wait)
+        self._executor.shutdown(wait=True)

@@ -64,7 +64,3 @@ class RedisCacheAdapter:
     async def stop(self) -> None:
         """Close the underlying Redis connection."""
         await self._client.aclose()
-
-    async def close(self) -> None:
-        """Close the underlying Redis connection (backward compatibility)."""
-        await self._client.aclose()

@@ -44,8 +44,4 @@ class HttpxClientAdapter:
 
     async def stop(self) -> None:
         """Close the underlying HTTP client."""
-        await self.close()
-
-    async def close(self) -> None:
-        """Close the underlying HTTP client."""
         await self._client.aclose()

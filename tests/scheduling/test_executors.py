@@ -55,7 +55,7 @@ class TestAsyncIOTaskExecutor:
         assert task not in executor._tasks
 
     @pytest.mark.asyncio
-    async def test_shutdown_waits_for_all_tasks(self) -> None:
+    async def test_stop_waits_for_all_tasks(self) -> None:
         executor = AsyncIOTaskExecutor()
         results: list[int] = []
 
@@ -67,24 +67,8 @@ class TestAsyncIOTaskExecutor:
         await executor.submit(append_after_delay(2))
         await executor.submit(append_after_delay(3))
 
-        await executor.shutdown(wait=True)
+        await executor.stop()
         assert sorted(results) == [1, 2, 3]
-
-    @pytest.mark.asyncio
-    async def test_shutdown_with_wait_false_cancels_pending_tasks(self) -> None:
-        executor = AsyncIOTaskExecutor()
-        completed = False
-
-        async def long_running() -> None:
-            nonlocal completed
-            await asyncio.sleep(10)
-            completed = True
-
-        await executor.submit(long_running())
-        await executor.shutdown(wait=False)
-
-        assert not completed
-        assert len(executor._tasks) == 0
 
 
 class TestThreadPoolTaskExecutor:
@@ -98,7 +82,7 @@ class TestThreadPoolTaskExecutor:
         task = await executor.submit(multiply(3, 4))
         result = await task
         assert result == 12
-        await executor.shutdown()
+        await executor.stop()
 
     @pytest.mark.asyncio
     async def test_submit_sync_runs_function_in_thread_pool(self) -> None:
@@ -113,17 +97,17 @@ class TestThreadPoolTaskExecutor:
         task = executor.submit_sync(blocking_add, 5, 7)
         result = await task
         assert result == 12
-        await executor.shutdown()
+        await executor.stop()
 
     @pytest.mark.asyncio
-    async def test_shutdown_cleans_up_thread_pool(self) -> None:
+    async def test_stop_cleans_up_thread_pool(self) -> None:
         executor = ThreadPoolTaskExecutor(max_workers=2)
 
         async def simple() -> str:
             return "hello"
 
         await executor.submit(simple())
-        await executor.shutdown(wait=True)
+        await executor.stop()
 
         assert len(executor._tasks) == 0
         # ThreadPoolExecutor should be shut down — submitting should raise
