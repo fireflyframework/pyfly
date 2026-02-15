@@ -15,7 +15,7 @@
 
 from __future__ import annotations
 
-from typing import Any, get_type_hints
+from typing import get_type_hints
 
 _PROJECTION_MARKER = "__pyfly_projection__"
 
