@@ -73,8 +73,7 @@ class RepositoryBeanPostProcessor:
             if attr_name in base_names:
                 continue
 
-            if any(attr_name.startswith(prefix) for prefix in _DERIVED_PREFIXES):
-                if self._is_stub(attr):
+            if any(attr_name.startswith(prefix) for prefix in _DERIVED_PREFIXES) and self._is_stub(attr):
                     parsed = self._query_parser.parse(attr_name)
                     compiled_fn = self._query_compiler.compile(parsed, entity)
                     wrapper = self._wrap_derived_method(compiled_fn)

@@ -180,9 +180,8 @@ class Config:
         defaults_file = importlib.resources.files("pyfly.resources").joinpath(
             "pyfly-defaults.yaml"
         )
-        with importlib.resources.as_file(defaults_file) as p:
-            with open(p) as f:
-                return yaml.safe_load(f) or {}
+        with importlib.resources.as_file(defaults_file) as p, open(p) as f:
+            return yaml.safe_load(f) or {}
 
     @staticmethod
     def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:

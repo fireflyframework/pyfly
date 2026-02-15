@@ -379,10 +379,7 @@ class QueryMethodCompiler:
         # Combine clauses with the connectors
         combined = clauses[0]
         for i, connector in enumerate(parsed.connectors):
-            if connector == "and":
-                combined = combined & clauses[i + 1]
-            else:  # or
-                combined = or_(combined, clauses[i + 1])
+            combined = combined & clauses[i + 1] if connector == "and" else or_(combined, clauses[i + 1])
 
         return stmt.where(combined)
 
@@ -410,8 +407,5 @@ class QueryMethodCompiler:
         """Apply ORDER BY clauses to a SELECT statement."""
         for order in parsed.order_clauses:
             col = getattr(entity, order.field_name)
-            if order.direction == "desc":
-                stmt = stmt.order_by(col.desc())
-            else:
-                stmt = stmt.order_by(col.asc())
+            stmt = stmt.order_by(col.desc()) if order.direction == "desc" else stmt.order_by(col.asc())
         return stmt

@@ -18,14 +18,13 @@ Default adapter (AsyncIO) exports are re-exported for convenience.
 """
 
 # Framework-agnostic exports
+# Default adapter re-exports
+from pyfly.scheduling.adapters.asyncio_executor import AsyncIOTaskExecutor
+from pyfly.scheduling.adapters.thread_executor import ThreadPoolTaskExecutor
 from pyfly.scheduling.cron import CronExpression
 from pyfly.scheduling.decorators import async_method, scheduled
 from pyfly.scheduling.ports.outbound import TaskExecutorPort
 from pyfly.scheduling.task_scheduler import TaskScheduler
-
-# Default adapter re-exports
-from pyfly.scheduling.adapters.asyncio_executor import AsyncIOTaskExecutor
-from pyfly.scheduling.adapters.thread_executor import ThreadPoolTaskExecutor
 
 __all__ = [
     # Framework-agnostic

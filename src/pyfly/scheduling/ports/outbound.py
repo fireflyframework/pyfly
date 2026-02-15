@@ -16,7 +16,8 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Coroutine, Protocol, TypeVar, runtime_checkable
+from collections.abc import Coroutine
+from typing import Any, Protocol, TypeVar, runtime_checkable
 
 T = TypeVar("T")
 

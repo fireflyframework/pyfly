@@ -158,7 +158,7 @@ def _prompt_interactive() -> tuple[str, str, str, list[str]]:
 
     except (KeyboardInterrupt, EOFError):
         console.print("\n[warning]Cancelled.[/warning]")
-        raise SystemExit(0)
+        raise SystemExit(0) from None
 
 
 @click.command()

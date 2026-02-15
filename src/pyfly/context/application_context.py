@@ -222,10 +222,8 @@ class ApplicationContext:
         # Stop infrastructure adapters (reverse order)
         for adapter in reversed(self._infrastructure_adapters):
             if hasattr(adapter, 'stop'):
-                try:
+                with contextlib.suppress(Exception):
                     await adapter.stop()
-                except Exception:
-                    pass  # Best-effort cleanup
 
         # Call @pre_destroy on all resolved beans (reverse order)
         for reg in reversed(list(self._container._registrations.values())):

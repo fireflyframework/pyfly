@@ -15,7 +15,6 @@
 from __future__ import annotations
 
 import itertools
-from typing import Any
 
 from pyfly.messaging.ports.outbound import MessageHandler
 from pyfly.messaging.types import Message
