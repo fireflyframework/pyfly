@@ -92,6 +92,10 @@ class ServiceClient:
 
         return await operation()
 
+    async def start(self) -> None:
+        """Start the underlying HTTP client."""
+        await self._client.start()
+
     async def stop(self) -> None:
         """Stop the underlying HTTP client."""
         await self._client.stop()
