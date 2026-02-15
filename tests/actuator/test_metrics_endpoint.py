@@ -11,28 +11,57 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Tests for the metrics actuator endpoint stub."""
+"""Tests for the MetricsEndpoint — Prometheus registry integration."""
 
 from __future__ import annotations
 
 import pytest
+from prometheus_client import REGISTRY, Counter
 
 from pyfly.actuator.endpoints import MetricsEndpoint
 
 
+@pytest.fixture(autouse=True)
+def _clean_test_metrics():
+    """Clean up test metrics after each test."""
+    yield
+    for name in list(REGISTRY._names_to_collectors.keys()):
+        if name.startswith("test_me_"):
+            try:
+                REGISTRY.unregister(REGISTRY._names_to_collectors[name])
+            except Exception:
+                pass
+
+
 class TestMetricsEndpoint:
-    def test_endpoint_id(self):
+    def test_endpoint_id(self) -> None:
         ep = MetricsEndpoint()
         assert ep.endpoint_id == "metrics"
 
-    def test_disabled_by_default(self):
+    def test_enabled_by_default(self) -> None:
         ep = MetricsEndpoint()
-        assert ep.enabled is False
+        assert ep.enabled is True
 
     @pytest.mark.asyncio
-    async def test_handle_returns_stub_data(self):
+    async def test_list_metrics_returns_names(self) -> None:
+        counter = Counter("test_me_total", "test counter")
+        counter.inc()
         ep = MetricsEndpoint()
+
         data = await ep.handle()
+
         assert "names" in data
         assert isinstance(data["names"], list)
-        assert "message" in data
+        assert "test_me_total" in data["names"]
+
+    @pytest.mark.asyncio
+    async def test_detail_returns_measurements(self) -> None:
+        counter = Counter("test_me_detail_total", "test detail counter", ["method"])
+        counter.labels(method="GET").inc(5)
+        ep = MetricsEndpoint()
+
+        data = await ep.handle(context={"name": "test_me_detail_total"})
+
+        assert data["name"] == "test_me_detail_total"
+        assert len(data["measurements"]) > 0
+        assert any(m["value"] == 5.0 for m in data["measurements"])
