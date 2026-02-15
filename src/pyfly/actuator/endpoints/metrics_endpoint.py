@@ -11,17 +11,20 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Metrics actuator endpoint — stub for future Prometheus integration."""
+"""Metrics actuator endpoint — queries Prometheus registry for metric data."""
 
 from __future__ import annotations
 
 from typing import Any
 
+from prometheus_client import REGISTRY
+
 
 class MetricsEndpoint:
-    """Stub endpoint at ``/actuator/metrics`` for future metrics integration.
+    """Endpoint at ``/actuator/metrics`` — lists all registered metrics.
 
-    Returns basic metadata.  Will be extended for Prometheus/OpenTelemetry.
+    Supports drill-down: pass ``context={"name": "http_requests_total"}``
+    to get measurements and tags for a specific metric.
     """
 
     @property
@@ -30,10 +33,32 @@ class MetricsEndpoint:
 
     @property
     def enabled(self) -> bool:
-        return False  # Disabled by default until a metrics backend is integrated
+        return True
 
     async def handle(self, context: Any = None) -> dict[str, Any]:
+        if context and isinstance(context, dict) and "name" in context:
+            return self._get_metric_detail(context["name"])
+        return self._list_metrics()
+
+    def _list_metrics(self) -> dict[str, Any]:
+        names: list[str] = sorted({
+            sample.name
+            for metric in REGISTRY.collect()
+            for sample in metric.samples
+        })
+        return {"names": names}
+
+    def _get_metric_detail(self, name: str) -> dict[str, Any]:
+        measurements: list[dict[str, Any]] = []
+        for metric_family in REGISTRY.collect():
+            for sample in metric_family.samples:
+                if sample.name == name or sample.name.startswith(name + "_"):
+                    measurements.append({
+                        "statistic": sample.name.removeprefix(name).lstrip("_") or "value",
+                        "value": sample.value,
+                        "tags": dict(sample.labels),
+                    })
         return {
-            "names": [],
-            "message": "Metrics endpoint stub. Configure a metrics backend to populate.",
+            "name": name,
+            "measurements": measurements,
         }

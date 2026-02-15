@@ -41,8 +41,10 @@ class MongoRepositoryBeanPostProcessor(BaseRepositoryPostProcessor):
     def _get_repository_type(self) -> type:
         return MongoRepository
 
-    def _compile_derived(self, parsed: Any, entity: Any, bean: Any) -> Any:
-        return self._query_compiler.compile(parsed, bean._model)
+    def _compile_derived(
+        self, parsed: Any, entity: Any, bean: Any, *, return_type: Any = None
+    ) -> Any:
+        return self._query_compiler.compile(parsed, bean._model, return_type=return_type)
 
     def _wrap_derived_method(self, compiled_fn: Any) -> Any:
         """Wrap a derived-query-compiled function to inject ``bean._model``."""

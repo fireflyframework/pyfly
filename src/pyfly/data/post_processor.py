@@ -21,7 +21,7 @@ Adapter-specific behaviour is supplied via abstract hook methods.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, get_type_hints
 
 from pyfly.data.query_parser import QueryMethodParser
 
@@ -72,7 +72,11 @@ class BaseRepositoryPostProcessor(ABC):
 
             if any(attr_name.startswith(prefix) for prefix in DERIVED_PREFIXES) and self._is_stub(attr):
                     parsed = self._query_parser.parse(attr_name)
-                    compiled_fn = self._compile_derived(parsed, entity, bean)
+                    hints = get_type_hints(attr)
+                    return_type = hints.get("return")
+                    compiled_fn = self._compile_derived(
+                        parsed, entity, bean, return_type=return_type
+                    )
                     wrapper = self._wrap_derived_method(compiled_fn)
                     setattr(bean, attr_name, wrapper.__get__(bean, cls))
 
@@ -88,7 +92,9 @@ class BaseRepositoryPostProcessor(ABC):
         ...
 
     @abstractmethod
-    def _compile_derived(self, parsed: Any, entity: Any, bean: Any) -> Any:
+    def _compile_derived(
+        self, parsed: Any, entity: Any, bean: Any, *, return_type: Any = None
+    ) -> Any:
         """Compile a parsed derived query method name into an executable callable."""
         ...
 

@@ -20,7 +20,7 @@ import time
 from collections.abc import Callable
 from typing import Any, TypeVar
 
-from prometheus_client import Counter, Histogram
+from prometheus_client import Counter, Gauge, Histogram
 
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -35,6 +35,7 @@ class MetricsRegistry:
     def __init__(self) -> None:
         self._counters: dict[str, Counter] = {}
         self._histograms: dict[str, Histogram] = {}
+        self._gauges: dict[str, Gauge] = {}
 
     def counter(self, name: str, description: str, labels: list[str] | None = None) -> Counter:
         """Get or create a counter metric."""
@@ -56,6 +57,12 @@ class MetricsRegistry:
                 kwargs["buckets"] = buckets
             self._histograms[name] = Histogram(name, description, labels or [], **kwargs)
         return self._histograms[name]
+
+    def gauge(self, name: str, description: str, labels: list[str] | None = None) -> Gauge:
+        """Get or create a gauge metric."""
+        if name not in self._gauges:
+            self._gauges[name] = Gauge(name, description, labels or [])
+        return self._gauges[name]
 
 
 def timed(registry: MetricsRegistry, name: str, description: str) -> Callable[[F], F]:
