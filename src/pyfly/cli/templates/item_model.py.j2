@@ -6,11 +6,11 @@ from pydantic import BaseModel, Field
 from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column
 
-from pyfly.data.relational import Base
+from pyfly.data.relational.sqlalchemy import Base
 {% endif %}
 {% if has_mongodb %}
 
-from pyfly.data.document import BaseDocument
+from pyfly.data.document.mongodb import BaseDocument
 {% endif %}
 
 

@@ -63,9 +63,9 @@ from pyfly.scheduling import (
     CronExpression,
     TaskScheduler,
     TaskExecutorPort,
-    AsyncIOTaskExecutor,
-    ThreadPoolTaskExecutor,
 )
+from pyfly.scheduling.adapters.asyncio_executor import AsyncIOTaskExecutor
+from pyfly.scheduling.adapters.thread_executor import ThreadPoolTaskExecutor
 ```
 
 ---
@@ -281,7 +281,7 @@ defaults to `AsyncIOTaskExecutor`:
 scheduler = TaskScheduler()
 
 # Custom: use ThreadPoolTaskExecutor for CPU-bound tasks
-from pyfly.scheduling import ThreadPoolTaskExecutor
+from pyfly.scheduling.adapters.thread_executor import ThreadPoolTaskExecutor
 scheduler = TaskScheduler(executor=ThreadPoolTaskExecutor(max_workers=8))
 ```
 
@@ -358,7 +358,7 @@ The default executor. Wraps `asyncio.create_task()` and tracks running tasks in
 a `set` for clean shutdown:
 
 ```python
-from pyfly.scheduling import AsyncIOTaskExecutor
+from pyfly.scheduling.adapters.asyncio_executor import AsyncIOTaskExecutor
 
 executor = AsyncIOTaskExecutor()
 task = await executor.submit(some_coroutine())
@@ -380,7 +380,7 @@ For CPU-bound or blocking work, `ThreadPoolTaskExecutor` wraps a standard
 `concurrent.futures.ThreadPoolExecutor`:
 
 ```python
-from pyfly.scheduling import ThreadPoolTaskExecutor
+from pyfly.scheduling.adapters.thread_executor import ThreadPoolTaskExecutor
 
 executor = ThreadPoolTaskExecutor(max_workers=4)
 ```

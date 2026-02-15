@@ -14,18 +14,11 @@
 """PyFly Web — Enterprise web layer with pluggable adapters.
 
 Framework-agnostic types (mappings, params, etc.) are exported directly.
-Default adapter (Starlette) exports are re-exported for convenience.
+Import concrete adapter types from the adapter package::
+
+    from pyfly.web.adapters.starlette import create_app
 """
 
-# Framework-agnostic exports
-# Default adapter (Starlette) re-exports
-from pyfly.web.adapters.starlette import (
-    ControllerRegistrar,
-    RequestLoggingMiddleware,
-    SecurityHeadersMiddleware,
-    create_app,
-    handle_return_value,
-)
 from pyfly.web.cors import CORSConfig
 from pyfly.web.exception_handler import exception_handler
 from pyfly.web.filters import OncePerRequestFilter
@@ -42,7 +35,6 @@ from pyfly.web.ports.filter import WebFilter
 from pyfly.web.security_headers import SecurityHeadersConfig
 
 __all__ = [
-    # Framework-agnostic
     "Body",
     "CORSConfig",
     "Cookie",
@@ -60,10 +52,4 @@ __all__ = [
     "post_mapping",
     "put_mapping",
     "request_mapping",
-    # Default adapter (Starlette)
-    "ControllerRegistrar",
-    "RequestLoggingMiddleware",
-    "SecurityHeadersMiddleware",
-    "create_app",
-    "handle_return_value",
 ]

@@ -35,7 +35,7 @@ cd pyfly
 bash install.sh
 
 # Or with specific extras
-PYFLY_EXTRAS=web,data bash install.sh
+PYFLY_EXTRAS=web,data-relational bash install.sh
 ```
 
 After installation, verify with:
@@ -108,10 +108,11 @@ Default: `~/.pyfly`. This directory will contain the PyFly source code, a dedica
 Which extras should be installed?
   1) full — All modules (recommended)
   2) web — Web framework (Starlette, uvicorn)
-  3) data — Database (SQLAlchemy, Alembic)
-  4) eda — Event-Driven (Kafka, RabbitMQ)
-  5) security — Auth & JWT
-  6) custom — Enter comma-separated extras
+  3) data-relational — SQL Database (SQLAlchemy, Alembic)
+  4) data-document — Document Database (MongoDB, Beanie ODM)
+  5) eda — Event-Driven (Kafka, RabbitMQ)
+  6) security — Auth & JWT
+  7) custom — Enter comma-separated extras
 
 Your choice [1]:
 ```
@@ -119,7 +120,7 @@ Your choice [1]:
 If you choose `custom`, you'll be prompted to enter a comma-separated list:
 
 ```
-Enter extras (comma-separated): web,data,security,cli
+Enter extras (comma-separated): web,data-relational,security,cli
 ```
 
 **3. PATH Configuration**
@@ -149,7 +150,7 @@ $ bash install.sh
 PyFly Installer
 
 Where should PyFly be installed? [~/.pyfly]:
-Which extras? (1=full, 2=web, 3=data, 4=eda, 5=security, 6=custom) [1]: 1
+Which extras? (1=full, 2=web, 3=data-relational, 4=data-document, 5=eda, 6=security, 7=custom) [1]: 1
 Add pyfly to PATH? [Y/n]: Y
 
 ✓ Python 3.12.5 detected
@@ -197,11 +198,11 @@ Customize any default with environment variables:
 # Install to a custom directory
 PYFLY_HOME=/opt/pyfly bash install.sh
 
-# Install only web and data modules
-PYFLY_EXTRAS=web,data bash install.sh
+# Install only web and data-relational modules
+PYFLY_EXTRAS=web,data-relational bash install.sh
 
 # Full customization
-PYFLY_HOME=/opt/pyfly PYFLY_EXTRAS=web,data,cli PYFLY_SOURCE=/src/pyfly bash install.sh
+PYFLY_HOME=/opt/pyfly PYFLY_EXTRAS=web,data-relational,cli PYFLY_SOURCE=/src/pyfly bash install.sh
 
 # CI/CD: non-interactive with full extras
 curl -fsSL https://raw.githubusercontent.com/fireflyframework/pyfly/main/install.sh | PYFLY_HOME=/app/pyfly bash
@@ -214,7 +215,7 @@ FROM python:3.12-slim
 
 COPY pyfly-source/ /tmp/pyfly-src/
 RUN cd /tmp/pyfly-src && \
-    PYFLY_HOME=/opt/pyfly PYFLY_EXTRAS=web,data bash install.sh && \
+    PYFLY_HOME=/opt/pyfly PYFLY_EXTRAS=web,data-relational bash install.sh && \
     rm -rf /tmp/pyfly-src
 
 ENV PATH="/opt/pyfly/bin:${PATH}"
@@ -245,7 +246,7 @@ source .venv/bin/activate
 pip install -e ".[full]"
 
 # Or install with specific extras
-pip install -e ".[web,data,cli]"
+pip install -e ".[web,data-relational,cli]"
 
 # Or install the bare minimum (core + pydantic + pyyaml)
 pip install -e .
@@ -257,8 +258,8 @@ Multiple extras are comma-separated inside the brackets:
 
 ```bash
 pip install -e ".[web]"                    # Web only
-pip install -e ".[web,data]"              # Web + data
-pip install -e ".[web,data,security]"     # Web + data + security
+pip install -e ".[web,data-relational]"              # Web + SQL data
+pip install -e ".[web,data-relational,security]"     # Web + SQL data + security
 pip install -e ".[full]"                  # Everything
 pip install -e ".[dev]"                   # Everything + dev tools
 ```
@@ -272,7 +273,8 @@ Each extra pulls in the third-party libraries needed for a specific framework mo
 | Extra | Dependencies | What It Enables |
 |-------|-------------|-----------------|
 | `web` | starlette, uvicorn, python-multipart | HTTP server, REST controllers, routing, middleware, OpenAPI docs |
-| `data` | sqlalchemy[asyncio], alembic, aiosqlite | Async database access, repositories, migrations (SQLite default) |
+| `data-relational` | sqlalchemy[asyncio], alembic, aiosqlite | Async SQL database access, repositories, migrations (SQLite default) |
+| `data-document` | motor, beanie | MongoDB document access via Beanie ODM |
 | `postgresql` | asyncpg | PostgreSQL async driver (add for production databases) |
 | `eda` | aiokafka, aio-pika | Both Kafka and RabbitMQ message brokers |
 | `kafka` | aiokafka | Apache Kafka messaging only |
@@ -289,9 +291,9 @@ Each extra pulls in the third-party libraries needed for a specific framework mo
 
 ### Choosing Extras
 
-**For a typical web service:** `web,data,security,cli`
+**For a typical web service:** `web,data-relational,security,cli`
 
-**For a microservice with messaging:** `web,data,eda,cache,cli`
+**For a microservice with messaging:** `web,data-relational,eda,cache,cli`
 
 **For development:** `dev` (includes everything + test/lint tools)
 

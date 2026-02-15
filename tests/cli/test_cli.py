@@ -671,7 +671,7 @@ class TestTemplateContent:
         assert result.exit_code == 0, result.output
         repo = (tmp_path / "my-api" / "src" / "my_api" / "repositories" / "item_repository.py").read_text()
         assert "Repository[ItemEntity, int]" in repo
-        assert "from pyfly.data.relational import Repository" in repo
+        assert "from pyfly.data.relational.sqlalchemy import Repository" in repo
 
     def test_no_data_feature_generates_in_memory_repo(self, tmp_path: Path):
         runner = CliRunner()
@@ -748,7 +748,7 @@ class TestMongoDBFeature:
         assert result.exit_code == 0, result.output
         model = (tmp_path / "my-api" / "src" / "my_api" / "models" / "item.py").read_text()
         assert "class ItemDocument(BaseDocument):" in model
-        assert "from pyfly.data.document import BaseDocument" in model
+        assert "from pyfly.data.document.mongodb import BaseDocument" in model
 
     def test_mongodb_feature_generates_mongo_repo(self, tmp_path: Path):
         runner = CliRunner()
@@ -759,7 +759,7 @@ class TestMongoDBFeature:
         assert result.exit_code == 0, result.output
         repo = (tmp_path / "my-api" / "src" / "my_api" / "repositories" / "item_repository.py").read_text()
         assert "MongoRepository[ItemDocument, str]" in repo
-        assert "from pyfly.data.document import MongoRepository" in repo
+        assert "from pyfly.data.document.mongodb import MongoRepository" in repo
 
     def test_mongodb_config_in_yaml(self, tmp_path: Path):
         runner = CliRunner()

@@ -734,7 +734,7 @@ The framework default is `enabled: false`. You can also enable it programmatical
 when creating the web application:
 
 ```python
-from pyfly.web import create_app
+from pyfly.web.adapters.starlette import create_app
 
 app = create_app(
     title="Order Service",
@@ -759,7 +759,8 @@ in a single service.
 
 from pyfly.core import pyfly_application, PyFlyApplication
 from pyfly.container import service, rest_controller
-from pyfly.web import request_mapping, post_mapping, get_mapping, Body, create_app
+from pyfly.web import request_mapping, post_mapping, get_mapping, Body
+from pyfly.web.adapters.starlette import create_app
 from pyfly.observability import (
     MetricsRegistry, timed, counted, span,
     configure_logging, get_logger,

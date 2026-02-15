@@ -18,7 +18,7 @@ from __future__ import annotations
 from typing import Any
 
 from pyfly.data.query_parser import QueryMethodParser
-from pyfly.data.relational.query import QueryExecutor
+from pyfly.data.relational.sqlalchemy.query import QueryExecutor
 from pyfly.data.relational.sqlalchemy.query_compiler import QueryMethodCompiler
 from pyfly.data.relational.sqlalchemy.repository import Repository
 

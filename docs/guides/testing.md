@@ -482,7 +482,7 @@ Test controllers by creating a Starlette test client with `create_app()` and
 ```python
 import pytest
 from httpx import AsyncClient, ASGITransport
-from pyfly.web import create_app
+from pyfly.web.adapters.starlette import create_app
 from pyfly.testing import create_test_container
 from pyfly.container import Scope
 

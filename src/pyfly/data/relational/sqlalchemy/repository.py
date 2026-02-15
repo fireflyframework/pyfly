@@ -22,7 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from pyfly.data.page import Page
 from pyfly.data.pageable import Pageable
-from pyfly.data.relational.specification import Specification
+from pyfly.data.relational.sqlalchemy.specification import Specification
 
 T = TypeVar("T")
 ID = TypeVar("ID")

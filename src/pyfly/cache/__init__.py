@@ -11,10 +11,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""PyFly Cache — Cache abstraction with automatic failover."""
+"""PyFly Cache — Cache abstraction with pluggable adapters.
 
-from pyfly.cache.adapters.memory import InMemoryCache
-from pyfly.cache.adapters.redis import RedisCacheAdapter
+Import concrete adapter types from the adapter package::
+
+    from pyfly.cache.adapters.memory import InMemoryCache
+    from pyfly.cache.adapters.redis import RedisCacheAdapter
+"""
+
 from pyfly.cache.decorators import cache, cache_evict, cache_put, cacheable
 from pyfly.cache.manager import CacheManager
 from pyfly.cache.ports.outbound import CacheAdapter
@@ -22,8 +26,6 @@ from pyfly.cache.ports.outbound import CacheAdapter
 __all__ = [
     "CacheAdapter",
     "CacheManager",
-    "InMemoryCache",
-    "RedisCacheAdapter",
     "cache",
     "cache_evict",
     "cache_put",

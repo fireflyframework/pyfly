@@ -139,7 +139,8 @@ Features control which PyFly extras are included as dependencies and which confi
 | Feature | What it adds |
 |---------|-------------|
 | `web` | HTTP routing, controllers, OpenAPI |
-| `data` | Repository pattern, SQLAlchemy, database config |
+| `data-relational` | Data Relational — SQL databases (SQLAlchemy ORM, repositories, migrations) |
+| `data-document` | Data Document — Document databases (MongoDB with Beanie ODM, repositories) |
 | `eda` | Event-driven architecture, Kafka config |
 | `cache` | Redis caching, cache config |
 | `client` | HTTP client (httpx) |
@@ -279,7 +280,8 @@ $ pyfly new
 
   ? Select features: (space to toggle, enter to confirm)
     ❯ [x] web          HTTP routing, controllers, OpenAPI
-      [ ] data         Repository pattern, SQLAlchemy
+      [ ] data-relational  Data Relational — SQL databases (SQLAlchemy)
+      [ ] data-document    Data Document — MongoDB (Beanie ODM)
       [ ] cache        Caching with Redis adapter
       [ ] security     JWT, password encoding
       [ ] eda          Event-driven architecture
@@ -292,7 +294,7 @@ $ pyfly new
   │   Name:      my-service         │
   │   Package:   my_service         │
   │   Archetype: web-api            │
-  │   Features:  web, data          │
+  │   Features:  web, data-relational │
   ╰─────────────────────────────────╯
 
   ? Create this project? Yes
@@ -442,7 +444,8 @@ Shows the installation status of each optional module by attempting to import th
 | Extra | Detection Module | What It Provides |
 |-------|-----------------|------------------|
 | `web` | `starlette` | HTTP server, routing, middleware |
-| `data` | `sqlalchemy` | Database access, repositories |
+| `data-relational` | `sqlalchemy` | SQL database access, repositories |
+| `data-document` | `beanie` | MongoDB document database, repositories |
 | `eda` | `aiokafka` | Event-driven architecture |
 | `kafka` | `aiokafka` | Apache Kafka messaging |
 | `rabbitmq` | `aio_pika` | RabbitMQ messaging |

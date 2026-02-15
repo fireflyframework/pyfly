@@ -98,7 +98,7 @@ from pyfly.actuator import (
 Pass `actuator_enabled=True` when creating the web application:
 
 ```python
-from pyfly.web import create_app
+from pyfly.web.adapters.starlette import create_app
 
 app = create_app(
     title="Order Service",
@@ -1104,7 +1104,8 @@ custom actuator endpoint, and runtime logger management.
 
 from pyfly.core import pyfly_application, PyFlyApplication
 from pyfly.container import component, service, rest_controller
-from pyfly.web import create_app, request_mapping, get_mapping
+from pyfly.web import request_mapping, get_mapping
+from pyfly.web.adapters.starlette import create_app
 from pyfly.actuator import ActuatorEndpoint, HealthStatus
 
 

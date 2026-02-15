@@ -414,7 +414,7 @@ app.add_middleware(
 The `SecurityMiddleware` is not included automatically by `create_app()`. You add it to the application after creation:
 
 ```python
-from pyfly.web import create_app
+from pyfly.web.adapters.starlette import create_app
 from pyfly.security import SecurityMiddleware, JWTService
 
 app = create_app(title="My API", context=ctx)
@@ -545,7 +545,7 @@ class SecurityConfig:
 ### User Entity and Repository
 
 ```python
-from pyfly.data.relational import BaseEntity, Repository
+from pyfly.data.relational.sqlalchemy import BaseEntity, Repository
 from pyfly.container import repository as repo_stereotype
 from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column
@@ -794,7 +794,8 @@ class AdminUserController:
 ### Application Assembly
 
 ```python
-from pyfly.web import create_app, CORSConfig
+from pyfly.web import CORSConfig
+from pyfly.web.adapters.starlette import create_app
 from pyfly.security import SecurityMiddleware, JWTService
 
 

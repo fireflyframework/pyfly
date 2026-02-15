@@ -86,7 +86,7 @@ applications**.
 
 ```python
 from datetime import timedelta
-from pyfly.cache import InMemoryCache
+from pyfly.cache.adapters.memory import InMemoryCache
 
 cache = InMemoryCache()
 
@@ -131,7 +131,7 @@ The `RedisCacheAdapter` is the production cache backend. It delegates to a
 
 ```python
 import redis.asyncio as redis
-from pyfly.cache import RedisCacheAdapter
+from pyfly.cache.adapters.redis import RedisCacheAdapter
 
 client = redis.from_url("redis://localhost:6379/0")
 cache = RedisCacheAdapter(client)
@@ -194,7 +194,9 @@ The `CacheManager` wraps a **primary** cache and a **fallback** cache, adding
 automatic failover:
 
 ```python
-from pyfly.cache import CacheManager, RedisCacheAdapter, InMemoryCache
+from pyfly.cache import CacheManager
+from pyfly.cache.adapters.memory import InMemoryCache
+from pyfly.cache.adapters.redis import RedisCacheAdapter
 
 primary = RedisCacheAdapter(redis_client)
 fallback = InMemoryCache()
@@ -248,7 +250,8 @@ function executes and the result is stored.
 
 ```python
 from datetime import timedelta
-from pyfly.cache import cache, InMemoryCache
+from pyfly.cache import cache
+from pyfly.cache.adapters.memory import InMemoryCache
 
 backend = InMemoryCache()
 
@@ -454,12 +457,12 @@ from pyfly.container import service, configuration, bean
 from pyfly.cache import (
     CacheAdapter,
     CacheManager,
-    InMemoryCache,
-    RedisCacheAdapter,
     cache,
     cache_evict,
     cache_put,
 )
+from pyfly.cache.adapters.memory import InMemoryCache
+from pyfly.cache.adapters.redis import RedisCacheAdapter
 
 
 # ---------------------------------------------------------------------------
@@ -601,7 +604,7 @@ Redis.
 ```python
 import pytest
 from datetime import timedelta
-from pyfly.cache import InMemoryCache
+from pyfly.cache.adapters.memory import InMemoryCache
 
 
 @pytest.fixture

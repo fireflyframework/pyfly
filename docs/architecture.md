@@ -234,7 +234,7 @@ Infrastructure modules follow the hexagonal pattern: ports in `ports/`, adapters
 | Module | Package | Ports | Adapters |
 |---|---|---|---|
 | **Web** | `pyfly.web` | Mappings (`@get_mapping`, `@post_mapping`, etc.), params (`Body`, `PathVar`, `QueryParam`, `Header`, `Cookie`, `Valid`), `CORSConfig`, `SecurityHeadersConfig`, `WebFilter` protocol, `OncePerRequestFilter`, `@exception_handler`. Config-driven adapter selection (`pyfly.web.adapter`). | Starlette/ASGI (`StarletteWebAdapter`, `ControllerRegistrar`, `create_app`, `WebFilterChainMiddleware`, built-in filters). |
-| **Data** | `pyfly.data` | `RepositoryPort`, `SessionPort`, `Page`, `Pageable`, `Sort`, `Order`, `Specification`, query DSL (`@query`, `QueryMethodParser`, `QueryMethodCompiler`), `Mapper`, `FilterUtils`. | SQLAlchemy (`Repository`, `BaseEntity`, `Base`, `reactive_transactional`, `RepositoryBeanPostProcessor`). |
+| **Data** | `pyfly.data` | `RepositoryPort`, `SessionPort`, `QueryMethodCompilerPort`. | SQLAlchemy (`Repository`, `Specification`, `FilterUtils`, `@query`, `QueryMethodCompiler`, `RepositoryBeanPostProcessor`), MongoDB (`MongoRepository`, `BaseDocument`, `MongoQueryMethodCompiler`, `MongoRepositoryBeanPostProcessor`). |
 | **Messaging** | `pyfly.messaging` | `MessageBrokerPort`, `MessageHandler`, `Message`, `@message_listener`. | Kafka (`KafkaAdapter`), RabbitMQ (`RabbitMQAdapter`), in-memory (`InMemoryMessageBroker`). |
 | **Cache** | `pyfly.cache` | `CacheAdapter`, `CacheManager`, `@cacheable`, `@cache_evict`, `@cache_put`. | Redis (`RedisCacheAdapter`), in-memory (`InMemoryCache`). |
 | **Client** | `pyfly.client` | `HttpClientPort`, `ServiceClient`, `CircuitBreaker`, `RetryPolicy`, declarative `@http_client` with `@get`, `@post`, `@put`, `@patch`, `@delete`. | HTTPX (`HttpxClientAdapter`), `HttpClientBeanPostProcessor`. |
@@ -618,18 +618,32 @@ framework. The Starlette adapter is the default; config-driven selection
 ### Data Module
 
 ```
-pyfly.data/
-    page.py, pageable.py     # Pagination types (Page, Pageable, Sort, Order)
-    specification.py          # Specification pattern for composable queries
-    query.py, query_parser.py # Query DSL (@query, QueryMethodParser, QueryMethodCompiler)
-    mapper.py                 # Entity/DTO mapping (Mapper)
-    filter.py                 # Filter utilities (FilterOperator, FilterUtils)
-    ports/
-        outbound.py           # RepositoryPort, SessionPort
-    adapters/
-        sqlalchemy/           # SQLAlchemy implementation
-            Repository, BaseEntity, Base, reactive_transactional,
-            RepositoryBeanPostProcessor
+pyfly/data/                     # Data Commons
+├── page.py                     # Page[T]
+├── pageable.py                 # Pageable, Sort, Order
+├── mapper.py                   # Mapper
+├── query_parser.py             # QueryMethodParser
+├── ports/                      # Shared ports
+│   ├── outbound.py             # RepositoryPort, SessionPort
+│   └── compiler.py             # QueryMethodCompilerPort
+├── relational/                 # Relational namespace
+│   └── sqlalchemy/             # SQLAlchemy adapter
+│       ├── entity.py           # Base, BaseEntity
+│       ├── repository.py       # Repository[T, ID]
+│       ├── specification.py    # Specification
+│       ├── filter.py           # FilterOperator, FilterUtils
+│       ├── query.py            # @query, QueryExecutor
+│       ├── query_compiler.py   # QueryMethodCompiler
+│       ├── post_processor.py   # RepositoryBeanPostProcessor
+│       └── transactional.py    # reactive_transactional
+└── document/                   # Document namespace
+    └── mongodb/                # MongoDB adapter
+        ├── document.py         # BaseDocument
+        ├── repository.py       # MongoRepository[T, ID]
+        ├── query_compiler.py   # MongoQueryMethodCompiler
+        ├── post_processor.py   # MongoRepositoryBeanPostProcessor
+        ├── transactional.py    # mongo_transactional
+        └── initializer.py      # initialize_beanie()
 ```
 
 ### Messaging Module

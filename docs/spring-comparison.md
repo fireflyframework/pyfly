@@ -653,7 +653,8 @@ public Order updateOrder(Order order) { }
 ### PyFly
 
 ```python
-from pyfly.cache import cacheable, cache_evict, cache_put, InMemoryCache
+from pyfly.cache import cacheable, cache_evict, cache_put
+from pyfly.cache.adapters.memory import InMemoryCache
 
 cache_backend = InMemoryCache()  # or RedisCacheAdapter
 

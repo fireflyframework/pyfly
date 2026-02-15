@@ -212,7 +212,8 @@ The in-memory broker is designed for **development, testing, and single-process
 applications**. It requires no external infrastructure.
 
 ```python
-from pyfly.messaging import InMemoryMessageBroker, Message
+from pyfly.messaging import Message
+from pyfly.messaging.adapters.memory import InMemoryMessageBroker
 
 broker = InMemoryMessageBroker()
 
@@ -408,11 +409,11 @@ from dataclasses import dataclass
 
 from pyfly.container import service, configuration, bean
 from pyfly.messaging import (
-    InMemoryMessageBroker,
     Message,
     MessageBrokerPort,
     message_listener,
 )
+from pyfly.messaging.adapters.memory import InMemoryMessageBroker
 
 
 # ---------------------------------------------------------------------------
@@ -506,7 +507,8 @@ tests without spinning up Kafka or RabbitMQ:
 ```python
 import json
 import pytest
-from pyfly.messaging import InMemoryMessageBroker, Message
+from pyfly.messaging import Message
+from pyfly.messaging.adapters.memory import InMemoryMessageBroker
 
 
 @pytest.fixture

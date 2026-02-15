@@ -25,7 +25,7 @@ from pyfly.data.relational.sqlalchemy.repository import Repository
 from pyfly.data.relational.sqlalchemy.transactional import reactive_transactional
 from pyfly.data.page import Page
 from pyfly.data.pageable import Order, Pageable, Sort
-from pyfly.data.relational.specification import Specification
+from pyfly.data.relational.sqlalchemy.specification import Specification
 
 
 class Item(BaseEntity):

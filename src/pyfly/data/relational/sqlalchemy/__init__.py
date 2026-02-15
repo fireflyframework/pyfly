@@ -14,16 +14,24 @@
 """SQLAlchemy data access adapter — default RepositoryPort implementation."""
 
 from pyfly.data.relational.sqlalchemy.entity import Base, BaseEntity
+from pyfly.data.relational.sqlalchemy.filter import FilterOperator, FilterUtils
 from pyfly.data.relational.sqlalchemy.post_processor import RepositoryBeanPostProcessor
+from pyfly.data.relational.sqlalchemy.query import QueryExecutor, query
 from pyfly.data.relational.sqlalchemy.query_compiler import QueryMethodCompiler
 from pyfly.data.relational.sqlalchemy.repository import Repository
+from pyfly.data.relational.sqlalchemy.specification import Specification
 from pyfly.data.relational.sqlalchemy.transactional import reactive_transactional
 
 __all__ = [
     "Base",
     "BaseEntity",
+    "FilterOperator",
+    "FilterUtils",
+    "QueryExecutor",
     "QueryMethodCompiler",
     "Repository",
     "RepositoryBeanPostProcessor",
+    "Specification",
+    "query",
     "reactive_transactional",
 ]

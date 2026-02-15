@@ -195,7 +195,7 @@ The installer clones the repo, creates a virtual environment, installs PyFly wit
 PYFLY_HOME=/opt/pyfly curl -fsSL https://get.pyfly.io/ | bash
 
 # Install with specific extras only
-PYFLY_EXTRAS=web,data,security curl -fsSL https://get.pyfly.io/ | bash
+PYFLY_EXTRAS=web,data-relational,security curl -fsSL https://get.pyfly.io/ | bash
 ```
 
 ### Local Install (from source)

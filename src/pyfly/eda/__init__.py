@@ -11,9 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""PyFly EDA — Event-Driven Architecture."""
+"""PyFly EDA — Event-Driven Architecture.
 
-from pyfly.eda.adapters.memory import InMemoryEventBus
+Import concrete adapter types from the adapter package::
+
+    from pyfly.eda.adapters.memory import InMemoryEventBus
+"""
+
 from pyfly.eda.decorators import event_listener, event_publisher, publish_result
 from pyfly.eda.ports.outbound import EventHandler, EventPublisher
 from pyfly.eda.types import ErrorStrategy, EventEnvelope
@@ -23,7 +27,6 @@ __all__ = [
     "EventEnvelope",
     "EventHandler",
     "EventPublisher",
-    "InMemoryEventBus",
     "event_listener",
     "event_publisher",
     "publish_result",

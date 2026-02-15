@@ -27,7 +27,7 @@ class TestMessagingExports:
         assert Message is not None
 
     def test_can_import_memory_broker(self) -> None:
-        from pyfly.messaging import InMemoryMessageBroker
+        from pyfly.messaging.adapters.memory import InMemoryMessageBroker
 
         assert InMemoryMessageBroker is not None
 

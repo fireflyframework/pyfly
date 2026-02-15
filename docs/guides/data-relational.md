@@ -1,12 +1,11 @@
 # Data Relational Guide
 
-> **PyFly Data** follows the Spring Data umbrella architecture. The framework is organized into three layers:
+> **PyFly Data** follows the Spring Data umbrella architecture. The framework is organized into two layers:
 >
 > | Layer | Package | Purpose |
 > |-------|---------|---------|
 > | **Data Commons** | `pyfly.data` | Shared abstractions — `RepositoryPort[T, ID]`, `Page`, `Pageable`, `Sort`, `QueryMethodParser`, `QueryMethodCompilerPort` |
-> | **Data Relational** | `pyfly.data.relational` | Abstract relational layer — `Specification`, `FilterOperator`, `FilterUtils`, `@query` |
-> | **SQLAlchemy Adapter** | `pyfly.data.relational.sqlalchemy` | Concrete adapter — `Base`, `BaseEntity`, `Repository[T, ID]`, `reactive_transactional` |
+> | **SQLAlchemy Adapter** | `pyfly.data.relational.sqlalchemy` | Concrete adapter — `Base`, `BaseEntity`, `Repository[T, ID]`, `Specification`, `FilterOperator`, `FilterUtils`, `@query`, `reactive_transactional` |
 >
 > This guide covers the **relational** layer and its default **SQLAlchemy adapter**. For document databases, see the [Data Document Guide](data-document.md). Both adapters share the same commons layer and can coexist in the same project.
 >
@@ -77,7 +76,7 @@ PyFly Data Relational implements the Repository pattern with Spring Data-style d
 
 ## Architecture Overview
 
-The data module follows a hexagonal architecture with three distinct layers:
+The data module follows a hexagonal architecture with two distinct layers:
 
 ### Layer 1: Data Commons (`pyfly.data`)
 
@@ -96,33 +95,24 @@ from pyfly.data import (
 
 Your service layer should depend on these ports — never on the adapter directly.
 
-### Layer 2: Data Relational (`pyfly.data.relational`)
+### Layer 2: SQLAlchemy Adapter (`pyfly.data.relational.sqlalchemy`)
 
-Relational-specific abstractions that apply to any SQL backend:
+All concrete types live in the SQLAlchemy adapter package. The namespace `pyfly.data.relational` is a pass-through and does not re-export anything.
 
 ```python
-from pyfly.data.relational import (
+from pyfly.data.relational.sqlalchemy import (
+    Base, BaseEntity,                   # SQLAlchemy entity base classes
+    Repository,                         # Repository[T, ID] implementation
     Specification,                      # Composable query predicates
     FilterOperator, FilterUtils,        # Query-by-example utilities
     QueryExecutor, query,               # Custom @query decorator
-)
-```
-
-### Layer 3: SQLAlchemy Adapter (`pyfly.data.relational.sqlalchemy`)
-
-The concrete adapter providing the relational implementation. Imported via the convenience re-exports on `pyfly.data.relational`:
-
-```python
-from pyfly.data.relational import (
-    Base, BaseEntity,                   # SQLAlchemy entity base classes
-    Repository,                         # Repository[T, ID] implementation
     QueryMethodCompiler,                # Derived query → SQLAlchemy compiler
     RepositoryBeanPostProcessor,        # Auto-wires query methods
     reactive_transactional,             # Declarative transaction management
 )
 ```
 
-> **Note:** `pyfly.data.relational` re-exports the SQLAlchemy adapter types for convenience. You can also import directly from `pyfly.data.relational.sqlalchemy` if you prefer explicit adapter imports.
+> **Note:** Always import concrete types from `pyfly.data.relational.sqlalchemy`. The `pyfly.data.relational` namespace is reserved for future cross-adapter abstractions and does not export any types.
 
 ---
 
@@ -133,7 +123,7 @@ from pyfly.data.relational import (
 PyFly exports a pre-configured SQLAlchemy `DeclarativeBase`:
 
 ```python
-from pyfly.data.relational import Base
+from pyfly.data.relational.sqlalchemy import Base
 ```
 
 Use `Base` directly when you need SQLAlchemy entities without the built-in audit trail fields.
@@ -143,7 +133,7 @@ Use `Base` directly when you need SQLAlchemy entities without the built-in audit
 `BaseEntity` extends `Base` and provides a UUID primary key plus four audit trail columns. All domain entities should inherit from this class:
 
 ```python
-from pyfly.data.relational import BaseEntity
+from pyfly.data.relational.sqlalchemy import BaseEntity
 ```
 
 **Inherited fields:**
@@ -163,7 +153,7 @@ from pyfly.data.relational import BaseEntity
 Extend `BaseEntity` and declare your domain columns:
 
 ```python
-from pyfly.data.relational import BaseEntity
+from pyfly.data.relational.sqlalchemy import BaseEntity
 from sqlalchemy import String, Float, Boolean
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -192,7 +182,7 @@ The `Repository[T, ID]` class provides generic async CRUD operations for any SQL
 
 ```python
 from uuid import UUID
-from pyfly.data.relational import Repository
+from pyfly.data.relational.sqlalchemy import Repository
 
 repo = Repository[Order, UUID](Order, session)
 order = await repo.save(Order(customer_id="abc", status="PENDING"))
@@ -205,7 +195,7 @@ Subclass `Repository[T, ID]` and register it as a bean with the `@repository` st
 
 ```python
 from uuid import UUID
-from pyfly.data.relational import Repository
+from pyfly.data.relational.sqlalchemy import Repository
 from pyfly.container import repository as repo_stereotype
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -437,7 +427,7 @@ Each of these method bodies should be a stub (`...` or `pass`). The `RepositoryB
 For complex queries that cannot be expressed through method naming conventions, use the `@query` decorator:
 
 ```python
-from pyfly.data.relational import query
+from pyfly.data.relational.sqlalchemy import query
 ```
 
 ### JPQL-Like Syntax
@@ -508,7 +498,7 @@ Specifications provide composable, type-safe query predicates inspired by Spring
 A `Specification[T]` wraps a callable that takes an entity class (`root`) and a SQLAlchemy `Select` statement, and returns a modified `Select`:
 
 ```python
-from pyfly.data.relational import Specification
+from pyfly.data.relational.sqlalchemy import Specification
 
 # Inline specification
 active = Specification(lambda root, q: q.where(root.active == True))
@@ -546,7 +536,7 @@ complex_spec = (active & admin) | ~admin
 orders = await repo.find_all_by_spec(active & admin)
 
 # Find with pagination
-from pyfly.data.relational import Pageable, Sort
+from pyfly.data import Pageable, Sort
 
 pageable = Pageable.of(page=1, size=20, sort=Sort.by("created_at").descending())
 page = await repo.find_all_by_spec_paged(active & admin, pageable)
@@ -580,7 +570,7 @@ page = await repo.find_all_by_spec_paged(active & admin, pageable)
 Every `FilterOperator` method returns a `Specification`, so they can be composed with `&`, `|`, and `~`:
 
 ```python
-from pyfly.data.relational import FilterOperator
+from pyfly.data.relational.sqlalchemy import FilterOperator
 
 # Adults between 18 and 65
 age_filter = FilterOperator.gte("age", 18) & FilterOperator.lt("age", 65)
@@ -603,7 +593,7 @@ results = await repo.find_all_by_spec(final_spec)
 `FilterUtils` generates `Specification` objects from various input formats, providing a Pythonic take on Spring Data's Query by Example pattern.
 
 ```python
-from pyfly.data.relational import FilterUtils
+from pyfly.data.relational.sqlalchemy import FilterUtils
 
 # From keyword arguments (all eq, ANDed together)
 spec = FilterUtils.by(name="Alice", active=True)
@@ -645,7 +635,7 @@ spec = FilterUtils.from_example(example)
 `Pageable` is a frozen dataclass that encapsulates pagination parameters:
 
 ```python
-from pyfly.data.relational import Pageable, Sort, Order as SortOrder
+from pyfly.data import Pageable, Sort, Order as SortOrder
 
 # Simple pagination
 pageable = Pageable.of(page=1, size=20)
@@ -681,7 +671,7 @@ prev_page = pageable.previous()    # Pageable for page - 1 (minimum page 1)
 `Sort` is a collection of `Order` objects:
 
 ```python
-from pyfly.data.relational import Sort, Order as SortOrder
+from pyfly.data import Sort, Order as SortOrder
 
 # Sort by a single field ascending
 sort = Sort.by("name")
@@ -778,7 +768,7 @@ The `Mapper` class provides type-to-type mapping between entities and DTOs, insp
 ### Basic Mapping
 
 ```python
-from pyfly.data.relational import Mapper
+from pyfly.data import Mapper
 from dataclasses import dataclass
 
 
@@ -863,7 +853,7 @@ The mapper supports both dataclasses and plain objects. Source field extraction 
 The `@reactive_transactional` decorator provides declarative async transaction management:
 
 ```python
-from pyfly.data.relational import reactive_transactional
+from pyfly.data.relational.sqlalchemy import reactive_transactional
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 session_factory: async_sessionmaker[AsyncSession] = ...
@@ -925,7 +915,7 @@ async def find_by_status(self, status: str) -> list[Order]: pass   # Pass stub
 Register the post-processor in your application context:
 
 ```python
-from pyfly.data.relational import RepositoryBeanPostProcessor
+from pyfly.data.relational.sqlalchemy import RepositoryBeanPostProcessor
 
 context.register_post_processor(RepositoryBeanPostProcessor())
 ```
@@ -977,7 +967,7 @@ The following example demonstrates an entity, repository with derived queries, s
 ```python
 # --- Entity ---
 
-from pyfly.data.relational import BaseEntity
+from pyfly.data.relational.sqlalchemy import BaseEntity
 from sqlalchemy import String, Float, Boolean
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -993,7 +983,7 @@ class Product(BaseEntity):
 
 # --- Repository ---
 
-from pyfly.data.relational import Repository, query
+from pyfly.data.relational.sqlalchemy import Repository, query
 from pyfly.container import repository as repo_stereotype
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -1032,10 +1022,8 @@ class ProductRepository(Repository[Product, UUID]):
 # --- Service ---
 
 from pyfly.container import service
-from pyfly.data.relational import (
-    FilterOperator, FilterUtils, Specification,
-    Pageable, Sort, Page, Mapper,
-)
+from pyfly.data import Pageable, Sort, Page, Mapper
+from pyfly.data.relational.sqlalchemy import FilterOperator, FilterUtils, Specification
 from dataclasses import dataclass
 
 

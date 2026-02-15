@@ -15,7 +15,7 @@
 
 import pytest
 
-from pyfly.eda import InMemoryEventBus
+from pyfly.eda.adapters.memory import InMemoryEventBus
 from pyfly.eda.types import EventEnvelope
 
 

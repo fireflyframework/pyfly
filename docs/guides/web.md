@@ -683,7 +683,7 @@ async def get_order(self, id: PathVar[str]) -> OrderResponse:
 The `handle_return_value(result, status_code=200)` function is the core of response conversion. It is called by the `ControllerRegistrar` after each handler invocation:
 
 ```python
-from pyfly.web import handle_return_value
+from pyfly.web.adapters.starlette import handle_return_value
 
 response = handle_return_value({"key": "value"}, status_code=200)
 # -> JSONResponse({"key": "value"}, status_code=200)
@@ -1328,7 +1328,8 @@ Source file: `src/pyfly/web/openapi.py`
 The `create_app()` function is the primary entry point for building a PyFly web application:
 
 ```python
-from pyfly.web import create_app, CORSConfig
+from pyfly.web import CORSConfig
+from pyfly.web.adapters.starlette import create_app
 
 app = create_app(
     title="Order Service",
@@ -1669,7 +1670,8 @@ class ProductController:
 **Running the application:**
 
 ```python
-from pyfly.web import create_app, CORSConfig
+from pyfly.web import CORSConfig
+from pyfly.web.adapters.starlette import create_app
 
 app = create_app(
     title="Product Service",

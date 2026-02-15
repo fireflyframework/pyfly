@@ -31,18 +31,20 @@ from pydantic import BaseModel
 from starlette.routing import Route
 from starlette.testclient import TestClient
 
-from pyfly.cache import InMemoryCache, cache
+from pyfly.cache import cache
+from pyfly.cache.adapters.memory import InMemoryCache
 from pyfly.container.stereotypes import rest_controller, service
 from pyfly.context.application_context import ApplicationContext
 from pyfly.core.config import Config
 from pyfly.cqrs import Command, CommandHandler, Mediator, Query, QueryHandler, command_handler, query_handler
-from pyfly.eda import EventEnvelope, InMemoryEventBus
+from pyfly.eda import EventEnvelope
+from pyfly.eda.adapters.memory import InMemoryEventBus
 from pyfly.kernel.exceptions import ResourceNotFoundException, ValidationException
 from pyfly.observability.metrics import MetricsRegistry, counted
 from pyfly.security import SecurityContext, secure
 from pyfly.testing import assert_event_published, create_test_container
 from pyfly.validation import validate_model
-from pyfly.web import create_app
+from pyfly.web.adapters.starlette import create_app
 from pyfly.web.mappings import get_mapping, post_mapping, request_mapping
 from pyfly.web.params import Body, PathVar
 

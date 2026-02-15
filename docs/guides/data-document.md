@@ -1,11 +1,10 @@
 # Data Document Guide
 
-> **PyFly Data** follows the Spring Data umbrella architecture. The framework is organized into three layers:
+> **PyFly Data** follows the Spring Data umbrella architecture. The framework is organized into two layers:
 >
 > | Layer | Package | Purpose |
 > |-------|---------|---------|
 > | **Data Commons** | `pyfly.data` | Shared abstractions — `RepositoryPort[T, ID]`, `Page`, `Pageable`, `Sort`, `QueryMethodParser`, `QueryMethodCompilerPort` |
-> | **Data Document** | `pyfly.data.document` | Abstract document layer — re-exports from the active document adapter |
 > | **MongoDB Adapter** | `pyfly.data.document.mongodb` | Concrete adapter — `BaseDocument`, `MongoRepository[T, ID]`, `mongo_transactional` |
 >
 > This guide covers the **document** layer and its default **MongoDB adapter** (Beanie ODM + Motor). For relational databases, see the [Data Relational Guide](data-relational.md). Both adapters share the same commons layer and can coexist in the same project.
@@ -137,17 +136,7 @@ from pyfly.data import (
 )
 ```
 
-**Layer 2 — Data Document** (re-exports from the active document adapter):
-
-```python
-from pyfly.data.document import (
-    BaseDocument, MongoRepository,
-    MongoQueryMethodCompiler, MongoRepositoryBeanPostProcessor,
-    initialize_beanie, mongo_transactional,
-)
-```
-
-**Layer 3 — MongoDB Adapter** (direct adapter imports, equivalent to above):
+**Layer 2 — MongoDB Adapter** (concrete document adapter types):
 
 ```python
 from pyfly.data.document.mongodb import (
@@ -160,11 +149,10 @@ from pyfly.data.document.mongodb import (
 )
 ```
 
-> **Note:** `pyfly.data.document` re-exports the MongoDB adapter types for convenience, just as `pyfly.data.relational` re-exports the SQLAlchemy adapter. Commons types like `Page`, `Pageable`, and `RepositoryPort` are always imported from `pyfly.data`.
+> **Note:** `pyfly.data.document` is a namespace package and does not re-export concrete adapter types. All concrete types must be imported from the adapter package directly (`pyfly.data.document.mongodb`). Commons types like `Page`, `Pageable`, and `RepositoryPort` are always imported from `pyfly.data`.
 
 Source files:
 - `src/pyfly/data/__init__.py` -- commons layer (Page, Pageable, ports)
-- `src/pyfly/data/document/__init__.py` -- document sub-layer re-exports
 - `src/pyfly/data/document/mongodb/__init__.py` -- MongoDB adapter package exports
 
 ---
@@ -1611,7 +1599,7 @@ class ProductController:
 # ==========================================================================
 
 from pyfly.core import pyfly_application, PyFlyApplication
-from pyfly.web import create_app
+from pyfly.web.adapters.starlette import create_app
 from pyfly.data.document.mongodb import initialize_beanie, MongoRepositoryBeanPostProcessor
 
 

@@ -13,34 +13,8 @@
 # limitations under the License.
 """PyFly Data Relational — abstract relational data access layer.
 
-Re-exports from the active relational adapter (SQLAlchemy by default)
-plus relational-specific modules (Specification, Filter, Query).
+This package is a namespace for relational database adapters.
+Import concrete adapter types from the adapter package directly::
+
+    from pyfly.data.relational.sqlalchemy import Base, Repository
 """
-
-from pyfly.data.relational.filter import FilterOperator, FilterUtils
-from pyfly.data.relational.query import QueryExecutor, query
-from pyfly.data.relational.specification import Specification
-from pyfly.data.relational.sqlalchemy import (
-    Base,
-    BaseEntity,
-    QueryMethodCompiler,
-    Repository,
-    RepositoryBeanPostProcessor,
-    reactive_transactional,
-)
-
-__all__ = [
-    # Relational-specific modules
-    "FilterOperator",
-    "FilterUtils",
-    "QueryExecutor",
-    "Specification",
-    "query",
-    # Default adapter (SQLAlchemy)
-    "Base",
-    "BaseEntity",
-    "QueryMethodCompiler",
-    "Repository",
-    "RepositoryBeanPostProcessor",
-    "reactive_transactional",
-]

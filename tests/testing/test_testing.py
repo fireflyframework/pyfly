@@ -17,7 +17,8 @@ import pytest
 
 from pyfly.container import Container
 from pyfly.context.application_context import ApplicationContext
-from pyfly.eda import EventEnvelope, InMemoryEventBus
+from pyfly.eda import EventEnvelope
+from pyfly.eda.adapters.memory import InMemoryEventBus
 from pyfly.testing.assertions import assert_event_published, assert_no_events_published
 from pyfly.testing.containers import create_test_container
 from pyfly.testing.fixtures import PyFlyTestCase

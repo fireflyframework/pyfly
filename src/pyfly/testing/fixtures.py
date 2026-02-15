@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from pyfly.context.application_context import ApplicationContext
 from pyfly.core.config import Config
-from pyfly.eda import InMemoryEventBus
+from pyfly.eda.adapters.memory import InMemoryEventBus
 
 
 class PyFlyTestCase:

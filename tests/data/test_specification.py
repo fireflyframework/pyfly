@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.orm import Mapped, mapped_column
 
 from pyfly.data.relational.sqlalchemy.entity import Base, BaseEntity
-from pyfly.data.relational.specification import Specification
+from pyfly.data.relational.sqlalchemy.specification import Specification
 
 # ---------------------------------------------------------------------------
 # Test entity

@@ -130,8 +130,9 @@ pyfly/
 ├── logging/         Structured logging (Structlog adapter)
 ├── web/             REST controllers, routing, OpenAPI, WebFilters
 ├── data/            Repository pattern (Spring Data architecture)
-│   ├── adapters/
-│   │   ├── sqlalchemy/   SQL via SQLAlchemy async ORM
+│   ├── relational/
+│   │   └── sqlalchemy/   SQL via SQLAlchemy async ORM
+│   ├── document/
 │   │   └── mongodb/      MongoDB via Beanie ODM
 │   └── ports/            RepositoryPort, QueryMethodCompilerPort
 ├── validation/      Valid[T], Pydantic validation

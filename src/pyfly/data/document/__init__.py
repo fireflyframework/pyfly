@@ -13,23 +13,8 @@
 # limitations under the License.
 """PyFly Data Document — abstract document data access layer.
 
-Re-exports from the active document adapter (MongoDB via Beanie by default).
+This package is a namespace for document database adapters.
+Import concrete adapter types from the adapter package directly::
+
+    from pyfly.data.document.mongodb import BaseDocument, MongoRepository
 """
-
-from pyfly.data.document.mongodb import (
-    BaseDocument,
-    MongoQueryMethodCompiler,
-    MongoRepository,
-    MongoRepositoryBeanPostProcessor,
-    initialize_beanie,
-    mongo_transactional,
-)
-
-__all__ = [
-    "BaseDocument",
-    "MongoQueryMethodCompiler",
-    "MongoRepository",
-    "MongoRepositoryBeanPostProcessor",
-    "initialize_beanie",
-    "mongo_transactional",
-]

@@ -39,7 +39,7 @@ from __future__ import annotations
 import dataclasses
 from typing import Any, TypeVar
 
-from pyfly.data.relational.specification import Specification
+from pyfly.data.relational.sqlalchemy.specification import Specification
 
 T = TypeVar("T")
 

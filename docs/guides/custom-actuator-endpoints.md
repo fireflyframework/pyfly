@@ -295,7 +295,7 @@ This index is automatically generated from the registry's enabled endpoints.
 
 from pyfly.container import component
 from pyfly.core import pyfly_application, PyFlyApplication
-from pyfly.web import create_app
+from pyfly.web.adapters.starlette import create_app
 from pyfly.actuator import HealthStatus
 
 

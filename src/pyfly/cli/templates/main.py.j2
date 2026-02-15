@@ -3,7 +3,7 @@
 from contextlib import asynccontextmanager
 
 from pyfly.core import PyFlyApplication
-from pyfly.web import create_app
+from pyfly.web.adapters.starlette import create_app
 
 from {{ package_name }}.app import Application
 

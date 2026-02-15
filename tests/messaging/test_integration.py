@@ -19,7 +19,8 @@ import pytest
 from pyfly.container.stereotypes import component, service
 from pyfly.context.application_context import ApplicationContext
 from pyfly.core.config import Config
-from pyfly.messaging import InMemoryMessageBroker, Message, message_listener
+from pyfly.messaging import Message, message_listener
+from pyfly.messaging.adapters.memory import InMemoryMessageBroker
 
 
 class TestMessagingIntegration:

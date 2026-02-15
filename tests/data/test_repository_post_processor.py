@@ -25,7 +25,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from pyfly.data.relational.sqlalchemy.entity import Base, BaseEntity
 from pyfly.data.relational.sqlalchemy.post_processor import RepositoryBeanPostProcessor
 from pyfly.data.relational.sqlalchemy.repository import Repository
-from pyfly.data.relational.query import query
+from pyfly.data.relational.sqlalchemy.query import query
 
 
 # ---------------------------------------------------------------------------

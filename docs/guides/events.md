@@ -198,7 +198,8 @@ runs entirely in-process and is suitable for monolithic applications,
 development, and testing.
 
 ```python
-from pyfly.eda import InMemoryEventBus, EventEnvelope
+from pyfly.eda import EventEnvelope
+from pyfly.eda.adapters.memory import InMemoryEventBus
 
 bus = InMemoryEventBus()
 ```
@@ -260,7 +261,8 @@ Automatically publishes the decorated method's **arguments** as an event. This
 is useful when you want to broadcast the inputs to a method.
 
 ```python
-from pyfly.eda import event_publisher, InMemoryEventBus
+from pyfly.eda import event_publisher
+from pyfly.eda.adapters.memory import InMemoryEventBus
 
 bus = InMemoryEventBus()
 
@@ -510,12 +512,12 @@ events flowing between services in the same process.
 import uuid
 from pyfly.container import service
 from pyfly.eda import (
-    InMemoryEventBus,
     EventEnvelope,
     event_listener,
     event_publisher,
     publish_result,
 )
+from pyfly.eda.adapters.memory import InMemoryEventBus
 
 
 # ---------------------------------------------------------------------------
@@ -631,7 +633,8 @@ test-specific handlers and assert on the envelopes they receive.
 
 ```python
 import pytest
-from pyfly.eda import InMemoryEventBus, EventEnvelope
+from pyfly.eda import EventEnvelope
+from pyfly.eda.adapters.memory import InMemoryEventBus
 
 
 @pytest.fixture
