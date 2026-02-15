@@ -45,8 +45,8 @@ PyFly makes these decisions for you.
 It is a **cohesive, full-stack framework** for building production-grade Python applications — microservices, monoliths, and libraries — where every module is designed to work together seamlessly. Dependency injection, HTTP routing, database access, messaging, caching, security, observability, and more — all integrated, all consistent, all with production-ready defaults from day one.
 
 ```python
-from pyfly.container import service
-from pyfly.web import rest_controller, get_mapping
+from pyfly.container import rest_controller, service
+from pyfly.web import request_mapping, post_mapping, Body, Valid
 
 @service
 class OrderService:
@@ -59,12 +59,13 @@ class OrderService:
         await self._events.publish(OrderPlaced(order_id=saved.id))
         return saved
 
-@rest_controller("/orders")
+@rest_controller
+@request_mapping("/orders")
 class OrderController:
     def __init__(self, service: OrderService) -> None:
         self._service = service
 
-    @post_mapping
+    @post_mapping("", status_code=201)
     async def create(self, order: Valid[Body[Order]]) -> Order:
         return await self._service.place_order(order)
 ```
@@ -427,8 +428,9 @@ PyFly currently implements **23 modules** organized into four layers:
 | Module | Description | Firefly Java Equivalent |
 |--------|-------------|------------------------|
 | **Web** | HTTP routing, controllers, middleware, OpenAPI | `fireflyframework-web` |
-| **Data Relational** | Repository pattern, specifications, pagination (SQLAlchemy) | `fireflyframework-r2dbc` |
-| **Data Document** | Document database support (MongoDB via Beanie ODM) | `fireflyframework-mongodb` |
+| **Data** | Repository ports, derived queries, pagination, sorting, entity mapping | Spring Data Commons |
+| **Data Relational** | SQLAlchemy adapter — specifications, transactions, custom queries | `fireflyframework-r2dbc` |
+| **Data Document** | MongoDB adapter — Beanie ODM, document repositories | `fireflyframework-mongodb` |
 | **CQRS** | Command/Query segregation with mediator | `fireflyframework-cqrs` |
 | **Validation** | Input validation with Pydantic | `fireflyframework-validators` |
 
@@ -471,8 +473,9 @@ Full documentation lives in the [`docs/`](docs/README.md) directory:
 Browse all guides in the [Module Guides Index](docs/modules/README.md):
 
 - [Web Layer](docs/modules/web.md) — REST controllers, routing, parameter binding, OpenAPI
-- [Data Relational (SQL)](docs/modules/data-relational.md) — Repositories, derived queries, pagination, transactions
-- [Data Document (MongoDB)](docs/modules/data-document.md) — Document database support via Beanie ODM
+- [Data Commons](docs/modules/data.md) — Repository ports, derived queries, pagination, sorting, entity mapping
+- [Data Relational (SQL)](docs/modules/data-relational.md) — SQLAlchemy adapter: specifications, transactions, custom queries
+- [Data Document (MongoDB)](docs/modules/data-document.md) — MongoDB adapter: MongoRepository, Beanie ODM patterns
 - [Validation](docs/modules/validation.md) — `Valid[T]` annotation, structured 422 errors
 - [WebFilters](docs/modules/web-filters.md) — Request/response filter chain
 - [Actuator](docs/modules/actuator.md) — Health checks, extensible endpoints
