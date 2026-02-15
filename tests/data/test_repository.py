@@ -11,12 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Tests for Generic Repository[T] and @reactive_transactional."""
+"""Tests for Generic Repository[T, ID] and @reactive_transactional."""
 
 from uuid import UUID
 
 import pytest
-from sqlalchemy import String, select
+from sqlalchemy import Integer, String, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -31,6 +31,16 @@ from pyfly.data.specification import Specification
 class Item(BaseEntity):
     __tablename__ = "items"
 
+    name: Mapped[str] = mapped_column(String(100))
+    price: Mapped[float] = mapped_column(default=0.0)
+
+
+class IntItem(Base):
+    """Entity with an autoincrement integer primary key."""
+
+    __tablename__ = "int_items"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(100))
     price: Mapped[float] = mapped_column(default=0.0)
 
@@ -62,7 +72,7 @@ def repo(session):
 
 class TestRepository:
     @pytest.mark.asyncio
-    async def test_save_and_find_by_id(self, repo: Repository[Item], session: AsyncSession):
+    async def test_save_and_find_by_id(self, repo: Repository[Item, UUID], session: AsyncSession):
         item = Item(name="Widget", price=9.99)
         saved = await repo.save(item)
         assert isinstance(saved.id, UUID)
@@ -73,14 +83,14 @@ class TestRepository:
         assert found.price == 9.99
 
     @pytest.mark.asyncio
-    async def test_find_by_id_not_found(self, repo: Repository[Item]):
+    async def test_find_by_id_not_found(self, repo: Repository[Item, UUID]):
         from uuid import uuid4
 
         result = await repo.find_by_id(uuid4())
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_find_all(self, repo: Repository[Item]):
+    async def test_find_all(self, repo: Repository[Item, UUID]):
         await repo.save(Item(name="A", price=1.0))
         await repo.save(Item(name="B", price=2.0))
         await repo.save(Item(name="C", price=3.0))
@@ -89,7 +99,7 @@ class TestRepository:
         assert len(items) == 3
 
     @pytest.mark.asyncio
-    async def test_delete(self, repo: Repository[Item]):
+    async def test_delete(self, repo: Repository[Item, UUID]):
         item = await repo.save(Item(name="ToDelete", price=0.0))
         await repo.delete(item.id)
 
@@ -97,7 +107,7 @@ class TestRepository:
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_find_paginated(self, repo: Repository[Item]):
+    async def test_find_paginated(self, repo: Repository[Item, UUID]):
         for i in range(15):
             await repo.save(Item(name=f"Item-{i}", price=float(i)))
 
@@ -109,7 +119,7 @@ class TestRepository:
         assert page.has_next is True
 
     @pytest.mark.asyncio
-    async def test_find_paginated_last_page(self, repo: Repository[Item]):
+    async def test_find_paginated_last_page(self, repo: Repository[Item, UUID]):
         for i in range(12):
             await repo.save(Item(name=f"Item-{i}", price=float(i)))
 
@@ -120,13 +130,13 @@ class TestRepository:
         assert page.has_previous is True
 
     @pytest.mark.asyncio
-    async def test_count(self, repo: Repository[Item]):
+    async def test_count(self, repo: Repository[Item, UUID]):
         await repo.save(Item(name="A"))
         await repo.save(Item(name="B"))
         assert await repo.count() == 2
 
     @pytest.mark.asyncio
-    async def test_exists(self, repo: Repository[Item]):
+    async def test_exists(self, repo: Repository[Item, UUID]):
         item = await repo.save(Item(name="Exists"))
         assert await repo.exists(item.id) is True
 
@@ -227,3 +237,75 @@ class TestRepositorySpecification:
         impossible = Specification(lambda root, q: q.where(root.price > 999.0))
         items = await repo.find_all_by_spec(impossible)
         assert items == []
+
+
+class TestRepositoryIntId:
+    """Tests for Repository[T, int] with autoincrement integer primary keys."""
+
+    @pytest.fixture
+    async def int_engine(self):
+        engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        yield engine
+        await engine.dispose()
+
+    @pytest.fixture
+    async def int_session_factory(self, int_engine):
+        return async_sessionmaker(int_engine, expire_on_commit=False)
+
+    @pytest.fixture
+    async def int_session(self, int_session_factory):
+        async with int_session_factory() as session:
+            yield session
+
+    @pytest.fixture
+    def int_repo(self, int_session):
+        return Repository(IntItem, int_session)
+
+    @pytest.mark.asyncio
+    async def test_save_and_find_by_int_id(self, int_repo: Repository[IntItem, int]):
+        item = IntItem(name="Widget", price=9.99)
+        saved = await int_repo.save(item)
+        assert isinstance(saved.id, int)
+        assert saved.id > 0
+
+        found = await int_repo.find_by_id(saved.id)
+        assert found is not None
+        assert found.name == "Widget"
+
+    @pytest.mark.asyncio
+    async def test_find_by_int_id_not_found(self, int_repo: Repository[IntItem, int]):
+        result = await int_repo.find_by_id(999)
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_find_all_int_id(self, int_repo: Repository[IntItem, int]):
+        await int_repo.save(IntItem(name="A", price=1.0))
+        await int_repo.save(IntItem(name="B", price=2.0))
+        items = await int_repo.find_all()
+        assert len(items) == 2
+
+    @pytest.mark.asyncio
+    async def test_delete_int_id(self, int_repo: Repository[IntItem, int]):
+        item = await int_repo.save(IntItem(name="ToDelete", price=0.0))
+        await int_repo.delete(item.id)
+        assert await int_repo.find_by_id(item.id) is None
+
+    @pytest.mark.asyncio
+    async def test_count_int_id(self, int_repo: Repository[IntItem, int]):
+        await int_repo.save(IntItem(name="A"))
+        await int_repo.save(IntItem(name="B"))
+        assert await int_repo.count() == 2
+
+    @pytest.mark.asyncio
+    async def test_exists_int_id(self, int_repo: Repository[IntItem, int]):
+        item = await int_repo.save(IntItem(name="Exists"))
+        assert await int_repo.exists(item.id) is True
+        assert await int_repo.exists(999) is False
+
+    @pytest.mark.asyncio
+    async def test_autoincrement_ids(self, int_repo: Repository[IntItem, int]):
+        a = await int_repo.save(IntItem(name="First"))
+        b = await int_repo.save(IntItem(name="Second"))
+        assert b.id == a.id + 1

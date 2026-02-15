@@ -233,14 +233,14 @@ Infrastructure modules follow the hexagonal pattern: ports in `ports/`, adapters
 
 | Module | Package | Ports | Adapters |
 |---|---|---|---|
-| **Web** | `pyfly.web` | Mappings (`@get_mapping`, `@post_mapping`, etc.), params (`Body`, `PathVar`, `QueryParam`, `Header`, `Cookie`), `CORSConfig`, `SecurityHeadersConfig`, `@exception_handler`. | Starlette/ASGI (`ControllerRegistrar`, `create_app`, `RequestLoggingMiddleware`, `SecurityHeadersMiddleware`). |
+| **Web** | `pyfly.web` | Mappings (`@get_mapping`, `@post_mapping`, etc.), params (`Body`, `PathVar`, `QueryParam`, `Header`, `Cookie`, `Valid`), `CORSConfig`, `SecurityHeadersConfig`, `WebFilter` protocol, `OncePerRequestFilter`, `@exception_handler`. Config-driven adapter selection (`pyfly.web.adapter`). | Starlette/ASGI (`StarletteWebAdapter`, `ControllerRegistrar`, `create_app`, `WebFilterChainMiddleware`, built-in filters). |
 | **Data** | `pyfly.data` | `RepositoryPort`, `SessionPort`, `Page`, `Pageable`, `Sort`, `Order`, `Specification`, query DSL (`@query`, `QueryMethodParser`, `QueryMethodCompiler`), `Mapper`, `FilterUtils`. | SQLAlchemy (`Repository`, `BaseEntity`, `Base`, `reactive_transactional`, `RepositoryBeanPostProcessor`). |
 | **Messaging** | `pyfly.messaging` | `MessageBrokerPort`, `MessageHandler`, `Message`, `@message_listener`. | Kafka (`KafkaAdapter`), RabbitMQ (`RabbitMQAdapter`), in-memory (`InMemoryMessageBroker`). |
 | **Cache** | `pyfly.cache` | `CacheAdapter`, `CacheManager`, `@cacheable`, `@cache_evict`, `@cache_put`. | Redis (`RedisCacheAdapter`), in-memory (`InMemoryCache`). |
 | **Client** | `pyfly.client` | `HttpClientPort`, `ServiceClient`, `CircuitBreaker`, `RetryPolicy`, declarative `@http_client` with `@get`, `@post`, `@put`, `@patch`, `@delete`. | HTTPX (`HttpxClientAdapter`), `HttpClientBeanPostProcessor`. |
 | **Scheduling** | `pyfly.scheduling` | `TaskExecutorPort`, `CronExpression`, `TaskScheduler`, `@scheduled`, `@async_method`. | AsyncIO (`AsyncIOTaskExecutor`), thread pool (`ThreadPoolTaskExecutor`). |
 | **Security** | `pyfly.security` | `SecurityContext`, `PasswordEncoder`, `@secure`. | `JWTService`, `BcryptPasswordEncoder`, `SecurityMiddleware`. |
-| **Actuator** | `pyfly.actuator` | `HealthIndicator`, `HealthAggregator`, `HealthResult`, `HealthStatus`. | Actuator HTTP endpoints (`make_actuator_routes`). |
+| **Actuator** | `pyfly.actuator` | `HealthIndicator`, `HealthAggregator`, `HealthResult`, `HealthStatus`, `ActuatorEndpoint` protocol, `ActuatorRegistry`. | Extensible HTTP endpoints (`make_starlette_actuator_routes`), built-in: health, beans, env, info, loggers, metrics. Per-endpoint enable/disable via config. |
 
 ### Cross-Cutting Layer
 
@@ -567,6 +567,7 @@ availability via `importlib.import_module()`:
 
 | Subsystem | Method | Detection Order | Returns |
 |---|---|---|---|
+| Web | `detect_web_adapter()` | `starlette` | `"starlette"` or `"none"` |
 | Cache | `detect_cache_provider()` | `redis.asyncio` | `"redis"` or `"memory"` |
 | Messaging | `detect_eda_provider()` | `aiokafka`, then `aio_pika` | `"kafka"`, `"rabbitmq"`, or `"memory"` |
 | HTTP Client | `detect_client_provider()` | `httpx` | `"httpx"` or `"none"` |
@@ -586,22 +587,32 @@ libraries directly.
 pyfly.web/
     mappings.py          # @get_mapping, @post_mapping, @put_mapping,
     |                    # @patch_mapping, @delete_mapping, @request_mapping
-    params.py            # Body, PathVar, QueryParam, Header, Cookie
+    params.py            # Body, PathVar, QueryParam, Header, Cookie, Valid
+    filters.py           # OncePerRequestFilter base class
     cors.py              # CORSConfig
     security_headers.py  # SecurityHeadersConfig
     exception_handler.py # @exception_handler
     ports/
-        outbound.py      # Web port protocols
+        outbound.py      # WebServerPort protocol
+        filter.py        # WebFilter protocol, CallNext type alias
     adapters/
         starlette/       # Starlette/ASGI implementation
-            ControllerRegistrar, create_app,
-            RequestLoggingMiddleware, SecurityHeadersMiddleware,
-            handle_return_value
+            adapter.py           # StarletteWebAdapter (WebServerPort impl)
+            app.py               # create_app() factory
+            controller.py        # ControllerRegistrar
+            resolver.py          # ParameterResolver (with Valid[T] support)
+            filter_chain.py      # WebFilterChainMiddleware
+            filters/             # Built-in filter implementations
+                transaction_id_filter.py
+                request_logging_filter.py
+                security_headers_filter.py
+                security_filter.py
 ```
 
-Framework-agnostic decorators (`@get_mapping`, `@post_mapping`) and parameter types
-(`Body`, `QueryParam`) work with any web framework. The Starlette adapter is the default,
-but the design allows alternative adapters.
+Framework-agnostic decorators (`@get_mapping`, `@post_mapping`), parameter types
+(`Body`, `QueryParam`, `Valid`), and the `WebFilter` protocol work with any web
+framework. The Starlette adapter is the default; config-driven selection
+(`pyfly.web.adapter: auto|starlette`) allows future adapters.
 
 ### Data Module
 
@@ -799,6 +810,9 @@ The `pyfly.validation` module integrates with Pydantic:
 - `@validate_input` -- validates method arguments against Pydantic models.
 - `@validator` -- custom validation decorators.
 - `validate_model()` -- programmatic model validation.
+- `Valid[T]` -- web parameter annotation that triggers explicit validation with
+  structured 422 error responses. Works standalone (`Valid[CreateDTO]` = body
+  validation) or wrapping any binding type (`Valid[QueryParam[int]]`).
 
 ---
 

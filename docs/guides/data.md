@@ -1,6 +1,14 @@
-# Data Access Guide
+# Data Access Guide — Relational (SQLAlchemy)
 
-The PyFly data module implements the Repository pattern with Spring Data-style derived query methods, composable specifications, pagination, entity mapping, and declarative transaction management. It follows a hexagonal architecture: framework-agnostic ports define the repository and session contracts, while a pluggable SQLAlchemy adapter provides the default implementation.
+> **PyFly Data** is the umbrella module (like Spring Data Commons). It provides shared abstractions — `RepositoryPort[T, ID]`, `QueryMethodParser`, `QueryMethodCompilerPort`, `Page`, `Pageable` — that all data adapters build on.
+>
+> **Adapters:**
+> - **PyFly Data Relational** (`pyfly.data.adapters.sqlalchemy`) — SQLAlchemy async ORM. **This guide.**
+> - **PyFly Data Document** (`pyfly.data.adapters.mongodb`) — MongoDB via Beanie ODM. See [MongoDB Guide](mongodb.md).
+>
+> Adding a new data adapter requires: a repository class implementing `RepositoryPort[T, ID]`, a query compiler implementing `QueryMethodCompilerPort`, and a `BeanPostProcessor`. Both adapters can coexist in the same project.
+
+The PyFly data module implements the Repository pattern with Spring Data-style derived query methods, composable specifications, pagination, entity mapping, and declarative transaction management. It follows a hexagonal architecture: framework-agnostic ports define the repository and session contracts, while the SQLAlchemy adapter provides the relational implementation.
 
 ---
 
@@ -149,30 +157,44 @@ This entity will have all five inherited fields (`id`, `created_at`, `updated_at
 
 ### Repository Class
 
-The `Repository[T]` class provides generic async CRUD operations for any `BaseEntity` subclass. It wraps a SQLAlchemy `AsyncSession` and the entity model type.
+The `Repository[T, ID]` class provides generic async CRUD operations for any SQLAlchemy model. It wraps a SQLAlchemy `AsyncSession` and the entity model type. The two type parameters are:
+
+- **T** — The entity type (any SQLAlchemy model, including `BaseEntity` subclasses or plain `Base` subclasses)
+- **ID** — The primary key type (e.g. `UUID`, `int`, `str`)
 
 ```python
+from uuid import UUID
 from pyfly.data import Repository
 
-repo = Repository(Order, session)
+repo = Repository[Order, UUID](Order, session)
 order = await repo.save(Order(customer_id="abc", status="PENDING"))
 found = await repo.find_by_id(order.id)
 ```
 
 ### Creating a Repository
 
-Subclass `Repository[T]` and register it as a bean with the `@repository` stereotype:
+Subclass `Repository[T, ID]` and register it as a bean with the `@repository` stereotype:
 
 ```python
+from uuid import UUID
 from pyfly.data import Repository
 from pyfly.container import repository as repo_stereotype
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
 @repo_stereotype
-class OrderRepository(Repository[Order]):
+class OrderRepository(Repository[Order, UUID]):
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(Order, session)
+```
+
+For entities with integer primary keys:
+
+```python
+@repo_stereotype
+class ProductRepository(Repository[Product, int]):
+    def __init__(self, session: AsyncSession) -> None:
+        super().__init__(Product, session)
 ```
 
 The `session` parameter is injected by the DI container.
@@ -182,11 +204,11 @@ The `session` parameter is injected by the DI container.
 | Method                                           | Return Type  | Description                                    |
 |--------------------------------------------------|--------------|------------------------------------------------|
 | `save(entity)`                                   | `T`          | Insert or update; flushes and refreshes        |
-| `find_by_id(id: UUID)`                           | `T \| None`  | Find by primary key                            |
+| `find_by_id(id: ID)`                             | `T \| None`  | Find by primary key                            |
 | `find_all(**filters)`                             | `list[T]`    | Find all, optionally filtered by column values |
-| `delete(id: UUID)`                                | `None`       | Delete by primary key (no-op if not found)     |
+| `delete(id: ID)`                                  | `None`       | Delete by primary key (no-op if not found)     |
 | `count()`                                         | `int`        | Count all entities in the table                |
-| `exists(id: UUID)`                                | `bool`       | Check if an entity with this ID exists         |
+| `exists(id: ID)`                                  | `bool`       | Check if an entity with this ID exists         |
 | `find_paginated(page, size, pageable)`            | `Page[T]`    | Paginated query with optional sorting          |
 | `find_all_by_spec(spec)`                          | `list[T]`    | Find all matching a Specification              |
 | `find_all_by_spec_paged(spec, pageable)`          | `Page[T]`    | Paginated query with Specification + sorting   |
@@ -327,7 +349,7 @@ async def find_by_active_order_by_name_asc_created_at_desc(self, active: bool) -
 
 ```python
 @repo_stereotype
-class OrderRepository(Repository[Order]):
+class OrderRepository(Repository[Order, UUID]):
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(Order, session)
 
@@ -396,7 +418,7 @@ By default, `@query` accepts a JPQL-like query string that is transpiled to SQL 
 
 ```python
 @repo_stereotype
-class OrderRepository(Repository[Order]):
+class OrderRepository(Repository[Order, UUID]):
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(Order, session)
 
@@ -949,7 +971,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 
 @repo_stereotype
-class ProductRepository(Repository[Product]):
+class ProductRepository(Repository[Product, UUID]):
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(Product, session)
 

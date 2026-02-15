@@ -1,0 +1,188 @@
+# Copyright 2026 Firefly Software Solutions Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+"""Tests for MongoRepository — integration tests using mongomock."""
+
+from __future__ import annotations
+
+import pytest
+from beanie import init_beanie
+from mongomock_motor import AsyncMongoMockClient
+
+from pyfly.data.adapters.mongodb.document import BaseDocument
+from pyfly.data.adapters.mongodb.repository import MongoRepository
+
+
+# ---------------------------------------------------------------------------
+# Test document
+# ---------------------------------------------------------------------------
+
+
+class SampleItem(BaseDocument):
+    name: str
+    description: str = ""
+    active: bool = True
+
+    class Settings:
+        name = "test_items"
+
+
+# ---------------------------------------------------------------------------
+# Fixtures
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+async def init_db():
+    """Initialise Beanie with an in-memory mock client."""
+    client = AsyncMongoMockClient()
+    await init_beanie(database=client["test_db"], document_models=[SampleItem])
+    yield
+    client.close()
+
+
+@pytest.fixture
+def repo():
+    return MongoRepository[SampleItem, str](SampleItem)
+
+
+# ===========================================================================
+# 1. CRUD operations
+# ===========================================================================
+
+
+class TestCRUD:
+    """Basic CRUD operations."""
+
+    @pytest.mark.asyncio
+    async def test_save_and_find_by_id(self, repo: MongoRepository):
+        item = SampleItem(name="Widget", description="A test widget")
+        saved = await repo.save(item)
+        assert saved.id is not None
+
+        found = await repo.find_by_id(saved.id)
+        assert found is not None
+        assert found.name == "Widget"
+
+    @pytest.mark.asyncio
+    async def test_find_all(self, repo: MongoRepository):
+        await repo.save(SampleItem(name="A"))
+        await repo.save(SampleItem(name="B"))
+        await repo.save(SampleItem(name="C"))
+
+        items = await repo.find_all()
+        assert len(items) == 3
+
+    @pytest.mark.asyncio
+    async def test_find_all_with_filters(self, repo: MongoRepository):
+        await repo.save(SampleItem(name="Active", active=True))
+        await repo.save(SampleItem(name="Inactive", active=False))
+
+        active_items = await repo.find_all(active=True)
+        assert len(active_items) == 1
+        assert active_items[0].name == "Active"
+
+    @pytest.mark.asyncio
+    async def test_delete(self, repo: MongoRepository):
+        item = await repo.save(SampleItem(name="ToDelete"))
+        await repo.delete(item.id)
+
+        found = await repo.find_by_id(item.id)
+        assert found is None
+
+    @pytest.mark.asyncio
+    async def test_delete_nonexistent_no_error(self, repo: MongoRepository):
+        """Deleting a non-existent ID should not raise."""
+        from bson import ObjectId
+
+        await repo.delete(ObjectId())
+
+    @pytest.mark.asyncio
+    async def test_find_by_id_nonexistent_returns_none(self, repo: MongoRepository):
+        from bson import ObjectId
+
+        found = await repo.find_by_id(ObjectId())
+        assert found is None
+
+
+# ===========================================================================
+# 2. Count and exists
+# ===========================================================================
+
+
+class TestCountAndExists:
+
+    @pytest.mark.asyncio
+    async def test_count_empty(self, repo: MongoRepository):
+        assert await repo.count() == 0
+
+    @pytest.mark.asyncio
+    async def test_count_with_items(self, repo: MongoRepository):
+        await repo.save(SampleItem(name="A"))
+        await repo.save(SampleItem(name="B"))
+        assert await repo.count() == 2
+
+    @pytest.mark.asyncio
+    async def test_exists_true(self, repo: MongoRepository):
+        item = await repo.save(SampleItem(name="Exists"))
+        assert await repo.exists(item.id) is True
+
+    @pytest.mark.asyncio
+    async def test_exists_false(self, repo: MongoRepository):
+        from bson import ObjectId
+
+        assert await repo.exists(ObjectId()) is False
+
+
+# ===========================================================================
+# 3. Pagination
+# ===========================================================================
+
+
+class TestPagination:
+
+    @pytest.mark.asyncio
+    async def test_find_paginated_basic(self, repo: MongoRepository):
+        for i in range(15):
+            await repo.save(SampleItem(name=f"Item-{i:02d}"))
+
+        page = await repo.find_paginated(page=1, size=5)
+        assert len(page.items) == 5
+        assert page.total == 15
+        assert page.page == 1
+        assert page.size == 5
+
+    @pytest.mark.asyncio
+    async def test_find_paginated_second_page(self, repo: MongoRepository):
+        for i in range(12):
+            await repo.save(SampleItem(name=f"Item-{i:02d}"))
+
+        page = await repo.find_paginated(page=2, size=5)
+        assert len(page.items) == 5
+        assert page.total == 12
+        assert page.page == 2
+
+    @pytest.mark.asyncio
+    async def test_find_paginated_last_page_partial(self, repo: MongoRepository):
+        for i in range(7):
+            await repo.save(SampleItem(name=f"Item-{i:02d}"))
+
+        page = await repo.find_paginated(page=2, size=5)
+        assert len(page.items) == 2
+        assert page.total == 7
+
+    @pytest.mark.asyncio
+    async def test_find_paginated_empty(self, repo: MongoRepository):
+        page = await repo.find_paginated(page=1, size=10)
+        assert len(page.items) == 0
+        assert page.total == 0

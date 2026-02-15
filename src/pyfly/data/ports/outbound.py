@@ -16,7 +16,6 @@
 from __future__ import annotations
 
 from typing import Any, Protocol, TypeVar, runtime_checkable
-from uuid import UUID
 
 from pyfly.data.page import Page
 
@@ -25,20 +24,25 @@ ID = TypeVar("ID")
 
 
 @runtime_checkable
-class RepositoryPort(Protocol[T]):
-    """Abstract repository interface for CRUD operations."""
+class RepositoryPort(Protocol[T, ID]):
+    """Abstract repository interface for CRUD operations.
+
+    Type Parameters:
+        T: The entity type.
+        ID: The primary key type (e.g. UUID, int, str).
+    """
 
     async def save(self, entity: T) -> T: ...
 
-    async def find_by_id(self, id: UUID) -> T | None: ...
+    async def find_by_id(self, id: ID) -> T | None: ...
 
     async def find_all(self, **filters: Any) -> list[T]: ...
 
-    async def delete(self, id: UUID) -> None: ...
+    async def delete(self, id: ID) -> None: ...
 
     async def count(self) -> int: ...
 
-    async def exists(self, id: UUID) -> bool: ...
+    async def exists(self, id: ID) -> bool: ...
 
 
 @runtime_checkable

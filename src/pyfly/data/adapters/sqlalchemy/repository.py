@@ -16,27 +16,30 @@
 from __future__ import annotations
 
 from typing import Any, Generic, TypeVar
-from uuid import UUID
 
 from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from pyfly.data.adapters.sqlalchemy.entity import BaseEntity
 from pyfly.data.page import Page
 from pyfly.data.pageable import Pageable
 from pyfly.data.specification import Specification
 
-T = TypeVar("T", bound=BaseEntity)
+T = TypeVar("T")
+ID = TypeVar("ID")
 
 
-class Repository(Generic[T]):
+class Repository(Generic[T, ID]):
     """Generic CRUD repository for SQLAlchemy entities.
 
     Provides standard data access operations with async support.
     Subclass to add custom queries for specific entities.
 
+    Type Parameters:
+        T: The entity type (any SQLAlchemy model).
+        ID: The primary key type (e.g. UUID, int, str).
+
     Usage:
-        repo = Repository(User, session)
+        repo = Repository[User, UUID](User, session)
         user = await repo.save(User(name="Alice"))
         found = await repo.find_by_id(user.id)
     """
@@ -59,7 +62,7 @@ class Repository(Generic[T]):
         await self._session.refresh(entity)
         return entity
 
-    async def find_by_id(self, id: UUID) -> T | None:
+    async def find_by_id(self, id: ID) -> T | None:
         """Find an entity by its primary key."""
         return await self._session.get(self._model, id)
 
@@ -71,7 +74,7 @@ class Repository(Generic[T]):
         result = await self._session.execute(stmt)
         return list(result.scalars().all())
 
-    async def delete(self, id: UUID) -> None:
+    async def delete(self, id: ID) -> None:
         """Delete an entity by its primary key."""
         entity = await self.find_by_id(id)
         if entity is not None:
@@ -149,7 +152,7 @@ class Repository(Generic[T]):
         result = await self._session.execute(stmt)
         return result.scalar_one()
 
-    async def exists(self, id: UUID) -> bool:
+    async def exists(self, id: ID) -> bool:
         """Check if an entity with the given ID exists."""
         entity = await self.find_by_id(id)
         return entity is not None

@@ -69,6 +69,20 @@ class AutoConfiguration:
             return "sqlalchemy"
         return "none"
 
+    @staticmethod
+    def detect_mongodb_provider() -> str:
+        """Detect the best available MongoDB / document DB provider."""
+        if AutoConfiguration.is_available("beanie"):
+            return "beanie"
+        return "none"
+
+    @staticmethod
+    def detect_web_adapter() -> str:
+        """Detect the best available web framework adapter."""
+        if AutoConfiguration.is_available("starlette"):
+            return "starlette"
+        return "none"
+
 
 class AutoConfigurationEngine:
     """Wire adapter beans automatically based on detected providers and config.
@@ -99,10 +113,34 @@ class AutoConfigurationEngine:
 
     def configure(self, config: Config, container: Container) -> None:
         """Run auto-configuration for all subsystems."""
+        self._configure_web(config, container)
         self._configure_cache(config, container)
         self._configure_messaging(config, container)
         self._configure_client(config, container)
         self._configure_data(config, container)
+        self._configure_mongodb(config, container)
+
+    def _configure_web(self, config: Config, container: Container) -> None:
+        """Auto-configure web adapter if not already registered."""
+        from pyfly.web.ports.outbound import WebServerPort
+
+        if self._already_registered(container, WebServerPort):
+            return
+
+        configured_adapter = str(config.get("pyfly.web.adapter", "auto"))
+        adapter = (
+            configured_adapter
+            if configured_adapter != "auto"
+            else AutoConfiguration.detect_web_adapter()
+        )
+
+        if adapter == "starlette":
+            from pyfly.web.adapters.starlette.adapter import StarletteWebAdapter
+
+            instance = StarletteWebAdapter()
+            self._register(container, WebServerPort, instance, "web", adapter)
+        else:
+            logger.info("auto_configuration", subsystem="web", status="skipped", reason="no adapter")
 
     def _configure_cache(self, config: Config, container: Container) -> None:
         """Auto-configure cache adapter if enabled and not already registered."""
@@ -214,6 +252,31 @@ class AutoConfigurationEngine:
 
         self._results["data"] = provider
         logger.info("auto_configuration", subsystem="data", status="configured", provider=provider)
+
+    def _configure_mongodb(self, config: Config, container: Container) -> None:
+        """Auto-configure MongoDB layer if enabled."""
+        enabled = config.get("pyfly.mongodb.enabled", False)
+        if not _as_bool(enabled):
+            logger.info("auto_configuration", subsystem="mongodb", status="skipped", reason="disabled")
+            return
+
+        provider = AutoConfiguration.detect_mongodb_provider()
+        if provider == "none":
+            logger.info("auto_configuration", subsystem="mongodb", status="skipped", reason="no provider")
+            return
+
+        uri = str(config.get("pyfly.mongodb.uri", "mongodb://localhost:27017"))
+        database = str(config.get("pyfly.mongodb.database", "pyfly"))
+
+        self._results["mongodb"] = provider
+        self._mongodb_config = {"uri": uri, "database": database}
+        logger.info(
+            "auto_configuration",
+            subsystem="mongodb",
+            status="configured",
+            provider=provider,
+            database=database,
+        )
 
     @staticmethod
     def _already_registered(container: Container, port_type: type) -> bool:

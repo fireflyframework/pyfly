@@ -26,7 +26,7 @@ from starlette.routing import Route
 
 from pyfly.web.adapters.starlette.resolver import ParameterResolver
 from pyfly.web.adapters.starlette.response import handle_return_value
-from pyfly.web.params import Body, Cookie, Header, PathVar, QueryParam
+from pyfly.web.params import Body, Cookie, Header, PathVar, QueryParam, Valid
 
 _BINDING_TYPES = {PathVar, QueryParam, Body, Header, Cookie}
 _MISSING = object()
@@ -218,6 +218,22 @@ class ControllerRegistrar:
                 continue
 
             origin = get_origin(hint)
+
+            # Unwrap Valid[T] for OpenAPI metadata extraction
+            if origin is Valid:
+                inner_args = get_args(hint)
+                if not inner_args:
+                    continue
+                inner_hint = inner_args[0]
+                inner_origin = get_origin(inner_hint)
+                if inner_origin in _BINDING_TYPES:
+                    origin = inner_origin
+                    hint = inner_hint
+                else:
+                    # Valid[T] standalone → Body[T]
+                    origin = Body
+                    hint = Body[inner_hint]
+
             if origin not in _BINDING_TYPES:
                 continue
 

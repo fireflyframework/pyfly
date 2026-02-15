@@ -21,14 +21,15 @@ from jinja2 import Environment, PackageLoader
 
 # Available features that map to PyFly extras
 AVAILABLE_FEATURES: list[str] = [
-    "web", "data", "eda", "cache", "client",
+    "web", "data", "mongodb", "eda", "cache", "client",
     "security", "scheduling", "observability", "cqrs",
 ]
 
 # Human-readable descriptions for features (shown in interactive mode)
 FEATURE_DESCRIPTIONS: dict[str, str] = {
     "web": "HTTP server, REST controllers, OpenAPI docs",
-    "data": "SQLAlchemy ORM, repositories, Alembic migrations (SQLite default)",
+    "data": "Data layer — Relational backend (SQLAlchemy ORM, repositories, migrations)",
+    "mongodb": "Data layer — Document backend (MongoDB with Beanie ODM, repositories)",
     "eda": "Event-driven architecture, in-memory event bus",
     "cache": "Caching with in-memory adapter (Redis optional)",
     "client": "Resilient HTTP client with retry and circuit breaker",
@@ -52,6 +53,123 @@ ARCHETYPE_DESCRIPTIONS: dict[str, str] = {
     "web-api": "Full REST API with layered architecture",
     "hexagonal": "Hexagonal architecture (ports & adapters)",
     "library": "Reusable library package",
+}
+
+# Rich metadata for archetypes (wizard display)
+ARCHETYPE_DETAILS: dict[str, dict[str, str | list[str]]] = {
+    "core": {
+        "title": "Core Service",
+        "tagline": "Minimal microservice with DI container and config",
+        "layers": ["Application", "Config"],
+        "good_for": "Background workers, CLI tools, lightweight services",
+    },
+    "web-api": {
+        "title": "REST API (Layered)",
+        "tagline": "Full REST API with controller/service/repository layers",
+        "layers": ["Controllers", "Services", "Models", "Repositories"],
+        "good_for": "CRUD APIs, backend services, microservices",
+    },
+    "hexagonal": {
+        "title": "Hexagonal (Ports & Adapters)",
+        "tagline": "Clean architecture with domain isolation",
+        "layers": ["Domain", "Application", "Infrastructure", "API"],
+        "good_for": "Complex domains, DDD, long-lived systems",
+    },
+    "library": {
+        "title": "Library Package",
+        "tagline": "Reusable library with py.typed and packaging best practices",
+        "layers": ["Package"],
+        "good_for": "Shared utilities, SDKs, internal libraries",
+    },
+}
+
+# Feature groups for categorized display in the wizard
+FEATURE_GROUPS: list[tuple[str, list[str]]] = [
+    ("Web & API", ["web"]),
+    ("Data & Storage", ["data", "mongodb", "cache"]),
+    ("Messaging & Events", ["eda", "cqrs"]),
+    ("Infrastructure", ["client", "security", "scheduling", "observability"]),
+]
+
+# Extended feature details (what gets added)
+FEATURE_DETAILS: dict[str, dict[str, str]] = {
+    "web": {
+        "short": "HTTP server, REST controllers, OpenAPI docs",
+        "adds": "Starlette server, @rest_controller, Swagger UI, ReDoc, WebFilters",
+    },
+    "data": {
+        "short": "Data layer — Relational backend (SQLAlchemy ORM)",
+        "adds": "Repository[T, ID], BaseEntity, Alembic, SQLite default, RepositoryPort",
+    },
+    "mongodb": {
+        "short": "Data layer — Document backend (Beanie ODM)",
+        "adds": "MongoRepository[T, ID], BaseDocument, Beanie, Motor async driver, RepositoryPort",
+    },
+    "eda": {
+        "short": "Event-driven architecture, in-memory event bus",
+        "adds": "EventPublisher, @event_listener, @publish_result, ErrorStrategy",
+    },
+    "cache": {
+        "short": "Caching with in-memory adapter",
+        "adds": "@cacheable, @cache_evict, @cache_put, Redis optional",
+    },
+    "client": {
+        "short": "Resilient HTTP client with retry and circuit breaker",
+        "adds": "ServiceClient, CircuitBreaker, RetryPolicy, @http_client",
+    },
+    "security": {
+        "short": "JWT authentication, password hashing",
+        "adds": "JWTService, BcryptPasswordEncoder, SecurityMiddleware, @secure",
+    },
+    "scheduling": {
+        "short": "Cron-based task scheduling",
+        "adds": "@scheduled, CronExpression, TaskScheduler, @async_method",
+    },
+    "observability": {
+        "short": "Prometheus metrics, OpenTelemetry tracing",
+        "adds": "@timed, @counted, @span, MetricsRegistry, HealthChecker",
+    },
+    "cqrs": {
+        "short": "Command/Query Responsibility Segregation",
+        "adds": "Mediator, CommandHandler, QueryHandler, middleware pipeline",
+    },
+}
+
+# Post-generation tips per feature
+FEATURE_TIPS: dict[str, list[str]] = {
+    "web": [
+        "Visit http://localhost:8080/docs for Swagger UI",
+        "Visit http://localhost:8080/redoc for ReDoc",
+    ],
+    "data": [
+        "Run 'pyfly db init' to set up Alembic migrations",
+        "SQLite is configured by default (zero infrastructure)",
+    ],
+    "mongodb": [
+        "Configure MongoDB URI in pyfly.yaml under pyfly.mongodb.uri",
+        "Documents use Beanie ODM (Pydantic models + Motor async driver)",
+    ],
+    "eda": [
+        "Events use in-memory bus by default — switch to Kafka for production",
+    ],
+    "cache": [
+        "Cache uses in-memory adapter — switch to Redis for production",
+    ],
+    "client": [
+        "Configure base URLs in pyfly.yaml under pyfly.client.*",
+    ],
+    "security": [
+        "Change JWT secret in pyfly.yaml before deploying!",
+    ],
+    "scheduling": [
+        "Use @scheduled(cron='*/5 * * * *') for cron-based tasks",
+    ],
+    "observability": [
+        "Metrics endpoint: GET /actuator/prometheus (when actuator enabled)",
+    ],
+    "cqrs": [
+        "Register handlers via @component — Mediator auto-discovers them",
+    ],
 }
 
 # Template → output path mapping per archetype.
@@ -168,6 +286,7 @@ def _build_context(name: str, archetype: str, features: list[str]) -> dict[str, 
         "features": features,
         "has_web": "web" in features,
         "has_data": "data" in features,
+        "has_mongodb": "mongodb" in features,
         "has_eda": "eda" in features,
         "has_cache": "cache" in features,
         "has_client": "client" in features,

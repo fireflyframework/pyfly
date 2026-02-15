@@ -5,12 +5,61 @@ from __future__ import annotations
 from pyfly.container import service
 
 from {{ package_name }}.domain.models import Item
+{% if has_data %}
+from {{ package_name }}.domain.models import ItemEntity
+from {{ package_name }}.infrastructure.adapters.persistence import ItemRepository
+{% elif has_mongodb %}
+from {{ package_name }}.domain.models import ItemDocument
+from {{ package_name }}.infrastructure.adapters.persistence import ItemDocumentRepository
+{% else %}
 from {{ package_name }}.infrastructure.adapters.persistence import InMemoryItemRepository
+{% endif %}
 
 
 @service
 class ItemService:
     """Implements the inbound ports for item management."""
+{% if has_data %}
+
+    def __init__(self, repository: ItemRepository) -> None:
+        self._repository = repository
+
+    async def create(self, name: str, description: str) -> Item:
+        entity = ItemEntity(name=name, description=description)
+        saved = await self._repository.save(entity)
+        return Item(id=str(saved.id), name=saved.name, description=saved.description)
+
+    async def get(self, item_id: int) -> Item:
+        entity = await self._repository.find_by_id(item_id)
+        return Item(id=str(entity.id), name=entity.name, description=entity.description)
+
+    async def list_all(self) -> list[Item]:
+        entities = await self._repository.find_all()
+        return [Item(id=str(e.id), name=e.name, description=e.description) for e in entities]
+
+    async def delete(self, item_id: int) -> None:
+        await self._repository.delete(item_id)
+{% elif has_mongodb %}
+
+    def __init__(self, repository: ItemDocumentRepository) -> None:
+        self._repository = repository
+
+    async def create(self, name: str, description: str) -> Item:
+        doc = ItemDocument(name=name, description=description)
+        saved = await self._repository.save(doc)
+        return Item(id=str(saved.id), name=saved.name, description=saved.description)
+
+    async def get(self, item_id: str) -> Item:
+        doc = await self._repository.find_by_id(item_id)
+        return Item(id=str(doc.id), name=doc.name, description=doc.description)
+
+    async def list_all(self) -> list[Item]:
+        docs = await self._repository.find_all()
+        return [Item(id=str(d.id), name=d.name, description=d.description) for d in docs]
+
+    async def delete(self, item_id: str) -> None:
+        await self._repository.delete(item_id)
+{% else %}
 
     def __init__(self, repository: InMemoryItemRepository) -> None:
         self._repository = repository
@@ -28,3 +77,4 @@ class ItemService:
 
     def delete(self, item_id: str) -> None:
         self._repository.delete(item_id)
+{% endif %}

@@ -17,8 +17,10 @@ import pytest
 from starlette.applications import Starlette
 from starlette.testclient import TestClient
 
-from pyfly.actuator.endpoints import make_actuator_routes
+from pyfly.actuator.adapters.starlette import make_starlette_actuator_routes
+from pyfly.actuator.endpoints import BeansEndpoint, EnvEndpoint, HealthEndpoint, InfoEndpoint
 from pyfly.actuator.health import HealthAggregator, HealthStatus
+from pyfly.actuator.registry import ActuatorRegistry
 from pyfly.container.stereotypes import component, service
 from pyfly.context.application_context import ApplicationContext
 from pyfly.core.config import Config
@@ -46,6 +48,18 @@ class SimpleHealthIndicator:
         return HealthStatus(status="UP", details={"test": True})
 
 
+def _make_test_routes(context, agg=None):
+    """Build actuator routes via the new registry API."""
+    if agg is None:
+        agg = HealthAggregator()
+    registry = ActuatorRegistry()
+    registry.register(HealthEndpoint(agg))
+    registry.register(BeansEndpoint(context))
+    registry.register(EnvEndpoint(context))
+    registry.register(InfoEndpoint(context))
+    return make_starlette_actuator_routes(registry)
+
+
 # ---------------------------------------------------------------------------
 # /actuator/beans
 # ---------------------------------------------------------------------------
@@ -58,8 +72,7 @@ class TestBeansEndpoint:
         ctx.register_bean(DummyService)
         await ctx.start()
 
-        agg = HealthAggregator()
-        routes = make_actuator_routes(health_aggregator=agg, context=ctx)
+        routes = _make_test_routes(ctx)
         app = Starlette(routes=routes)
         client = TestClient(app)
 
@@ -78,8 +91,7 @@ class TestBeansEndpoint:
         ctx.register_bean(DummyService)
         await ctx.start()
 
-        agg = HealthAggregator()
-        routes = make_actuator_routes(health_aggregator=agg, context=ctx)
+        routes = _make_test_routes(ctx)
         app = Starlette(routes=routes)
         client = TestClient(app)
 
@@ -101,8 +113,7 @@ class TestEnvEndpoint:
         ctx = ApplicationContext(cfg)
         await ctx.start()
 
-        agg = HealthAggregator()
-        routes = make_actuator_routes(health_aggregator=agg, context=ctx)
+        routes = _make_test_routes(ctx)
         app = Starlette(routes=routes)
         client = TestClient(app)
 
@@ -125,8 +136,7 @@ class TestInfoEndpoint:
         ctx = ApplicationContext(cfg)
         await ctx.start()
 
-        agg = HealthAggregator()
-        routes = make_actuator_routes(health_aggregator=agg, context=ctx)
+        routes = _make_test_routes(ctx)
         app = Starlette(routes=routes)
         client = TestClient(app)
 
@@ -136,6 +146,29 @@ class TestInfoEndpoint:
         assert data["app"]["name"] == "myapp"
         assert data["app"]["version"] == "1.0.0"
         assert data["app"]["description"] == "A test app"
+
+
+# ---------------------------------------------------------------------------
+# /actuator index
+# ---------------------------------------------------------------------------
+
+class TestActuatorIndex:
+    @pytest.mark.asyncio
+    async def test_index_lists_enabled_endpoints(self):
+        ctx = ApplicationContext(Config({}))
+        await ctx.start()
+
+        routes = _make_test_routes(ctx)
+        app = Starlette(routes=routes)
+        client = TestClient(app)
+
+        resp = client.get("/actuator")
+        assert resp.status_code == 200
+        links = resp.json()["_links"]
+        assert "self" in links
+        assert "health" in links
+        assert "beans" in links
+        assert links["health"]["href"] == "/actuator/health"
 
 
 # ---------------------------------------------------------------------------
@@ -168,6 +201,11 @@ class TestCreateAppActuatorWiring:
         # /actuator/info should be present
         resp = client.get("/actuator/info")
         assert resp.status_code == 200
+
+        # /actuator index should be present
+        resp = client.get("/actuator")
+        assert resp.status_code == 200
+        assert "_links" in resp.json()
 
     @pytest.mark.asyncio
     async def test_actuator_not_present_when_disabled(self):

@@ -21,6 +21,13 @@ from pyfly.web.adapters.starlette.docs import (
     make_swagger_ui_endpoint,
 )
 from pyfly.web.adapters.starlette.errors import global_exception_handler
+from pyfly.web.adapters.starlette.filter_chain import WebFilterChainMiddleware
+from pyfly.web.adapters.starlette.filters import (
+    RequestLoggingFilter,
+    SecurityFilter,
+    SecurityHeadersFilter,
+    TransactionIdFilter,
+)
 from pyfly.web.adapters.starlette.middleware import TransactionIdMiddleware
 from pyfly.web.adapters.starlette.request_logger import RequestLoggingMiddleware
 from pyfly.web.adapters.starlette.resolver import ParameterResolver
@@ -30,9 +37,14 @@ from pyfly.web.adapters.starlette.security_headers import SecurityHeadersMiddlew
 __all__ = [
     "ControllerRegistrar",
     "ParameterResolver",
+    "RequestLoggingFilter",
     "RequestLoggingMiddleware",
+    "SecurityFilter",
+    "SecurityHeadersFilter",
     "SecurityHeadersMiddleware",
+    "TransactionIdFilter",
     "TransactionIdMiddleware",
+    "WebFilterChainMiddleware",
     "create_app",
     "global_exception_handler",
     "handle_return_value",

@@ -1,3 +1,32 @@
+{% if has_data or has_mongodb %}
+"""Item repository — database-backed."""
+
+from pyfly.container import repository
+{% if has_data %}
+from pyfly.data import Repository
+
+from {{ package_name }}.models.item import ItemEntity
+{% endif %}
+{% if has_mongodb %}
+from pyfly.data import MongoRepository
+
+from {{ package_name }}.models.item import ItemDocument
+{% endif %}
+{% if has_data %}
+
+
+@repository
+class ItemRepository(Repository[ItemEntity, int]):
+    """Relational repository — inherits full CRUD. Add custom queries by defining stub methods."""
+{% endif %}
+{% if has_mongodb %}
+
+
+@repository
+class ItemDocumentRepository(MongoRepository[ItemDocument, str]):
+    """Document repository — inherits full CRUD. Add custom queries by defining stub methods."""
+{% endif %}
+{% else %}
 """Item repository with in-memory storage."""
 
 from pyfly.container import repository
@@ -23,3 +52,4 @@ class ItemRepository:
 
     def delete(self, item_id: str) -> None:
         self._store.pop(item_id, None)
+{% endif %}

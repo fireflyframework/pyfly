@@ -11,11 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Derived query method parser and compiler for Spring Data-style repositories.
+"""Derived query method parser for Spring Data-style repositories.
 
 Parses method names like ``find_by_status_and_role_order_by_name_desc`` into
-structured query descriptions, then compiles them into executable SQLAlchemy
-async callables.
+structured query descriptions. Framework-agnostic — contains no backend
+imports. Each data adapter provides its own compiler via
+:class:`~pyfly.data.ports.compiler.QueryMethodCompilerPort`.
 
 Grammar
 -------
@@ -42,24 +43,14 @@ Grammar
 Example::
 
     parser = QueryMethodParser()
-    compiler = QueryMethodCompiler()
-
     parsed = parser.parse("find_by_status_and_role_order_by_name_desc")
-    query_fn = compiler.compile(parsed, User)
-    results = await query_fn(session, "active", "admin")
+    # -> ParsedQuery with predicates and order clauses
 """
 
 from __future__ import annotations
 
 import re
-from collections.abc import Callable, Coroutine, Sequence
 from dataclasses import dataclass, field
-from typing import Any, TypeVar
-
-from sqlalchemy import Select, delete, func, or_, select
-from sqlalchemy.ext.asyncio import AsyncSession
-
-T = TypeVar("T")
 
 # Operator suffixes ordered longest-first to prevent partial matches.
 # E.g., ``_greater_than_equal`` must be checked before ``_greater_than``.
@@ -214,198 +205,3 @@ class QueryMethodParser:
                 return FieldPredicate(field_name=field_name, operator=op)
         # No operator suffix means equals.
         return FieldPredicate(field_name=segment, operator="eq")
-
-
-# ---------------------------------------------------------------------------
-# Compiler
-# ---------------------------------------------------------------------------
-
-
-class QueryMethodCompiler:
-    """Compile a :class:`ParsedQuery` into an async callable.
-
-    The returned callable has the signature::
-
-        async def query_fn(session: AsyncSession, *args: Any) -> R
-
-    where ``R`` depends on the prefix:
-
-    * ``find_by``   -> ``list[T]``
-    * ``count_by``  -> ``int``
-    * ``exists_by`` -> ``bool``
-    * ``delete_by`` -> ``int``  (number of deleted rows)
-    """
-
-    def compile(
-        self,
-        parsed: ParsedQuery,
-        entity: type[T],
-    ) -> Callable[..., Coroutine[Any, Any, Any]]:
-        """Dispatch to the correct compile method based on prefix."""
-        dispatch = {
-            "find_by": self._compile_find,
-            "count_by": self._compile_count,
-            "exists_by": self._compile_exists,
-            "delete_by": self._compile_delete,
-        }
-        builder = dispatch.get(parsed.prefix)
-        if builder is None:
-            raise ValueError(f"Unknown prefix: {parsed.prefix}")
-        return builder(parsed, entity)
-
-    # ------------------------------------------------------------------
-    # find_by
-    # ------------------------------------------------------------------
-
-    def _compile_find(
-        self,
-        parsed: ParsedQuery,
-        entity: type[T],
-    ) -> Callable[..., Coroutine[Any, Any, list[T]]]:
-        async def _execute(session: AsyncSession, *args: Any) -> list[T]:
-            stmt = select(entity)
-            stmt = self._apply_where(stmt, parsed, entity, args)
-            stmt = self._apply_order(stmt, parsed, entity)
-            result = await session.execute(stmt)
-            return list(result.scalars().all())
-
-        return _execute
-
-    # ------------------------------------------------------------------
-    # count_by
-    # ------------------------------------------------------------------
-
-    def _compile_count(
-        self,
-        parsed: ParsedQuery,
-        entity: type[T],
-    ) -> Callable[..., Coroutine[Any, Any, int]]:
-        async def _execute(session: AsyncSession, *args: Any) -> int:
-            stmt = select(func.count()).select_from(entity)
-            stmt = self._apply_where(stmt, parsed, entity, args)
-            result = await session.execute(stmt)
-            return result.scalar_one()
-
-        return _execute
-
-    # ------------------------------------------------------------------
-    # exists_by
-    # ------------------------------------------------------------------
-
-    def _compile_exists(
-        self,
-        parsed: ParsedQuery,
-        entity: type[T],
-    ) -> Callable[..., Coroutine[Any, Any, bool]]:
-        async def _execute(session: AsyncSession, *args: Any) -> bool:
-            stmt = select(func.count()).select_from(entity)
-            stmt = self._apply_where(stmt, parsed, entity, args)
-            result = await session.execute(stmt)
-            return result.scalar_one() > 0
-
-        return _execute
-
-    # ------------------------------------------------------------------
-    # delete_by
-    # ------------------------------------------------------------------
-
-    def _compile_delete(
-        self,
-        parsed: ParsedQuery,
-        entity: type[T],
-    ) -> Callable[..., Coroutine[Any, Any, int]]:
-        async def _execute(session: AsyncSession, *args: Any) -> int:
-            stmt = delete(entity)
-            stmt = self._apply_where(stmt, parsed, entity, args)
-            result = await session.execute(stmt)
-            return result.rowcount  # type: ignore[return-value]
-
-        return _execute
-
-    # ------------------------------------------------------------------
-    # Shared helpers
-    # ------------------------------------------------------------------
-
-    @staticmethod
-    def _build_clause(col: Any, predicate: FieldPredicate, args: Sequence[Any], arg_idx: int) -> tuple[Any, int]:
-        """Build a single SQLAlchemy clause from a predicate and consume args.
-
-        Returns:
-            A tuple of ``(clause, new_arg_index)`` so the caller knows
-            how many positional arguments were consumed.
-        """
-        op = predicate.operator
-
-        if op == "eq":
-            return col == args[arg_idx], arg_idx + 1
-        if op == "not":
-            return col != args[arg_idx], arg_idx + 1
-        if op == "gt":
-            return col > args[arg_idx], arg_idx + 1
-        if op == "gte":
-            return col >= args[arg_idx], arg_idx + 1
-        if op == "lt":
-            return col < args[arg_idx], arg_idx + 1
-        if op == "lte":
-            return col <= args[arg_idx], arg_idx + 1
-        if op == "like":
-            return col.like(args[arg_idx]), arg_idx + 1
-        if op == "containing":
-            return col.like(f"%{args[arg_idx]}%"), arg_idx + 1
-        if op == "in":
-            return col.in_(args[arg_idx]), arg_idx + 1
-        if op == "between":
-            return col.between(args[arg_idx], args[arg_idx + 1]), arg_idx + 2
-        if op == "is_null":
-            return col.is_(None), arg_idx
-        if op == "is_not_null":
-            return col.isnot(None), arg_idx
-
-        raise ValueError(f"Unknown operator: {op}")
-
-    def _apply_where(
-        self,
-        stmt: Any,
-        parsed: ParsedQuery,
-        entity: type[T],
-        args: Sequence[Any],
-    ) -> Any:
-        """Apply WHERE clauses from parsed predicates to a SELECT or DELETE statement."""
-        if not parsed.predicates:
-            return stmt
-
-        clauses, _ = self._collect_clauses(parsed, entity, args)
-
-        # Combine clauses with the connectors
-        combined = clauses[0]
-        for i, connector in enumerate(parsed.connectors):
-            combined = combined & clauses[i + 1] if connector == "and" else or_(combined, clauses[i + 1])
-
-        return stmt.where(combined)
-
-    def _collect_clauses(
-        self,
-        parsed: ParsedQuery,
-        entity: type[T],
-        args: Sequence[Any],
-    ) -> tuple[list[Any], int]:
-        """Iterate over predicates and build SQLAlchemy column expressions.
-
-        Returns:
-            A tuple of ``(clause_list, final_arg_index)``.
-        """
-        clauses: list[Any] = []
-        arg_idx = 0
-        for predicate in parsed.predicates:
-            col = getattr(entity, predicate.field_name)
-            clause, arg_idx = self._build_clause(col, predicate, args, arg_idx)
-            clauses.append(clause)
-        return clauses, arg_idx
-
-    @staticmethod
-    def _apply_order(stmt: Select, parsed: ParsedQuery, entity: type[T]) -> Select:
-        """Apply ORDER BY clauses to a SELECT statement."""
-        for order in parsed.order_clauses:
-            col = getattr(entity, order.field_name)
-            stmt = stmt.order_by(col.desc()) if order.direction == "desc" else stmt.order_by(col.asc())
-        return stmt

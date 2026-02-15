@@ -13,6 +13,7 @@
 # limitations under the License.
 """Web framework ports — abstract interfaces for web server adapters."""
 
+from pyfly.web.ports.filter import WebFilter
 from pyfly.web.ports.outbound import WebServerPort
 
-__all__ = ["WebServerPort"]
+__all__ = ["WebFilter", "WebServerPort"]

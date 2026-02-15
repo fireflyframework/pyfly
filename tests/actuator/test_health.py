@@ -14,10 +14,13 @@
 """Tests for the actuator health system."""
 
 import pytest
+from starlette.applications import Starlette
 from starlette.testclient import TestClient
 
+from pyfly.actuator.adapters.starlette import make_starlette_actuator_routes
+from pyfly.actuator.endpoints import HealthEndpoint
 from pyfly.actuator.health import HealthAggregator, HealthIndicator, HealthResult, HealthStatus
-from pyfly.actuator.endpoints import make_actuator_routes
+from pyfly.actuator.registry import ActuatorRegistry
 
 
 # ---------------------------------------------------------------------------
@@ -129,10 +132,15 @@ class TestHealthAggregator:
 # /actuator/health endpoint
 # ---------------------------------------------------------------------------
 
+def _make_health_routes(agg):
+    registry = ActuatorRegistry()
+    registry.register(HealthEndpoint(agg))
+    return make_starlette_actuator_routes(registry)
+
+
 class TestHealthEndpoint:
     def _make_client(self, aggregator: HealthAggregator) -> TestClient:
-        from starlette.applications import Starlette
-        routes = make_actuator_routes(health_aggregator=aggregator)
+        routes = _make_health_routes(aggregator)
         app = Starlette(routes=routes)
         return TestClient(app)
 

@@ -1,7 +1,7 @@
 """REST controllers — API layer."""
 
 from pyfly.container import rest_controller
-from pyfly.web import Body, PathVar, delete_mapping, get_mapping, post_mapping, request_mapping
+from pyfly.web import PathVar, Valid, delete_mapping, get_mapping, post_mapping, request_mapping
 
 from {{ package_name }}.api.dto import ItemCreateRequest, ItemResponseDTO
 from {{ package_name }}.application.services import ItemService
@@ -25,19 +25,35 @@ class ItemController:
 
     @get_mapping("/")
     async def list_items(self) -> list[ItemResponseDTO]:
+{% if has_data or has_mongodb %}
+        items = await self._service.list_all()
+{% else %}
         items = self._service.list_all()
+{% endif %}
         return [ItemResponseDTO(id=i.id, name=i.name, description=i.description) for i in items]
 
     @get_mapping("/{item_id}")
-    async def get_item(self, item_id: PathVar[str]) -> ItemResponseDTO:
+    async def get_item(self, item_id: PathVar[{% if has_data %}int{% else %}str{% endif %}]) -> ItemResponseDTO:
+{% if has_data or has_mongodb %}
+        item = await self._service.get(item_id)
+{% else %}
         item = self._service.get(item_id)
+{% endif %}
         return ItemResponseDTO(id=item.id, name=item.name, description=item.description)
 
     @post_mapping("/", status_code=201)
-    async def create_item(self, body: Body[ItemCreateRequest]) -> ItemResponseDTO:
+    async def create_item(self, body: Valid[ItemCreateRequest]) -> ItemResponseDTO:
+{% if has_data or has_mongodb %}
+        item = await self._service.create(name=body.name, description=body.description)
+{% else %}
         item = self._service.create(name=body.name, description=body.description)
+{% endif %}
         return ItemResponseDTO(id=item.id, name=item.name, description=item.description)
 
     @delete_mapping("/{item_id}", status_code=204)
-    async def delete_item(self, item_id: PathVar[str]) -> None:
+    async def delete_item(self, item_id: PathVar[{% if has_data %}int{% else %}str{% endif %}]) -> None:
+{% if has_data or has_mongodb %}
+        await self._service.delete(item_id)
+{% else %}
         self._service.delete(item_id)
+{% endif %}

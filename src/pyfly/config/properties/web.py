@@ -25,6 +25,7 @@ from pyfly.core.config import config_properties
 class WebProperties:
     """Configuration for the web subsystem (pyfly.web.*)."""
 
+    adapter: str = "auto"
     port: int = 8000
     host: str = "0.0.0.0"
     debug: bool = False

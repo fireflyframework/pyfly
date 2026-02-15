@@ -13,13 +13,15 @@
 # limitations under the License.
 """Actuator — production-ready monitoring and management endpoints."""
 
-from pyfly.actuator.endpoints import make_actuator_routes
 from pyfly.actuator.health import HealthAggregator, HealthIndicator, HealthResult, HealthStatus
+from pyfly.actuator.ports import ActuatorEndpoint
+from pyfly.actuator.registry import ActuatorRegistry
 
 __all__ = [
+    "ActuatorEndpoint",
+    "ActuatorRegistry",
     "HealthAggregator",
     "HealthIndicator",
     "HealthResult",
     "HealthStatus",
-    "make_actuator_routes",
 ]

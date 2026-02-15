@@ -1,12 +1,16 @@
 # Web Layer Guide
 
-The PyFly web layer provides enterprise-grade HTTP routing, controller registration, parameter binding, middleware, exception handling, CORS, security headers, and OpenAPI documentation. It follows a hexagonal (ports-and-adapters) architecture: the framework-agnostic core defines decorators, parameter types, and configuration dataclasses, while a pluggable adapter layer (Starlette by default) handles the actual HTTP server integration.
+The PyFly web layer provides enterprise-grade HTTP routing, controller registration, parameter binding, parameter validation, a composable filter chain, exception handling, CORS, security headers, and OpenAPI documentation. It follows a hexagonal (ports-and-adapters) architecture: the framework-agnostic core defines decorators, parameter types, and configuration dataclasses, while a pluggable adapter layer (Starlette by default) handles the actual HTTP server integration. A config-driven adapter selection mechanism allows the framework to auto-detect the best available web provider at startup.
 
 ---
 
 ## Table of Contents
 
 - [Architecture Overview](#architecture-overview)
+- [Config-Driven Web Adapter Selection](#config-driven-web-adapter-selection)
+  - [WebProperties](#webproperties)
+  - [Auto-Detection](#auto-detection)
+  - [StarletteWebAdapter](#starlettewebadapter)
 - [REST Controllers](#rest-controllers)
   - [Defining a Controller](#defining-a-controller)
   - [@rest_controller Stereotype](#rest_controller-stereotype)
@@ -25,6 +29,14 @@ The PyFly web layer provides enterprise-grade HTTP routing, controller registrat
   - [Header\[T\] -- HTTP Headers](#headert----http-headers)
   - [Cookie\[T\] -- Cookies](#cookiet----cookies)
   - [Type Coercion](#type-coercion)
+- [Valid\[T\] -- Parameter Validation](#validt----parameter-validation)
+  - [Standalone Usage: Valid\[T\]](#standalone-usage-validt)
+  - [Wrapping Body\[T\]: Valid\[Body\[T\]\]](#wrapping-bodyt-validbodyt)
+  - [Wrapping Other Binding Types](#wrapping-other-binding-types)
+  - [Behavior Summary](#behavior-summary)
+  - [Structured 422 Error Response](#structured-422-error-response)
+  - [Valid\[T\] vs. Bare Body\[T\]](#validt-vs-bare-bodyt)
+  - [ParameterResolver Internals for Valid\[T\]](#parameterresolver-internals-for-validt)
 - [Response Handling](#response-handling)
   - [Return Value Conversion](#return-value-conversion)
   - [handle_return_value()](#handle_return_value)
@@ -33,11 +45,18 @@ The PyFly web layer provides enterprise-grade HTTP routing, controller registrat
   - [Global Exception Handler](#global-exception-handler)
   - [Exception-to-Status Mapping](#exception-to-status-mapping)
   - [Exception Converters](#exception-converters)
-- [Middleware](#middleware)
-  - [TransactionIdMiddleware](#transactionidmiddleware)
-  - [RequestLoggingMiddleware](#requestloggingmiddleware)
-  - [SecurityHeadersMiddleware](#securityheadersmiddleware)
-  - [Custom Middleware](#custom-middleware)
+- [WebFilter Chain](#webfilter-chain)
+  - [WebFilter Protocol](#webfilter-protocol)
+  - [OncePerRequestFilter Base Class](#oncerequestfilter-base-class)
+  - [Built-in Filters](#built-in-filters)
+    - [TransactionIdFilter](#transactionidfilter)
+    - [RequestLoggingFilter](#requestloggingfilter)
+    - [SecurityHeadersFilter](#securityheadersfilter)
+    - [SecurityFilter](#securityfilter)
+  - [WebFilterChainMiddleware](#webfilterchainmiddleware)
+  - [Filter Ordering with @order](#filter-ordering-with-order)
+  - [Auto-Discovery of User Filters](#auto-discovery-of-user-filters)
+  - [Creating Custom Filters](#creating-custom-filters)
 - [CORS Configuration](#cors-configuration)
 - [Security Headers](#security-headers)
 - [OpenAPI and Swagger Documentation](#openapi-and-swagger-documentation)
@@ -54,6 +73,7 @@ The PyFly web layer provides enterprise-grade HTTP routing, controller registrat
   - [Exception Handler Discovery](#exception-handler-discovery)
 - [ParameterResolver](#parameterresolver)
 - [WebServerPort](#webserverport)
+- [Module Exports Reference](#module-exports-reference)
 - [Complete CRUD Example](#complete-crud-example)
 
 ---
@@ -62,24 +82,154 @@ The PyFly web layer provides enterprise-grade HTTP routing, controller registrat
 
 PyFly's web layer is organized into three tiers:
 
-1. **Framework-agnostic core** (`pyfly.web`): Decorators (`@get_mapping`, `@post_mapping`, etc.), parameter binding types (`PathVar`, `QueryParam`, `Body`, `Header`, `Cookie`), configuration dataclasses (`CORSConfig`, `SecurityHeadersConfig`), and the `@exception_handler` decorator. These contain no HTTP-framework-specific code and could be backed by any ASGI or WSGI framework.
+1. **Framework-agnostic core** (`pyfly.web`): Decorators (`@get_mapping`, `@post_mapping`, etc.), parameter binding types (`PathVar`, `QueryParam`, `Body`, `Header`, `Cookie`), the validation marker type (`Valid`), the `WebFilter` protocol, the `OncePerRequestFilter` base class, configuration dataclasses (`CORSConfig`, `SecurityHeadersConfig`), and the `@exception_handler` decorator. These contain no HTTP-framework-specific code and could be backed by any ASGI or WSGI framework.
 
-2. **Port interfaces** (`pyfly.web.ports`): The `WebServerPort` protocol defines the contract that any web server adapter must implement, ensuring that the application layer never depends directly on Starlette, Flask, or any other framework.
+2. **Port interfaces** (`pyfly.web.ports`): The `WebServerPort` protocol defines the contract that any web server adapter must implement, and the `WebFilter` protocol defines the contract for request/response filters. These ensure that the application layer never depends directly on Starlette, Flask, or any other framework.
 
-3. **Starlette adapter** (`pyfly.web.adapters.starlette`): The default implementation that translates the framework-agnostic decorators and types into Starlette routes, middleware, and request handling. This includes the `ControllerRegistrar`, `ParameterResolver`, response handler, error handler, and OpenAPI endpoint generators.
+3. **Starlette adapter** (`pyfly.web.adapters.starlette`): The default implementation that translates the framework-agnostic decorators and types into Starlette routes, filters, and request handling. This includes the `ControllerRegistrar`, `ParameterResolver`, response handler, error handler, `WebFilterChainMiddleware`, built-in filter implementations (`TransactionIdFilter`, `RequestLoggingFilter`, `SecurityHeadersFilter`, `SecurityFilter`), the `StarletteWebAdapter`, and OpenAPI endpoint generators.
 
 For convenience, the top-level `pyfly.web` package re-exports both the core types and the Starlette adapter, so most applications need only a single import:
 
 ```python
 from pyfly.web import (
+    # Decorators
     create_app, get_mapping, post_mapping, put_mapping, patch_mapping,
     delete_mapping, request_mapping, exception_handler,
-    Body, PathVar, QueryParam, Header, Cookie,
+    # Parameter binding types
+    Body, PathVar, QueryParam, Header, Cookie, Valid,
+    # Filter system
+    WebFilter, OncePerRequestFilter,
+    # Configuration
     CORSConfig, SecurityHeadersConfig,
+    # Starlette adapter utilities
     ControllerRegistrar, RequestLoggingMiddleware,
     SecurityHeadersMiddleware, handle_return_value,
 )
 ```
+
+Source files:
+- `src/pyfly/web/__init__.py` -- top-level re-exports
+- `src/pyfly/web/params.py` -- `PathVar`, `QueryParam`, `Body`, `Header`, `Cookie`, `Valid`
+- `src/pyfly/web/mappings.py` -- `@request_mapping`, `@get_mapping`, etc.
+- `src/pyfly/web/filters.py` -- `OncePerRequestFilter`
+- `src/pyfly/web/ports/filter.py` -- `WebFilter` protocol
+- `src/pyfly/web/ports/outbound.py` -- `WebServerPort` protocol
+- `src/pyfly/web/adapters/starlette/` -- Starlette adapter package
+
+---
+
+## Config-Driven Web Adapter Selection
+
+PyFly uses a config-driven auto-configuration system to select the web framework adapter at startup. This mirrors the Spring Boot auto-configuration pattern: the framework detects which libraries are installed and wires the appropriate adapter bean automatically.
+
+### WebProperties
+
+The `WebProperties` dataclass (`src/pyfly/config/properties/web.py`) captures all web subsystem configuration under the `pyfly.web.*` namespace:
+
+```python
+from pyfly.core.config import config_properties
+from dataclasses import dataclass, field
+
+
+@config_properties(prefix="pyfly.web")
+@dataclass
+class WebProperties:
+    adapter: str = "auto"
+    port: int = 8000
+    host: str = "0.0.0.0"
+    debug: bool = False
+    docs: dict = field(default_factory=lambda: {"enabled": True})
+    actuator: dict = field(default_factory=lambda: {"enabled": False})
+```
+
+| Field      | Type   | Default                   | Description                                                |
+|------------|--------|---------------------------|------------------------------------------------------------|
+| `adapter`  | `str`  | `"auto"`                  | Web adapter to use: `"auto"`, `"starlette"`, or `"none"`   |
+| `port`     | `int`  | `8000`                    | HTTP server listen port                                    |
+| `host`     | `str`  | `"0.0.0.0"`              | HTTP server bind address                                   |
+| `debug`    | `bool` | `False`                   | Enable Starlette debug mode                                |
+| `docs`     | `dict` | `{"enabled": True}`       | OpenAPI documentation settings                             |
+| `actuator` | `dict` | `{"enabled": False}`      | Actuator endpoint settings                                 |
+
+You can set these values in your `application.yml` or `application.toml`:
+
+```yaml
+pyfly:
+  web:
+    adapter: starlette
+    port: 9090
+    host: 0.0.0.0
+    debug: false
+    docs:
+      enabled: true
+    actuator:
+      enabled: true
+```
+
+### Auto-Detection
+
+The `AutoConfiguration` class (`src/pyfly/config/auto.py`) provides the `detect_web_adapter()` static method:
+
+```python
+class AutoConfiguration:
+    @staticmethod
+    def detect_web_adapter() -> str:
+        """Detect the best available web framework adapter."""
+        if AutoConfiguration.is_available("starlette"):
+            return "starlette"
+        return "none"
+```
+
+The detection simply checks whether the `starlette` package is importable. If it is, the Starlette adapter is selected. If not, no web adapter is registered (the application can still function as a non-web service).
+
+The `AutoConfigurationEngine._configure_web()` method orchestrates the full flow:
+
+1. Checks if a `WebServerPort` bean is already registered in the container (user override).
+2. If not, reads `pyfly.web.adapter` from config (defaults to `"auto"`).
+3. If `"auto"`, calls `AutoConfiguration.detect_web_adapter()` to detect the provider.
+4. If the resolved adapter is `"starlette"`, creates a `StarletteWebAdapter` instance and registers it in the container as a `WebServerPort` bean.
+5. If no adapter is available, logs a skip message.
+
+```python
+def _configure_web(self, config: Config, container: Container) -> None:
+    from pyfly.web.ports.outbound import WebServerPort
+
+    if self._already_registered(container, WebServerPort):
+        return
+
+    configured_adapter = str(config.get("pyfly.web.adapter", "auto"))
+    adapter = (
+        configured_adapter
+        if configured_adapter != "auto"
+        else AutoConfiguration.detect_web_adapter()
+    )
+
+    if adapter == "starlette":
+        from pyfly.web.adapters.starlette.adapter import StarletteWebAdapter
+        instance = StarletteWebAdapter()
+        self._register(container, WebServerPort, instance, "web", adapter)
+    else:
+        logger.info("auto_configuration", subsystem="web", status="skipped", reason="no adapter")
+```
+
+### StarletteWebAdapter
+
+The `StarletteWebAdapter` (`src/pyfly/web/adapters/starlette/adapter.py`) implements the `WebServerPort` protocol by delegating to the `create_app()` factory:
+
+```python
+class StarletteWebAdapter:
+    """WebServerPort implementation backed by Starlette."""
+
+    def create_app(self, **kwargs: Any) -> Starlette:
+        return create_app(**kwargs)
+```
+
+This simple delegation pattern keeps the adapter thin. All the real work happens in `create_app()`, which is described in detail in the [Application Factory](#application-factory-create_app) section.
+
+Source files:
+- `src/pyfly/config/properties/web.py` -- `WebProperties`
+- `src/pyfly/config/auto.py` -- `AutoConfiguration`, `AutoConfigurationEngine`
+- `src/pyfly/web/adapters/starlette/adapter.py` -- `StarletteWebAdapter`
 
 ---
 
@@ -91,7 +241,7 @@ A REST controller in PyFly is a plain Python class decorated with `@rest_control
 
 ```python
 from pyfly.container import rest_controller
-from pyfly.web import request_mapping, get_mapping, post_mapping, Body, PathVar
+from pyfly.web import request_mapping, get_mapping, post_mapping, Body, PathVar, Valid
 
 
 @rest_controller
@@ -110,7 +260,7 @@ class OrderController:
         return await self._service.find_by_id(order_id)
 
     @post_mapping("/", status_code=201)
-    async def create_order(self, body: Body[CreateOrderRequest]) -> dict:
+    async def create_order(self, body: Valid[CreateOrderRequest]) -> dict:
         return await self._service.create(body)
 ```
 
@@ -146,6 +296,8 @@ class OrderController:
 
 Trailing slashes on the base path are automatically stripped to prevent double-slash issues.
 
+Source file: `src/pyfly/web/mappings.py`
+
 ---
 
 ## HTTP Method Mappings
@@ -172,7 +324,7 @@ Map a handler to HTTP POST requests. Typically used for create operations.
 
 ```python
 @post_mapping("/", status_code=201)
-async def create_item(self, body: Body[CreateItemRequest]) -> dict:
+async def create_item(self, body: Valid[CreateItemRequest]) -> dict:
     return await self._service.create(body)
 ```
 
@@ -182,7 +334,7 @@ Map a handler to HTTP PUT requests. Used for full-replacement updates.
 
 ```python
 @put_mapping("/{item_id}")
-async def replace_item(self, item_id: PathVar[str], body: Body[UpdateItemRequest]) -> dict:
+async def replace_item(self, item_id: PathVar[str], body: Valid[UpdateItemRequest]) -> dict:
     return await self._service.replace(item_id, body)
 ```
 
@@ -202,7 +354,7 @@ Map a handler to HTTP PATCH requests. Used for partial updates.
 
 ```python
 @patch_mapping("/{item_id}")
-async def update_item(self, item_id: PathVar[str], body: Body[PatchItemRequest]) -> dict:
+async def update_item(self, item_id: PathVar[str], body: Valid[PatchItemRequest]) -> dict:
     return await self._service.patch(item_id, body)
 ```
 
@@ -218,6 +370,8 @@ All five decorators share the same parameters:
 Path parameters use `{name}` syntax in the path string: `@get_mapping("/{order_id}")`.
 
 Internally, each decorator stores a `__pyfly_mapping__` dict on the function with keys `"method"`, `"path"`, and `"status_code"`.
+
+Source file: `src/pyfly/web/mappings.py`
 
 ---
 
@@ -284,11 +438,12 @@ class CreateOrderRequest(BaseModel):
 @post_mapping("/", status_code=201)
 async def create_order(self, body: Body[CreateOrderRequest]) -> dict:
     # body is a fully validated CreateOrderRequest instance
-    # Pydantic validation errors produce a 422 response automatically
     return await self._service.create(body)
 ```
 
 When `T` is not a Pydantic model, the raw body bytes are decoded as UTF-8 and passed to `T(decoded_string)`.
+
+**Note:** With bare `Body[T]`, Pydantic validation still runs (via `model_validate_json()`), but validation errors propagate as raw Pydantic `ValidationError` exceptions. To get structured 422 error responses with detailed error information, use `Valid[T]` or `Valid[Body[T]]` instead. See the [Valid[T] -- Parameter Validation](#validt----parameter-validation) section.
 
 ### Header[T] -- HTTP Headers
 
@@ -329,6 +484,167 @@ The `ParameterResolver` automatically coerces string values from the HTTP reques
 | Any other   | `T(value)` -- calls the constructor |
 
 The coercion is performed by the `_coerce()` method of `ParameterResolver`.
+
+Source files:
+- `src/pyfly/web/params.py` -- binding type definitions
+- `src/pyfly/web/adapters/starlette/resolver.py` -- `ParameterResolver`
+
+---
+
+## Valid[T] -- Parameter Validation
+
+`Valid[T]` is a generic marker type that triggers explicit Pydantic validation with structured 422 error responses. It is defined alongside the other binding types in `src/pyfly/web/params.py`:
+
+```python
+class Valid(Generic[T]):
+    """Marks a parameter for explicit Pydantic validation with structured 422 errors."""
+```
+
+`Valid[T]` works by wrapping another binding type (or implying `Body[T]` when used standalone) and instructing the `ParameterResolver` to catch Pydantic `ValidationError` exceptions and convert them into `ValidationException` instances with `code="VALIDATION_ERROR"` and a `context` dict containing the full list of field-level errors.
+
+### Standalone Usage: Valid[T]
+
+When `Valid[T]` is used without an inner binding type, it implies `Body[T]` -- the request body is deserialized as JSON and validated:
+
+```python
+from pyfly.web import Valid, post_mapping
+
+
+@post_mapping("/", status_code=201)
+async def create_order(self, body: Valid[CreateOrderRequest]) -> OrderResponse:
+    # body is a validated CreateOrderRequest instance
+    # If validation fails, a structured 422 response is returned automatically
+    return await self._service.create(body)
+```
+
+This is the most common usage pattern. It combines body deserialization with structured error handling in a single annotation.
+
+### Wrapping Body[T]: Valid[Body[T]]
+
+You can explicitly wrap `Body[T]` with `Valid` for clarity. The behavior is identical to standalone `Valid[T]`:
+
+```python
+from pyfly.web import Valid, Body, post_mapping
+
+
+@post_mapping("/", status_code=201)
+async def create_order(self, body: Valid[Body[CreateOrderRequest]]) -> OrderResponse:
+    # Equivalent to Valid[CreateOrderRequest]
+    return await self._service.create(body)
+```
+
+### Wrapping Other Binding Types
+
+`Valid` can wrap any binding type to apply validation after the parameter has been resolved:
+
+```python
+from pyfly.web import Valid, QueryParam, Header, get_mapping
+
+
+@get_mapping("/search")
+async def search(
+    self,
+    page: Valid[QueryParam[int]],
+    x_correlation_id: Valid[Header[str]],
+) -> list[dict]:
+    # page is resolved from query string, then validated
+    # x_correlation_id is resolved from headers, then validated
+    return await self._service.search(page=page)
+```
+
+For non-`Body` binding types (`QueryParam`, `Header`, `PathVar`, `Cookie`), the resolver first extracts the raw value using the normal resolution logic, then runs `_run_validation()` on the resolved value. For `BaseModel` instances (which have already been validated by Pydantic), this is a no-op. For dicts that need to be validated against a Pydantic model, `validate_model()` is called.
+
+### Behavior Summary
+
+| Annotation              | Binding Type | Validation Behavior                                               |
+|-------------------------|--------------|-------------------------------------------------------------------|
+| `Body[T]`               | Body         | Pydantic validation via `model_validate_json()`. Errors propagate as raw `ValidationError`. |
+| `Valid[T]`              | Body         | Same deserialization, but errors are caught and converted to `ValidationException` with structured context. |
+| `Valid[Body[T]]`        | Body         | Identical to `Valid[T]`.                                          |
+| `Valid[QueryParam[T]]`  | QueryParam   | Query param resolved first, then validated. Errors become structured 422. |
+| `Valid[Header[T]]`      | Header       | Header resolved first, then validated. Errors become structured 422. |
+| `Valid[PathVar[T]]`     | PathVar      | Path variable resolved first, then validated.                     |
+| `Valid[Cookie[T]]`      | Cookie       | Cookie resolved first, then validated.                            |
+
+### Structured 422 Error Response
+
+When validation fails on a `Valid`-annotated parameter, the `ParameterResolver` catches the Pydantic `ValidationError` and raises a `ValidationException`:
+
+```python
+raise ValidationException(
+    f"Validation failed: {detail}",
+    code="VALIDATION_ERROR",
+    context={"errors": errors},
+)
+```
+
+This exception is then handled by the global exception handler, producing a structured 422 response:
+
+```json
+{
+  "error": {
+    "message": "Validation failed: quantity: Input should be greater than 0",
+    "code": "VALIDATION_ERROR",
+    "status": 422,
+    "path": "/api/orders/",
+    "timestamp": "2026-02-15T10:30:00+00:00",
+    "transaction_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "context": {
+      "errors": [
+        {
+          "type": "greater_than",
+          "loc": ["quantity"],
+          "msg": "Input should be greater than 0",
+          "input": -1,
+          "ctx": {"gt": 0}
+        }
+      ]
+    }
+  }
+}
+```
+
+The `context.errors` array contains the full list of Pydantic validation errors, each with `type`, `loc` (field location), `msg` (human-readable message), `input` (the invalid value), and `ctx` (constraint context).
+
+### Valid[T] vs. Bare Body[T]
+
+The key difference between `Valid[T]` and bare `Body[T]`:
+
+| Aspect                  | `Body[T]`                                     | `Valid[T]` / `Valid[Body[T]]`                |
+|-------------------------|-----------------------------------------------|----------------------------------------------|
+| Deserialization         | `model_validate_json(body_bytes)`             | Same                                         |
+| On validation error     | Raw Pydantic `ValidationError` propagates     | Caught and converted to `ValidationException`|
+| HTTP response           | May produce 500 if no converter configured    | Always produces structured 422               |
+| Error detail            | Pydantic's default format                     | `code="VALIDATION_ERROR"`, `context={"errors": [...]}` |
+| OpenAPI                 | Same request body schema                      | Same request body schema                     |
+
+**Recommendation:** Use `Valid[T]` for all endpoints that accept user input. It ensures that validation failures always produce clean, structured 422 responses that API consumers can programmatically parse.
+
+### ParameterResolver Internals for Valid[T]
+
+The `ParameterResolver` handles `Valid[T]` in three stages:
+
+1. **Inspection** (`_inspect()` at startup): When the resolver encounters a `Valid` origin type, it sets `validate=True` on the `ResolvedParam`, peels the `Valid` layer, and determines the inner binding type. If the inner type is itself a binding type (`Body`, `QueryParam`, etc.), that becomes the `binding_type`. If the inner type is a plain type (e.g., a Pydantic model), `Body` is implied.
+
+2. **Resolution** (`resolve()` at request time): After resolving each parameter via `_resolve_one()`, if `param.validate` is `True`, the resolver calls `_run_validation(value, param)`.
+
+3. **Body resolution** (`_resolve_body()` with validation): For `Body` parameters with `validate=True`, the resolver wraps the `model_validate_json()` call in a `try/except` block. If a Pydantic `ValidationError` is caught, it is converted into a `ValidationException` with a semicolon-delimited detail string and the raw error list in `context`.
+
+The `ResolvedParam` dataclass carries the `validate` flag:
+
+```python
+@dataclass
+class ResolvedParam:
+    name: str
+    binding_type: type       # PathVar, QueryParam, Body, Header, or Cookie
+    inner_type: type         # The type argument T
+    default: Any = _MISSING
+    validate: bool = False   # True when wrapped in Valid[...]
+```
+
+Source files:
+- `src/pyfly/web/params.py` -- `Valid` class definition
+- `src/pyfly/web/adapters/starlette/resolver.py` -- `ParameterResolver`, `ResolvedParam`
 
 ---
 
@@ -379,6 +695,8 @@ response = handle_return_value(None, status_code=200)
 # -> Response(status_code=204) -- None always yields 204 unless explicitly overridden
 ```
 
+Source file: `src/pyfly/web/adapters/starlette/response.py`
+
 ---
 
 ## Exception Handling
@@ -422,6 +740,8 @@ Exception handler methods can return:
 
 When multiple exception handlers could match (e.g., both `Exception` and `ValueError`), handlers are sorted by MRO depth (most specific first), so subclass exceptions are matched before their parents.
 
+Source file: `src/pyfly/web/exception_handler.py`
+
 ### Global Exception Handler
 
 Unhandled exceptions (those not caught by controller-level handlers) are caught by the global exception handler, which produces RFC 7807-style structured JSON error responses:
@@ -433,13 +753,15 @@ Unhandled exceptions (those not caught by controller-level handlers) are caught 
     "code": "ORDER_NOT_FOUND",
     "status": 404,
     "path": "/api/orders/abc-123",
-    "timestamp": "2026-02-14T10:30:00+00:00",
+    "timestamp": "2026-02-15T10:30:00+00:00",
     "transaction_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
   }
 }
 ```
 
 For `PyFlyException` subclasses, the response includes the exception's `message`, `code`, and optional `context` dict. For unknown exceptions, the message is generalized to `"Internal server error"` with code `"INTERNAL_ERROR"` to avoid leaking internal details.
+
+Source file: `src/pyfly/web/adapters/starlette/errors.py`
 
 ### Exception-to-Status Mapping
 
@@ -498,15 +820,102 @@ class MyLibraryExceptionConverter:
         return BusinessException(str(exc), code="MY_LIB_ERROR")
 ```
 
+The `ExceptionConverterService` iterates through registered converters and returns the first match:
+
+```python
+class ExceptionConverterService:
+    def __init__(self, converters: list[ExceptionConverter]) -> None:
+        self._converters = converters
+
+    def convert(self, exc: Exception) -> PyFlyException | None:
+        for converter in self._converters:
+            if converter.can_handle(exc):
+                return converter.convert(exc)
+        return None
+```
+
+Source file: `src/pyfly/web/converters.py`
+
 ---
 
-## Middleware
+## WebFilter Chain
 
-PyFly's `create_app()` factory automatically includes built-in middleware. Additional middleware can be added manually.
+PyFly replaces traditional per-layer middleware with a composable **WebFilter chain**. All filters are wrapped inside a single `WebFilterChainMiddleware` instance, which avoids the per-middleware task-context overhead that Starlette's `BaseHTTPMiddleware` incurs when multiple middleware layers are stacked. Filters are sorted by priority using the `@order` decorator and executed in sequence.
 
-### TransactionIdMiddleware
+### WebFilter Protocol
 
-Automatically included in every PyFly application. Ensures every request/response pair carries a unique transaction ID for distributed tracing.
+The `WebFilter` protocol (`src/pyfly/web/ports/filter.py`) defines the contract that all filters must satisfy:
+
+```python
+from typing import Any, Protocol, runtime_checkable
+from collections.abc import Callable, Coroutine
+
+CallNext = Callable[..., Coroutine[Any, Any, Any]]
+
+
+@runtime_checkable
+class WebFilter(Protocol):
+    async def do_filter(self, request: Any, call_next: CallNext) -> Any:
+        """Execute this filter's logic."""
+        ...
+
+    def should_not_filter(self, request: Any) -> bool:
+        """Return True to skip this filter for the given request."""
+        ...
+```
+
+| Method             | Description                                                                                       |
+|--------------------|---------------------------------------------------------------------------------------------------|
+| `do_filter()`      | Performs the filter logic. Must call `await call_next(request)` to continue the chain.            |
+| `should_not_filter()` | Returns `True` to skip this filter for the given request. Called before `do_filter()`.          |
+
+The protocol uses generic `Any` types for Request and Response so that vendor-specific types (e.g., Starlette's `Request` and `Response`) remain confined to the adapter layer. The `CallNext` type alias represents the next callable in the chain.
+
+Source file: `src/pyfly/web/ports/filter.py`
+
+### OncePerRequestFilter Base Class
+
+The `OncePerRequestFilter` (`src/pyfly/web/filters.py`) is an abstract base class that provides automatic URL-pattern matching. Most filters should extend this class rather than implementing `WebFilter` directly:
+
+```python
+from pyfly.web.filters import OncePerRequestFilter
+from pyfly.web.ports.filter import CallNext
+
+
+class MyFilter(OncePerRequestFilter):
+    url_patterns = ["/api/*"]
+    exclude_patterns = ["/api/public/*"]
+
+    async def do_filter(self, request, call_next: CallNext):
+        # Filter logic here
+        response = await call_next(request)
+        return response
+```
+
+| Attribute          | Type         | Default | Description                                                       |
+|--------------------|--------------|---------|-------------------------------------------------------------------|
+| `url_patterns`     | `list[str]`  | `[]`    | Glob patterns this filter applies to. Empty = all paths.          |
+| `exclude_patterns` | `list[str]`  | `[]`    | Glob patterns to exclude, even if `url_patterns` matches.         |
+
+The `should_not_filter()` implementation uses `fnmatch` (glob-style matching) to check the request path:
+
+1. If `url_patterns` is non-empty, at least one pattern must match. If none match, the filter is skipped.
+2. If any `exclude_patterns` pattern matches, the filter is skipped (even if `url_patterns` matched).
+3. If `url_patterns` is empty (default), the filter applies to all paths (subject to `exclude_patterns`).
+
+Subclasses only need to implement `do_filter()`. The `should_not_filter()` logic is handled automatically.
+
+Source file: `src/pyfly/web/filters.py`
+
+### Built-in Filters
+
+PyFly ships with four built-in filter implementations in `src/pyfly/web/adapters/starlette/filters/`. Three of them (`TransactionIdFilter`, `RequestLoggingFilter`, `SecurityHeadersFilter`) are automatically included in every application created by `create_app()`. The fourth (`SecurityFilter`) is opt-in and must be registered as a bean in the DI container.
+
+#### TransactionIdFilter
+
+Ensures every request/response pair carries a unique transaction ID for distributed tracing.
+
+**Order:** `HIGHEST_PRECEDENCE + 100` (runs first among built-in filters)
 
 **Behavior:**
 1. Checks for an incoming `X-Transaction-Id` header.
@@ -520,10 +929,15 @@ Request  -> (no header)                  -> X-Transaction-Id: <generated-uuid>
 Response -> X-Transaction-Id: abc-123
 ```
 
-### RequestLoggingMiddleware
+Source file: `src/pyfly/web/adapters/starlette/filters/transaction_id_filter.py`
 
-Automatically included. Logs every HTTP request with structured fields using `structlog`:
+#### RequestLoggingFilter
 
+Logs every HTTP request with structured fields using `structlog`.
+
+**Order:** `HIGHEST_PRECEDENCE + 200` (runs after TransactionIdFilter)
+
+Logged fields:
 - HTTP method
 - Request path
 - Response status code
@@ -536,48 +950,256 @@ Sample structured log output:
 event=http_request method=GET path=/api/orders status_code=200 duration_ms=12.34 transaction_id=abc-123
 ```
 
-Failed requests are logged at the `error` level with the exception type and message.
+Failed requests are logged at the `error` level with the exception type and message:
 
-### SecurityHeadersMiddleware
-
-Adds OWASP-recommended security headers to every response. Configure it with a `SecurityHeadersConfig`:
-
-```python
-from starlette.middleware import Middleware
-from pyfly.web import SecurityHeadersMiddleware, SecurityHeadersConfig
-
-config = SecurityHeadersConfig(
-    x_content_type_options="nosniff",
-    x_frame_options="DENY",
-    strict_transport_security="max-age=31536000; includeSubDomains",
-    x_xss_protection="0",
-    referrer_policy="strict-origin-when-cross-origin",
-    content_security_policy="default-src 'self'",
-    permissions_policy="geolocation=()",
-)
-
-# Add to Starlette manually
-app.add_middleware(SecurityHeadersMiddleware, config=config)
+```
+event=http_request_failed method=POST path=/api/orders duration_ms=5.67 transaction_id=abc-123 error="Validation failed" error_type=ValidationException
 ```
 
-If no config is provided, OWASP defaults are used automatically.
+Source file: `src/pyfly/web/adapters/starlette/filters/request_logging_filter.py`
 
-### Custom Middleware
+#### SecurityHeadersFilter
 
-You can add any Starlette-compatible middleware via `extra_routes` or by modifying the Starlette app directly after `create_app()`:
+Adds OWASP-recommended security headers to every response.
+
+**Order:** `HIGHEST_PRECEDENCE + 300` (runs after RequestLoggingFilter)
+
+Accepts an optional `SecurityHeadersConfig` in its constructor. If none is provided, OWASP defaults are used:
 
 ```python
-from starlette.middleware.base import BaseHTTPMiddleware
+class SecurityHeadersFilter(OncePerRequestFilter):
+    def __init__(self, config: SecurityHeadersConfig | None = None) -> None:
+        self._config = config or SecurityHeadersConfig()
+```
+
+The filter adds these headers to every response:
+
+| Header                        | Default Value                                |
+|-------------------------------|----------------------------------------------|
+| `X-Content-Type-Options`      | `nosniff`                                    |
+| `X-Frame-Options`             | `DENY`                                       |
+| `Strict-Transport-Security`   | `max-age=31536000; includeSubDomains`        |
+| `X-XSS-Protection`            | `0`                                          |
+| `Referrer-Policy`             | `strict-origin-when-cross-origin`            |
+| `Content-Security-Policy`     | *(omitted unless configured)*                |
+| `Permissions-Policy`          | *(omitted unless configured)*                |
+
+Source file: `src/pyfly/web/adapters/starlette/filters/security_headers_filter.py`
+
+#### SecurityFilter
+
+Extracts JWT Bearer tokens from the `Authorization` header and populates a `SecurityContext` on `request.state`. This filter is **not** automatically included -- it must be registered as a DI bean.
+
+```python
+from pyfly.web.adapters.starlette.filters import SecurityFilter
+
+security_filter = SecurityFilter(
+    jwt_service=my_jwt_service,
+    exclude_patterns=["/api/public/*", "/docs", "/openapi.json"],
+)
+```
+
+**Behavior:**
+1. Reads the `Authorization` header.
+2. If it starts with `Bearer `, extracts the token and calls `jwt_service.to_security_context(token)`.
+3. If the token is missing or invalid, sets `SecurityContext.anonymous()`.
+4. Stores the `SecurityContext` on `request.state.security_context`.
+5. Uses `OncePerRequestFilter.exclude_patterns` to skip public endpoints.
+
+```python
+from pyfly.container import component
+from pyfly.security.jwt import JWTService
+from pyfly.web.adapters.starlette.filters import SecurityFilter
 
 
-class RateLimitMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request, call_next):
-        # Your rate limiting logic
+@component
+class AppSecurityFilter(SecurityFilter):
+    def __init__(self, jwt_service: JWTService) -> None:
+        super().__init__(
+            jwt_service=jwt_service,
+            exclude_patterns=["/api/auth/*", "/docs", "/redoc", "/openapi.json"],
+        )
+```
+
+When registered as a DI bean, the filter is automatically discovered by `create_app()` and added to the filter chain.
+
+Source file: `src/pyfly/web/adapters/starlette/filters/security_filter.py`
+
+### WebFilterChainMiddleware
+
+The `WebFilterChainMiddleware` (`src/pyfly/web/adapters/starlette/filter_chain.py`) is a single Starlette `BaseHTTPMiddleware` that wraps all `WebFilter` instances into a chain:
+
+```python
+class WebFilterChainMiddleware(BaseHTTPMiddleware):
+    def __init__(self, app, filters: Sequence[WebFilter] = ()) -> None:
+        super().__init__(app)
+        self._filters = list(filters)
+
+    async def dispatch(self, request, call_next) -> Response:
+        chain = call_next
+        for f in reversed(self._filters):
+            chain = _wrap(f, chain)
+        return await chain(request)
+```
+
+The chain is built from right to left: the last filter in the list wraps `call_next` (the route handler), the second-to-last wraps that, and so on. The first filter in the list is the outermost wrapper, meaning it executes first.
+
+Each filter's `should_not_filter()` is checked before invocation. If it returns `True`, the filter is skipped and the next one in the chain runs:
+
+```python
+def _wrap(web_filter: WebFilter, next_call: CallNext) -> CallNext:
+    async def _inner(request: Request) -> Response:
+        if web_filter.should_not_filter(request):
+            return await next_call(request)
+        return await web_filter.do_filter(request, next_call)
+    return _inner
+```
+
+Source file: `src/pyfly/web/adapters/starlette/filter_chain.py`
+
+### Filter Ordering with @order
+
+Filters are sorted by priority using the `@order` decorator from `pyfly.container.ordering`. Lower values run first (higher priority).
+
+```python
+from pyfly.container.ordering import order, HIGHEST_PRECEDENCE, LOWEST_PRECEDENCE
+
+
+@order(HIGHEST_PRECEDENCE + 100)
+class TransactionIdFilter(OncePerRequestFilter):
+    ...  # Runs first: order = -2147483548
+
+@order(HIGHEST_PRECEDENCE + 200)
+class RequestLoggingFilter(OncePerRequestFilter):
+    ...  # Runs second: order = -2147483448
+
+@order(HIGHEST_PRECEDENCE + 300)
+class SecurityHeadersFilter(OncePerRequestFilter):
+    ...  # Runs third: order = -2147483348
+```
+
+| Constant             | Value          | Description                         |
+|----------------------|----------------|-------------------------------------|
+| `HIGHEST_PRECEDENCE` | `-2147483648`  | Smallest possible order value       |
+| `LOWEST_PRECEDENCE`  | `2147483647`   | Largest possible order value        |
+| *(undecorated)*      | `0`            | Default order for user filters      |
+
+Built-in filters use `HIGHEST_PRECEDENCE + offset` to ensure they always run before user-defined filters. User filters that are not decorated with `@order` default to `0`, placing them after all built-in filters.
+
+To control the order of your custom filters:
+
+```python
+from pyfly.container.ordering import order
+
+
+@order(10)
+class AuthorizationFilter(OncePerRequestFilter):
+    ...  # Runs before filters with order > 10
+
+@order(20)
+class AuditFilter(OncePerRequestFilter):
+    ...  # Runs after AuthorizationFilter
+```
+
+Source file: `src/pyfly/container/ordering.py`
+
+### Auto-Discovery of User Filters
+
+When `create_app()` is called with an `ApplicationContext`, it automatically discovers all `WebFilter` beans registered in the DI container. The discovery logic:
+
+1. Iterates over all bean registrations in the container.
+2. For each bean instance that implements the `WebFilter` protocol (checked via `isinstance`), adds it to the filter list.
+3. Skips built-in filter types (`TransactionIdFilter`, `RequestLoggingFilter`, `SecurityHeadersFilter`) to avoid duplicates, since these are always included.
+4. Sorts the combined list (built-in + user filters) by `@order` value.
+5. Wraps all filters into a single `WebFilterChainMiddleware`.
+
+```python
+# In create_app():
+filters: list[WebFilter] = [
+    TransactionIdFilter(),
+    RequestLoggingFilter(),
+    SecurityHeadersFilter(),
+]
+
+# Auto-discover user WebFilter beans from context
+if context is not None:
+    for _cls, reg in context.container._registrations.items():
+        if (
+            reg.instance is not None
+            and isinstance(reg.instance, WebFilter)
+            and not isinstance(
+                reg.instance,
+                (TransactionIdFilter, RequestLoggingFilter, SecurityHeadersFilter),
+            )
+        ):
+            filters.append(reg.instance)
+
+# Sort all filters by @order
+filters.sort(key=lambda f: get_order(type(f)))
+
+middleware = [Middleware(WebFilterChainMiddleware, filters=filters)]
+```
+
+### Creating Custom Filters
+
+To create a custom filter, extend `OncePerRequestFilter` and register it as a DI bean:
+
+```python
+from pyfly.container import component
+from pyfly.container.ordering import order
+from pyfly.web.filters import OncePerRequestFilter
+from pyfly.web.ports.filter import CallNext
+
+
+@component
+@order(50)
+class RateLimitFilter(OncePerRequestFilter):
+    """Rate-limits API requests by client IP."""
+
+    url_patterns = ["/api/*"]
+    exclude_patterns = ["/api/health", "/api/public/*"]
+
+    def __init__(self, rate_limiter: RateLimiterService) -> None:
+        self._limiter = rate_limiter
+
+    async def do_filter(self, request, call_next: CallNext):
+        client_ip = request.client.host
+        if not await self._limiter.allow(client_ip):
+            from starlette.responses import JSONResponse
+            return JSONResponse(
+                {"error": {"message": "Rate limit exceeded", "code": "RATE_LIMITED"}},
+                status_code=429,
+            )
         return await call_next(request)
+```
+
+Key points:
+
+1. **Extend `OncePerRequestFilter`** to get automatic URL-pattern matching via `url_patterns` and `exclude_patterns`.
+2. **Decorate with `@component`** (or any DI stereotype) so the filter is managed by the container and auto-discovered by `create_app()`.
+3. **Use `@order(N)`** to control execution order. Undecorated filters default to `0`.
+4. **Implement `do_filter()`** -- call `await call_next(request)` to continue the chain, or return a response early to short-circuit.
+5. **Dependencies are injected** via the constructor, just like any other PyFly bean.
+
+Alternatively, you can implement the `WebFilter` protocol directly for full control over `should_not_filter()`:
+
+```python
+from pyfly.container import component
+from pyfly.web.ports.filter import WebFilter, CallNext
 
 
-app = create_app(context=ctx)
-app.add_middleware(RateLimitMiddleware)
+@component
+class CustomFilter:
+    """Implements WebFilter protocol directly."""
+
+    async def do_filter(self, request, call_next: CallNext):
+        response = await call_next(request)
+        response.headers["X-Custom-Header"] = "custom-value"
+        return response
+
+    def should_not_filter(self, request) -> bool:
+        # Custom skip logic
+        return request.url.path.startswith("/internal/")
 ```
 
 ---
@@ -612,11 +1234,13 @@ app = create_app(title="My API", context=ctx, cors=cors)
 
 `CORSConfig` is a frozen dataclass. When passed to `create_app()`, it is translated into Starlette's built-in `CORSMiddleware`.
 
+Source file: `src/pyfly/web/cors.py`
+
 ---
 
 ## Security Headers
 
-The `SecurityHeadersConfig` dataclass controls which security headers are added to every response:
+The `SecurityHeadersConfig` dataclass controls which security headers are added to every response by the `SecurityHeadersFilter`:
 
 ```python
 from pyfly.web import SecurityHeadersConfig
@@ -641,6 +1265,8 @@ config = SecurityHeadersConfig(
 | `Referrer-Policy`             | `referrer_policy`              | `"strict-origin-when-cross-origin"`        |
 | `Content-Security-Policy`     | `content_security_policy`      | `None` (too app-specific; omitted)         |
 | `Permissions-Policy`          | `permissions_policy`           | `None` (too app-specific; omitted)         |
+
+Source file: `src/pyfly/web/security_headers.py`
 
 ---
 
@@ -672,18 +1298,28 @@ The raw OpenAPI 3.1 specification is served at `/openapi.json`.
 
 ### OpenAPIGenerator Internals
 
-The `OpenAPIGenerator` class (`pyfly.web.openapi`) builds the spec:
+The `OpenAPIGenerator` class (`src/pyfly/web/openapi.py`) builds the spec:
 
 1. **Info** -- populated from `title`, `version`, and `description` passed to `create_app()`.
-2. **Paths** -- built from `RouteMetadata` collected by `ControllerRegistrar.collect_route_metadata()`. Each handler contributes an operation with `operationId`, parameters, request body, and responses.
-3. **Components/Schemas** -- Pydantic models used as `Body[T]` types are registered in `components.schemas` via `model_json_schema()`, and referenced using `$ref`.
+2. **Tags** -- derived from controller class names (`OrderController` becomes the `Order` tag).
+3. **Paths** -- built from `RouteMetadata` collected by `ControllerRegistrar.collect_route_metadata()`. Each handler contributes an operation with `operationId`, parameters, request body, responses, tags, summary, description, and deprecated flag.
+4. **Components/Schemas** -- Pydantic models used as `Body[T]` or `Valid[T]` types are registered in `components.schemas` via `model_json_schema()`, and referenced using `$ref`. Nested `$defs` from Pydantic v2 are automatically hoisted into `components/schemas` and `$ref` paths are rewritten accordingly.
+5. **Validation Error Schemas** -- Endpoints with request bodies automatically include a `422 Validation Error` response with the standard `HTTPValidationError` and `ValidationError` schemas.
 
-Parameters are extracted from handler type hints:
+Parameters are extracted from handler type hints (with `Valid` wrapper automatically peeled):
 - `PathVar[T]` becomes an `in: path` parameter
 - `QueryParam[T]` becomes an `in: query` parameter
 - `Header[T]` becomes an `in: header` parameter
 - `Cookie[T]` becomes an `in: cookie` parameter
-- `Body[BaseModel]` becomes a `requestBody` with a JSON schema reference
+- `Body[BaseModel]` or `Valid[BaseModel]` becomes a `requestBody` with a JSON schema reference
+
+Response schemas are derived from handler return types:
+- `BaseModel` subclass returns produce a `$ref` to the model's schema
+- `list[BaseModel]` returns produce an `array` schema with `items.$ref`
+- `None` returns (204) produce a `"No Content"` description
+- Other returns produce a generic `"Successful response"` description
+
+Source file: `src/pyfly/web/openapi.py`
 
 ---
 
@@ -720,23 +1356,29 @@ app = create_app(
 | `extra_routes`     | `list[Route] \| None`        | `None`     | Additional Starlette routes to mount                      |
 | `actuator_enabled` | `bool`                       | `False`    | Mount actuator health/info endpoints                      |
 | `cors`             | `CORSConfig \| None`         | `None`     | CORS configuration (None = no CORS middleware)             |
+| `lifespan`         | `object \| None`             | `None`     | ASGI lifespan handler for startup/shutdown hooks           |
 
 ### What create_app() Does
 
-1. Creates a middleware stack with `TransactionIdMiddleware` and `RequestLoggingMiddleware`.
+1. **Builds the WebFilter chain.** Creates instances of `TransactionIdFilter`, `RequestLoggingFilter`, and `SecurityHeadersFilter`. Auto-discovers any additional user `WebFilter` beans from the `ApplicationContext`. Sorts all filters by `@order` value. Wraps them in a single `WebFilterChainMiddleware`.
 2. Adds `CORSMiddleware` if a `CORSConfig` is provided.
 3. Uses `ControllerRegistrar.collect_routes(context)` to discover all `@rest_controller` beans and build Starlette `Route` objects.
 4. Appends any `extra_routes`.
-5. Mounts actuator endpoints if `actuator_enabled=True`.
-6. Generates OpenAPI spec and mounts `/openapi.json`, `/docs`, and `/redoc` if `docs_enabled=True`.
-7. Builds the Starlette `Application` and registers the `global_exception_handler`.
-8. Returns the fully configured `Starlette` application instance, ready to be served by Uvicorn or any ASGI server.
+5. Mounts actuator endpoints if `actuator_enabled=True` (health, info, beans, env, loggers, metrics, plus custom actuator endpoint beans).
+6. Collects `RouteMetadata` for OpenAPI generation.
+7. Generates OpenAPI spec and mounts `/openapi.json`, `/docs`, and `/redoc` if `docs_enabled=True`.
+8. Builds the Starlette `Application` with the middleware stack, routes, and optional lifespan handler.
+9. Stores `pyfly_route_metadata` and `pyfly_docs_enabled` on `app.state` for startup logging.
+10. Registers the `global_exception_handler` for all `Exception` types.
+11. Returns the fully configured `Starlette` application instance, ready to be served by Uvicorn or any ASGI server.
+
+Source file: `src/pyfly/web/adapters/starlette/app.py`
 
 ---
 
 ## ControllerRegistrar
 
-The `ControllerRegistrar` is the bridge between PyFly's decorator-based controller definitions and Starlette's routing system.
+The `ControllerRegistrar` (`src/pyfly/web/adapters/starlette/controller.py`) is the bridge between PyFly's decorator-based controller definitions and Starlette's routing system.
 
 ### Route Collection
 
@@ -757,34 +1399,56 @@ The `ControllerRegistrar` is the bridge between PyFly's decorator-based controll
 - `path`, `http_method`, `status_code`
 - `handler`, `handler_name`
 - `parameters` -- list of OpenAPI parameter dicts extracted from type hints
-- `request_body_model` -- the Pydantic model class if `Body[BaseModel]` is used
+- `request_body_model` -- the Pydantic model class if `Body[BaseModel]` or `Valid[BaseModel]` is used
 - `return_type` -- the handler's return type annotation
+- `tag` -- derived from the controller class name (e.g., `OrderController` becomes `Order`)
+- `summary` -- first line of the handler's docstring
+- `description` -- remaining lines of the handler's docstring (after a blank separator)
+- `deprecated` -- `True` if the handler is marked with `__pyfly_deprecated__`
 
-This metadata is consumed by `OpenAPIGenerator` to build the spec.
+This metadata is consumed by `OpenAPIGenerator` to build the spec. The `Valid` wrapper is automatically peeled during metadata extraction, so `Valid[Body[CreateOrderRequest]]` produces the same OpenAPI schema as `Body[CreateOrderRequest]`.
 
 ### Exception Handler Discovery
 
 `_collect_exception_handlers(instance)` scans a controller instance for methods decorated with `@exception_handler`. Handlers are sorted by MRO depth (most specific first) so that `ValueError` is matched before `Exception`, for instance.
 
+Source file: `src/pyfly/web/adapters/starlette/controller.py`
+
 ---
 
 ## ParameterResolver
 
-The `ParameterResolver` (`pyfly.web.adapters.starlette.resolver`) is responsible for turning a Starlette `Request` into a dict of keyword arguments for a handler method.
+The `ParameterResolver` (`src/pyfly/web/adapters/starlette/resolver.py`) is responsible for turning a Starlette `Request` into a dict of keyword arguments for a handler method.
 
 **At startup** (`__init__`): Inspects the handler's type hints and builds a list of `ResolvedParam` objects, each containing:
 - `name` -- the parameter name
 - `binding_type` -- `PathVar`, `QueryParam`, `Body`, `Header`, or `Cookie`
 - `inner_type` -- the type argument `T` (e.g., `str`, `int`, a Pydantic model)
 - `default` -- the default value if provided in the signature
+- `validate` -- `True` if the parameter was wrapped in `Valid[...]`
 
-**At request time** (`resolve(request)`): For each `ResolvedParam`, calls the appropriate private resolver method (`_resolve_path_var`, `_resolve_query_param`, `_resolve_body`, `_resolve_header`, `_resolve_cookie`) and returns the assembled kwargs dict.
+**At request time** (`resolve(request)`): For each `ResolvedParam`:
+1. Calls the appropriate private resolver method (`_resolve_path_var`, `_resolve_query_param`, `_resolve_body`, `_resolve_header`, `_resolve_cookie`).
+2. If `param.validate` is `True`, calls `_run_validation(value, param)` on the resolved value.
+3. Returns the assembled kwargs dict.
+
+**Valid[T] handling in `_inspect()`**: When a `Valid` origin is detected:
+1. Sets `validate = True`.
+2. Extracts the inner type argument.
+3. If the inner type is itself a binding type (e.g., `Body`, `QueryParam`), uses that as the `binding_type`.
+4. If the inner type is a plain type (e.g., a Pydantic model), implies `Body` as the binding type.
+
+**Validation in `_resolve_body()`**: When `validate=True` and the inner type is a `BaseModel`:
+1. Wraps `model_validate_json(body_bytes)` in a `try/except`.
+2. On `PydanticValidationError`, extracts the error list, builds a detail string, and raises `ValidationException`.
+
+Source file: `src/pyfly/web/adapters/starlette/resolver.py`
 
 ---
 
 ## WebServerPort
 
-The `WebServerPort` protocol (`pyfly.web.ports.outbound`) defines the contract for any web server adapter:
+The `WebServerPort` protocol (`src/pyfly/web/ports/outbound.py`) defines the contract for any web server adapter:
 
 ```python
 @runtime_checkable
@@ -796,22 +1460,67 @@ class WebServerPort(Protocol):
 
 This protocol ensures that the application layer never depends directly on Starlette. In theory, you could implement a Flask adapter, a Django adapter, or any other ASGI/WSGI adapter by implementing this port.
 
+The auto-configuration engine registers the `StarletteWebAdapter` (which implements this protocol) as a singleton bean when Starlette is available.
+
+Source file: `src/pyfly/web/ports/outbound.py`
+
+---
+
+## Module Exports Reference
+
+The `pyfly.web` package (`src/pyfly/web/__init__.py`) re-exports the following symbols for convenience:
+
+### Framework-Agnostic Exports
+
+| Symbol                   | Source Module                            | Description                              |
+|--------------------------|------------------------------------------|------------------------------------------|
+| `Body`                   | `pyfly.web.params`                       | Request body binding type                |
+| `PathVar`                | `pyfly.web.params`                       | Path variable binding type               |
+| `QueryParam`             | `pyfly.web.params`                       | Query parameter binding type             |
+| `Header`                 | `pyfly.web.params`                       | HTTP header binding type                 |
+| `Cookie`                 | `pyfly.web.params`                       | Cookie binding type                      |
+| `Valid`                  | `pyfly.web.params`                       | Validation marker type                   |
+| `WebFilter`              | `pyfly.web.ports.filter`                 | Filter protocol                          |
+| `OncePerRequestFilter`   | `pyfly.web.filters`                      | Abstract filter base class               |
+| `get_mapping`            | `pyfly.web.mappings`                     | GET method decorator                     |
+| `post_mapping`           | `pyfly.web.mappings`                     | POST method decorator                    |
+| `put_mapping`            | `pyfly.web.mappings`                     | PUT method decorator                     |
+| `patch_mapping`          | `pyfly.web.mappings`                     | PATCH method decorator                   |
+| `delete_mapping`         | `pyfly.web.mappings`                     | DELETE method decorator                  |
+| `request_mapping`        | `pyfly.web.mappings`                     | Class-level base path decorator          |
+| `exception_handler`      | `pyfly.web.exception_handler`            | Exception handler decorator              |
+| `CORSConfig`             | `pyfly.web.cors`                         | CORS configuration dataclass             |
+| `SecurityHeadersConfig`  | `pyfly.web.security_headers`             | Security headers configuration           |
+
+### Starlette Adapter Exports
+
+| Symbol                     | Source Module                                          | Description                        |
+|----------------------------|--------------------------------------------------------|------------------------------------|
+| `create_app`               | `pyfly.web.adapters.starlette.app`                     | Application factory function       |
+| `ControllerRegistrar`      | `pyfly.web.adapters.starlette.controller`              | Route collection engine            |
+| `handle_return_value`      | `pyfly.web.adapters.starlette.response`                | Return value to Response converter |
+| `RequestLoggingMiddleware` | `pyfly.web.adapters.starlette.request_logger`          | Legacy middleware (still exported) |
+| `SecurityHeadersMiddleware`| `pyfly.web.adapters.starlette.security_headers`        | Legacy middleware (still exported) |
+
 ---
 
 ## Complete CRUD Example
 
-The following example demonstrates a full CRUD controller with all HTTP methods, Pydantic validation, exception handling, and proper status codes.
+The following example demonstrates a full CRUD controller with all HTTP methods, `Valid[T]` validation, exception handling, custom filters, and proper status codes.
 
 ```python
 from uuid import UUID
 from pydantic import BaseModel, Field
 
-from pyfly.container import rest_controller, service
+from pyfly.container import rest_controller, service, component
+from pyfly.container.ordering import order
 from pyfly.kernel.exceptions import ResourceNotFoundException
 from pyfly.web import (
     request_mapping, get_mapping, post_mapping, put_mapping, patch_mapping,
-    delete_mapping, exception_handler, Body, PathVar, QueryParam,
+    delete_mapping, exception_handler, Body, PathVar, QueryParam, Valid,
+    OncePerRequestFilter,
 )
+from pyfly.web.ports.filter import CallNext
 
 
 # --- Request/Response Models ---
@@ -836,6 +1545,27 @@ class ProductResponse(BaseModel):
     name: str
     price: float
     category: str
+
+
+# --- Custom WebFilter ---
+
+@component
+@order(10)
+class ApiKeyFilter(OncePerRequestFilter):
+    """Validates API key on all /api/* endpoints."""
+
+    url_patterns = ["/api/*"]
+    exclude_patterns = ["/api/health"]
+
+    async def do_filter(self, request, call_next: CallNext):
+        api_key = request.headers.get("x-api-key")
+        if not api_key:
+            from starlette.responses import JSONResponse
+            return JSONResponse(
+                {"error": {"message": "Missing API key", "code": "MISSING_API_KEY"}},
+                status_code=401,
+            )
+        return await call_next(request)
 
 
 # --- Service Layer ---
@@ -887,26 +1617,26 @@ class ProductController:
     async def get_product(self, product_id: PathVar[str]) -> dict:
         return await self._service.find_by_id(product_id)
 
-    # CREATE a new product (201 Created)
+    # CREATE a new product (201 Created) with structured validation
     @post_mapping("/", status_code=201)
-    async def create_product(self, body: Body[CreateProductRequest]) -> dict:
+    async def create_product(self, body: Valid[CreateProductRequest]) -> dict:
         return await self._service.create(body)
 
-    # REPLACE a product (full update)
+    # REPLACE a product (full update) with structured validation
     @put_mapping("/{product_id}")
     async def replace_product(
         self,
         product_id: PathVar[str],
-        body: Body[UpdateProductRequest],
+        body: Valid[UpdateProductRequest],
     ) -> dict:
         return await self._service.replace(product_id, body)
 
-    # PATCH a product (partial update)
+    # PATCH a product (partial update) with structured validation
     @patch_mapping("/{product_id}")
     async def update_product(
         self,
         product_id: PathVar[str],
-        body: Body[PatchProductRequest],
+        body: Valid[PatchProductRequest],
     ) -> dict:
         return await self._service.patch(product_id, body)
 
@@ -947,6 +1677,7 @@ app = create_app(
     description="CRUD API for product management",
     context=application_context,
     docs_enabled=True,
+    actuator_enabled=True,
     cors=CORSConfig(
         allowed_origins=["http://localhost:3000"],
         allowed_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
@@ -956,13 +1687,35 @@ app = create_app(
 # Run with: uvicorn main:app --reload
 ```
 
+Or via configuration:
+
+```yaml
+# application.yml
+pyfly:
+  web:
+    adapter: auto
+    port: 8080
+    debug: false
+    docs:
+      enabled: true
+    actuator:
+      enabled: true
+```
+
 This will expose:
 - `GET    /api/products/`             -- list products
 - `GET    /api/products/{product_id}` -- get a product
-- `POST   /api/products/`             -- create a product
-- `PUT    /api/products/{product_id}` -- replace a product
-- `PATCH  /api/products/{product_id}` -- partially update a product
+- `POST   /api/products/`             -- create a product (with Valid[T] validation)
+- `PUT    /api/products/{product_id}` -- replace a product (with Valid[T] validation)
+- `PATCH  /api/products/{product_id}` -- partially update a product (with Valid[T] validation)
 - `DELETE /api/products/{product_id}` -- delete a product
 - `GET    /docs`                       -- Swagger UI
 - `GET    /redoc`                      -- ReDoc
 - `GET    /openapi.json`               -- OpenAPI 3.1 spec
+
+The WebFilter chain executes in this order for every request:
+1. `TransactionIdFilter` (order: `HIGHEST_PRECEDENCE + 100`) -- injects/propagates transaction ID
+2. `RequestLoggingFilter` (order: `HIGHEST_PRECEDENCE + 200`) -- logs request/response
+3. `SecurityHeadersFilter` (order: `HIGHEST_PRECEDENCE + 300`) -- adds security headers
+4. `ApiKeyFilter` (order: `10`) -- validates API key (custom, only for `/api/*`)
+5. Route handler -- the controller method

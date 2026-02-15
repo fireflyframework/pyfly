@@ -44,6 +44,10 @@ data = [
     "alembic>=1.13",
     "aiosqlite>=0.20",
 ]
+mongodb = [
+    "motor>=3.3",
+    "beanie>=1.25",
+]
 postgresql = [
     "asyncpg>=0.29",
 ]
@@ -88,7 +92,7 @@ cli = [
     "questionary>=2.0",
 ]
 full = [
-    "pyfly[web,data,postgresql,eda,cqrs,cache,client,observability,security,scheduling,cli,kafka,rabbitmq,redis]",
+    "pyfly[web,data,mongodb,postgresql,eda,cqrs,cache,client,observability,security,scheduling,cli,kafka,rabbitmq,redis]",
 ]
 dev = [
     "pyfly[full]",

@@ -23,7 +23,7 @@ from typing import Any, get_args, get_origin
 from pydantic import BaseModel
 from starlette.requests import Request
 
-from pyfly.web.params import Body, Cookie, Header, PathVar, QueryParam
+from pyfly.web.params import Body, Cookie, Header, PathVar, QueryParam, Valid
 
 _BINDING_TYPES = {PathVar, QueryParam, Body, Header, Cookie}
 _MISSING = object()
@@ -37,6 +37,7 @@ class ResolvedParam:
     binding_type: type
     inner_type: type
     default: Any = _MISSING
+    validate: bool = False
 
 
 class ParameterResolver:
@@ -63,6 +64,26 @@ class ParameterResolver:
                 continue
 
             origin = get_origin(hint)
+            validate = False
+
+            # Unwrap Valid[T]: peel the Valid layer to find the inner binding type
+            if origin is Valid:
+                validate = True
+                inner_args = get_args(hint)
+                if not inner_args:
+                    continue
+                inner_hint = inner_args[0]
+                inner_origin = get_origin(inner_hint)
+
+                if inner_origin in _BINDING_TYPES:
+                    # Valid[Body[T]], Valid[QueryParam[T]], etc.
+                    origin = inner_origin
+                    hint = inner_hint
+                else:
+                    # Valid[T] standalone → implies Body[T]
+                    origin = Body
+                    hint = Body[inner_hint]
+
             if origin not in _BINDING_TYPES:
                 continue
 
@@ -76,6 +97,7 @@ class ParameterResolver:
                     binding_type=origin,
                     inner_type=inner_type,
                     default=default,
+                    validate=validate,
                 )
             )
 
@@ -85,7 +107,10 @@ class ParameterResolver:
         """Resolve all parameters from the request."""
         kwargs: dict[str, Any] = {}
         for param in self.params:
-            kwargs[param.name] = await self._resolve_one(request, param)
+            value = await self._resolve_one(request, param)
+            if param.validate:
+                value = self._run_validation(value, param)
+            kwargs[param.name] = value
         return kwargs
 
     async def _resolve_one(self, request: Request, param: ResolvedParam) -> Any:
@@ -121,6 +146,25 @@ class ParameterResolver:
     async def _resolve_body(self, request: Request, param: ResolvedParam) -> Any:
         body_bytes = await request.body()
         if issubclass(param.inner_type, BaseModel):
+            if param.validate:
+                # Valid[Body[T]] or Valid[T]: catch Pydantic errors for structured 422
+                from pydantic import ValidationError as PydanticValidationError
+
+                from pyfly.kernel.exceptions import ValidationException
+
+                try:
+                    return param.inner_type.model_validate_json(body_bytes)
+                except PydanticValidationError as exc:
+                    errors = exc.errors()
+                    detail = "; ".join(
+                        f"{'.'.join(str(loc) for loc in e['loc'])}: {e['msg']}"
+                        for e in errors
+                    )
+                    raise ValidationException(
+                        f"Validation failed: {detail}",
+                        code="VALIDATION_ERROR",
+                        context={"errors": errors},
+                    ) from exc
             return param.inner_type.model_validate_json(body_bytes)
         return param.inner_type(body_bytes.decode())
 
@@ -140,6 +184,27 @@ class ParameterResolver:
                 return param.default
             return None
         return self._coerce(raw, param.inner_type)
+
+    def _run_validation(self, value: Any, param: ResolvedParam) -> Any:
+        """Run Pydantic validation on a resolved value.
+
+        For BaseModel instances (already validated by model_validate_json), this
+        re-validates to produce structured 422 errors via ValidationException.
+        For dicts, validates against the inner_type model.
+        """
+        if value is None:
+            return value
+
+        if isinstance(value, BaseModel):
+            # Already a model instance (from Body resolution) — it's valid
+            return value
+
+        if isinstance(value, dict) and isinstance(param.inner_type, type) and issubclass(param.inner_type, BaseModel):
+            from pyfly.validation.helpers import validate_model
+
+            return validate_model(param.inner_type, value)
+
+        return value
 
     def _coerce(self, value: str, target_type: type) -> Any:
         """Coerce a string value to the target type."""

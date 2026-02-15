@@ -47,3 +47,17 @@ class Header(Generic[T]):
 
 class Cookie(Generic[T]):
     """Cookie value extracted from the request."""
+
+
+class Valid(Generic[T]):
+    """Marks a parameter for explicit Pydantic validation with structured 422 errors.
+
+    Standalone usage (implies Body[T] + validation)::
+
+        async def create(self, body: Valid[CreateOrderDTO]) -> OrderResponse: ...
+
+    Wrapping a binding type (validate after resolution)::
+
+        async def search(self, filters: Valid[QueryParam[SearchFilters]]) -> list: ...
+        async def create(self, body: Valid[Body[CreateOrderDTO]]) -> OrderResponse: ...
+    """

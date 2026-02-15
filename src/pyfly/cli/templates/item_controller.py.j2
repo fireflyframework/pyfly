@@ -2,8 +2,8 @@
 
 from pyfly.container import rest_controller
 from pyfly.web import (
-    Body,
     PathVar,
+    Valid,
     delete_mapping,
     get_mapping,
     post_mapping,
@@ -23,16 +23,32 @@ class ItemController:
 
     @get_mapping("/")
     async def list_items(self) -> list[ItemResponse]:
+{% if has_data or has_mongodb %}
+        return await self._service.list_all()
+{% else %}
         return self._service.list_all()
+{% endif %}
 
     @get_mapping("/{item_id}")
-    async def get_item(self, item_id: PathVar[str]) -> ItemResponse:
+    async def get_item(self, item_id: PathVar[{% if has_data %}int{% else %}str{% endif %}]) -> ItemResponse:
+{% if has_data or has_mongodb %}
+        return await self._service.get(item_id)
+{% else %}
         return self._service.get(item_id)
+{% endif %}
 
     @post_mapping("/", status_code=201)
-    async def create_item(self, body: Body[ItemCreate]) -> ItemResponse:
+    async def create_item(self, body: Valid[ItemCreate]) -> ItemResponse:
+{% if has_data or has_mongodb %}
+        return await self._service.create(body)
+{% else %}
         return self._service.create(body)
+{% endif %}
 
     @delete_mapping("/{item_id}", status_code=204)
-    async def delete_item(self, item_id: PathVar[str]) -> None:
+    async def delete_item(self, item_id: PathVar[{% if has_data %}int{% else %}str{% endif %}]) -> None:
+{% if has_data or has_mongodb %}
+        await self._service.delete(item_id)
+{% else %}
         self._service.delete(item_id)
+{% endif %}

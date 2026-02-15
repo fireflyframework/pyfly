@@ -22,16 +22,24 @@ from pathlib import Path
 
 import click
 import questionary
-from questionary import Choice, Style
+from questionary import Choice, Separator, Style
 from rich.panel import Panel
 from rich.tree import Tree
 
-from pyfly.cli.console import console
+from pyfly.cli.console import (
+    console,
+    print_archetype_table,
+    print_feature_summary,
+    print_post_generation_tips,
+    print_step_header,
+)
 from pyfly.cli.templates import (
     ARCHETYPE_DESCRIPTIONS,
+    ARCHETYPE_DETAILS,
     AVAILABLE_FEATURES,
     DEFAULT_FEATURES,
-    FEATURE_DESCRIPTIONS,
+    FEATURE_DETAILS,
+    FEATURE_GROUPS,
     generate_project,
 )
 
@@ -84,11 +92,14 @@ def _validate_project_name(name: str) -> str | None:
 
 def _prompt_interactive() -> tuple[str, str, str, list[str]]:
     """Run interactive wizard with arrow-key navigation and space-bar toggling."""
+    total_steps = 4
+
     try:
         console.print(Panel("[pyfly]  PyFly Project Generator  [/pyfly]", border_style="magenta"))
-        console.print()
 
-        # --- Project name ---
+        # ── Step 1 of 4: Project Details ──
+        print_step_header(1, total_steps, "Project Details")
+
         name = questionary.text(
             "Project name:",
             validate=lambda val: True if _validate_project_name(val) is None else _validate_project_name(val),
@@ -102,12 +113,15 @@ def _prompt_interactive() -> tuple[str, str, str, list[str]]:
             style=PYFLY_STYLE,
         ).unsafe_ask()
 
-        # --- Archetype selection (arrow keys) ---
+        # ── Step 2 of 4: Architecture ──
+        print_step_header(2, total_steps, "Architecture")
+        print_archetype_table()
+
         archetype = questionary.select(
             "Select archetype:",
             choices=[
                 Choice(
-                    title=f"{key:12s}  {ARCHETYPE_DESCRIPTIONS[key]}",
+                    title=f"{key:12s}  {ARCHETYPE_DETAILS[key]['tagline']}",
                     value=key,
                 )
                 for key in _ARCHETYPES
@@ -116,35 +130,45 @@ def _prompt_interactive() -> tuple[str, str, str, list[str]]:
             instruction="(use arrow keys)",
         ).unsafe_ask()
 
-        # --- Feature selection (space bar toggle) — skip for library ---
+        # ── Step 3 of 4: Features ──
         if archetype == "library":
             features: list[str] = []
         else:
+            print_step_header(3, total_steps, "Features")
+            console.print("  [dim]Features are optional PyFly packages. Each maps to a pip extra.[/dim]\n")
+
             defaults = DEFAULT_FEATURES[archetype]
-            features = questionary.checkbox(
-                "Select features:",
-                choices=[
-                    Choice(
-                        title=f"{feat:16s} {FEATURE_DESCRIPTIONS.get(feat, '')}",
+            choices: list[Choice | Separator] = []
+            for group_name, group_feats in FEATURE_GROUPS:
+                choices.append(Separator(f"── {group_name} ──"))
+                for feat in group_feats:
+                    detail = FEATURE_DETAILS.get(feat, {})
+                    short = detail.get("short", "")
+                    choices.append(Choice(
+                        title=f"{feat:16s} {short}",
                         value=feat,
                         checked=feat in defaults,
-                    )
-                    for feat in AVAILABLE_FEATURES
-                ],
+                    ))
+
+            features = questionary.checkbox(
+                "Select features:",
+                choices=choices,
                 style=PYFLY_STYLE,
                 instruction="(space to toggle, enter to confirm)",
             ).unsafe_ask()
 
-        # --- Confirmation summary ---
-        console.print()
-        console.print(Panel(
+        # ── Step 4 of 4: Review & Create ──
+        print_step_header(4, total_steps, "Review & Create")
+
+        archetype_desc = ARCHETYPE_DETAILS[archetype]["tagline"]
+        summary = (
             f"  [info]Name:[/info]      {name}\n"
             f"  [info]Package:[/info]   {package_name}\n"
-            f"  [info]Archetype:[/info] {archetype}\n"
-            f"  [info]Features:[/info]  {', '.join(features) if features else 'none'}",
-            title="[pyfly]Project Summary[/pyfly]",
-            border_style="cyan",
-        ))
+            f"  [info]Archetype:[/info] {archetype} — {archetype_desc}\n"
+            f"  [info]Features:[/info]  {', '.join(features) if features else 'none'}"
+        )
+        console.print(Panel(summary, title="[pyfly]Project Summary[/pyfly]", border_style="cyan"))
+        print_feature_summary(features)
 
         if not questionary.confirm(
             "Create this project?",
@@ -236,7 +260,6 @@ def new_command(name: str | None, archetype: str | None, features_str: str | Non
     console.print('    pip install -e ".[dev]"')
     if archetype != "library":
         console.print("    pyfly run --reload")
-    if "data" in features:
-        console.print("\n  [dim]Database: SQLite is configured by default (zero infrastructure).[/dim]")
-        console.print("  [dim]Run 'pyfly db init' to set up migrations.[/dim]")
+    console.print()
+    print_post_generation_tips(features)
     console.print()

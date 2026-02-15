@@ -21,11 +21,11 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.orm import Mapped, mapped_column
 
 from pyfly.data.adapters.sqlalchemy.entity import Base, BaseEntity
+from pyfly.data.adapters.sqlalchemy.query_compiler import QueryMethodCompiler
 from pyfly.data.query_parser import (
     FieldPredicate,
     OrderClause,
     ParsedQuery,
-    QueryMethodCompiler,
     QueryMethodParser,
 )
 

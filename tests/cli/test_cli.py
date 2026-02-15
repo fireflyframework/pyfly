@@ -595,14 +595,265 @@ class TestPostGenerationGuidance:
         assert "pip install" in result.output
         assert "pyfly run" in result.output
 
-    def test_data_feature_shows_sqlite_guidance(self, tmp_path: Path):
+    def test_data_feature_shows_tips(self, tmp_path: Path):
         runner = CliRunner()
         result = runner.invoke(cli, [
             "new", "my-svc", "--features", "data", "--directory", str(tmp_path),
         ])
         assert result.exit_code == 0, result.output
-        assert "SQLite" in result.output
         assert "pyfly db init" in result.output
+
+    def test_web_feature_shows_swagger_tip(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-svc", "--features", "web", "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+        assert "Swagger UI" in result.output
+
+    def test_security_feature_shows_jwt_tip(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-svc", "--features", "security", "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+        assert "JWT secret" in result.output
+
+
+class TestTemplateContent:
+    """Tests that scaffolded files contain modern features (Valid[T], Field, actuator, etc.)."""
+
+    def test_web_api_controller_uses_valid(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-api", "--archetype", "web-api", "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+        controller = (tmp_path / "my-api" / "src" / "my_api" / "controllers" / "item_controller.py").read_text()
+        assert "Valid[ItemCreate]" in controller
+        assert "Body[ItemCreate]" not in controller
+
+    def test_model_uses_field_constraints(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-api", "--archetype", "web-api", "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+        model = (tmp_path / "my-api" / "src" / "my_api" / "models" / "item.py").read_text()
+        assert "Field(min_length=" in model
+        assert "from pydantic import BaseModel, Field" in model
+
+    def test_config_has_adapter_auto(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-api", "--archetype", "web-api", "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+        config = (tmp_path / "my-api" / "pyfly.yaml").read_text()
+        assert "adapter: auto" in config
+
+    def test_config_has_actuator_enabled(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-api", "--archetype", "web-api", "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+        config = (tmp_path / "my-api" / "pyfly.yaml").read_text()
+        assert "actuator:" in config
+        assert "enabled: true" in config
+
+    def test_data_feature_generates_sqlalchemy_repo(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-api", "--archetype", "web-api", "--features", "web,data",
+            "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+        repo = (tmp_path / "my-api" / "src" / "my_api" / "repositories" / "item_repository.py").read_text()
+        assert "Repository[ItemEntity, int]" in repo
+        assert "from pyfly.data import Repository" in repo
+
+    def test_no_data_feature_generates_in_memory_repo(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-api", "--archetype", "web-api", "--features", "web",
+            "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+        repo = (tmp_path / "my-api" / "src" / "my_api" / "repositories" / "item_repository.py").read_text()
+        assert "dict[str, ItemResponse]" in repo
+        assert "Repository[ItemEntity" not in repo
+
+    def test_data_feature_generates_entity_in_model(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-api", "--archetype", "web-api", "--features", "web,data",
+            "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+        model = (tmp_path / "my-api" / "src" / "my_api" / "models" / "item.py").read_text()
+        assert "class ItemEntity(Base):" in model
+        assert "id: Mapped[int]" in model
+
+    def test_no_data_feature_no_entity(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-api", "--archetype", "web-api", "--features", "web",
+            "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+        model = (tmp_path / "my-api" / "src" / "my_api" / "models" / "item.py").read_text()
+        assert "class ItemEntity" not in model
+        assert "id: str" in model
+
+    def test_data_feature_controller_uses_int_path_var(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-api", "--archetype", "web-api", "--features", "web,data",
+            "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+        controller = (tmp_path / "my-api" / "src" / "my_api" / "controllers" / "item_controller.py").read_text()
+        assert "PathVar[int]" in controller
+
+    def test_hexagonal_controller_uses_valid(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-hex", "--archetype", "hexagonal", "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+        controller = (tmp_path / "my-hex" / "src" / "my_hex" / "api" / "controllers.py").read_text()
+        assert "Valid[ItemCreateRequest]" in controller
+        assert "Body[ItemCreateRequest]" not in controller
+
+    def test_hexagonal_dto_uses_field(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-hex", "--archetype", "hexagonal", "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+        dto = (tmp_path / "my-hex" / "src" / "my_hex" / "api" / "dto.py").read_text()
+        assert "Field(min_length=" in dto
+
+
+class TestMongoDBFeature:
+    """Tests for the mongodb feature scaffolding."""
+
+    def test_mongodb_feature_generates_document_model(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-api", "--archetype", "web-api", "--features", "web,mongodb",
+            "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+        model = (tmp_path / "my-api" / "src" / "my_api" / "models" / "item.py").read_text()
+        assert "class ItemDocument(BaseDocument):" in model
+        assert "from pyfly.data import BaseDocument" in model
+
+    def test_mongodb_feature_generates_mongo_repo(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-api", "--archetype", "web-api", "--features", "web,mongodb",
+            "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+        repo = (tmp_path / "my-api" / "src" / "my_api" / "repositories" / "item_repository.py").read_text()
+        assert "MongoRepository[ItemDocument, str]" in repo
+        assert "from pyfly.data import MongoRepository" in repo
+
+    def test_mongodb_config_in_yaml(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-api", "--features", "mongodb", "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+        config = (tmp_path / "my-api" / "pyfly.yaml").read_text()
+        assert "mongodb:" in config
+        assert "uri: mongodb://localhost:27017" in config
+        assert "database: my_api" in config
+
+    def test_mongodb_env_example(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-api", "--features", "mongodb", "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+        env = (tmp_path / "my-api" / ".env.example").read_text()
+        assert "MONGODB_URI" in env
+
+    def test_mongodb_feature_sets_dependencies(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-svc", "--features", "web,mongodb", "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+        pyproject = (tmp_path / "my-svc" / "pyproject.toml").read_text()
+        assert "pyfly[web,mongodb]" in pyproject
+
+    def test_mongodb_shows_tips(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-svc", "--features", "mongodb", "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+        assert "Beanie ODM" in result.output
+
+    def test_hexagonal_mongodb_persistence(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-hex", "--archetype", "hexagonal", "--features", "web,mongodb",
+            "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+        persistence = (tmp_path / "my-hex" / "src" / "my_hex" / "infrastructure" / "adapters" / "persistence.py").read_text()
+        assert "MongoRepository[ItemDocument, str]" in persistence
+
+    def test_hexagonal_mongodb_domain_model(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-hex", "--archetype", "hexagonal", "--features", "web,mongodb",
+            "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+        models = (tmp_path / "my-hex" / "src" / "my_hex" / "domain" / "models.py").read_text()
+        assert "class ItemDocument(BaseDocument):" in models
+
+    def test_mongodb_controller_uses_str_path_var(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-api", "--archetype", "web-api", "--features", "web,mongodb",
+            "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+        controller = (tmp_path / "my-api" / "src" / "my_api" / "controllers" / "item_controller.py").read_text()
+        assert "PathVar[str]" in controller
+
+    def test_mongodb_service_is_async(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-api", "--archetype", "web-api", "--features", "web,mongodb",
+            "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+        service = (tmp_path / "my-api" / "src" / "my_api" / "services" / "item_service.py").read_text()
+        assert "async def create" in service
+        assert "await self._repository" in service
+
+    def test_both_data_and_mongodb_generates_both(self, tmp_path: Path):
+        """When both data and mongodb features are selected, both backends are scaffolded."""
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-api", "--archetype", "web-api", "--features", "web,data,mongodb",
+            "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+        model = (tmp_path / "my-api" / "src" / "my_api" / "models" / "item.py").read_text()
+        assert "class ItemEntity(Base):" in model
+        assert "class ItemDocument(BaseDocument):" in model
+
+        repo = (tmp_path / "my-api" / "src" / "my_api" / "repositories" / "item_repository.py").read_text()
+        assert "Repository[ItemEntity, int]" in repo
+        assert "MongoRepository[ItemDocument, str]" in repo
 
 
 class TestLicenseCommand:

@@ -4,6 +4,17 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
+{% if has_data %}
+
+from sqlalchemy import String
+from sqlalchemy.orm import Mapped, mapped_column
+
+from pyfly.data import Base
+{% endif %}
+{% if has_mongodb %}
+
+from pyfly.data import BaseDocument
+{% endif %}
 
 
 @dataclass
@@ -13,3 +24,27 @@ class Item:
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
     name: str = ""
     description: str = ""
+{% if has_data %}
+
+
+class ItemEntity(Base):
+    """SQLAlchemy entity for relational persistence."""
+
+    __tablename__ = "items"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(100))
+    description: Mapped[str] = mapped_column(String(500), default="")
+{% endif %}
+{% if has_mongodb %}
+
+
+class ItemDocument(BaseDocument):
+    """Beanie document for MongoDB persistence."""
+
+    name: str
+    description: str = ""
+
+    class Settings:
+        name = "items"
+{% endif %}

@@ -21,6 +21,7 @@ from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.routing import Route
 
+from pyfly.container.ordering import get_order
 from pyfly.web.adapters.starlette.controller import ControllerRegistrar
 from pyfly.web.adapters.starlette.docs import (
     make_openapi_endpoint,
@@ -28,9 +29,14 @@ from pyfly.web.adapters.starlette.docs import (
     make_swagger_ui_endpoint,
 )
 from pyfly.web.adapters.starlette.errors import global_exception_handler
-from pyfly.web.adapters.starlette.middleware import TransactionIdMiddleware
-from pyfly.web.adapters.starlette.request_logger import RequestLoggingMiddleware
+from pyfly.web.adapters.starlette.filter_chain import WebFilterChainMiddleware
+from pyfly.web.adapters.starlette.filters import (
+    RequestLoggingFilter,
+    SecurityHeadersFilter,
+    TransactionIdFilter,
+)
 from pyfly.web.openapi import OpenAPIGenerator
+from pyfly.web.ports.filter import WebFilter
 
 if TYPE_CHECKING:
     from pyfly.context.application_context import ApplicationContext
@@ -52,18 +58,41 @@ def create_app(
     """Create a Starlette application with PyFly enterprise middleware.
 
     When ``context`` is provided, auto-discovers all ``@rest_controller`` beans
-    and mounts their routes.
+    and mounts their routes.  Also auto-discovers user ``WebFilter`` and
+    ``ActuatorEndpoint`` beans.
 
     Includes:
-    - Transaction ID propagation
+    - WebFilter chain (transaction ID, request logging, security headers, + user filters)
     - Global exception handler (RFC 7807 style)
     - OpenAPI spec, Swagger UI, and ReDoc (when docs_enabled)
     - Actuator endpoints (when actuator_enabled)
     - CORS support (when cors is provided)
     """
-    middleware = [
-        Middleware(TransactionIdMiddleware),
-        Middleware(RequestLoggingMiddleware),
+    # --- Build the WebFilter chain ---
+    filters: list[WebFilter] = [
+        TransactionIdFilter(),
+        RequestLoggingFilter(),
+        SecurityHeadersFilter(),
+    ]
+
+    # Auto-discover user WebFilter beans from context
+    if context is not None:
+        for _cls, reg in context.container._registrations.items():
+            if (
+                reg.instance is not None
+                and isinstance(reg.instance, WebFilter)
+                and not isinstance(
+                    reg.instance,
+                    (TransactionIdFilter, RequestLoggingFilter, SecurityHeadersFilter),
+                )
+            ):
+                filters.append(reg.instance)
+
+    # Sort all filters by @order (built-in filters use HIGHEST_PRECEDENCE offsets)
+    filters.sort(key=lambda f: get_order(type(f)))
+
+    middleware: list[Middleware] = [
+        Middleware(WebFilterChainMiddleware, filters=filters),
     ]
 
     if cors is not None:
@@ -94,8 +123,15 @@ def create_app(
 
     # Mount actuator endpoints when enabled
     if actuator_enabled:
-        from pyfly.actuator.endpoints import make_actuator_routes
+        from pyfly.actuator.adapters.starlette import make_starlette_actuator_routes
+        from pyfly.actuator.endpoints.beans_endpoint import BeansEndpoint
+        from pyfly.actuator.endpoints.env_endpoint import EnvEndpoint
+        from pyfly.actuator.endpoints.health_endpoint import HealthEndpoint
+        from pyfly.actuator.endpoints.info_endpoint import InfoEndpoint
+        from pyfly.actuator.endpoints.loggers_endpoint import LoggersEndpoint
+        from pyfly.actuator.endpoints.metrics_endpoint import MetricsEndpoint
         from pyfly.actuator.health import HealthAggregator, HealthIndicator
+        from pyfly.actuator.registry import ActuatorRegistry
 
         agg = HealthAggregator()
 
@@ -106,7 +142,23 @@ def create_app(
                     indicator_name = reg.name or cls.__name__
                     agg.add_indicator(indicator_name, reg.instance)
 
-        routes.extend(make_actuator_routes(health_aggregator=agg, context=context))
+        config = context.config if context is not None else None
+        registry = ActuatorRegistry(config=config)
+
+        # Register built-in endpoints
+        registry.register(HealthEndpoint(agg))
+        if context is not None:
+            registry.register(BeansEndpoint(context))
+            registry.register(EnvEndpoint(context))
+            registry.register(InfoEndpoint(context))
+        registry.register(LoggersEndpoint())
+        registry.register(MetricsEndpoint())
+
+        # Auto-discover custom ActuatorEndpoint beans from context
+        if context is not None:
+            registry.discover_from_context(context)
+
+        routes.extend(make_starlette_actuator_routes(registry))
 
     # Collect route metadata (used for OpenAPI and startup logging)
     route_metadata = registrar.collect_route_metadata(context) if context is not None else []

@@ -15,12 +15,14 @@
 
 from pyfly.data.adapters.sqlalchemy.entity import Base, BaseEntity
 from pyfly.data.adapters.sqlalchemy.post_processor import RepositoryBeanPostProcessor
+from pyfly.data.adapters.sqlalchemy.query_compiler import QueryMethodCompiler
 from pyfly.data.adapters.sqlalchemy.repository import Repository
 from pyfly.data.adapters.sqlalchemy.transactional import reactive_transactional
 
 __all__ = [
     "Base",
     "BaseEntity",
+    "QueryMethodCompiler",
     "Repository",
     "RepositoryBeanPostProcessor",
     "reactive_transactional",

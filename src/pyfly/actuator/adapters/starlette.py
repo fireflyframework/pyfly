@@ -11,51 +11,87 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Starlette adapter for actuator endpoints."""
+"""Starlette adapter for actuator endpoints — generates routes from ActuatorRegistry."""
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import json
 
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Route
 
-from pyfly.actuator.endpoints import get_beans_data, get_env_data, get_health_data, get_info_data
-from pyfly.actuator.health import HealthAggregator
-
-if TYPE_CHECKING:
-    from pyfly.context.application_context import ApplicationContext
+from pyfly.actuator.endpoints.health_endpoint import HealthEndpoint
+from pyfly.actuator.endpoints.loggers_endpoint import LoggersEndpoint
+from pyfly.actuator.registry import ActuatorRegistry
 
 
 def make_starlette_actuator_routes(
-    health_aggregator: HealthAggregator,
-    context: ApplicationContext | None = None,
+    registry: ActuatorRegistry,
 ) -> list[Route]:
-    """Build Starlette Route objects for actuator endpoints."""
+    """Build Starlette ``Route`` objects from all enabled endpoints in *registry*."""
+    enabled = registry.get_enabled_endpoints()
+    routes: list[Route] = []
 
-    async def health_endpoint(request: Request) -> JSONResponse:
-        data, status_code = await get_health_data(health_aggregator)
-        return JSONResponse(data, status_code=status_code)
+    # Index endpoint: /actuator — lists all enabled endpoints with _links
+    async def index_endpoint(request: Request) -> JSONResponse:
+        links: dict[str, dict[str, str]] = {"self": {"href": "/actuator"}}
+        for eid in enabled:
+            links[eid] = {"href": f"/actuator/{eid}"}
+        return JSONResponse({"_links": links})
 
-    routes: list[Route] = [
-        Route("/actuator/health", health_endpoint, methods=["GET"]),
-    ]
+    routes.append(Route("/actuator", index_endpoint, methods=["GET"]))
 
-    if context is not None:
-        async def beans_endpoint(request: Request) -> JSONResponse:
-            return JSONResponse(get_beans_data(context))
-
-        async def env_endpoint(request: Request) -> JSONResponse:
-            return JSONResponse(get_env_data(context))
-
-        async def info_endpoint(request: Request) -> JSONResponse:
-            return JSONResponse(get_info_data(context))
-
-        routes.extend([
-            Route("/actuator/beans", beans_endpoint, methods=["GET"]),
-            Route("/actuator/env", env_endpoint, methods=["GET"]),
-            Route("/actuator/info", info_endpoint, methods=["GET"]),
-        ])
+    for eid, ep in enabled.items():
+        if isinstance(ep, HealthEndpoint):
+            routes.append(_make_health_route(ep))
+        elif isinstance(ep, LoggersEndpoint):
+            routes.extend(_make_loggers_routes(ep))
+        else:
+            routes.append(_make_generic_route(eid, ep))
 
     return routes
+
+
+def _make_health_route(ep: HealthEndpoint) -> Route:
+    """Health endpoint returns dynamic status codes (200/503)."""
+
+    async def handler(request: Request) -> JSONResponse:
+        data = await ep.handle()
+        status_code = await ep.get_status_code()
+        return JSONResponse(data, status_code=status_code)
+
+    return Route("/actuator/health", handler, methods=["GET"])
+
+
+def _make_loggers_routes(ep: LoggersEndpoint) -> list[Route]:
+    """Loggers endpoint supports GET (list) and POST (change level)."""
+
+    async def get_handler(request: Request) -> JSONResponse:
+        data = await ep.handle()
+        return JSONResponse(data)
+
+    async def post_handler(request: Request) -> JSONResponse:
+        body = await request.body()
+        payload = json.loads(body) if body else {}
+        logger_name = payload.get("logger", "ROOT")
+        level = payload.get("level", "INFO")
+        result = await ep.set_logger_level(logger_name, level)
+        if "error" in result:
+            return JSONResponse(result, status_code=400)
+        return JSONResponse(result)
+
+    return [
+        Route("/actuator/loggers", get_handler, methods=["GET"]),
+        Route("/actuator/loggers", post_handler, methods=["POST"]),
+    ]
+
+
+def _make_generic_route(eid: str, ep: object) -> Route:
+    """Generic endpoint — calls ``handle()`` and returns 200 JSON."""
+
+    async def handler(request: Request) -> JSONResponse:
+        data = await ep.handle()  # type: ignore[union-attr]
+        return JSONResponse(data)
+
+    return Route(f"/actuator/{eid}", handler, methods=["GET"])

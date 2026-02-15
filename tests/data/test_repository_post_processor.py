@@ -15,6 +15,8 @@
 
 from __future__ import annotations
 
+from uuid import UUID
+
 import pytest
 from sqlalchemy import String
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -44,14 +46,14 @@ class PPItem(BaseEntity):
 # ---------------------------------------------------------------------------
 
 
-class QueryDecoratedRepo(Repository[PPItem]):
+class QueryDecoratedRepo(Repository[PPItem, UUID]):
     """Repository with only @query-decorated methods."""
 
     @query("SELECT * FROM pp_test_items WHERE role = :role", native=True)
     async def find_by_role_query(self, role: str) -> list[PPItem]: ...
 
 
-class DerivedQueryRepo(Repository[PPItem]):
+class DerivedQueryRepo(Repository[PPItem, UUID]):
     """Repository with only derived query methods."""
 
     async def find_by_name(self, name: str) -> list[PPItem]: ...
@@ -59,7 +61,7 @@ class DerivedQueryRepo(Repository[PPItem]):
     async def find_by_active(self, active: bool) -> list[PPItem]: ...
 
 
-class MixedRepo(Repository[PPItem]):
+class MixedRepo(Repository[PPItem, UUID]):
     """Repository with both @query-decorated and derived query methods."""
 
     @query("SELECT * FROM pp_test_items WHERE role = :role", native=True)
@@ -70,7 +72,7 @@ class MixedRepo(Repository[PPItem]):
     async def find_by_active(self, active: bool) -> list[PPItem]: ...
 
 
-class ConcreteMethodRepo(Repository[PPItem]):
+class ConcreteMethodRepo(Repository[PPItem, UUID]):
     """Repository with a concrete (non-stub) method that starts with find_by_."""
 
     async def find_by_name(self, name: str) -> list[PPItem]:
@@ -81,7 +83,7 @@ class ConcreteMethodRepo(Repository[PPItem]):
         return list(result.scalars().all())
 
 
-class AllDerivedTypesRepo(Repository[PPItem]):
+class AllDerivedTypesRepo(Repository[PPItem, UUID]):
     """Repository with all four derived query prefixes."""
 
     async def find_by_name(self, name: str) -> list[PPItem]: ...

@@ -13,6 +13,7 @@
 # limitations under the License.
 """Data access ports — abstract interfaces for persistence adapters."""
 
+from pyfly.data.ports.compiler import QueryMethodCompilerPort
 from pyfly.data.ports.outbound import RepositoryPort, SessionPort
 
-__all__ = ["RepositoryPort", "SessionPort"]
+__all__ = ["QueryMethodCompilerPort", "RepositoryPort", "SessionPort"]

@@ -2,7 +2,8 @@
 
 PyFly integrates deeply with [Pydantic](https://docs.pydantic.dev/) to provide
 declarative input validation throughout your application. This guide covers the
-validation helpers, decorators, and their integration with the web layer.
+validation helpers, decorators, the `Valid[T]` annotation for structured 422
+error responses, and their integration with the web layer.
 
 ---
 
@@ -19,33 +20,44 @@ validation helpers, decorators, and their integration with the web layer.
 4. [@validator Decorator](#validator-decorator)
    - [Predicate Functions](#predicate-functions)
    - [Lambda Predicates](#lambda-predicates)
-5. [ValidationException](#validationexception)
-6. [Integration with the Web Layer](#integration-with-the-web-layer)
-   - [Body[T] Automatic Validation](#bodyt-automatic-validation)
+   - [Stacking Multiple Validators](#stacking-multiple-validators)
+5. [Valid\[T\] Annotation](#validt-annotation)
+   - [Why Valid\[T\]?](#why-validt)
+   - [Usage Patterns](#usage-patterns)
+   - [How It Works Internally](#how-it-works-internally)
+   - [Structured 422 Error Response](#structured-422-error-response)
+   - [Body\[T\] vs Valid\[T\]](#bodyt-vs-validt)
+   - [Integration Examples](#integration-examples)
+6. [ValidationException](#validationexception)
+7. [Integration with the Web Layer](#integration-with-the-web-layer)
+   - [Body\[T\] Automatic Validation](#bodyt-automatic-validation)
+   - [Valid\[T\] Explicit Validation](#validt-explicit-validation)
    - [Automatic 422 Responses](#automatic-422-responses)
-7. [Complete Example](#complete-example)
+8. [Complete Example](#complete-example)
 
 ---
 
 ## Introduction
 
 Validation is the first line of defense against invalid data entering your system.
-PyFly provides three complementary validation mechanisms:
+PyFly provides four complementary validation mechanisms:
 
-| Mechanism         | Purpose                                          | Module                         |
-|-------------------|--------------------------------------------------|--------------------------------|
-| `validate_model()` | Validate a raw dict against a Pydantic model     | `pyfly.validation.helpers`     |
-| `@validate_input` | Decorator for automatic parameter validation     | `pyfly.validation.decorators`  |
-| `@validator`      | Decorator for custom predicate-based validation  | `pyfly.validation.decorators`  |
+| Mechanism         | Purpose                                                        | Module                         |
+|-------------------|----------------------------------------------------------------|--------------------------------|
+| `validate_model()` | Validate a raw dict against a Pydantic model                 | `pyfly.validation.helpers`     |
+| `@validate_input` | Decorator for automatic parameter validation                   | `pyfly.validation.decorators`  |
+| `@validator`      | Decorator for custom predicate-based validation                | `pyfly.validation.decorators`  |
+| `Valid[T]`        | Type annotation for explicit validation with structured errors | `pyfly.web.params`             |
 
-All three raise `ValidationException` on failure, which the web layer automatically
+All four raise `ValidationException` on failure, which the web layer automatically
 converts to a `422 Unprocessable Entity` response with structured error details.
 
 ```python
 from pyfly.validation import validate_model, validate_input, validator
+from pyfly.web import Valid
 ```
 
-**Source:** `src/pyfly/validation/__init__.py`
+**Source:** `src/pyfly/validation/__init__.py`, `src/pyfly/web/params.py`
 
 ---
 
@@ -339,6 +351,262 @@ async def place_order(self, price: float, qty: int) -> dict:
 
 ---
 
+## Valid[T] Annotation
+
+### Why Valid[T]?
+
+When you annotate a parameter with `Body[T]`, PyFly calls Pydantic's
+`model_validate_json()` to parse and validate the request body. If the payload is
+invalid, Pydantic raises a raw `ValidationError` -- which propagates to the global
+exception handler as-is rather than as a structured `ValidationException` with
+a consistent error code and context.
+
+`Valid[T]` solves this. It is a Generic marker type (imported from `pyfly.web.params`
+or `pyfly.web`) that explicitly marks a controller parameter for Pydantic validation
+**with structured error handling**. When the `ParameterResolver` encounters `Valid[T]`,
+it catches Pydantic's `ValidationError` and converts it to PyFly's
+`ValidationException` with `code="VALIDATION_ERROR"` and
+`context={"errors": [...]}`.
+
+This ensures that **all** validation failures -- whether they originate from body
+parsing, query parameter coercion, or header resolution -- produce the same
+structured 422 response format.
+
+### Usage Patterns
+
+`Valid[T]` supports three usage patterns:
+
+```python
+from pyfly.web import Valid, Body, QueryParam, Header
+from pyfly.web import rest_controller, request_mapping, post_mapping, get_mapping
+```
+
+**1. Standalone -- `Valid[T]` implies `Body[T]` with structured validation:**
+
+When `Valid` wraps a Pydantic model directly (no inner binding type), the resolver
+defaults to `Body[T]` for resolution and enables structured error handling:
+
+```python
+@post_mapping("/", status_code=201)
+async def create(self, user: Valid[CreateUserRequest]) -> dict:
+    # `user` is a validated CreateUserRequest instance
+    # Validation errors produce structured 422 responses
+    return await self._service.create(user)
+```
+
+**2. Wrapping `Body[T]` -- explicit validation marker:**
+
+Wrapping `Body[T]` in `Valid` makes the validation intent explicit and enables
+structured 422 errors:
+
+```python
+@post_mapping("/", status_code=201)
+async def create(self, user: Valid[Body[CreateUserRequest]]) -> dict:
+    return await self._service.create(user)
+```
+
+**3. Wrapping other binding types -- validate after resolution:**
+
+`Valid` can wrap `QueryParam`, `Header`, or `Cookie` to apply Pydantic validation
+to non-body parameters:
+
+```python
+@get_mapping("/search")
+async def search(self, page: Valid[QueryParam[int]]) -> list:
+    return await self._service.search(page=page)
+
+@get_mapping("/protected")
+async def protected(self, x_api_key: Valid[Header[str]]) -> dict:
+    return {"key_length": len(x_api_key)}
+```
+
+### How It Works Internally
+
+The `ParameterResolver` in `src/pyfly/web/adapters/starlette/resolver.py` processes
+`Valid[T]` through the following steps:
+
+1. **`_inspect()` detects `Valid` as the origin type** -- using `get_origin(hint)`.
+2. **Peels the `Valid` layer** to find the inner type via `get_args(hint)`.
+3. **Checks if the inner type is a binding type** (`Body`, `QueryParam`, `Header`,
+   `Cookie`, `PathVar`):
+   - If yes (e.g. `Valid[Body[T]]`), uses that binding type for resolution.
+   - If no (e.g. `Valid[T]` standalone), defaults to `Body[T]`.
+4. **Sets `validate=True`** on the `ResolvedParam` dataclass.
+5. **At request time**, `resolve()` calls `_resolve_one()` for normal parameter
+   resolution, then checks `param.validate`.
+6. **For body params with `validate=True`**: `_resolve_body()` wraps the
+   `model_validate_json()` call in a try/except that catches Pydantic's
+   `ValidationError` and converts it to a `ValidationException`.
+7. **For dict values**: `_run_validation()` calls `validate_model()` from
+   `pyfly.validation.helpers` for model validation.
+8. **For `BaseModel` instances**: `_run_validation()` recognizes the value is
+   already validated and passes it through.
+
+The key dataclass used by the resolver:
+
+```python
+@dataclass
+class ResolvedParam:
+    """Metadata for a single resolved parameter."""
+
+    name: str
+    binding_type: type
+    inner_type: type
+    default: Any = _MISSING
+    validate: bool = False
+```
+
+The `validate` field is `False` by default and only set to `True` when the resolver
+encounters a `Valid[...]` annotation.
+
+### Structured 422 Error Response
+
+When `Valid[T]` validation fails, the resulting `ValidationException` is caught by
+the global exception handler and converted to a structured 422 response:
+
+```json
+{
+    "error": {
+        "message": "Validation failed: name: Field required; age: Input should be greater than 0",
+        "code": "VALIDATION_ERROR",
+        "status": 422,
+        "path": "/api/users",
+        "timestamp": "2026-01-15T10:30:00Z",
+        "transaction_id": "tx-abc-123",
+        "context": {
+            "errors": [
+                {"type": "missing", "loc": ["name"], "msg": "Field required"},
+                {"type": "greater_than", "loc": ["age"], "msg": "Input should be greater than 0"}
+            ]
+        }
+    }
+}
+```
+
+The response body follows the same RFC 7807-inspired format used by all PyFly error
+responses. The `context.errors` array contains Pydantic's native error dictionaries,
+giving API consumers fine-grained, machine-parseable error information for each
+invalid field.
+
+### Body[T] vs Valid[T]
+
+| Feature | `Body[T]` | `Valid[T]` |
+|---------|-----------|------------|
+| Pydantic validation | Yes (via `model_validate_json`) | Yes (via `model_validate_json`) |
+| Error type on failure | Raw Pydantic `ValidationError` | PyFly `ValidationException` |
+| Error format | Pydantic native | Structured with `code` + `context` |
+| Error code in response | Pydantic error propagation | `"VALIDATION_ERROR"` |
+| `context.errors` field | Not guaranteed | Always present with field-level details |
+| Works with `QueryParam` | N/A | Yes: `Valid[QueryParam[T]]` |
+| Works with `Header` | N/A | Yes: `Valid[Header[T]]` |
+| Works with `Cookie` | N/A | Yes: `Valid[Cookie[T]]` |
+
+**When to use which:**
+
+- Use `Body[T]` when you want simple body parsing and are fine with Pydantic's
+  default error propagation.
+- Use `Valid[T]` (or `Valid[Body[T]]`) when you need consistent, structured 422
+  error responses with `code="VALIDATION_ERROR"` and a `context.errors` array.
+- Use `Valid[QueryParam[T]]` or `Valid[Header[T]]` when you need to validate
+  non-body parameters with the same structured error format.
+
+### Integration Examples
+
+A complete controller using `Valid[T]` with Pydantic field constraints:
+
+```python
+from pydantic import BaseModel, Field
+from pyfly.container import rest_controller, service
+from pyfly.web import request_mapping, post_mapping, get_mapping, Valid, QueryParam
+
+
+class CreateUserRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+    email: str = Field(pattern=r"^[\w.-]+@[\w.-]+\.\w+$")
+    age: int = Field(gt=0, le=150)
+
+
+@service
+class UserService:
+    async def create(self, user: CreateUserRequest) -> dict:
+        return {
+            "id": "usr-001",
+            "name": user.name,
+            "email": user.email,
+            "age": user.age,
+        }
+
+    async def search(self, page: int, size: int) -> list:
+        return [{"id": "usr-001", "name": "Alice"}]
+
+
+@rest_controller
+@request_mapping("/api/users")
+class UserController:
+    def __init__(self, user_service: UserService) -> None:
+        self._service = user_service
+
+    @post_mapping("", status_code=201)
+    async def create(self, user: Valid[CreateUserRequest]) -> dict:
+        """Valid[T] validates the body and produces structured 422 errors."""
+        return await self._service.create(user)
+
+    @get_mapping("/search")
+    async def search(
+        self,
+        page: Valid[QueryParam[int]],
+        size: QueryParam[int] = 20,
+    ) -> list:
+        """Valid[QueryParam[int]] validates the query parameter."""
+        return await self._service.search(page=page, size=size)
+```
+
+Sending an invalid request to the `create` endpoint:
+
+```bash
+curl -X POST http://localhost:8080/api/users \
+  -H "Content-Type: application/json" \
+  -d '{"email": "bad", "age": -5}'
+```
+
+Produces the following structured 422 response:
+
+```json
+{
+    "error": {
+        "message": "Validation failed: name: Field required; email: String should match pattern '^[\\w.-]+@[\\w.-]+\\.\\w+$'; age: Input should be greater than 0",
+        "code": "VALIDATION_ERROR",
+        "transaction_id": "a1b2c3d4-...",
+        "timestamp": "2026-01-15T10:30:00Z",
+        "status": 422,
+        "path": "/api/users",
+        "context": {
+            "errors": [
+                {
+                    "type": "missing",
+                    "loc": ["name"],
+                    "msg": "Field required"
+                },
+                {
+                    "type": "string_pattern_mismatch",
+                    "loc": ["email"],
+                    "msg": "String should match pattern '^[\\w.-]+@[\\w.-]+\\.\\w+$'"
+                },
+                {
+                    "type": "greater_than",
+                    "loc": ["age"],
+                    "msg": "Input should be greater than 0"
+                }
+            ]
+        }
+    }
+}
+```
+
+**Source:** `src/pyfly/web/params.py`, `src/pyfly/web/adapters/starlette/resolver.py`
+
+---
+
 ## ValidationException
 
 All validation mechanisms in PyFly raise `ValidationException` on failure. This
@@ -366,7 +634,8 @@ ValidationException(
 | `code`    | `str \| None`   | Machine-readable error code (e.g. `"VALIDATION_ERROR"`) |
 | `context` | `dict`         | Structured error details (e.g. Pydantic errors) |
 
-When raised by `validate_model()`, the context contains Pydantic's error list:
+When raised by `validate_model()` or `Valid[T]`, the context contains Pydantic's
+error list:
 
 ```python
 {
@@ -392,7 +661,7 @@ When you annotate a controller handler parameter with `Body[T]` where `T` is a
 Pydantic `BaseModel`, PyFly automatically:
 
 1. Reads the JSON request body.
-2. Validates the JSON against the model `T`.
+2. Validates the JSON against the model `T` using `model_validate_json()`.
 3. Passes the validated model instance to your handler.
 
 ```python
@@ -421,10 +690,51 @@ class OrderController:
         }
 ```
 
+Note that with plain `Body[T]`, Pydantic's `ValidationError` propagates directly.
+If you need structured 422 errors with `code="VALIDATION_ERROR"` and a
+`context.errors` array, use `Valid[T]` instead (see the next section).
+
+### Valid[T] Explicit Validation
+
+When you annotate a parameter with `Valid[T]`, PyFly adds a structured error
+handling layer on top of the normal parameter resolution. This applies to any
+binding type:
+
+```python
+from pyfly.container import rest_controller
+from pyfly.web import request_mapping, post_mapping, get_mapping
+from pyfly.web import Valid, Body, QueryParam, Header
+
+
+@rest_controller
+@request_mapping("/api/orders")
+class OrderController:
+
+    @post_mapping("", status_code=201)
+    async def create(self, body: Valid[CreateOrderRequest]) -> dict:
+        """Standalone Valid[T] -- implies Body[T] + structured errors."""
+        return {"status": "created"}
+
+    @post_mapping("/explicit", status_code=201)
+    async def create_explicit(self, body: Valid[Body[CreateOrderRequest]]) -> dict:
+        """Explicit Valid[Body[T]] -- same behavior, more readable intent."""
+        return {"status": "created"}
+
+    @get_mapping("/search")
+    async def search(self, page: Valid[QueryParam[int]]) -> list:
+        """Valid[QueryParam[T]] -- validates query parameters."""
+        return []
+```
+
+All three patterns produce the same structured 422 error response when validation
+fails.
+
 ### Automatic 422 Responses
 
-When `Body[T]` validation fails, the global exception handler catches the resulting
-`ValidationException` and returns a structured `422 Unprocessable Entity` response:
+When validation fails -- whether from `Body[T]`, `Valid[T]`, `validate_model()`,
+`@validate_input`, or `@validator` -- the global exception handler catches the
+resulting `ValidationException` and returns a structured `422 Unprocessable Entity`
+response:
 
 ```json
 {
@@ -464,21 +774,30 @@ _STATUS_MAP: dict[type, int] = {
 ```
 
 The same 422 response is produced whether the validation failure comes from
-`Body[T]`, `validate_model()`, `@validate_input`, or `@validator`.
+`Valid[T]`, `Body[T]`, `validate_model()`, `@validate_input`, or `@validator`.
 
 ---
 
 ## Complete Example
 
-The following example demonstrates a complete order validation workflow with nested
-Pydantic models, custom validators, and full web integration.
+The following example demonstrates a complete order validation workflow using nested
+Pydantic models, `Valid[T]` for structured 422 errors, custom validators, and full
+web integration.
 
 ```python
 """order_service/controllers.py"""
 
 from pydantic import BaseModel, Field
 from pyfly.container import rest_controller, service
-from pyfly.web import request_mapping, post_mapping, get_mapping, Body, PathVar
+from pyfly.web import (
+    request_mapping,
+    post_mapping,
+    get_mapping,
+    Valid,
+    Body,
+    PathVar,
+    QueryParam,
+)
 from pyfly.validation import validate_model, validate_input, validator
 from pyfly.kernel.exceptions import ValidationException, ResourceNotFoundException
 
@@ -537,6 +856,12 @@ class OrderService:
             "status": "created",
         }
 
+    async def search_orders(self, page: int, size: int) -> list:
+        """Search orders with pagination."""
+        return [
+            {"order_id": "ord-001", "customer_id": "cust-42", "total": 59.98},
+        ]
+
 
 # =========================================================================
 # Controller Layer
@@ -549,9 +874,18 @@ class OrderController:
         self._service = order_service
 
     @post_mapping("", status_code=201)
-    async def create(self, body: Body[CreateOrderRequest]) -> dict:
-        """Body[T] validates the JSON request automatically."""
+    async def create(self, body: Valid[CreateOrderRequest]) -> dict:
+        """Valid[T] validates the JSON body with structured 422 errors."""
         return await self._service.create_order(order_data=body)
+
+    @get_mapping("/search")
+    async def search(
+        self,
+        page: Valid[QueryParam[int]],
+        size: QueryParam[int] = 20,
+    ) -> list:
+        """Valid[QueryParam[int]] validates the page query parameter."""
+        return await self._service.search_orders(page=page, size=size)
 
 
 # =========================================================================
@@ -601,7 +935,7 @@ async def manual_validation_demo():
 **Testing the endpoint with `curl`:**
 
 ```bash
-# Successful creation
+# Successful creation with Valid[T]
 curl -X POST http://localhost:8080/api/orders \
   -H "Content-Type: application/json" \
   -d '{
@@ -619,10 +953,31 @@ curl -X POST http://localhost:8080/api/orders \
 # HTTP 201
 # {"order_id": "ord-001", "customer_id": "cust-42", "total": 59.98, ...}
 
-# Validation failure -- missing required fields
+# Validation failure -- missing required fields (structured 422 via Valid[T])
 curl -X POST http://localhost:8080/api/orders \
   -H "Content-Type: application/json" \
   -d '{"items": []}'
 # HTTP 422
-# {"error": {"message": "Validation failed: ...", "code": "VALIDATION_ERROR", ...}}
+# {
+#   "error": {
+#     "message": "Validation failed: customer_id: Field required; shipping_address: Field required; items: List should have at least 1 item after validation, not 0",
+#     "code": "VALIDATION_ERROR",
+#     "transaction_id": "...",
+#     "timestamp": "...",
+#     "status": 422,
+#     "path": "/api/orders",
+#     "context": {
+#       "errors": [
+#         {"type": "missing", "loc": ["customer_id"], "msg": "Field required"},
+#         {"type": "missing", "loc": ["shipping_address"], "msg": "Field required"},
+#         {"type": "too_short", "loc": ["items"], "msg": "List should have at least 1 item after validation, not 0"}
+#       ]
+#     }
+#   }
+# }
+
+# Search with validated query parameter
+curl "http://localhost:8080/api/orders/search?page=1&size=20"
+# HTTP 200
+# [{"order_id": "ord-001", "customer_id": "cust-42", "total": 59.98}]
 ```

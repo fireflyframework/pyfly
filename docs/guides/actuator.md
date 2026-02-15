@@ -4,6 +4,11 @@ The actuator module provides production-ready monitoring and management endpoint
 for PyFly applications. Inspired by Spring Boot Actuator, it exposes HTTP endpoints
 that reveal the health, configuration, and composition of your running application.
 
+The actuator is built on an extensible endpoint architecture. Built-in endpoints
+cover health checks, bean inspection, environment profiles, application info,
+logger management, and metrics. You can also create custom endpoints that are
+automatically discovered from the DI container.
+
 ---
 
 ## Table of Contents
@@ -12,26 +17,39 @@ that reveal the health, configuration, and composition of your running applicati
 2. [Enabling Actuator](#enabling-actuator)
    - [Via create_app()](#via-create_app)
    - [Via pyfly.yaml](#via-pyflyyaml)
-3. [Health Endpoint](#health-endpoint)
+3. [Built-in Endpoints Summary](#built-in-endpoints-summary)
+4. [ActuatorEndpoint Protocol](#actuatorendpoint-protocol)
+5. [ActuatorRegistry](#actuatorregistry)
+   - [register()](#register)
+   - [get_enabled_endpoints()](#get_enabled_endpoints)
+   - [discover_from_context()](#discover_from_context)
+   - [Per-endpoint Configuration](#per-endpoint-configuration)
+6. [Index Endpoint](#index-endpoint)
+7. [Health Endpoint](#health-endpoint)
    - [Response Format](#response-format)
    - [HTTP Status Codes](#http-status-codes)
-4. [HealthIndicator Protocol](#healthindicator-protocol)
-5. [HealthStatus Dataclass](#healthstatus-dataclass)
-6. [HealthAggregator](#healthaggregator)
-   - [add_indicator()](#add_indicator)
-   - [check()](#check)
-   - [Aggregation Rules](#aggregation-rules)
-7. [HealthResult Dataclass](#healthresult-dataclass)
-8. [Custom Health Indicators](#custom-health-indicators)
-   - [Database Health Indicator](#database-health-indicator)
-   - [Redis Health Indicator](#redis-health-indicator)
-   - [External Service Health Indicator](#external-service-health-indicator)
-9. [Beans Endpoint](#beans-endpoint)
-10. [Environment Endpoint](#environment-endpoint)
-11. [Info Endpoint](#info-endpoint)
-12. [make_actuator_routes()](#make_actuator_routes)
-13. [Configuration](#configuration)
-14. [Complete Example](#complete-example)
+8. [HealthIndicator Protocol](#healthindicator-protocol)
+9. [HealthStatus Dataclass](#healthstatus-dataclass)
+10. [HealthAggregator](#healthaggregator)
+    - [add_indicator()](#add_indicator)
+    - [check()](#check)
+    - [Aggregation Rules](#aggregation-rules)
+11. [HealthResult Dataclass](#healthresult-dataclass)
+12. [Custom Health Indicators](#custom-health-indicators)
+    - [Database Health Indicator](#database-health-indicator)
+    - [Redis Health Indicator](#redis-health-indicator)
+    - [External Service Health Indicator](#external-service-health-indicator)
+13. [Beans Endpoint](#beans-endpoint)
+14. [Environment Endpoint](#environment-endpoint)
+15. [Info Endpoint](#info-endpoint)
+16. [Loggers Endpoint](#loggers-endpoint)
+    - [GET /actuator/loggers](#get-actuatorloggers)
+    - [POST /actuator/loggers](#post-actuatorloggers)
+17. [Metrics Endpoint](#metrics-endpoint)
+18. [Custom Actuator Endpoints](#custom-actuator-endpoints)
+19. [make_starlette_actuator_routes()](#make_starlette_actuator_routes)
+20. [Configuration](#configuration)
+21. [Complete Example](#complete-example)
 
 ---
 
@@ -43,20 +61,29 @@ In production, operators need answers to questions like:
 - "What beans are registered in the application context?"
 - "What configuration profile is active?"
 - "What version of the service is running?"
+- "What loggers are active and at what level?"
+- "Can I change a logger's level without redeploying?"
 
-The actuator module answers all of these through standard HTTP GET endpoints:
+The actuator module answers all of these through standard HTTP endpoints:
 
-| Endpoint              | Description                     |
-|-----------------------|---------------------------------|
-| `GET /actuator/health` | Application health status       |
-| `GET /actuator/beans`  | Registered bean information     |
-| `GET /actuator/env`    | Active profiles                 |
-| `GET /actuator/info`   | Application metadata            |
+| Endpoint                | Methods   | Description                     |
+|-------------------------|-----------|---------------------------------|
+| `GET /actuator`          | GET       | HAL-style index of all enabled endpoints |
+| `GET /actuator/health`   | GET       | Aggregated application health status |
+| `GET /actuator/beans`    | GET       | Registered bean information     |
+| `GET /actuator/env`      | GET       | Active profiles                 |
+| `GET /actuator/info`     | GET       | Application metadata            |
+| `/actuator/loggers`      | GET, POST | Logger configuration and runtime level changes |
+| `GET /actuator/metrics`  | GET       | Metrics stub (disabled by default) |
 
 ```python
 from pyfly.actuator import (
-    HealthIndicator, HealthStatus, HealthResult,
-    HealthAggregator, make_actuator_routes,
+    ActuatorEndpoint,
+    ActuatorRegistry,
+    HealthIndicator,
+    HealthStatus,
+    HealthResult,
+    HealthAggregator,
 )
 ```
 
@@ -85,10 +112,14 @@ When actuator is enabled with a `context`, the framework automatically:
 
 1. Creates a `HealthAggregator` instance.
 2. Scans the DI container for any beans that implement the `HealthIndicator`
-   protocol.
-3. Registers each discovered health indicator with the aggregator.
-4. Mounts the `/actuator/health`, `/actuator/beans`, `/actuator/env`, and
-   `/actuator/info` routes.
+   protocol and registers them with the aggregator.
+3. Creates an `ActuatorRegistry` with the application config.
+4. Registers all built-in endpoints (`health`, `beans`, `env`, `info`, `loggers`,
+   `metrics`) with the registry.
+5. Calls `registry.discover_from_context(context)` to auto-discover any custom
+   `ActuatorEndpoint` beans from the DI container.
+6. Passes the registry to `make_starlette_actuator_routes(registry)` which builds
+   the HTTP routes for all enabled endpoints, including the `/actuator` index.
 
 ### Via pyfly.yaml
 
@@ -105,12 +136,178 @@ The framework default (from `pyfly-defaults.yaml`) is `enabled: false`.
 
 ---
 
+## Built-in Endpoints Summary
+
+| Endpoint  | Path                | Methods   | Default State | Description                              |
+|-----------|---------------------|-----------|---------------|------------------------------------------|
+| health    | `/actuator/health`  | GET       | enabled       | Aggregated health status from all indicators |
+| beans     | `/actuator/beans`   | GET       | enabled       | Registered bean information from DI container |
+| env       | `/actuator/env`     | GET       | enabled       | Active configuration profiles            |
+| info      | `/actuator/info`    | GET       | enabled       | Application name, version, description   |
+| loggers   | `/actuator/loggers` | GET, POST | enabled       | Logger configuration and runtime level changes |
+| metrics   | `/actuator/metrics` | GET       | **disabled**  | Metrics stub for future Prometheus/OpenTelemetry integration |
+
+Any endpoint can be enabled or disabled individually via configuration. See
+[Per-endpoint Configuration](#per-endpoint-configuration).
+
+---
+
+## ActuatorEndpoint Protocol
+
+`ActuatorEndpoint` is the extensible foundation of the actuator system. Every
+actuator endpoint -- built-in or custom -- implements this runtime-checkable
+protocol.
+
+```python
+from typing import Any, Protocol, runtime_checkable
+
+@runtime_checkable
+class ActuatorEndpoint(Protocol):
+    @property
+    def endpoint_id(self) -> str:
+        """URL path suffix: /actuator/{endpoint_id}."""
+        ...
+
+    @property
+    def enabled(self) -> bool:
+        """Default enable state. Can be overridden via config."""
+        ...
+
+    async def handle(self, context: Any = None) -> dict[str, Any]:
+        """Handle a request and return a JSON-serializable dict."""
+        ...
+```
+
+| Property / Method | Type                  | Description                                    |
+|-------------------|-----------------------|------------------------------------------------|
+| `endpoint_id`     | `str` (property)      | Determines the URL: `/actuator/{endpoint_id}`  |
+| `enabled`         | `bool` (property)     | Default enable state; can be overridden by config |
+| `handle()`        | `async` method        | Processes a request and returns a JSON-serializable dict |
+
+Any class that has these three members satisfies the protocol via structural
+subtyping. No explicit inheritance is required.
+
+**Source:** `src/pyfly/actuator/ports.py`
+
+---
+
+## ActuatorRegistry
+
+`ActuatorRegistry` collects and manages `ActuatorEndpoint` instances. It is the
+central registry that the Starlette adapter reads from when building HTTP routes.
+
+```python
+from pyfly.actuator import ActuatorRegistry
+
+registry = ActuatorRegistry(config=application_context.config)
+```
+
+**Constructor Parameters:**
+
+| Parameter | Type              | Default | Description                              |
+|-----------|-------------------|---------|------------------------------------------|
+| `config`  | `Config \| None`  | `None`  | Application config for per-endpoint overrides |
+
+### register()
+
+Register an `ActuatorEndpoint` with the registry:
+
+```python
+registry.register(HealthEndpoint(aggregator))
+registry.register(BeansEndpoint(context))
+registry.register(LoggersEndpoint())
+```
+
+If an endpoint with the same `endpoint_id` is already registered, it is replaced.
+
+### get_enabled_endpoints()
+
+Returns a dictionary of all endpoints that are currently enabled:
+
+```python
+enabled = registry.get_enabled_endpoints()
+# {"health": <HealthEndpoint>, "beans": <BeansEndpoint>, ...}
+```
+
+Enable state is determined by (highest priority first):
+
+1. Config key `pyfly.actuator.endpoints.{endpoint_id}.enabled`
+2. The endpoint's own `enabled` property
+
+### discover_from_context()
+
+Auto-discover `ActuatorEndpoint` beans from the DI container:
+
+```python
+registry.discover_from_context(application_context)
+```
+
+This method iterates over all bean registrations in the application context. Any
+bean instance that satisfies the `ActuatorEndpoint` protocol and whose
+`endpoint_id` is not already in the registry is automatically registered. This is
+how custom endpoints decorated with `@component` are picked up.
+
+### Per-endpoint Configuration
+
+Each endpoint can be individually enabled or disabled via `pyfly.yaml`, regardless
+of the endpoint's default `enabled` property:
+
+```yaml
+pyfly:
+  actuator:
+    endpoints:
+      metrics:
+        enabled: true     # Enable the metrics stub (disabled by default)
+      beans:
+        enabled: false    # Disable the beans endpoint
+      loggers:
+        enabled: false    # Disable the loggers endpoint
+```
+
+The config key pattern is `pyfly.actuator.endpoints.{endpoint_id}.enabled`. The
+accepted values are `true`, `false`, `1`, `0`, `yes`, and `no`.
+
+**Source:** `src/pyfly/actuator/registry.py`
+
+---
+
+## Index Endpoint
+
+**Endpoint:** `GET /actuator`
+
+The index endpoint provides a HAL-style directory of all enabled actuator
+endpoints. It is always present when the actuator is enabled and is generated
+automatically by the Starlette adapter.
+
+**Response format:**
+
+```json
+{
+    "_links": {
+        "self": {"href": "/actuator"},
+        "health": {"href": "/actuator/health"},
+        "beans": {"href": "/actuator/beans"},
+        "env": {"href": "/actuator/env"},
+        "info": {"href": "/actuator/info"},
+        "loggers": {"href": "/actuator/loggers"}
+    }
+}
+```
+
+Only enabled endpoints appear in `_links`. If you disable an endpoint via
+configuration, it will not appear in the index. If you enable the `metrics`
+endpoint, it will appear alongside the others.
+
+**Source:** `src/pyfly/actuator/adapters/starlette.py`
+
+---
+
 ## Health Endpoint
 
 **Endpoint:** `GET /actuator/health`
 
 The health endpoint runs all registered health indicators and returns an aggregated
-health result.
+health result. It is implemented by the `HealthEndpoint` class.
 
 ### Response Format
 
@@ -165,21 +362,29 @@ When no health indicators are registered:
 
 ### HTTP Status Codes
 
-| Overall Status | HTTP Code | Meaning                                    |
-|----------------|-----------|---------------------------------------------|
-| `"UP"`         | `200 OK`  | All components are healthy                  |
-| `"DOWN"`       | `503 Service Unavailable` | One or more components are unhealthy |
+The health endpoint returns dynamic HTTP status codes based on the aggregated
+health state:
 
-This mapping is implemented in `get_health_data()`:
+| Overall Status | HTTP Code                 | Meaning                                  |
+|----------------|---------------------------|------------------------------------------|
+| `"UP"`         | `200 OK`                  | All components are healthy               |
+| `"DOWN"`       | `503 Service Unavailable` | One or more components are unhealthy     |
+
+The `HealthEndpoint` class provides a `get_status_code()` method used by the
+Starlette adapter:
 
 ```python
-async def get_health_data(health_aggregator: HealthAggregator) -> tuple[dict, int]:
-    result = await health_aggregator.check()
-    status_code = 200 if result.status != "DOWN" else 503
-    return result.to_dict(), status_code
+class HealthEndpoint:
+    async def handle(self, context=None) -> dict[str, Any]:
+        result = await self._aggregator.check()
+        return result.to_dict()
+
+    async def get_status_code(self) -> int:
+        result = await self._aggregator.check()
+        return 503 if result.status == "DOWN" else 200
 ```
 
-**Source:** `src/pyfly/actuator/endpoints.py`
+**Source:** `src/pyfly/actuator/endpoints/health_endpoint.py`
 
 ---
 
@@ -495,10 +700,7 @@ Each bean entry contains:
 | `scope`     | Lifecycle scope: `SINGLETON`, `TRANSIENT`, or `REQUEST` |
 | `stereotype` | Stereotype: `component`, `service`, `repository`, `controller`, `rest_controller`, `configuration`, or `none` |
 
-The data is produced by `get_beans_data()`, which iterates over the container's
-registration dictionary.
-
-**Source:** `src/pyfly/actuator/endpoints.py`
+**Source:** `src/pyfly/actuator/endpoints/beans_endpoint.py`
 
 ---
 
@@ -537,6 +739,8 @@ pyfly:
 export PYFLY_PROFILES_ACTIVE=production
 ```
 
+**Source:** `src/pyfly/actuator/endpoints/env_endpoint.py`
+
 ---
 
 ## Info Endpoint
@@ -567,43 +771,268 @@ pyfly:
     description: Order management microservice
 ```
 
+**Source:** `src/pyfly/actuator/endpoints/info_endpoint.py`
+
 ---
 
-## make_actuator_routes()
+## Loggers Endpoint
 
-`make_actuator_routes()` builds the HTTP route objects for the actuator endpoints.
-It is called internally by `create_app()` when `actuator_enabled=True`, but you can
-also call it directly for advanced use cases.
+The loggers endpoint exposes logger configuration and supports changing log levels
+at runtime without a restart. It is implemented by the `LoggersEndpoint` class.
+
+**Source:** `src/pyfly/actuator/endpoints/loggers_endpoint.py`
+
+### GET /actuator/loggers
+
+Lists all registered loggers with their configured and effective levels.
+
+**Response format:**
+
+```json
+{
+    "loggers": {
+        "ROOT": {
+            "configuredLevel": "INFO",
+            "effectiveLevel": "INFO"
+        },
+        "pyfly.web": {
+            "configuredLevel": null,
+            "effectiveLevel": "INFO"
+        },
+        "pyfly.actuator": {
+            "configuredLevel": "DEBUG",
+            "effectiveLevel": "DEBUG"
+        },
+        "order_service.controllers": {
+            "configuredLevel": null,
+            "effectiveLevel": "INFO"
+        }
+    },
+    "levels": ["TRACE", "DEBUG", "INFO", "WARN", "ERROR", "OFF"]
+}
+```
+
+| Field                | Description                                           |
+|---------------------|-------------------------------------------------------|
+| `loggers`           | Dictionary of logger name to level information        |
+| `configuredLevel`   | Explicitly set level, or `null` if inheriting from parent |
+| `effectiveLevel`    | Actual level in effect (may be inherited)             |
+| `levels`            | List of all recognized level names                    |
+
+### POST /actuator/loggers
+
+Changes a logger's level at runtime. Send a JSON body with the logger name and the
+desired level:
+
+**Request body:**
+
+```json
+{
+    "logger": "pyfly.web",
+    "level": "DEBUG"
+}
+```
+
+**Success response (200):**
+
+```json
+{
+    "logger": "pyfly.web",
+    "configuredLevel": "DEBUG"
+}
+```
+
+**Error response (400) -- unknown level:**
+
+```json
+{
+    "error": "Unknown level: INVALID"
+}
+```
+
+Use `"ROOT"` as the logger name to change the root logger level:
+
+```json
+{
+    "logger": "ROOT",
+    "level": "WARN"
+}
+```
+
+**Example with curl:**
+
+```bash
+# List all loggers
+curl http://localhost:8080/actuator/loggers
+
+# Change pyfly.web logger to DEBUG
+curl -X POST http://localhost:8080/actuator/loggers \
+  -H "Content-Type: application/json" \
+  -d '{"logger": "pyfly.web", "level": "DEBUG"}'
+
+# Change root logger to WARN
+curl -X POST http://localhost:8080/actuator/loggers \
+  -H "Content-Type: application/json" \
+  -d '{"logger": "ROOT", "level": "WARN"}'
+```
+
+---
+
+## Metrics Endpoint
+
+**Endpoint:** `GET /actuator/metrics`
+
+The metrics endpoint is a stub for future Prometheus and OpenTelemetry integration.
+It is **disabled by default** and must be explicitly enabled via configuration:
+
+```yaml
+pyfly:
+  actuator:
+    endpoints:
+      metrics:
+        enabled: true
+```
+
+**Response format (when enabled):**
+
+```json
+{
+    "names": [],
+    "message": "Metrics endpoint stub. Configure a metrics backend to populate."
+}
+```
+
+Once a metrics backend is integrated, this endpoint will expose application metrics
+such as request counts, response times, JVM-like runtime statistics, and custom
+counters/gauges.
+
+**Source:** `src/pyfly/actuator/endpoints/metrics_endpoint.py`
+
+---
+
+## Custom Actuator Endpoints
+
+You can create custom actuator endpoints by implementing the `ActuatorEndpoint`
+protocol and registering the class as a `@component` bean. The actuator will
+automatically discover and register your endpoint during application startup.
+
+### Creating a Custom Endpoint
 
 ```python
-from pyfly.actuator import make_actuator_routes, HealthAggregator
+from pyfly.container import component
+from pyfly.actuator import ActuatorEndpoint
+
+
+@component
+class GitInfoEndpoint:
+    """Exposes git commit information at /actuator/git."""
+
+    @property
+    def endpoint_id(self) -> str:
+        return "git"
+
+    @property
+    def enabled(self) -> bool:
+        return True
+
+    async def handle(self, context=None) -> dict:
+        return {
+            "branch": "main",
+            "commit": {
+                "id": "abc123def",
+                "time": "2026-01-15T10:30:00Z",
+            },
+        }
+```
+
+This endpoint will be:
+
+1. Discovered by component scanning because of the `@component` decorator.
+2. Picked up by `registry.discover_from_context(context)` because it satisfies
+   the `ActuatorEndpoint` protocol.
+3. Mounted at `GET /actuator/git`.
+4. Listed in the `GET /actuator` index response.
+
+### Another Example: System Info Endpoint
+
+```python
+import platform
+
+from pyfly.container import component
+
+
+@component
+class SystemInfoEndpoint:
+    """Exposes system-level information at /actuator/system."""
+
+    @property
+    def endpoint_id(self) -> str:
+        return "system"
+
+    @property
+    def enabled(self) -> bool:
+        return True
+
+    async def handle(self, context=None) -> dict:
+        return {
+            "python_version": platform.python_version(),
+            "platform": platform.platform(),
+            "architecture": platform.machine(),
+        }
+```
+
+### Disabling a Custom Endpoint via Config
+
+Custom endpoints respect the same per-endpoint configuration as built-in endpoints:
+
+```yaml
+pyfly:
+  actuator:
+    endpoints:
+      git:
+        enabled: false   # Disable the custom git endpoint
+```
+
+---
+
+## make_starlette_actuator_routes()
+
+`make_starlette_actuator_routes()` builds the HTTP route objects from an
+`ActuatorRegistry`. It is called internally by `create_app()` when
+`actuator_enabled=True`, but you can also call it directly for advanced use cases.
+
+```python
+from pyfly.actuator.adapters.starlette import make_starlette_actuator_routes
+from pyfly.actuator import ActuatorRegistry, HealthAggregator
+from pyfly.actuator.endpoints.health_endpoint import HealthEndpoint
 
 aggregator = HealthAggregator()
 aggregator.add_indicator("database", DatabaseHealthIndicator())
 
-routes = make_actuator_routes(
-    health_aggregator=aggregator,
-    context=application_context,  # Optional: enables beans/env/info endpoints
-)
+registry = ActuatorRegistry(config=application_context.config)
+registry.register(HealthEndpoint(aggregator))
+
+routes = make_starlette_actuator_routes(registry)
 ```
 
 **Parameters:**
 
-| Parameter            | Type                           | Default | Description                  |
-|---------------------|--------------------------------|---------|------------------------------|
-| `health_aggregator` | `HealthAggregator`             | required | The aggregator for health checks |
-| `context`           | `ApplicationContext \| None`   | `None`  | Application context (enables beans/env/info) |
+| Parameter  | Type               | Description                                 |
+|------------|--------------------|---------------------------------------------|
+| `registry` | `ActuatorRegistry` | Registry containing all actuator endpoints  |
 
 **Behavior:**
 
-- The `/actuator/health` endpoint is always created.
-- The `/actuator/beans`, `/actuator/env`, and `/actuator/info` endpoints are only
-  created when `context` is provided.
+- Creates a `GET /actuator` index endpoint that lists all enabled endpoints as
+  HAL-style `_links`.
+- For each enabled endpoint in the registry, creates the appropriate routes:
+  - `HealthEndpoint` gets special handling for dynamic status codes (200/503).
+  - `LoggersEndpoint` gets two routes: `GET` for listing and `POST` for level
+    changes.
+  - All other endpoints get a generic `GET` handler that calls `handle()` and
+    returns a 200 JSON response.
 
-Internally, `make_actuator_routes()` delegates to the Starlette adapter which creates
-`starlette.routing.Route` objects.
-
-**Source:** `src/pyfly/actuator/endpoints.py`, `src/pyfly/actuator/adapters/starlette.py`
+**Source:** `src/pyfly/actuator/adapters/starlette.py`
 
 ---
 
@@ -623,7 +1052,22 @@ pyfly:
 
   web:
     actuator:
-      enabled: true                    # Enable/disable actuator endpoints
+      enabled: true                    # Enable/disable all actuator endpoints
+
+  actuator:
+    endpoints:
+      health:
+        enabled: true                  # Enabled by default
+      beans:
+        enabled: true                  # Enabled by default
+      env:
+        enabled: true                  # Enabled by default
+      info:
+        enabled: true                  # Enabled by default
+      loggers:
+        enabled: true                  # Enabled by default
+      metrics:
+        enabled: false                 # Disabled by default (stub)
 ```
 
 The framework defaults (from `pyfly-defaults.yaml`):
@@ -639,12 +1083,21 @@ pyfly:
       enabled: false
 ```
 
+### Configuration Precedence for Per-endpoint Enable/Disable
+
+1. **Config override (highest):** `pyfly.actuator.endpoints.{endpoint_id}.enabled`
+2. **Endpoint default (lowest):** The `enabled` property on the `ActuatorEndpoint`
+   implementation
+
+This means you can enable the disabled-by-default `metrics` endpoint or disable any
+of the enabled-by-default endpoints without changing code.
+
 ---
 
 ## Complete Example
 
-The following example shows a full application with custom health indicators for a
-database and an external payment service.
+The following example shows a full application with custom health indicators, a
+custom actuator endpoint, and runtime logger management.
 
 ```python
 """order_service/app.py"""
@@ -652,7 +1105,7 @@ database and an external payment service.
 from pyfly.core import pyfly_application, PyFlyApplication
 from pyfly.container import component, service, rest_controller
 from pyfly.web import create_app, request_mapping, get_mapping
-from pyfly.actuator import HealthStatus
+from pyfly.actuator import ActuatorEndpoint, HealthStatus
 
 
 # =========================================================================
@@ -700,6 +1153,36 @@ class PaymentServiceHealthIndicator:
                 status="DOWN",
                 details={"error": str(e)},
             )
+
+
+# =========================================================================
+# Custom Actuator Endpoint
+# =========================================================================
+
+@component
+class GitInfoEndpoint:
+    """Exposes build/git information at /actuator/git."""
+
+    @property
+    def endpoint_id(self) -> str:
+        return "git"
+
+    @property
+    def enabled(self) -> bool:
+        return True
+
+    async def handle(self, context=None) -> dict:
+        return {
+            "branch": "main",
+            "commit": {
+                "id": "5c6f83b",
+                "time": "2026-02-15T08:30:00Z",
+            },
+            "build": {
+                "version": "1.0.0",
+                "timestamp": "2026-02-15T09:00:00Z",
+            },
+        }
 
 
 # =========================================================================
@@ -752,18 +1235,60 @@ async def main():
     )
 
     # The following endpoints are now available:
-    # GET /actuator/health  -- aggregated health from both indicators
-    # GET /actuator/beans   -- all registered beans
-    # GET /actuator/env     -- active profiles
-    # GET /actuator/info    -- app name, version, description
+    #
+    # GET  /actuator          -- HAL-style index of all enabled endpoints
+    # GET  /actuator/health   -- aggregated health from both indicators
+    # GET  /actuator/beans    -- all registered beans
+    # GET  /actuator/env      -- active profiles
+    # GET  /actuator/info     -- app name, version, description
+    # GET  /actuator/loggers  -- list all loggers and their levels
+    # POST /actuator/loggers  -- change a logger's level at runtime
+    # GET  /actuator/git      -- custom endpoint: git/build info
 
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8080)
 ```
 
+**Configuration file (`pyfly.yaml`):**
+
+```yaml
+pyfly:
+  app:
+    name: order-service
+    version: 1.0.0
+    description: Order management microservice
+
+  profiles:
+    active: production
+
+  web:
+    actuator:
+      enabled: true
+
+  actuator:
+    endpoints:
+      metrics:
+        enabled: true    # Opt in to the metrics stub
+```
+
 **Testing the actuator endpoints with `curl`:**
 
 ```bash
+# Index -- discover all enabled endpoints
+curl http://localhost:8080/actuator
+# {
+#   "_links": {
+#     "self": {"href": "/actuator"},
+#     "health": {"href": "/actuator/health"},
+#     "beans": {"href": "/actuator/beans"},
+#     "env": {"href": "/actuator/env"},
+#     "info": {"href": "/actuator/info"},
+#     "loggers": {"href": "/actuator/loggers"},
+#     "metrics": {"href": "/actuator/metrics"},
+#     "git": {"href": "/actuator/git"}
+#   }
+# }
+
 # Health check
 curl http://localhost:8080/actuator/health
 # {
@@ -786,6 +1311,7 @@ curl http://localhost:8080/actuator/beans
 #   "beans": {
 #     "DatabaseHealthIndicator": {"type": "...", "scope": "SINGLETON", "stereotype": "component"},
 #     "PaymentServiceHealthIndicator": {"type": "...", "scope": "SINGLETON", "stereotype": "component"},
+#     "GitInfoEndpoint": {"type": "...", "scope": "SINGLETON", "stereotype": "component"},
 #     "OrderService": {"type": "...", "scope": "SINGLETON", "stereotype": "service"},
 #     "OrderController": {"type": "...", "scope": "SINGLETON", "stereotype": "rest_controller"}
 #   }
@@ -798,6 +1324,31 @@ curl http://localhost:8080/actuator/env
 # Application info
 curl http://localhost:8080/actuator/info
 # {"app": {"name": "order-service", "version": "1.0.0", "description": "Order management microservice"}}
+
+# List loggers
+curl http://localhost:8080/actuator/loggers
+# {
+#   "loggers": {
+#     "ROOT": {"configuredLevel": "INFO", "effectiveLevel": "INFO"},
+#     "pyfly.web": {"configuredLevel": null, "effectiveLevel": "INFO"},
+#     ...
+#   },
+#   "levels": ["TRACE", "DEBUG", "INFO", "WARN", "ERROR", "OFF"]
+# }
+
+# Change a logger's level at runtime
+curl -X POST http://localhost:8080/actuator/loggers \
+  -H "Content-Type: application/json" \
+  -d '{"logger": "pyfly.web", "level": "DEBUG"}'
+# {"logger": "pyfly.web", "configuredLevel": "DEBUG"}
+
+# Custom git info endpoint
+curl http://localhost:8080/actuator/git
+# {"branch": "main", "commit": {"id": "5c6f83b", "time": "..."}, "build": {...}}
+
+# Metrics stub (only available if enabled in config)
+curl http://localhost:8080/actuator/metrics
+# {"names": [], "message": "Metrics endpoint stub. Configure a metrics backend to populate."}
 ```
 
 **Kubernetes liveness and readiness probes:**
