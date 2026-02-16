@@ -130,16 +130,24 @@ This entity will have all five inherited fields (`id`, `created_at`, `updated_at
 
 ### Repository Class
 
-The `Repository[T, ID]` class provides generic async CRUD operations for any SQLAlchemy model. It wraps a SQLAlchemy `AsyncSession` and the entity model type. The two type parameters are:
+The `Repository[T, ID]` class provides generic async CRUD operations for any SQLAlchemy model. The two type parameters are:
 
 - **T** — The entity type (any SQLAlchemy model, including `BaseEntity` subclasses or plain `Base` subclasses)
 - **ID** — The primary key type (e.g. `UUID`, `int`, `str`)
 
+When you subclass `Repository[T, ID]` with concrete type parameters, the framework automatically extracts the entity type and ID type via `__init_subclass__`. The `AsyncSession` is injected by the DI container from the auto-configured `async_sessionmaker`. No explicit `__init__` is needed:
+
 ```python
 from uuid import UUID
 from pyfly.data.relational.sqlalchemy import Repository
+from pyfly.container import repository as repo_stereotype
 
-repo = Repository[Order, UUID](Order, session)
+
+@repo_stereotype
+class OrderRepository(Repository[Order, UUID]):
+    pass
+
+# Usage (session is injected by the container):
 order = await repo.save(Order(customer_id="abc", status="PENDING"))
 found = await repo.find_by_id(order.id)
 ```
@@ -148,19 +156,17 @@ found = await repo.find_by_id(order.id)
 
 ### Creating a Repository
 
-Subclass `Repository[T, ID]` and register it as a bean with the `@repository` stereotype:
+Subclass `Repository[T, ID]` with concrete type parameters and register it with the `@repository` stereotype:
 
 ```python
 from uuid import UUID
 from pyfly.data.relational.sqlalchemy import Repository
 from pyfly.container import repository as repo_stereotype
-from sqlalchemy.ext.asyncio import AsyncSession
 
 
 @repo_stereotype
 class OrderRepository(Repository[Order, UUID]):
-    def __init__(self, session: AsyncSession) -> None:
-        super().__init__(Order, session)
+    pass
 ```
 
 For entities with integer primary keys:
@@ -168,11 +174,14 @@ For entities with integer primary keys:
 ```python
 @repo_stereotype
 class ProductRepository(Repository[Product, int]):
-    def __init__(self, session: AsyncSession) -> None:
-        super().__init__(Product, session)
+    pass
 ```
 
-The `session` parameter is injected by the DI container.
+**How it works:**
+
+1. `__init_subclass__` inspects `__orig_bases__` to extract the entity type (`Order`) and ID type (`UUID`) from the generic parameters at class definition time.
+2. The `AsyncSession` is provided as an auto-configured bean by `RelationalAutoConfiguration` and injected by the container into the repository's constructor.
+3. The entity type is used internally for all query operations — no need to pass it manually.
 
 ### CRUD Methods Reference
 
@@ -212,8 +221,6 @@ For the full naming convention reference (prefixes, operators, connectors, order
 ```python
 @repo_stereotype
 class OrderRepository(Repository[Order, UUID]):
-    def __init__(self, session: AsyncSession) -> None:
-        super().__init__(Order, session)
 
     # Equals (default operator)
     async def find_by_status(self, status: str) -> list[Order]: ...
@@ -281,8 +288,6 @@ By default, `@query` accepts a JPQL-like query string that is transpiled to SQL 
 ```python
 @repo_stereotype
 class OrderRepository(Repository[Order, UUID]):
-    def __init__(self, session: AsyncSession) -> None:
-        super().__init__(Order, session)
 
     @query("SELECT o FROM Order o WHERE o.status = :status AND o.total > :min_total")
     async def find_expensive_orders(
@@ -632,8 +637,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 @repo_stereotype
 class ProductRepository(Repository[Product, UUID]):
-    def __init__(self, session: AsyncSession) -> None:
-        super().__init__(Product, session)
 
     # Derived query methods (stubs, auto-compiled at startup)
     async def find_by_category(self, category: str) -> list[Product]: ...

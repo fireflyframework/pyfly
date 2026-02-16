@@ -201,6 +201,53 @@ class TestAutoConfigurationClasses:
         pp = instance.mongo_post_processor()
         assert isinstance(pp, MongoRepositoryBeanPostProcessor)
 
+    def test_relational_auto_config_produces_engine(self):
+        from sqlalchemy.ext.asyncio import AsyncEngine
+
+        from pyfly.data.relational.auto_configuration import (
+            RelationalAutoConfiguration,
+        )
+
+        config = Config(
+            {
+                "pyfly": {
+                    "data": {
+                        "relational": {
+                            "enabled": True,
+                            "url": "sqlite+aiosqlite:///:memory:",
+                        }
+                    }
+                }
+            }
+        )
+        instance = RelationalAutoConfiguration()
+        engine = instance.async_engine(config)
+        assert isinstance(engine, AsyncEngine)
+
+    def test_relational_auto_config_produces_session(self):
+        from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
+
+        from pyfly.data.relational.auto_configuration import (
+            RelationalAutoConfiguration,
+        )
+
+        config = Config(
+            {
+                "pyfly": {
+                    "data": {
+                        "relational": {
+                            "enabled": True,
+                            "url": "sqlite+aiosqlite:///:memory:",
+                        }
+                    }
+                }
+            }
+        )
+        instance = RelationalAutoConfiguration()
+        engine = instance.async_engine(config)
+        session = instance.async_session(engine)
+        assert isinstance(session, AsyncSession)
+
     def test_relational_auto_config_produces_post_processor(self):
         from pyfly.data.relational.auto_configuration import (
             RelationalAutoConfiguration,

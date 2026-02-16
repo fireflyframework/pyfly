@@ -24,6 +24,7 @@ pyfly:
 
   data:
     relational:
+      enabled: true
       url: sqlite+aiosqlite:///{{ package_name }}.db
 {% endif %}
 {% if has_mongodb %}

@@ -239,6 +239,54 @@ class TestRepositorySpecification:
         assert items == []
 
 
+class TestInitSubclass:
+    """Tests for __init_subclass__ entity type extraction."""
+
+    def test_extracts_entity_type(self):
+        class ItemRepo(Repository[Item, UUID]):
+            pass
+
+        assert ItemRepo._entity_type is Item
+        assert ItemRepo._id_type is UUID
+
+    def test_extracts_int_id_type(self):
+        class IntItemRepo(Repository[IntItem, int]):
+            pass
+
+        assert IntItemRepo._entity_type is IntItem
+        assert IntItemRepo._id_type is int
+
+    def test_unparameterized_subclass_has_none(self):
+        class BaseRepo(Repository):
+            pass
+
+        assert BaseRepo._entity_type is None
+        assert BaseRepo._id_type is None
+
+    @pytest.mark.asyncio
+    async def test_optional_model_uses_entity_type(self, session):
+        class ItemRepo(Repository[Item, UUID]):
+            pass
+
+        repo = ItemRepo(session=session)
+        assert repo._model is Item
+
+    @pytest.mark.asyncio
+    async def test_explicit_model_takes_precedence(self, session):
+        class ItemRepo(Repository[Item, UUID]):
+            pass
+
+        repo = ItemRepo(model=IntItem, session=session)
+        assert repo._model is IntItem
+
+    def test_no_model_no_generic_raises(self):
+        class BareRepo(Repository):
+            pass
+
+        with pytest.raises(TypeError, match="requires either"):
+            BareRepo()
+
+
 class TestRepositoryIntId:
     """Tests for Repository[T, int] with autoincrement integer primary keys."""
 

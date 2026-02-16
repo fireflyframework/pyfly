@@ -242,12 +242,20 @@ The `MongoRepository[T, ID]` class provides generic async CRUD operations for Be
 - **T** — The document type (a `BaseDocument` subclass)
 - **ID** — The primary key type (typically `PydanticObjectId` or `str`)
 
-Unlike the SQLAlchemy `Repository`, `MongoRepository` does not require a session to be injected. Beanie uses a globally initialized Motor client, so the repository only needs the document model class:
+Unlike the SQLAlchemy `Repository`, `MongoRepository` does not require a session to be injected. Beanie uses a globally initialized Motor client, so the repository operates without session management.
+
+When you subclass `MongoRepository[T, ID]` with concrete type parameters, the framework automatically extracts the document type and ID type via `__init_subclass__`. No explicit `__init__` is needed:
 
 ```python
 from pyfly.data.document.mongodb import MongoRepository, BaseDocument
+from pyfly.container import repository as repo_stereotype
 
-repo = MongoRepository[ProductDocument, str](ProductDocument)
+
+@repo_stereotype
+class ProductRepository(MongoRepository[ProductDocument, str]):
+    pass
+
+# Usage:
 product = await repo.save(ProductDocument(name="Widget", price=9.99, category="gadgets"))
 found = await repo.find_by_id(product.id)
 ```
@@ -256,7 +264,7 @@ found = await repo.find_by_id(product.id)
 
 ### Creating a Repository
 
-Subclass `MongoRepository[T, ID]` and register it as a bean with the `@repository` stereotype:
+Subclass `MongoRepository[T, ID]` with concrete type parameters and register it with the `@repository` stereotype:
 
 ```python
 from pyfly.data.document.mongodb import MongoRepository
@@ -265,11 +273,8 @@ from pyfly.container import repository as repo_stereotype
 
 @repo_stereotype
 class ProductRepository(MongoRepository[ProductDocument, str]):
-    def __init__(self) -> None:
-        super().__init__(ProductDocument)
+    pass
 ```
-
-Notice that unlike the SQLAlchemy `Repository`, the constructor does not accept a session parameter. Beanie handles the database connection globally through the Motor client initialized at startup.
 
 For documents with `PydanticObjectId` primary keys (the default):
 
@@ -279,9 +284,14 @@ from beanie import PydanticObjectId
 
 @repo_stereotype
 class OrderRepository(MongoRepository[OrderDocument, PydanticObjectId]):
-    def __init__(self) -> None:
-        super().__init__(OrderDocument)
+    pass
 ```
+
+**How it works:**
+
+1. `__init_subclass__` inspects `__orig_bases__` to extract the document type (`ProductDocument`) and ID type (`str`) from the generic parameters at class definition time.
+2. Beanie handles the database connection globally through the Motor client initialized at startup by `BeanieInitializer`.
+3. The document type is used internally for all query operations — no need to pass it manually.
 
 ### CRUD Methods Reference
 
@@ -415,8 +425,6 @@ async def find_by_active_order_by_name_asc_created_at_desc(
 ```python
 @repo_stereotype
 class OrderRepository(MongoRepository[OrderDocument, PydanticObjectId]):
-    def __init__(self) -> None:
-        super().__init__(OrderDocument)
 
     # Equals (default operator)
     # -> {"status": value}
@@ -635,17 +643,45 @@ You do not need to call any initialization function manually. As long as `pyfly.
 
 ### Document Class Discovery
 
-Unlike manual initialization where you must enumerate all document models, `BeanieInitializer.start()` discovers them automatically. It iterates over all registrations in the container and collects every class that is a subclass of `BaseDocument`:
+Unlike manual initialization where you must enumerate all document models, `BeanieInitializer.start()` discovers them automatically using a two-phase scan:
+
+1. **Primary: Repository-based discovery** — Scans all registered `MongoRepository` subclasses and reads their `_entity_type` attribute (set by `__init_subclass__`). This is the primary mechanism because document models are typically referenced by repositories, not registered directly as beans.
+
+2. **Secondary: Direct registration** — Scans for any `BaseDocument` subclasses registered directly in the container (e.g., standalone models not associated with a repository).
 
 ```python
 async def start(self) -> None:
     from pyfly.data.document.mongodb.document import BaseDocument
+    from pyfly.data.document.mongodb.repository import MongoRepository
 
     db_name = str(self._config.get("pyfly.data.document.database", "pyfly"))
 
     document_models: list[type] = []
+
+    # Primary: discover from MongoRepository._entity_type (set by __init_subclass__)
     for cls in self._container._registrations:
-        if isinstance(cls, type) and issubclass(cls, BaseDocument) and cls is not BaseDocument:
+        if (
+            isinstance(cls, type)
+            and issubclass(cls, MongoRepository)
+            and cls is not MongoRepository
+        ):
+            entity_type = getattr(cls, "_entity_type", None)
+            if (
+                entity_type is not None
+                and isinstance(entity_type, type)
+                and issubclass(entity_type, BaseDocument)
+                and entity_type not in document_models
+            ):
+                document_models.append(entity_type)
+
+    # Secondary: directly registered BaseDocument subclasses (e.g. standalone models)
+    for cls in self._container._registrations:
+        if (
+            isinstance(cls, type)
+            and issubclass(cls, BaseDocument)
+            and cls is not BaseDocument
+            and cls not in document_models
+        ):
             document_models.append(cls)
 
     if document_models:
@@ -653,7 +689,7 @@ async def start(self) -> None:
         await init_beanie(database=self._motor_client[db_name], document_models=document_models)
 ```
 
-This means any `BaseDocument` subclass that is registered in the container (e.g., via `@repository` stereotype or component scanning) is automatically included in Beanie initialization. There is no need to maintain a manual list of document models.
+This means you only need to define a `MongoRepository[MyDocument, ID]` subclass — the document model is discovered automatically from the generic type parameter. There is no need to register document models as beans or maintain a manual list.
 
 Source files:
 - `src/pyfly/data/document/auto_configuration.py` — `DocumentAutoConfiguration` (Motor client, post-processor, and initializer beans)
@@ -891,8 +927,6 @@ from pyfly.container import repository as repo_stereotype
 
 @repo_stereotype
 class TaskRepository(MongoRepository[TaskDocument, str]):
-    def __init__(self) -> None:
-        super().__init__(TaskDocument)
 
     async def find_by_status(self, status: str) -> list[TaskDocument]: ...
 
@@ -1060,8 +1094,6 @@ from pyfly.container import repository as repo_stereotype
 
 @repo_stereotype
 class ProductRepository(MongoRepository[ProductDocument, PydanticObjectId]):
-    def __init__(self) -> None:
-        super().__init__(ProductDocument)
 
     # --- Derived query methods (stubs, auto-compiled at startup) ---
 

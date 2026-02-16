@@ -80,19 +80,22 @@ class ControllerRegistrar:
     """
 
     def collect_routes(self, ctx: Any) -> list[Route]:
-        """Collect all routes from @rest_controller beans in the ApplicationContext."""
+        """Collect all routes from @rest_controller beans in the ApplicationContext.
+
+        Bean resolution is deferred until the first HTTP request hits each
+        controller, avoiding eager resolution of the full dependency tree
+        during ``create_app()`` (before auto-configurations have run).
+        """
         routes: list[Route] = []
 
         for cls, _reg in ctx.container._registrations.items():
             if getattr(cls, "__pyfly_stereotype__", "") != "rest_controller":
                 continue
 
-            instance = ctx.get_bean(cls)
             base_path = getattr(cls, "__pyfly_request_mapping__", "")
-            exc_handlers = self._collect_exception_handlers(instance)
 
-            for attr_name in dir(instance):
-                method_obj = getattr(instance, attr_name, None)
+            for attr_name in dir(cls):
+                method_obj = getattr(cls, attr_name, None)
                 if method_obj is None:
                     continue
 
@@ -104,29 +107,28 @@ class ControllerRegistrar:
                 http_method = mapping["method"]
                 status_code = mapping.get("status_code", 200)
 
-                resolver = ParameterResolver(method_obj)
-
-                handler = self._make_handler(
-                    method_obj, resolver, status_code, exc_handlers
-                )
+                handler = self._make_lazy_handler(ctx, cls, attr_name, status_code)
                 routes.append(Route(full_path, handler, methods=[http_method]))
 
         return routes
 
     def collect_route_metadata(self, ctx: Any) -> list[RouteMetadata]:
-        """Collect route metadata from all @rest_controller beans for OpenAPI generation."""
+        """Collect route metadata from all @rest_controller classes for OpenAPI generation.
+
+        All OpenAPI metadata (type hints, mappings, docstrings) lives on the
+        class — no bean resolution needed.
+        """
         metadata: list[RouteMetadata] = []
 
         for cls, _reg in ctx.container._registrations.items():
             if getattr(cls, "__pyfly_stereotype__", "") != "rest_controller":
                 continue
 
-            instance = ctx.get_bean(cls)
             base_path = getattr(cls, "__pyfly_request_mapping__", "")
             tag = self._derive_tag(cls)
 
-            for attr_name in dir(instance):
-                method_obj = getattr(instance, attr_name, None)
+            for attr_name in dir(cls):
+                method_obj = getattr(cls, attr_name, None)
                 if method_obj is None:
                     continue
 
@@ -302,22 +304,31 @@ class ControllerRegistrar:
             sorted(handlers.items(), key=lambda item: len(item[0].__mro__), reverse=True)
         )
 
-    def _make_handler(
+    def _make_lazy_handler(
         self,
-        method: Any,
-        resolver: ParameterResolver,
+        ctx: Any,
+        controller_cls: type,
+        method_name: str,
         status_code: int,
-        exc_handlers: dict[type[Exception], Any],
     ) -> Any:
-        """Create a Starlette-compatible endpoint that dispatches to the controller method."""
+        """Create a Starlette endpoint that lazily resolves the controller bean on first request."""
+        _cache: dict[str, Any] = {}
 
-        async def endpoint(request: Request) -> Response:
+        async def lazy_endpoint(request: Request) -> Response:
+            if "instance" not in _cache:
+                _cache["instance"] = ctx.get_bean(controller_cls)
+                _cache["exc_handlers"] = self._collect_exception_handlers(
+                    _cache["instance"]
+                )
+                bound_method = getattr(_cache["instance"], method_name)
+                _cache["resolver"] = ParameterResolver(bound_method)
+                _cache["method"] = bound_method
             try:
-                kwargs = await resolver.resolve(request)
-                result = await _maybe_await(method(**kwargs))
+                kwargs = await _cache["resolver"].resolve(request)
+                result = await _maybe_await(_cache["method"](**kwargs))
                 return handle_return_value(result, status_code)
             except Exception as exc:
-                for exc_type, handler in exc_handlers.items():
+                for exc_type, handler in _cache["exc_handlers"].items():
                     if isinstance(exc, exc_type):
                         result = await _maybe_await(handler(exc))
                         if isinstance(result, tuple) and len(result) == 2:
@@ -325,4 +336,4 @@ class ControllerRegistrar:
                         return handle_return_value(result)
                 raise
 
-        return endpoint
+        return lazy_endpoint

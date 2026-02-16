@@ -15,7 +15,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Generic, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, TypeVar, get_args, get_origin
 
 import pymongo
 
@@ -42,13 +42,32 @@ class MongoRepository(Generic[T, ID]):
 
     Usage::
 
-        repo = MongoRepository[UserDocument, str](UserDocument)
-        user = await repo.save(UserDocument(name="Alice"))
-        found = await repo.find_by_id(user.id)
+        class UserDocumentRepository(MongoRepository[UserDocument, str]):
+            pass  # entity type auto-extracted, no explicit model needed
     """
 
-    def __init__(self, model: type[T]) -> None:
-        self._model = model
+    _entity_type: type | None = None
+    _id_type: type | None = None
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        super().__init_subclass__(**kwargs)
+        for base in getattr(cls, "__orig_bases__", []):
+            origin = get_origin(base)
+            if origin is MongoRepository:
+                args = get_args(base)
+                if args and not isinstance(args[0], TypeVar):
+                    cls._entity_type = args[0]
+                if len(args) > 1 and not isinstance(args[1], TypeVar):
+                    cls._id_type = args[1]
+                break
+
+    def __init__(self, model: type[T] | None = None) -> None:
+        self._model = model or getattr(type(self), "_entity_type", None)
+        if self._model is None:
+            raise TypeError(
+                f"{type(self).__name__} requires either MongoRepository[Document, ID] "
+                f"declaration or explicit model argument"
+            )
 
     async def save(self, entity: T) -> T:
         """Persist a document (insert or update)."""

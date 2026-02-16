@@ -150,3 +150,44 @@ class TestBeanieInitializer:
         assert isinstance(initializer, BeanieInitializer)
         assert hasattr(initializer, "start")
         assert hasattr(initializer, "stop")
+
+    @pytest.mark.asyncio
+    async def test_discovers_document_models_from_repositories(self) -> None:
+        """BeanieInitializer discovers document models via MongoRepository._entity_type."""
+        from unittest.mock import AsyncMock, patch
+
+        from pyfly.container.container import Container
+        from pyfly.data.document.mongodb.document import BaseDocument
+        from pyfly.data.document.mongodb.initializer import BeanieInitializer
+        from pyfly.data.document.mongodb.repository import MongoRepository
+
+        class DiscoveryDoc(BaseDocument):
+            name: str
+
+            class Settings:
+                name = "discovery_docs"
+
+        class DiscoveryDocRepo(MongoRepository[DiscoveryDoc, str]):
+            pass
+
+        container = Container()
+        container.register(DiscoveryDocRepo)
+
+        from mongomock_motor import AsyncMongoMockClient
+
+        client = AsyncMongoMockClient()
+        config = Config(
+            {"pyfly": {"data": {"document": {"database": "testdb"}}}}
+        )
+        initializer = BeanieInitializer(
+            motor_client=client, config=config, container=container
+        )
+
+        with patch("beanie.init_beanie", new_callable=AsyncMock) as mock_init:
+            await initializer.start()
+            mock_init.assert_called_once()
+            call_kwargs = mock_init.call_args
+            models = call_kwargs.kwargs.get("document_models") or call_kwargs[1].get("document_models")
+            assert DiscoveryDoc in models
+
+        client.close()

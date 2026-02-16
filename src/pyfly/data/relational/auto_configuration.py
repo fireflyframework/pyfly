@@ -13,7 +13,19 @@
 # limitations under the License.
 """Relational data layer (SQLAlchemy) auto-configuration."""
 
-from __future__ import annotations
+# NOTE: No `from __future__ import annotations` — typing.get_type_hints()
+# must resolve return types at runtime for @bean method registration.
+
+try:
+    from sqlalchemy.ext.asyncio import (
+        AsyncEngine,
+        AsyncSession,
+        async_sessionmaker,
+        create_async_engine,
+    )
+except ImportError:
+    AsyncEngine = object  # type: ignore[misc,assignment]
+    AsyncSession = object  # type: ignore[misc,assignment]
 
 from pyfly.container.bean import bean
 from pyfly.context.conditions import (
@@ -21,6 +33,7 @@ from pyfly.context.conditions import (
     conditional_on_class,
     conditional_on_property,
 )
+from pyfly.core.config import Config
 from pyfly.data.relational.sqlalchemy.post_processor import (
     RepositoryBeanPostProcessor,
 )
@@ -30,7 +43,22 @@ from pyfly.data.relational.sqlalchemy.post_processor import (
 @conditional_on_class("sqlalchemy")
 @conditional_on_property("pyfly.data.relational.enabled", having_value="true")
 class RelationalAutoConfiguration:
-    """Auto-configures the SQLAlchemy repository post-processor."""
+    """Auto-configures SQLAlchemy engine, session, and repository post-processor."""
+
+    @bean
+    def async_engine(self, config: Config) -> AsyncEngine:
+        url = str(
+            config.get(
+                "pyfly.data.relational.url", "sqlite+aiosqlite:///./app.db"
+            )
+        )
+        echo = bool(config.get("pyfly.data.relational.echo", False))
+        return create_async_engine(url, echo=echo)
+
+    @bean
+    def async_session(self, async_engine: AsyncEngine) -> AsyncSession:
+        factory = async_sessionmaker(async_engine, expire_on_commit=False)
+        return factory()
 
     @bean
     def repository_post_processor(self) -> RepositoryBeanPostProcessor:

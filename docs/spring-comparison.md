@@ -588,7 +588,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
 ```python
 @repository
-class OrderRepository(CrudRepository[Order, int]):
+class OrderRepository(Repository[Order, int]):
     async def find_by_status(self, status: str) -> list[Order]: ...
     async def find_by_status_and_customer_name(self, status: str, name: str) -> list[Order]: ...
 
@@ -596,9 +596,11 @@ class OrderRepository(CrudRepository[Order, int]):
     async def find_expensive_orders(self, amount: float) -> list[Order]: ...
 ```
 
+Just like Spring Data JPA, you declare the repository by subclassing `Repository[T, ID]` with concrete type parameters. The entity type and ID type are extracted automatically via `__init_subclass__` — no explicit `__init__` or model passing needed. The `AsyncSession` is auto-configured and injected by the container.
+
 **Derived queries** work the same way: define a method signature following the naming convention (`find_by_<field>_and_<field>`), and PyFly generates the query at startup.
 
-**Key difference:** Spring Data uses Java interfaces — methods are abstract and Spring generates implementations at runtime via CGLIB proxying. PyFly uses abstract method signatures (with `...` as the body) on concrete classes. The framework detects these patterns during `ApplicationContext.start()` and generates the query implementations.
+**Key difference:** Spring Data uses Java interfaces — methods are abstract and Spring generates implementations at runtime via CGLIB proxying. PyFly uses stub method signatures (with `...` as the body) on concrete classes. The framework detects these stubs during `ApplicationContext.start()` and generates the query implementations via `BeanPostProcessor`.
 
 ### Specifications (Dynamic Queries)
 

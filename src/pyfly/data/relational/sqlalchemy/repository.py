@@ -15,7 +15,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic, TypeVar, get_args, get_origin
 
 from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -32,20 +32,42 @@ class Repository(Generic[T, ID]):
     """Generic CRUD repository for SQLAlchemy entities.
 
     Provides standard data access operations with async support.
-    Subclass to add custom queries for specific entities.
+    Subclass with concrete type parameters to enable DI-managed repositories.
 
     Type Parameters:
         T: The entity type (any SQLAlchemy model).
         ID: The primary key type (e.g. UUID, int, str).
 
-    Usage:
-        repo = Repository[User, UUID](User, session)
-        user = await repo.save(User(name="Alice"))
-        found = await repo.find_by_id(user.id)
+    Usage::
+
+        class UserRepository(Repository[User, UUID]):
+            pass  # entity type auto-extracted, session injected by DI
     """
 
-    def __init__(self, model: type[T], session: AsyncSession) -> None:
-        self._model = model
+    _entity_type: type | None = None
+    _id_type: type | None = None
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        super().__init_subclass__(**kwargs)
+        for base in getattr(cls, "__orig_bases__", []):
+            origin = get_origin(base)
+            if origin is Repository:
+                args = get_args(base)
+                if args and not isinstance(args[0], TypeVar):
+                    cls._entity_type = args[0]
+                if len(args) > 1 and not isinstance(args[1], TypeVar):
+                    cls._id_type = args[1]
+                break
+
+    def __init__(
+        self, model: type[T] | None = None, session: AsyncSession | None = None
+    ) -> None:
+        self._model = model or getattr(type(self), "_entity_type", None)
+        if self._model is None:
+            raise TypeError(
+                f"{type(self).__name__} requires either Repository[Entity, ID] "
+                f"declaration or explicit model argument"
+            )
         self._session = session
 
     def _apply_sort(self, stmt: Select, pageable: Pageable) -> Select:

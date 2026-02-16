@@ -134,6 +134,40 @@ class TestContainerBasics:
         assert isinstance(instance, RedisCache)
 
 
+class DefaultService:
+    def __init__(self, name: str = "default") -> None:
+        self.name = name
+
+
+class TypeParamService:
+    def __init__(self, model: type) -> None:
+        self.model = model
+
+
+class TestParameterDefaults:
+    def test_respects_param_defaults(self):
+        """Parameters with defaults are skipped when unresolvable."""
+        container = Container()
+        container.register(DefaultService)
+        svc = container.resolve(DefaultService)
+        assert svc.name == "default"
+
+    def test_overrides_default_when_registered(self):
+        """When the type IS registered, the resolved value overrides the default."""
+        container = Container()
+        container.register(Greeter)
+        container.register(UserService)
+        svc = container.resolve(UserService)
+        assert isinstance(svc.greeter, Greeter)
+
+    def test_type_param_raises(self):
+        """type[T] parameters that can't be resolved raise KeyError."""
+        container = Container()
+        container.register(TypeParamService)
+        with pytest.raises(KeyError, match="type\\[T\\]"):
+            container.resolve(TypeParamService)
+
+
 class TestOptionalInjection:
     def test_optional_resolves_to_none_when_missing(self):
         """Optional[T] returns None when T is not registered."""

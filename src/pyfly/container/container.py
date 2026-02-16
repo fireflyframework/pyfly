@@ -15,6 +15,7 @@
 
 from __future__ import annotations
 
+import inspect
 import typing
 from typing import Annotated, Any, TypeVar, Union, get_args, get_origin
 
@@ -164,10 +165,21 @@ class Container:
             else:
                 hints = typing.get_type_hints(init, include_extras=True)
                 hints.pop("return", None)
+                sig = inspect.signature(init)
 
                 kwargs: dict[str, Any] = {}
                 for param_name, param_type in hints.items():
-                    kwargs[param_name] = self._resolve_param(param_type)
+                    param = sig.parameters.get(param_name)
+                    has_default = (
+                        param is not None
+                        and param.default is not inspect.Parameter.empty
+                    )
+                    try:
+                        kwargs[param_name] = self._resolve_param(param_type)
+                    except KeyError:
+                        if has_default:
+                            continue  # omit → Python uses declared default
+                        raise
 
                 instance = reg.impl_type(**kwargs)
 
@@ -202,6 +214,13 @@ class Container:
             args = get_args(param_type)
             if args:
                 return self.resolve_all(args[0])
+
+        # Handle type[T] or bare `type` — class references cannot be auto-resolved
+        if param_type is type or get_origin(param_type) is type:
+            raise KeyError(
+                f"Cannot resolve type[T] parameter from container. "
+                f"Use Repository[Entity, ID] subclass to auto-extract entity type."
+            )
 
         return self.resolve(param_type)
 

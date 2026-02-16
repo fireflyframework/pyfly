@@ -61,6 +61,50 @@ def repo():
 # ===========================================================================
 
 
+class TestInitSubclass:
+    """Tests for __init_subclass__ entity type extraction."""
+
+    def test_extracts_entity_type(self):
+        class SampleItemRepo(MongoRepository[SampleItem, str]):
+            pass
+
+        assert SampleItemRepo._entity_type is SampleItem
+        assert SampleItemRepo._id_type is str
+
+    def test_unparameterized_subclass_has_none(self):
+        class BaseRepo(MongoRepository):
+            pass
+
+        assert BaseRepo._entity_type is None
+        assert BaseRepo._id_type is None
+
+    def test_optional_model_uses_entity_type(self):
+        class SampleItemRepo(MongoRepository[SampleItem, str]):
+            pass
+
+        repo = SampleItemRepo()
+        assert repo._model is SampleItem
+
+    def test_explicit_model_takes_precedence(self):
+        class SampleItemRepo(MongoRepository[SampleItem, str]):
+            pass
+
+        class OtherDoc(BaseDocument):
+            name: str
+            class Settings:
+                name = "other"
+
+        repo = SampleItemRepo(model=OtherDoc)
+        assert repo._model is OtherDoc
+
+    def test_no_model_no_generic_raises(self):
+        class BareRepo(MongoRepository):
+            pass
+
+        with pytest.raises(TypeError, match="requires either"):
+            BareRepo()
+
+
 class TestCRUD:
     """Basic CRUD operations."""
 

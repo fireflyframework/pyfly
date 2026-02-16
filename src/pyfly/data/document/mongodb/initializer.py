@@ -43,15 +43,35 @@ class BeanieInitializer:
 
     async def start(self) -> None:
         from pyfly.data.document.mongodb.document import BaseDocument
+        from pyfly.data.document.mongodb.repository import MongoRepository
 
         db_name = str(self._config.get("pyfly.data.document.database", "pyfly"))
 
         document_models: list[type] = []
+
+        # Primary: discover from MongoRepository._entity_type (set by __init_subclass__)
+        for cls in self._container._registrations:
+            if (
+                isinstance(cls, type)
+                and issubclass(cls, MongoRepository)
+                and cls is not MongoRepository
+            ):
+                entity_type = getattr(cls, "_entity_type", None)
+                if (
+                    entity_type is not None
+                    and isinstance(entity_type, type)
+                    and issubclass(entity_type, BaseDocument)
+                    and entity_type not in document_models
+                ):
+                    document_models.append(entity_type)
+
+        # Secondary: directly registered BaseDocument subclasses (e.g. standalone models)
         for cls in self._container._registrations:
             if (
                 isinstance(cls, type)
                 and issubclass(cls, BaseDocument)
                 and cls is not BaseDocument
+                and cls not in document_models
             ):
                 document_models.append(cls)
 

@@ -187,6 +187,16 @@ Resolves an instance of the given type. The resolution order is:
 Constructor parameters are resolved recursively via type hints. If a parameter uses
 `Annotated[T, Qualifier("name")]`, the container resolves by name instead of type.
 
+**Parameter defaults:** When a constructor parameter has a default value and the container
+cannot resolve the type, the default is used instead of raising an error. This enables
+patterns like `Repository[T, ID]` where `model: type[T] | None = None` falls back to the
+auto-extracted entity type from `__init_subclass__`.
+
+**`type[T]` parameters:** The container cannot resolve bare `type` or `type[T]` parameters
+(class references are not beans). If encountered without a default, a `KeyError` is raised
+with a descriptive message. Use generic subclassing (e.g., `Repository[Entity, ID]`) to
+auto-extract entity types instead.
+
 For singleton-scoped beans, the instance is cached on the `Registration` object after
 first creation and reused for subsequent calls.
 

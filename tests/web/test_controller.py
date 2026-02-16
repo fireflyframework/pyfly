@@ -106,6 +106,20 @@ class TestControllerRegistrar:
         assert "/api/items/{item_id}" in paths
         assert "/api/items/" in paths
 
+    def test_collect_routes_no_eager_bean_resolution(self):
+        """Routes are created from class metadata — no get_bean() calls during collection."""
+        ctx = ApplicationContext(Config({}))
+        ctx.register_bean(ItemService)
+        ctx.register_bean(ItemController)
+        # NOTE: ctx.start() is NOT called — beans can't be resolved yet
+
+        registrar = ControllerRegistrar()
+        routes = registrar.collect_routes(ctx)
+        assert len(routes) >= 4
+        paths = {r.path for r in routes}
+        assert "/api/items/{item_id}" in paths
+        assert "/api/items/" in paths
+
 
 class TestControllerIntegration:
     @pytest.mark.asyncio
