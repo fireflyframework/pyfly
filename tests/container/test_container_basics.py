@@ -168,6 +168,29 @@ class TestParameterDefaults:
             container.resolve(TypeParamService)
 
 
+class PEP604OptionalService:
+    """Uses PEP 604 union syntax (X | None) instead of typing.Optional."""
+    def __init__(self, greeter: Greeter | None = None) -> None:
+        self.greeter = greeter
+
+
+class TestPEP604UnionType:
+    def test_pep604_optional_resolves_to_none(self):
+        """T | None (PEP 604) returns None when T is not registered."""
+        container = Container()
+        container.register(PEP604OptionalService)
+        svc = container.resolve(PEP604OptionalService)
+        assert svc.greeter is None
+
+    def test_pep604_optional_resolves_to_instance(self):
+        """T | None (PEP 604) returns the instance when T is registered."""
+        container = Container()
+        container.register(Greeter)
+        container.register(PEP604OptionalService)
+        svc = container.resolve(PEP604OptionalService)
+        assert isinstance(svc.greeter, Greeter)
+
+
 class TestOptionalInjection:
     def test_optional_resolves_to_none_when_missing(self):
         """Optional[T] returns None when T is not registered."""

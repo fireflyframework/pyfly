@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 import inspect
+import types
 import typing
 from typing import Annotated, Any, TypeVar, Union, get_args, get_origin
 
@@ -199,8 +200,8 @@ class Container:
                     return self.resolve_by_name(metadata.name)
             return self._resolve_param(base_type)
 
-        # Handle Optional[T] (Union[T, None])
-        if get_origin(param_type) is Union:
+        # Handle Optional[T] (Union[T, None] or T | None via PEP 604)
+        if get_origin(param_type) is Union or isinstance(param_type, types.UnionType):
             args = get_args(param_type)
             non_none = [a for a in args if a is not type(None)]
             if len(non_none) == 1:
