@@ -85,7 +85,7 @@ class Container:
         # Follow binding(s)
         impls = self._bindings.get(cls, [])
         if not impls:
-            raise KeyError(f"No registration found for {cls.__name__}")
+            raise KeyError(f"No registration found for {getattr(cls, '__name__', repr(cls))}")
 
         if len(impls) == 1:
             return self._resolve_registration(self._registrations[impls[0]])
@@ -96,8 +96,8 @@ class Container:
                 return self._resolve_registration(self._registrations[impl])
 
         raise KeyError(
-            f"Multiple implementations for {cls.__name__} but none marked @primary: "
-            f"{[i.__name__ for i in impls]}"
+            f"Multiple implementations for {getattr(cls, '__name__', repr(cls))} but none marked @primary: "
+            f"{[getattr(i, '__name__', repr(i)) for i in impls]}"
         )
 
     def resolve_by_name(self, name: str) -> Any:

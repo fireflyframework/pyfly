@@ -374,10 +374,21 @@ class ApplicationContext:
         """Call a @bean method, injecting its parameters from the container."""
         hints = typing.get_type_hints(method)
         hints.pop("return", None)
+        sig = inspect.signature(method)
 
         kwargs: dict[str, Any] = {}
         for param_name, param_type in hints.items():
-            kwargs[param_name] = self._container.resolve(param_type)
+            param = sig.parameters.get(param_name)
+            has_default = (
+                param is not None
+                and param.default is not inspect.Parameter.empty
+            )
+            try:
+                kwargs[param_name] = self._container._resolve_param(param_type)
+            except KeyError:
+                if has_default:
+                    continue
+                raise
 
         return method(**kwargs)
 

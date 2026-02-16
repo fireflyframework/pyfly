@@ -685,16 +685,25 @@ class OrderService:
 
 ### Optional[T]
 
-Declare a parameter as `Optional[T]` (or `T | None`) to make it optional. If no bean
-of type `T` is registered, the container injects `None` instead of raising `KeyError`:
+Declare a parameter as `Optional[T]` or `T | None` to make it optional. If no bean
+of type `T` is registered, the container injects `None` instead of raising `KeyError`.
+
+Both `typing.Optional` and PEP 604 union syntax are fully supported:
 
 ```python
 from typing import Optional
 
 @service
 class OrderService:
+    # typing.Optional style
     def __init__(self, cache: Optional[CacheAdapter] = None) -> None:
         self.cache = cache  # None if CacheAdapter is not registered
+
+@service
+class ShippingService:
+    # PEP 604 style (Python 3.10+) — works identically
+    def __init__(self, tracker: ShipmentTracker | None = None) -> None:
+        self.tracker = tracker  # None if ShipmentTracker is not registered
 ```
 
 ### list[T]
