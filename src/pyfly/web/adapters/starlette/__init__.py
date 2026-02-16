@@ -28,7 +28,6 @@ from pyfly.web.adapters.starlette.filters import (
     SecurityHeadersFilter,
     TransactionIdFilter,
 )
-from pyfly.web.adapters.starlette.middleware import TransactionIdMiddleware
 from pyfly.web.adapters.starlette.request_logger import RequestLoggingMiddleware
 from pyfly.web.adapters.starlette.resolver import ParameterResolver
 from pyfly.web.adapters.starlette.response import handle_return_value
@@ -43,7 +42,6 @@ __all__ = [
     "SecurityHeadersFilter",
     "SecurityHeadersMiddleware",
     "TransactionIdFilter",
-    "TransactionIdMiddleware",
     "WebFilterChainMiddleware",
     "create_app",
     "global_exception_handler",

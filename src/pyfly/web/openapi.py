@@ -16,7 +16,7 @@
 from __future__ import annotations
 
 import re
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, get_args, get_origin
 
 from pydantic import BaseModel
 
@@ -316,11 +316,9 @@ class OpenAPIGenerator:
     @staticmethod
     def _is_list_of_pydantic(t: Any) -> bool:
         """Check if a type is ``list[SomePydanticModel]``."""
-        import typing
-
-        origin = typing.get_origin(t)
+        origin = get_origin(t)
         if origin is list:
-            args = typing.get_args(t)
+            args = get_args(t)
             if args:
                 return OpenAPIGenerator._is_pydantic_model(args[0])
         return False
@@ -328,6 +326,4 @@ class OpenAPIGenerator:
     @staticmethod
     def _get_list_inner_type(t: Any) -> type:
         """Extract the inner type from ``list[T]``."""
-        import typing
-
-        return typing.get_args(t)[0]
+        return get_args(t)[0]

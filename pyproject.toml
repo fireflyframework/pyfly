@@ -108,6 +108,14 @@ dev = [
     "ruff>=0.3",
 ]
 
+[project.entry-points."pyfly.auto_configuration"]
+web = "pyfly.web.auto_configuration:WebAutoConfiguration"
+cache = "pyfly.cache.auto_configuration:CacheAutoConfiguration"
+messaging = "pyfly.messaging.auto_configuration:MessagingAutoConfiguration"
+client = "pyfly.client.auto_configuration:ClientAutoConfiguration"
+document = "pyfly.data.document.auto_configuration:DocumentAutoConfiguration"
+relational = "pyfly.data.relational.auto_configuration:RelationalAutoConfiguration"
+
 [project.scripts]
 pyfly = "pyfly.cli.main:cli"
 

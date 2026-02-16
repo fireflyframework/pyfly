@@ -24,15 +24,14 @@ pyfly:
 ### Minimal Example
 
 ```python
-from pyfly.client import ServiceClient
+from pyfly.client import http_client, get
 
-client = (
-    ServiceClient.rest("order-service")
-    .base_url("http://order-service:8080")
-    .build()
-)
 
-response = await client.request("GET", "/api/orders")
+@http_client(base_url="http://order-service:8080")
+class OrderClient:
+    @get("/api/orders")
+    async def list_orders(self) -> list:
+        ...
 ```
 
 ---
@@ -59,21 +58,6 @@ Implements `HttpClientPort` using `httpx.AsyncClient`.
 - **Returns:** Raw `httpx.Response` objects for full control
 - **Lifecycle:** Clean shutdown via `aclose()` in `stop()`
 
-### ServiceClient Builder
-
-The `ServiceClient` builder provides a fluent API to configure resilience patterns on top of the HTTPX adapter:
-
-```python
-client = (
-    ServiceClient.rest("order-service")
-    .base_url("http://order-service:8080")
-    .circuit_breaker(failure_threshold=5)
-    .retry(max_attempts=3, backoff=1.0)
-    .timeout(seconds=10)
-    .build()
-)
-```
-
 ### Resilience Integration
 
 The client module integrates with PyFly's resilience patterns:
@@ -99,6 +83,6 @@ mock_client.request.return_value = mock_response
 
 ## See Also
 
-- [Client Module Guide](../modules/client.md) — Full API reference: ServiceClient, circuit breaker, retry, declarative clients
+- [Client Module Guide](../modules/client.md) — Full API reference: declarative `@http_client`, circuit breaker, retry
 - [Resilience Module Guide](../modules/resilience.md) — Rate limiting, bulkhead, timeout, fallback patterns
 - [Adapter Catalog](README.md)

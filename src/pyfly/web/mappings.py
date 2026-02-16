@@ -54,6 +54,12 @@ def _make_method_mapping(method: str) -> Callable[..., Any]:
     return mapping
 
 
+def deprecated(func: F) -> F:
+    """Mark an endpoint handler as deprecated in OpenAPI documentation."""
+    func.__pyfly_deprecated__ = True  # type: ignore[attr-defined]
+    return func
+
+
 get_mapping = _make_method_mapping("GET")
 post_mapping = _make_method_mapping("POST")
 put_mapping = _make_method_mapping("PUT")

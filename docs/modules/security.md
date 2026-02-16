@@ -72,7 +72,7 @@ The security module consists of the following components:
 | `JWTService`           | `pyfly.security.jwt`          | Encode, decode, and validate JWT tokens         |
 | `PasswordEncoder`      | `pyfly.security.password`     | Protocol for password hashing                   |
 | `BcryptPasswordEncoder`| `pyfly.security.password`     | Bcrypt implementation of PasswordEncoder        |
-| `SecurityMiddleware`   | `pyfly.security.middleware`   | Starlette middleware for token extraction        |
+| `SecurityMiddleware`   | `pyfly.web.adapters.starlette.security_middleware` | Starlette middleware for token extraction (re-exported from `pyfly.security.middleware` and `pyfly.security`) |
 | `@secure`              | `pyfly.security.decorators`   | Decorator for role/permission/expression enforcement |
 | `CsrfFilter`          | `pyfly.web.adapters.starlette.filters.csrf_filter` | Double-submit cookie CSRF protection |
 | `JWKSTokenValidator`   | `pyfly.security.oauth2.resource_server` | RS256 JWT validation via remote JWKS |
@@ -387,7 +387,7 @@ isinstance(encoder, PasswordEncoder)  # True
 
 ## SecurityMiddleware
 
-The `SecurityMiddleware` is a Starlette middleware that automatically extracts JWT tokens from incoming requests and populates the `SecurityContext` on `request.state`.
+The `SecurityMiddleware` is a Starlette middleware that automatically extracts JWT tokens from incoming requests and populates the `SecurityContext` on `request.state`. Its canonical location is `pyfly.web.adapters.starlette.security_middleware`, and it is re-exported from `pyfly.security.middleware` and the top-level `pyfly.security` package for convenience.
 
 ### How the Middleware Works
 

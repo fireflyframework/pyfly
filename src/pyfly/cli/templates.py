@@ -25,20 +25,6 @@ AVAILABLE_FEATURES: list[str] = [
     "security", "scheduling", "observability", "cqrs",
 ]
 
-# Human-readable descriptions for features (shown in interactive mode)
-FEATURE_DESCRIPTIONS: dict[str, str] = {
-    "web": "HTTP server, REST controllers, OpenAPI docs",
-    "data-relational": "Data Relational — SQL databases (SQLAlchemy ORM, repositories, migrations)",
-    "data-document": "Data Document — Document databases (MongoDB with Beanie ODM, repositories)",
-    "eda": "Event-driven architecture, in-memory event bus",
-    "cache": "Caching with in-memory adapter (Redis optional)",
-    "client": "Resilient HTTP client with retry and circuit breaker",
-    "security": "JWT authentication, password hashing",
-    "scheduling": "Cron-based task scheduling",
-    "observability": "Prometheus metrics, OpenTelemetry tracing",
-    "cqrs": "Command/Query Responsibility Segregation",
-}
-
 # Default features per archetype
 DEFAULT_FEATURES: dict[str, list[str]] = {
     "core": [],
@@ -115,7 +101,7 @@ FEATURE_DETAILS: dict[str, dict[str, str]] = {
     },
     "client": {
         "short": "Resilient HTTP client with retry and circuit breaker",
-        "adds": "ServiceClient, CircuitBreaker, RetryPolicy, @http_client",
+        "adds": "@http_client, CircuitBreaker, RetryPolicy, @get, @post",
     },
     "security": {
         "short": "JWT authentication, password hashing",
@@ -127,7 +113,7 @@ FEATURE_DETAILS: dict[str, dict[str, str]] = {
     },
     "observability": {
         "short": "Prometheus metrics, OpenTelemetry tracing",
-        "adds": "@timed, @counted, @span, MetricsRegistry, HealthChecker",
+        "adds": "@timed, @counted, @span, MetricsRegistry, HealthAggregator",
     },
     "cqrs": {
         "short": "Command/Query Responsibility Segregation",
@@ -324,14 +310,3 @@ def generate_project(name: str, project_dir: Path, archetype: str, features: lis
         output_path = output_path.replace("{package_name}", package_name)
         rendered = env.get_template(template_name).render(context)
         _write(project_dir / output_path, rendered)
-
-
-# Backward-compatible convenience functions
-def generate_core_project(name: str, project_dir: Path) -> None:
-    """Generate a core service project."""
-    generate_project(name, project_dir, "core", DEFAULT_FEATURES["core"])
-
-
-def generate_library_project(name: str, project_dir: Path) -> None:
-    """Generate a library project."""
-    generate_project(name, project_dir, "library", DEFAULT_FEATURES["library"])

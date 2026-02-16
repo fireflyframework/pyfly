@@ -168,49 +168,45 @@ pyfly:
 
 ### Auto-Detection
 
-The `AutoConfiguration` class (`src/pyfly/config/auto.py`) provides the `detect_web_adapter()` static method:
+Web adapter selection uses the decentralized auto-configuration pattern. The `WebAutoConfiguration` class (`src/pyfly/web/auto_configuration.py`) declares the conditions under which the Starlette adapter is activated:
 
 ```python
-class AutoConfiguration:
-    @staticmethod
-    def detect_web_adapter() -> str:
-        """Detect the best available web framework adapter."""
-        if AutoConfiguration.is_available("starlette"):
-            return "starlette"
-        return "none"
-```
+from pyfly.container.bean import bean
+from pyfly.context.conditions import (
+    auto_configuration,
+    conditional_on_class,
+    conditional_on_missing_bean,
+)
+from pyfly.web.ports.outbound import WebServerPort
 
-The detection simply checks whether the `starlette` package is importable. If it is, the Starlette adapter is selected. If not, no web adapter is registered (the application can still function as a non-web service).
 
-The `AutoConfigurationEngine._configure_web()` method orchestrates the full flow:
+@auto_configuration
+@conditional_on_class("starlette")
+@conditional_on_missing_bean(WebServerPort)
+class WebAutoConfiguration:
+    """Auto-configures the Starlette web adapter when available."""
 
-1. Checks if a `WebServerPort` bean is already registered in the container (user override).
-2. If not, reads `pyfly.web.adapter` from config (defaults to `"auto"`).
-3. If `"auto"`, calls `AutoConfiguration.detect_web_adapter()` to detect the provider.
-4. If the resolved adapter is `"starlette"`, creates a `StarletteWebAdapter` instance and registers it in the container as a `WebServerPort` bean.
-5. If no adapter is available, logs a skip message.
-
-```python
-def _configure_web(self, config: Config, container: Container) -> None:
-    from pyfly.web.ports.outbound import WebServerPort
-
-    if self._already_registered(container, WebServerPort):
-        return
-
-    configured_adapter = str(config.get("pyfly.web.adapter", "auto"))
-    adapter = (
-        configured_adapter
-        if configured_adapter != "auto"
-        else AutoConfiguration.detect_web_adapter()
-    )
-
-    if adapter == "starlette":
+    @bean
+    def web_adapter(self) -> WebServerPort:
         from pyfly.web.adapters.starlette.adapter import StarletteWebAdapter
-        instance = StarletteWebAdapter()
-        self._register(container, WebServerPort, instance, "web", adapter)
-    else:
-        logger.info("auto_configuration", subsystem="web", status="skipped", reason="no adapter")
+
+        return StarletteWebAdapter()
 ```
+
+The three decorators express the full activation logic declaratively:
+
+1. **`@auto_configuration`** -- marks the class for discovery via the `pyfly.auto_configuration` entry-point group.
+2. **`@conditional_on_class("starlette")`** -- the class is only processed when the `starlette` package is importable. If it is not installed, the entire configuration is skipped and the application can still function as a non-web service.
+3. **`@conditional_on_missing_bean(WebServerPort)`** -- the `@bean` method is only invoked when no `WebServerPort` bean is already registered in the container, allowing user overrides to take precedence.
+
+Discovery happens through the standard `pyfly.auto_configuration` entry-point group declared in `pyproject.toml`:
+
+```toml
+[project.entry-points."pyfly.auto_configuration"]
+web = "pyfly.web.auto_configuration:WebAutoConfiguration"
+```
+
+At startup, `discover_auto_configurations()` in `src/pyfly/config/auto.py` loads all entry points in this group and evaluates their conditions. This is fully pluggable -- third-party packages can register their own auto-configuration classes in the same group.
 
 ### StarletteWebAdapter
 
@@ -228,7 +224,8 @@ This simple delegation pattern keeps the adapter thin. All the real work happens
 
 Source files:
 - `src/pyfly/config/properties/web.py` -- `WebProperties`
-- `src/pyfly/config/auto.py` -- `AutoConfiguration`, `AutoConfigurationEngine`
+- `src/pyfly/web/auto_configuration.py` -- `WebAutoConfiguration`
+- `src/pyfly/config/auto.py` -- `AutoConfiguration`, `discover_auto_configurations()`
 - `src/pyfly/web/adapters/starlette/adapter.py` -- `StarletteWebAdapter`
 
 ---
@@ -1461,7 +1458,7 @@ class WebServerPort(Protocol):
 
 This protocol ensures that the application layer never depends directly on Starlette. In theory, you could implement a Flask adapter, a Django adapter, or any other ASGI/WSGI adapter by implementing this port.
 
-The auto-configuration engine registers the `StarletteWebAdapter` (which implements this protocol) as a singleton bean when Starlette is available.
+The `WebAutoConfiguration` class registers the `StarletteWebAdapter` (which implements this protocol) as a bean when Starlette is available and no user-provided `WebServerPort` bean already exists.
 
 Source file: `src/pyfly/web/ports/outbound.py`
 

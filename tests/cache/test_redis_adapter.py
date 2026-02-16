@@ -20,7 +20,7 @@ from datetime import timedelta
 import pytest
 
 from pyfly.cache.adapters.redis import RedisCacheAdapter
-from pyfly.cache.types import CacheAdapter
+from pyfly.cache.ports.outbound import CacheAdapter
 
 
 class FakeRedis:

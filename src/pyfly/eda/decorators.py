@@ -20,13 +20,13 @@ import inspect
 from collections.abc import Callable
 from typing import Any, TypeVar
 
-from pyfly.eda.adapters.memory import InMemoryEventBus
+from pyfly.eda.ports.outbound import EventPublisher
 
 F = TypeVar("F", bound=Callable[..., Any])
 
 
 def event_publisher(
-    bus: InMemoryEventBus,
+    bus: EventPublisher,
     destination: str,
     event_type: str,
     timing: str = "BEFORE",
@@ -65,7 +65,7 @@ def event_publisher(
 
 
 def publish_result(
-    bus: InMemoryEventBus,
+    bus: EventPublisher,
     destination: str,
     event_type: str,
     condition: Callable[..., bool] | None = None,
@@ -97,7 +97,7 @@ def publish_result(
 
 
 def event_listener(
-    bus: InMemoryEventBus,
+    bus: EventPublisher,
     event_types: list[str],
 ) -> Callable[[F], F]:
     """Register a function as an event listener.

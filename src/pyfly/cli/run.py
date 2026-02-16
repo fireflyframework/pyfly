@@ -91,8 +91,6 @@ def _discover_app() -> str | None:
     2. ``app.module`` in ``pyfly.yaml`` (flat layout)
     3. Auto-discover: look for ``src/<package>/main.py`` containing an ``app`` variable
     """
-    from pathlib import Path
-
     import yaml
 
     config_path = Path("pyfly.yaml")
@@ -117,8 +115,6 @@ def _discover_app() -> str | None:
 
 def _auto_discover_module() -> str | None:
     """Scan src/ for a main.py that likely contains the ASGI app."""
-    from pathlib import Path
-
     src = Path("src")
     if not src.is_dir():
         return None

@@ -18,8 +18,9 @@ import json
 
 import pytest
 
-from pyfly.client.declarative import get, http_client, post
+from pyfly.client.declarative import get, http_client, post, service_client
 from pyfly.client.post_processor import HttpClientBeanPostProcessor
+from pyfly.kernel.exceptions import CircuitBreakerException
 
 
 class FakeHttpClient:
@@ -118,3 +119,120 @@ class TestHttpClientBeanPostProcessor:
         processor.after_init(bean, "userClient")
         await bean.get_post(42, 7)
         assert fake.calls[0]["url"] == "/users/42/posts/7"
+
+
+class FailingHttpClient:
+    """HTTP client that fails a configurable number of times, then succeeds."""
+
+    def __init__(self, fail_count: int = 0) -> None:
+        self.calls: list[dict] = []
+        self._fail_count = fail_count
+        self._call_num = 0
+
+    async def request(self, method: str, url: str, **kwargs) -> FakeResponse:
+        self._call_num += 1
+        self.calls.append({"method": method, "url": url, **kwargs})
+        if self._call_num <= self._fail_count:
+            raise ConnectionError(f"Simulated failure #{self._call_num}")
+        return FakeResponse(b'{"ok": true}')
+
+    async def start(self) -> None:
+        pass
+
+    async def stop(self) -> None:
+        pass
+
+
+class TestPostProcessorResilience:
+    @pytest.mark.asyncio
+    async def test_retry_on_failure(self) -> None:
+        """Retry wraps failures and eventually succeeds."""
+
+        @service_client(base_url="http://example.com", retry=3, circuit_breaker=False)
+        class MyClient:
+            @get("/data")
+            async def get_data(self) -> dict: ...
+
+        fake = FailingHttpClient(fail_count=2)  # fail twice, succeed third
+        processor = HttpClientBeanPostProcessor(
+            http_client_factory=lambda base_url: fake,
+        )
+        bean = MyClient()
+        processor.after_init(bean, "myClient")
+        result = await bean.get_data()
+        assert result == {"ok": True}
+        assert len(fake.calls) == 3
+
+    @pytest.mark.asyncio
+    async def test_circuit_breaker_opens(self) -> None:
+        """Circuit breaker opens after failure threshold is reached."""
+
+        @service_client(
+            base_url="http://example.com",
+            retry=False,
+            circuit_breaker=True,
+            circuit_breaker_failure_threshold=2,
+        )
+        class MyClient:
+            @get("/data")
+            async def get_data(self) -> dict: ...
+
+        fake = FailingHttpClient(fail_count=100)
+        processor = HttpClientBeanPostProcessor(
+            http_client_factory=lambda base_url: fake,
+        )
+        bean = MyClient()
+        processor.after_init(bean, "myClient")
+
+        # First two calls fail with ConnectionError
+        for _ in range(2):
+            with pytest.raises(ConnectionError):
+                await bean.get_data()
+
+        # Third call should be rejected by the circuit breaker
+        with pytest.raises(CircuitBreakerException):
+            await bean.get_data()
+
+    @pytest.mark.asyncio
+    async def test_http_client_has_no_resilience(self) -> None:
+        """@http_client beans have no retry or circuit breaker."""
+
+        @http_client(base_url="http://example.com")
+        class MyClient:
+            @get("/data")
+            async def get_data(self) -> dict: ...
+
+        fake = FailingHttpClient(fail_count=1)
+        processor = HttpClientBeanPostProcessor(
+            http_client_factory=lambda base_url: fake,
+        )
+        bean = MyClient()
+        processor.after_init(bean, "myClient")
+
+        # Should fail immediately — no retry
+        with pytest.raises(ConnectionError):
+            await bean.get_data()
+        assert len(fake.calls) == 1
+
+    @pytest.mark.asyncio
+    async def test_config_defaults_override(self) -> None:
+        """Config-provided defaults are used when decorator doesn't specify."""
+
+        @service_client(base_url="http://example.com")
+        class MyClient:
+            @get("/data")
+            async def get_data(self) -> dict: ...
+
+        fake = FailingHttpClient(fail_count=4)  # fail 4 times
+        processor = HttpClientBeanPostProcessor(
+            http_client_factory=lambda base_url: fake,
+            default_retry={"max-attempts": 5, "base-delay": 0.0},
+            default_circuit_breaker={"failure-threshold": 10, "recovery-timeout": 30},
+        )
+        bean = MyClient()
+        processor.after_init(bean, "myClient")
+
+        # With max-attempts=5, should survive 4 failures
+        result = await bean.get_data()
+        assert result == {"ok": True}
+        assert len(fake.calls) == 5

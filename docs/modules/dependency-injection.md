@@ -920,24 +920,35 @@ stereotype attributes.
 
 When `ApplicationContext.start()` is called, it executes these steps in order:
 
+0. **Register auto-configurations** -- discovers `@auto_configuration` classes via
+   `importlib.metadata.entry_points(group="pyfly.auto_configuration")`. Each subsystem
+   (web, cache, messaging, client, data) owns its own `@auto_configuration` class,
+   declared in `pyproject.toml` entry points -- like Spring Boot's
+   `META-INF/spring.factories`.
 1. **Filter beans by active profiles** -- removes beans whose `profile` expression does
    not match the active profiles.
-2. **Evaluate conditions (pass 1)** -- removes beans that fail non-bean-dependent conditions
-   (`@conditional_on_property`, `@conditional_on_class`, and stereotype `condition` callables).
-3. **Process user `@configuration` classes** -- resolves configuration beans and registers
+1b. **Evaluate conditions (pass 1)** -- removes beans that fail non-bean-dependent conditions
+    (`@conditional_on_property`, `@conditional_on_class`, and stereotype `condition` callables).
+2. **Process user `@configuration` classes** -- resolves configuration beans and registers
    their `@bean` factory method outputs.
-4. **Evaluate conditions (pass 2)** -- removes beans that fail bean-dependent conditions
-   (`@conditional_on_bean`, `@conditional_on_missing_bean`).
-5. **Process `@auto_configuration` classes** -- resolves auto-configuration beans after
-   user beans are visible.
-6. **Run imperative auto-configuration** -- `AutoConfigurationEngine` detects available
-   providers and wires adapter beans (cache, messaging, client, data).
-7. **Eagerly resolve all singletons** -- sorted by `@order` value.
-8. **Run post-processors and lifecycle hooks** -- for each resolved bean:
+2b. **Evaluate conditions (pass 2)** -- removes beans that fail bean-dependent conditions
+    (`@conditional_on_bean`, `@conditional_on_missing_bean`).
+2c. **Process `@auto_configuration` classes** -- resolves auto-configuration `@bean` methods
+    after user beans are visible. Each auto-configuration class uses `@conditional_on_class`,
+    `@conditional_on_property`, and `@conditional_on_missing_bean` to guard its beans,
+    so user-provided beans always take precedence.
+2d. **Start infrastructure** -- starts any bean that implements `start()`/`stop()` lifecycle
+    methods (e.g., cache adapters, message brokers, HTTP clients). Failures here raise
+    `BeanCreationException` for fast feedback.
+3. **Auto-discover `BeanPostProcessor` implementations** from registered beans.
+4. **Eagerly resolve all singletons** -- sorted by `@order` value.
+5. **Run post-processors and lifecycle hooks** -- for each resolved bean:
    - `BeanPostProcessor.before_init()`
    - `@post_construct` methods
    - `BeanPostProcessor.after_init()`
-9. **Publish lifecycle events** -- `ContextRefreshedEvent`, then `ApplicationReadyEvent`.
+6. **Wire decorator-based beans** -- connects `@app_event_listener`, `@message_listener`,
+   CQRS handlers, `@scheduled` methods, and `@async_method` to their targets.
+7. **Publish lifecycle events** -- `ContextRefreshedEvent`, then `ApplicationReadyEvent`.
 
 ### The stop() Lifecycle
 

@@ -15,8 +15,11 @@
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
+import functools
 import inspect
+import logging
 import typing
 from typing import Any, TypeVar
 
@@ -27,6 +30,7 @@ from pyfly.container.types import Scope
 from pyfly.context.condition_evaluator import ConditionEvaluator
 from pyfly.context.environment import Environment
 from pyfly.context.events import (
+    ApplicationEvent,
     ApplicationEventBus,
     ApplicationReadyEvent,
     ContextClosedEvent,
@@ -34,6 +38,8 @@ from pyfly.context.events import (
 )
 from pyfly.context.post_processor import BeanPostProcessor
 from pyfly.core.config import Config
+
+logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
@@ -59,10 +65,14 @@ class ApplicationContext:
         self._post_processors: list[BeanPostProcessor] = []
         self._started = False
         self._infrastructure_adapters: list[Any] = []
+        self._task_scheduler: Any | None = None
+        self._wiring_counts: dict[str, int] = {}
 
-        # Register config as a singleton bean
+        # Register config and container as singleton beans (injectable like Spring's ApplicationContext)
         self._container.register(Config, scope=Scope.SINGLETON)
         self._container._registrations[Config].instance = config
+        self._container.register(Container, scope=Scope.SINGLETON)
+        self._container._registrations[Container].instance = self._container
 
     # ------------------------------------------------------------------
     # Bean registration
@@ -149,6 +159,9 @@ class ApplicationContext:
 
     async def _do_start(self) -> None:
         """Internal startup logic."""
+        # 0. Register built-in @auto_configuration classes
+        self._register_auto_configurations()
+
         # 1. Filter beans by active profiles
         self._filter_by_profile()
 
@@ -163,29 +176,13 @@ class ApplicationContext:
         self._evaluate_bean_conditions()
         self._process_configurations(auto=True)
 
-        # 2c. Run imperative auto-configuration (detect providers, wire adapter beans)
-        from pyfly.config.auto import AutoConfigurationEngine
+        # 2c. Start infrastructure adapters (fail-fast: validates connectivity)
+        await self._start_infrastructure()
 
-        engine = AutoConfigurationEngine()
-        engine.configure(self._config, self._container)
+        # 3. Auto-discover BeanPostProcessors from registered beans
+        self._discover_post_processors()
 
-        # 2d. Start infrastructure adapters (fail-fast: validates connectivity)
-        self._infrastructure_adapters = engine.adapters
-        for adapter in self._infrastructure_adapters:
-            if hasattr(adapter, 'start'):
-                try:
-                    await adapter.start()
-                except Exception as exc:
-                    adapter_name = type(adapter).__name__
-                    subsystem = self._infer_subsystem(adapter_name)
-                    provider = engine.results.get(subsystem, "unknown")
-                    raise BeanCreationException(
-                        subsystem=subsystem,
-                        provider=provider,
-                        reason=str(exc),
-                    ) from exc
-
-        # 3. Eagerly resolve all singletons (sorted by @order)
+        # 4. Eagerly resolve all singletons (sorted by @order)
         sorted_entries = sorted(
             self._container._registrations.items(),
             key=lambda item: get_order(item[0]),
@@ -195,7 +192,7 @@ class ApplicationContext:
                 with contextlib.suppress(KeyError):
                     self._container.resolve(cls)
 
-        # 4. Run post-processors and lifecycle hooks
+        # 5. Run post-processors and lifecycle hooks
         sorted_pps = sorted(self._post_processors, key=lambda pp: get_order(type(pp)))
         for reg in self._container._registrations.values():
             if reg.instance is not None:
@@ -212,13 +209,25 @@ class ApplicationContext:
                 for pp in sorted_pps:
                     reg.instance = pp.after_init(reg.instance, bean_name)
 
-        # 5. Publish lifecycle events
+        # 6. Wire decorator-based beans to their targets
+        self._wire_app_event_listeners()
+        self._wire_message_listeners()
+        self._wire_cqrs_handlers()
+        self._wire_scheduled()
+        self._wire_async_methods()
+
+        # 7. Publish lifecycle events
         await self._event_bus.publish(ContextRefreshedEvent())
         await self._event_bus.publish(ApplicationReadyEvent())
         self._started = True
 
     async def stop(self) -> None:
         """Stop the context: call @pre_destroy, publish ContextClosedEvent."""
+        # Stop task scheduler
+        if self._task_scheduler is not None:
+            with contextlib.suppress(Exception):
+                await self._task_scheduler.stop()
+
         # Stop infrastructure adapters (reverse order)
         for adapter in reversed(self._infrastructure_adapters):
             if hasattr(adapter, 'stop'):
@@ -237,29 +246,52 @@ class ApplicationContext:
     # Private helpers
     # ------------------------------------------------------------------
 
+    def _register_auto_configurations(self) -> None:
+        """Register built-in @auto_configuration classes for condition evaluation."""
+        from pyfly.config.auto import discover_auto_configurations
+
+        for cls in discover_auto_configurations():
+            if cls not in self._container._registrations:
+                self.register_bean(cls)
+
+    async def _start_infrastructure(self) -> None:
+        """Start adapter beans that implement start()/stop() lifecycle."""
+        for reg in self._container._registrations.values():
+            if reg.instance is None:
+                continue
+            if self._has_lifecycle_methods(reg.instance):
+                self._infrastructure_adapters.append(reg.instance)
+
+        for adapter in self._infrastructure_adapters:
+            try:
+                await adapter.start()
+            except Exception as exc:
+                raise BeanCreationException(
+                    subsystem=self._infer_subsystem(adapter),
+                    provider=type(adapter).__name__,
+                    reason=str(exc),
+                ) from exc
+
     @staticmethod
-    def _infer_subsystem(adapter_name: str) -> str:
-        """Infer subsystem from adapter class name."""
-        name_lower = adapter_name.lower()
-        if "kafka" in name_lower:
-            return "messaging"
-        if "rabbit" in name_lower:
-            return "messaging"
-        if "redis" in name_lower:
-            return "cache"
-        if "httpx" in name_lower or "httpclient" in name_lower:
-            return "client"
-        if "executor" in name_lower or "threadpool" in name_lower:
-            return "scheduling"
-        if "eventbus" in name_lower or "eventpublisher" in name_lower:
-            return "eda"
-        if "memory" in name_lower:
-            if "cache" in name_lower:
-                return "cache"
-            if "broker" in name_lower or "message" in name_lower:
-                return "messaging"
-            if "event" in name_lower:
-                return "eda"
+    def _has_lifecycle_methods(instance: object) -> bool:
+        """Check if start/stop are defined on the class (not via __getattr__ magic)."""
+        cls = type(instance)
+        return all(
+            any(attr in vars(c) for c in cls.__mro__)
+            for attr in ("start", "stop")
+        )
+
+    @staticmethod
+    def _infer_subsystem(adapter: object) -> str:
+        """Infer subsystem from adapter's module path (no hardcoded names).
+
+        Parses the module hierarchy: ``pyfly.<subsystem>.…`` → ``<subsystem>``.
+        Third-party or unrecognised modules fall back to ``"infrastructure"``.
+        """
+        module = type(adapter).__module__ or ""
+        parts = module.split(".")
+        if len(parts) >= 2 and parts[0] == "pyfly":
+            return parts[1]
         return "infrastructure"
 
     def _filter_by_profile(self) -> None:
@@ -348,6 +380,193 @@ class ApplicationContext:
             kwargs[param_name] = self._container.resolve(param_type)
 
         return method(**kwargs)
+
+    # ------------------------------------------------------------------
+    # Wiring: auto-discover and connect decorator-based beans
+    # ------------------------------------------------------------------
+
+    def _discover_post_processors(self) -> None:
+        """Scan registered beans for BeanPostProcessor implementations and auto-register them."""
+        count = 0
+        for cls, reg in list(self._container._registrations.items()):
+            if isinstance(reg.instance, BeanPostProcessor) and reg.instance not in self._post_processors:
+                self._post_processors.append(reg.instance)
+                count += 1
+            elif reg.instance is None and isinstance(cls, type) and issubclass(cls, BeanPostProcessor):
+                with contextlib.suppress(KeyError):
+                    instance = self._container.resolve(cls)
+                    if instance not in self._post_processors:
+                        self._post_processors.append(instance)
+                        count += 1
+        self._wiring_counts["post_processors"] = count
+        if count:
+            logger.debug("Discovered %d BeanPostProcessor(s)", count)
+
+    def _wire_app_event_listeners(self) -> None:
+        """Scan singleton beans for @app_event_listener methods and subscribe to event bus."""
+        count = 0
+        for reg in self._container._registrations.values():
+            if reg.instance is None:
+                continue
+            for attr_name in dir(reg.instance):
+                if attr_name.startswith("_"):
+                    continue
+                try:
+                    method = getattr(reg.instance, attr_name)
+                except Exception:
+                    continue
+                if not getattr(method, "__pyfly_app_event_listener__", False):
+                    continue
+                # Infer event type from the method's type hints
+                hints = typing.get_type_hints(method)
+                event_type: type[ApplicationEvent] | None = None
+                for param_type in hints.values():
+                    if isinstance(param_type, type) and issubclass(param_type, ApplicationEvent):
+                        event_type = param_type
+                        break
+                if event_type is None:
+                    event_type = ApplicationEvent
+                self._event_bus.subscribe(event_type, method, owner_cls=type(reg.instance))
+                count += 1
+        self._wiring_counts["event_listeners"] = count
+        if count:
+            logger.debug("Wired %d @app_event_listener method(s)", count)
+
+    def _wire_message_listeners(self) -> None:
+        """Scan beans for @message_listener methods and register with MessageBrokerPort."""
+        count = 0
+        broker: Any | None = None
+        for reg in self._container._registrations.values():
+            if reg.instance is None:
+                continue
+            for attr_name in dir(reg.instance):
+                if attr_name.startswith("_"):
+                    continue
+                try:
+                    method = getattr(reg.instance, attr_name)
+                except Exception:
+                    continue
+                if not getattr(method, "__pyfly_message_listener__", False):
+                    continue
+                # Lazy-resolve broker on first hit
+                if broker is None:
+                    try:
+                        from pyfly.messaging.ports.outbound import MessageBrokerPort
+
+                        broker = self._container.resolve(MessageBrokerPort)
+                    except KeyError:
+                        logger.debug("No MessageBrokerPort registered; skipping @message_listener wiring")
+                        self._wiring_counts["message_listeners"] = 0
+                        return
+                topic = getattr(method, "__pyfly_listener_topic__", "")
+                group = getattr(method, "__pyfly_listener_group__", None)
+                # MessageBrokerPort.subscribe is async; defer via create_task
+                asyncio.get_event_loop().create_task(broker.subscribe(topic, method, group=group))
+                count += 1
+        self._wiring_counts["message_listeners"] = count
+        if count:
+            logger.debug("Wired %d @message_listener method(s)", count)
+
+    def _wire_cqrs_handlers(self) -> None:
+        """Scan beans for @command_handler / @query_handler and register with Mediator."""
+        count = 0
+        mediator: Any | None = None
+        for cls, reg in self._container._registrations.items():
+            handler_type = getattr(cls, "__pyfly_handler_type__", None)
+            if handler_type is None:
+                continue
+            if reg.instance is None:
+                continue
+            # Lazy-resolve mediator on first hit
+            if mediator is None:
+                try:
+                    from pyfly.cqrs.mediator import Mediator
+
+                    mediator = self._container.resolve(Mediator)
+                except KeyError:
+                    logger.debug("No Mediator registered; skipping CQRS handler wiring")
+                    self._wiring_counts["cqrs_handlers"] = 0
+                    return
+            # Infer the message type from the handler's handle() method type hints
+            handle_method = getattr(reg.instance, "handle", None)
+            if handle_method is None:
+                continue
+            hints = typing.get_type_hints(handle_method)
+            hints.pop("return", None)
+            for param_type in hints.values():
+                if isinstance(param_type, type):
+                    mediator.register_handler(param_type, reg.instance)
+                    count += 1
+                    break
+        self._wiring_counts["cqrs_handlers"] = count
+        if count:
+            logger.debug("Wired %d CQRS handler(s)", count)
+
+    def _wire_scheduled(self) -> None:
+        """Discover @scheduled methods and start the TaskScheduler."""
+        beans = [
+            reg.instance
+            for reg in self._container._registrations.values()
+            if reg.instance is not None
+        ]
+        from pyfly.scheduling.task_scheduler import TaskScheduler
+
+        scheduler = TaskScheduler()
+        count = scheduler.discover(beans)
+        self._wiring_counts["scheduled"] = count
+        if count:
+            self._task_scheduler = scheduler
+            asyncio.get_event_loop().create_task(scheduler.start())
+            logger.debug("Discovered %d @scheduled method(s)", count)
+
+    def _wire_async_methods(self) -> None:
+        """Scan beans for @async_method and wrap them to execute in a thread pool."""
+        count = 0
+        for reg in self._container._registrations.values():
+            if reg.instance is None:
+                continue
+            for attr_name in dir(reg.instance):
+                if attr_name.startswith("_"):
+                    continue
+                try:
+                    method = getattr(reg.instance, attr_name)
+                except Exception:
+                    continue
+                if not getattr(method, "__pyfly_async__", False):
+                    continue
+
+                # Wrap the method to offload execution
+                original = method
+
+                @functools.wraps(original)
+                async def async_wrapper(*args: Any, _orig: Any = original, **kwargs: Any) -> Any:
+                    loop = asyncio.get_event_loop()
+                    if inspect.iscoroutinefunction(_orig):
+                        return asyncio.ensure_future(_orig(*args, **kwargs))
+                    return await loop.run_in_executor(None, functools.partial(_orig, *args, **kwargs))
+
+                setattr(reg.instance, attr_name, async_wrapper)
+                count += 1
+        self._wiring_counts["async_methods"] = count
+        if count:
+            logger.debug("Wired %d @async_method(s)", count)
+
+    # ------------------------------------------------------------------
+    # Registry stats (for startup logging)
+    # ------------------------------------------------------------------
+
+    @property
+    def wiring_counts(self) -> dict[str, int]:
+        """Counts from the decorator wiring phase."""
+        return dict(self._wiring_counts)
+
+    def get_bean_counts_by_stereotype(self) -> dict[str, int]:
+        """Count beans grouped by stereotype (service, repository, controller, configuration)."""
+        counts: dict[str, int] = {}
+        for cls in self._container._registrations:
+            stereotype = getattr(cls, "__pyfly_stereotype__", "other")
+            counts[stereotype] = counts.get(stereotype, 0) + 1
+        return counts
 
     async def _call_post_construct(self, instance: Any) -> None:
         """Call all @post_construct methods on an instance."""

@@ -11,47 +11,52 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Declarative MongoDB transaction management decorator.
-
-Requires a MongoDB replica set — standalone instances do not support
-multi-document transactions.
-"""
-
+"""MongoDB transactional decorator — wraps async functions in a Mongo session + transaction."""
 from __future__ import annotations
 
 import functools
 from collections.abc import Callable
 from typing import Any, TypeVar
 
-from motor.motor_asyncio import AsyncIOMotorClient
-
 F = TypeVar("F", bound=Callable[..., Any])
 
 
-def mongo_transactional(client: AsyncIOMotorClient) -> Callable[[F], F]:  # type: ignore[type-arg]
-    """Decorator for declarative async MongoDB transaction management.
+def mongo_transactional(func: F) -> F:
+    """Wrap an async function in a MongoDB session and transaction.
 
-    Wraps an async function in a MongoDB transaction. On success the
-    transaction is committed; on exception it is aborted and the exception
-    re-raised.
+    The decorated function receives an extra ``session`` keyword argument
+    bound to the active ``ClientSession``.  If the function completes
+    without error the transaction is committed; otherwise it is aborted.
 
-    Requires a replica set deployment (MongoDB transactions are not
-    supported on standalone instances).
+    Requires a :class:`motor.motor_asyncio.AsyncIOMotorClient` to be
+    resolvable from the first positional argument's ``_motor_client``
+    attribute (typically ``self`` in a service bean).
 
-    Usage::
+    Example::
 
-        @mongo_transactional(motor_client)
-        async def transfer_funds(from_id: str, to_id: str, amount: float) -> None:
-            ...
+        class OrderService:
+            def __init__(self, motor_client):
+                self._motor_client = motor_client
+
+            @mongo_transactional
+            async def place_order(self, order, *, session=None):
+                ...
     """
 
-    def decorator(func: F) -> F:
-        @functools.wraps(func)
-        async def wrapper(*args: Any, **kwargs: Any) -> Any:
-            async with await client.start_session() as session, session.start_transaction():
-                result = await func(*args, **kwargs)
-                return result
+    @functools.wraps(func)
+    async def wrapper(*args: Any, **kwargs: Any) -> Any:
+        # Resolve the Motor client from the first arg (self)
+        self_arg = args[0] if args else None
+        motor_client = getattr(self_arg, "_motor_client", None)
+        if motor_client is None:
+            raise RuntimeError(
+                f"{func.__qualname__}: cannot resolve Motor client. "
+                "Ensure the service has a '_motor_client' attribute."
+            )
 
-        return wrapper  # type: ignore[return-value]
+        async with await motor_client.start_session() as session:
+            async with session.start_transaction():
+                kwargs["session"] = session
+                return await func(*args, **kwargs)
 
-    return decorator
+    return wrapper  # type: ignore[return-value]

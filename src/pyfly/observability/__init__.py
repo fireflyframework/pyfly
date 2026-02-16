@@ -11,21 +11,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""PyFly Observability — Metrics, tracing, logging, and health checks."""
+"""PyFly Observability — Metrics and tracing decorators."""
 
-from pyfly.observability.health import HealthChecker, HealthResult, HealthStatus
-from pyfly.observability.logging import configure_logging, get_logger
 from pyfly.observability.metrics import MetricsRegistry, counted, timed
 from pyfly.observability.tracing import span
 
 __all__ = [
-    "HealthChecker",
-    "HealthResult",
-    "HealthStatus",
     "MetricsRegistry",
-    "configure_logging",
     "counted",
-    "get_logger",
     "span",
     "timed",
 ]

@@ -13,9 +13,9 @@
 # limitations under the License.
 """PyFly Config — Auto-configuration and provider detection."""
 
-from pyfly.config.auto import AutoConfiguration, AutoConfigurationEngine
+from pyfly.config.auto import AutoConfiguration, discover_auto_configurations
 
 __all__ = [
     "AutoConfiguration",
-    "AutoConfigurationEngine",
+    "discover_auto_configurations",
 ]

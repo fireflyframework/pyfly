@@ -36,12 +36,10 @@ Example::
 
 from __future__ import annotations
 
-from typing import Any, TypeVar
+from typing import Any
 
 from pyfly.data.filter import BaseFilterUtils
 from pyfly.data.relational.sqlalchemy.specification import Specification
-
-T = TypeVar("T")
 
 
 class FilterOperator:

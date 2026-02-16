@@ -25,3 +25,8 @@ class TestClientExports:
         from pyfly.client import HttpClientBeanPostProcessor
 
         assert HttpClientBeanPostProcessor is not None
+
+    def test_can_import_service_client(self) -> None:
+        from pyfly.client import service_client
+
+        assert service_client is not None

@@ -15,7 +15,6 @@
 
 from pyfly.data.document.mongodb.document import BaseDocument
 from pyfly.data.document.mongodb.filter import MongoFilterOperator, MongoFilterUtils
-from pyfly.data.document.mongodb.initializer import initialize_beanie
 from pyfly.data.document.mongodb.post_processor import MongoRepositoryBeanPostProcessor
 from pyfly.data.document.mongodb.query_compiler import MongoQueryMethodCompiler
 from pyfly.data.document.mongodb.repository import MongoRepository
@@ -30,6 +29,5 @@ __all__ = [
     "MongoRepository",
     "MongoRepositoryBeanPostProcessor",
     "MongoSpecification",
-    "initialize_beanie",
     "mongo_transactional",
 ]

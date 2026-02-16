@@ -45,9 +45,9 @@ Observability answers three fundamental questions about a running system:
 |----------|-------------------------------------------|------------------------------------|
 | Metrics  | "How much?" / "How fast?"                 | `pyfly.observability.metrics`      |
 | Tracing  | "What path did this request take?"        | `pyfly.observability.tracing`      |
-| Logging  | "What happened, and in what context?"     | `pyfly.observability.logging`, `pyfly.logging` |
+| Logging  | "What happened, and in what context?"     | `pyfly.logging`                    |
 
-PyFly also provides **health checks** (`pyfly.observability.health`) so orchestrators
+PyFly also provides **health checks** (`pyfly.actuator.health`) so orchestrators
 like Kubernetes can determine whether a service is ready to receive traffic.
 
 All observability utilities are importable from a single package:
@@ -394,9 +394,7 @@ process-order [200ms]
 
 PyFly provides two complementary logging APIs:
 
-1. **`pyfly.observability.logging`** -- quick-start functions `configure_logging()`
-   and `get_logger()` for simple applications.
-2. **`pyfly.logging`** -- hexagonal architecture with `LoggingPort` (protocol) and
+1. **`pyfly.logging`** -- hexagonal architecture with `LoggingPort` (protocol) and
    `StructlogAdapter` (default implementation) for framework-level integration.
 
 Both are backed by [structlog](https://www.structlog.org/) for structured, key-value

@@ -8,11 +8,12 @@ module, featuring circuit breakers, retry policies, and declarative clients.
 ## Table of Contents
 
 1. [Introduction](#introduction)
-2. [ServiceClient Builder](#serviceclient-builder)
-   - [Creating a Client](#creating-a-client)
-   - [Fluent Builder API](#fluent-builder-api)
-   - [Making Requests](#making-requests)
-   - [Stopping the Client](#stopping-the-client)
+2. [Declarative Clients](#declarative-http-client)
+   - [@service_client Decorator](#service_client-decorator)
+   - [@http_client Decorator](#http_client-decorator)
+   - [Method Decorators: @get, @post, @put, @delete, @patch](#method-decorators)
+   - [Path Parameter Interpolation](#path-parameter-interpolation)
+   - [Query Parameters and Request Bodies](#query-parameters-and-request-bodies)
 3. [CircuitBreaker](#circuitbreaker)
    - [States](#states)
    - [State Transitions](#state-transitions)
@@ -24,17 +25,12 @@ module, featuring circuit breakers, retry policies, and declarative clients.
    - [Exponential Backoff Algorithm](#exponential-backoff-algorithm)
    - [The execute() Method](#the-execute-method)
    - [Standalone Usage](#retrypolicy-standalone-usage)
-5. [Declarative HTTP Client](#declarative-http-client)
-   - [@http_client Decorator](#http_client-decorator)
-   - [Method Decorators: @get, @post, @put, @delete, @patch](#method-decorators)
-   - [Path Parameter Interpolation](#path-parameter-interpolation)
-   - [Query Parameters and Request Bodies](#query-parameters-and-request-bodies)
-6. [HttpClientPort](#httpclientport)
-7. [HttpClientBeanPostProcessor](#httpclientbeanpostprocessor)
+4. [HttpClientPort](#httpclientport)
+5. [HttpClientBeanPostProcessor](#httpclientbeanpostprocessor)
    - [How Wiring Works](#how-wiring-works)
    - [Custom Client Factory](#custom-client-factory)
-8. [Configuration](#configuration)
-9. [Complete Example](#complete-example)
+6. [Configuration](#configuration)
+7. [Complete Example](#complete-example)
 
 ---
 
@@ -42,13 +38,14 @@ module, featuring circuit breakers, retry policies, and declarative clients.
 
 In a microservice architecture, services communicate over HTTP. These network
 calls are inherently unreliable: services go down, networks partition, and
-response times spike. The PyFly client module provides two approaches to
-building resilient HTTP clients:
+response times spike. The PyFly client module provides resilient HTTP clients
+through two complementary approaches:
 
-- **Programmatic** (`ServiceClient`): A fluent builder for creating clients
-  with circuit breakers and retry policies. Full control over every aspect.
-- **Declarative** (`@http_client`): An interface-based approach where you define
-  method signatures and PyFly generates the HTTP implementation at startup.
+- **Declarative** (`@http_client` / `@service_client`): An interface-based
+  approach where you define method signatures and PyFly generates the HTTP
+  implementation at startup. This is the recommended approach.
+- **Resilience primitives** (`CircuitBreaker`, `RetryPolicy`): Composable
+  building blocks for circuit breakers and retry policies.
 
 Both approaches build on the same `HttpClientPort` abstraction, making it
 straightforward to test with mocks or swap HTTP libraries.
@@ -57,11 +54,11 @@ All public types are available from a single import:
 
 ```python
 from pyfly.client import (
-    ServiceClient,
     CircuitBreaker,
     CircuitState,
     RetryPolicy,
     http_client,
+    service_client,
     get,
     post,
     put,
@@ -71,91 +68,6 @@ from pyfly.client import (
     HttpClientBeanPostProcessor,
 )
 ```
-
----
-
-## ServiceClient Builder
-
-`ServiceClient` is a resilient HTTP client that composes an `HttpClientPort`
-with optional circuit breaker and retry policies. You create instances using the
-fluent `ServiceClientBuilder`.
-
-### Creating a Client
-
-```python
-from datetime import timedelta
-from pyfly.client import ServiceClient
-
-client = (
-    ServiceClient.rest("user-service")
-    .base_url("http://user-service:8080")
-    .timeout(timedelta(seconds=10))
-    .circuit_breaker(failure_threshold=5, recovery_timeout=timedelta(seconds=30))
-    .retry(max_attempts=3, base_delay=timedelta(seconds=1))
-    .header("X-Api-Key", "secret")
-    .build()
-)
-```
-
-`ServiceClient.rest(name)` returns a `ServiceClientBuilder`. The `name`
-parameter is a logical identifier for the service (used in logging and
-metrics).
-
-### Fluent Builder API
-
-The `ServiceClientBuilder` provides the following methods, each returning
-`self` for chaining:
-
-| Method | Parameters | Description |
-|---|---|---|
-| `base_url(url)` | `str` | Set the base URL for all requests. |
-| `timeout(timeout)` | `timedelta` | Set the request timeout. Default: 30 seconds. |
-| `circuit_breaker(...)` | `failure_threshold: int = 5`, `recovery_timeout: timedelta = 30s` | Enable the circuit breaker. |
-| `retry(...)` | `max_attempts: int = 3`, `base_delay: timedelta = 1s` | Enable retry with exponential backoff. |
-| `header(name, value)` | `str, str` | Add a default header to all requests. |
-| `build()` | -- | Build and return the `ServiceClient`. Uses `HttpxClientAdapter` by default. |
-
-### Making Requests
-
-`ServiceClient` exposes four HTTP methods, all async:
-
-```python
-# GET
-user = await client.get("/users/123")
-
-# POST
-created = await client.post("/users", json={"name": "Alice"})
-
-# PUT
-updated = await client.put("/users/123", json={"name": "Bob"})
-
-# DELETE
-await client.delete("/users/123")
-```
-
-Each method delegates to the internal `_request()` method, which applies the
-resilience chain in this order:
-
-1. **Base operation**: calls `self._client.request(method, path, **kwargs)`
-2. **Circuit breaker** (if configured): wraps the operation in
-   `self._breaker.call(operation)`
-3. **Retry** (if configured): wraps the operation in
-   `self._retry.execute(operation)`
-
-The retry wraps the circuit breaker, so a request that trips the circuit
-breaker will be retried (and the next retry attempt may succeed if the circuit
-transitions to half-open).
-
-### Stopping the Client
-
-Always stop the client when done to release connection pool resources:
-
-```python
-await client.start()   # Start the underlying HTTP client
-await client.stop()    # Stop and release resources
-```
-
-This delegates to the underlying `HttpClientPort.stop()` method.
 
 ---
 
@@ -250,7 +162,7 @@ re-raised directly without recording.
 
 ### Standalone Usage
 
-You can use `CircuitBreaker` independently of `ServiceClient`:
+You can use `CircuitBreaker` independently of the HTTP client:
 
 ```python
 from pyfly.client import CircuitBreaker
@@ -351,9 +263,62 @@ result = await retry.execute(flaky_api_call, "/data")
 The declarative approach lets you define an HTTP client as a Python class with
 method stubs. PyFly generates the HTTP implementation at startup.
 
+Two decorators are available:
+
+| Decorator | Resilience | Use Case |
+|-----------|-----------|----------|
+| `@service_client` | Circuit breaker + retry | Production service-to-service calls |
+| `@http_client` | None | Lightweight clients, testing |
+
+### @service_client Decorator
+
+Mark a class as a **resilient** declarative HTTP client with built-in circuit
+breaker and retry:
+
+```python
+from pyfly.client import service_client, get, post
+
+@service_client(
+    base_url="http://payment-service:8080",
+    circuit_breaker=True,
+    retry=3,
+    circuit_breaker_failure_threshold=5,
+    circuit_breaker_recovery_timeout=60.0,
+    retry_base_delay=1.0,
+)
+class PaymentClient:
+    @get("/payments/{payment_id}")
+    async def get_payment(self, payment_id: str) -> dict:
+        ...
+
+    @post("/payments")
+    async def create_payment(self, body: dict) -> dict:
+        ...
+```
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `base_url` | `str` | *required* | Base URL for all requests |
+| `retry` | `int \| bool` | `True` | `True` for default retry, `int` for max attempts, `False` to disable |
+| `circuit_breaker` | `bool` | `True` | Enable circuit breaker wrapping |
+| `retry_base_delay` | `float \| None` | `None` | Override base delay (seconds) between retries |
+| `circuit_breaker_failure_threshold` | `int \| None` | `None` | Override failures before opening circuit |
+| `circuit_breaker_recovery_timeout` | `float \| None` | `None` | Override recovery timeout (seconds) |
+
+`@service_client` sets the same metadata as `@http_client` plus:
+
+| Attribute | Value |
+|-----------|-------|
+| `__pyfly_service_client__` | `True` |
+| `__pyfly_resilience__` | Dict with retry/circuit breaker configuration |
+
+The `HttpClientBeanPostProcessor` reads the resilience configuration and wraps
+each method with the appropriate circuit breaker and retry policies at startup.
+
 ### @http_client Decorator
 
-Mark a class as a declarative HTTP client:
+Mark a class as a declarative HTTP client (no resilience). Equivalent to
+`@service_client(base_url, retry=False, circuit_breaker=False)`:
 
 ```python
 from pyfly.client import http_client, get, post, delete
@@ -605,61 +570,6 @@ pyfly:
 
 ## Complete Example
 
-### Programmatic Client with Circuit Breaker and Retry
-
-```python
-from datetime import timedelta
-
-from pyfly.container import service, configuration, bean
-from pyfly.client import ServiceClient
-from pyfly.kernel.exceptions import CircuitBreakerException
-
-
-@configuration
-class ClientConfig:
-    @bean
-    def payment_client(self) -> ServiceClient:
-        return (
-            ServiceClient.rest("payment-service")
-            .base_url("http://payment-service:8080")
-            .timeout(timedelta(seconds=10))
-            .circuit_breaker(
-                failure_threshold=3,
-                recovery_timeout=timedelta(seconds=60),
-            )
-            .retry(
-                max_attempts=3,
-                base_delay=timedelta(seconds=1),
-            )
-            .header("Authorization", "Bearer internal-token")
-            .build()
-        )
-
-
-@service
-class OrderService:
-    def __init__(self, payment_client: ServiceClient) -> None:
-        self._payments = payment_client
-
-    async def process_payment(self, order_id: str, amount: float) -> dict:
-        """Process payment with full resilience.
-
-        The retry policy wraps the circuit breaker:
-        - Attempt 1: If payment-service is down, circuit breaker records failure.
-        - After base_delay (1s), Attempt 2: same thing.
-        - After 2s, Attempt 3: if 3rd failure, circuit opens.
-        - Next call: circuit breaker immediately rejects (no network call).
-        - After 60s: circuit enters HALF_OPEN, allows one probe.
-        """
-        return await self._payments.post(
-            "/payments",
-            json={"order_id": order_id, "amount": amount},
-        )
-
-    async def stop(self):
-        await self._payments.stop()
-```
-
 ### Declarative Client
 
 ```python
@@ -717,33 +627,24 @@ class CatalogService:
 
 ```python
 from unittest.mock import AsyncMock
-from pyfly.client import ServiceClient
+from pyfly.client import HttpClientPort
 
 
-async def test_order_service():
+async def test_catalog_service():
     # Create a mock HTTP client
-    mock_http = AsyncMock()
-    mock_http.request.return_value = {"payment_id": "pay_123", "status": "completed"}
+    mock_http = AsyncMock(spec=HttpClientPort)
+    mock_http.request.return_value = [{"id": "1", "name": "Widget"}]
 
-    # Inject the mock directly via the ServiceClient constructor
-    client = ServiceClient(
-        name="payment-service",
-        http_client=mock_http,
-    )
+    # Inject the mock into your service
+    service = CatalogService(inventory=mock_http)
+    products = await service.get_catalog_page("widgets")
 
-    result = await client.post("/payments", json={"amount": 99.99})
-
-    assert result["status"] == "completed"
-    mock_http.request.assert_called_once_with(
-        "POST", "/payments", json={"amount": 99.99}
-    )
-
-    await client.stop()
+    assert len(products) == 1
+    mock_http.request.assert_called_once()
 ```
 
 This demonstrates the value of the `HttpClientPort` abstraction: your tests
-never make real HTTP calls, yet they exercise the full `ServiceClient`
-interface.
+never make real HTTP calls, yet they exercise the full client interface.
 
 ---
 

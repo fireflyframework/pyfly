@@ -11,26 +11,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Tests for observability module: logging, metrics, tracing, and health."""
+"""Tests for observability module: metrics, tracing, and health aggregator."""
 
 
 import pytest
 
-from pyfly.observability.health import HealthChecker, HealthStatus
-from pyfly.observability.logging import configure_logging, get_logger
+from pyfly.actuator.health import HealthAggregator, HealthStatus
 from pyfly.observability.metrics import MetricsRegistry, counted, timed
 from pyfly.observability.tracing import span
-
-
-class TestStructuredLogging:
-    def test_get_logger(self):
-        log = get_logger("test.module")
-        assert log is not None
-
-    def test_configure_logging_sets_level(self):
-        configure_logging(level="DEBUG")
-        log = get_logger("test.config")
-        assert log is not None
 
 
 class TestMetrics:
@@ -100,62 +88,67 @@ class TestTracing:
             await failing()
 
 
-class TestHealthChecker:
+class TestHealthAggregator:
     @pytest.mark.asyncio
-    async def test_healthy_when_no_checks(self):
-        checker = HealthChecker()
-        result = await checker.check()
-        assert result.status == HealthStatus.UP
-
-    @pytest.mark.asyncio
-    async def test_healthy_with_passing_check(self):
-        checker = HealthChecker()
-
-        async def db_check() -> bool:
-            return True
-
-        checker.add_check("database", db_check)
-        result = await checker.check()
-        assert result.status == HealthStatus.UP
-        assert result.checks["database"] == HealthStatus.UP
+    async def test_healthy_when_no_indicators(self):
+        aggregator = HealthAggregator()
+        result = await aggregator.check()
+        assert result.status == "UP"
 
     @pytest.mark.asyncio
-    async def test_unhealthy_with_failing_check(self):
-        checker = HealthChecker()
+    async def test_healthy_with_passing_indicator(self):
+        aggregator = HealthAggregator()
 
-        async def redis_check() -> bool:
-            return False
+        class DbIndicator:
+            async def health(self) -> HealthStatus:
+                return HealthStatus(status="UP")
 
-        checker.add_check("redis", redis_check)
-        result = await checker.check()
-        assert result.status == HealthStatus.DOWN
-        assert result.checks["redis"] == HealthStatus.DOWN
-
-    @pytest.mark.asyncio
-    async def test_unhealthy_when_check_raises(self):
-        checker = HealthChecker()
-
-        async def broken_check() -> bool:
-            raise ConnectionError("can't connect")
-
-        checker.add_check("kafka", broken_check)
-        result = await checker.check()
-        assert result.status == HealthStatus.DOWN
-        assert result.checks["kafka"] == HealthStatus.DOWN
+        aggregator.add_indicator("database", DbIndicator())
+        result = await aggregator.check()
+        assert result.status == "UP"
+        assert result.components["database"].status == "UP"
 
     @pytest.mark.asyncio
-    async def test_mixed_checks(self):
-        checker = HealthChecker()
+    async def test_unhealthy_with_failing_indicator(self):
+        aggregator = HealthAggregator()
 
-        async def ok_check() -> bool:
-            return True
+        class RedisIndicator:
+            async def health(self) -> HealthStatus:
+                return HealthStatus(status="DOWN")
 
-        async def bad_check() -> bool:
-            return False
+        aggregator.add_indicator("redis", RedisIndicator())
+        result = await aggregator.check()
+        assert result.status == "DOWN"
+        assert result.components["redis"].status == "DOWN"
 
-        checker.add_check("db", ok_check)
-        checker.add_check("redis", bad_check)
-        result = await checker.check()
-        assert result.status == HealthStatus.DOWN
-        assert result.checks["db"] == HealthStatus.UP
-        assert result.checks["redis"] == HealthStatus.DOWN
+    @pytest.mark.asyncio
+    async def test_unhealthy_when_indicator_raises(self):
+        aggregator = HealthAggregator()
+
+        class BrokenIndicator:
+            async def health(self) -> HealthStatus:
+                raise ConnectionError("can't connect")
+
+        aggregator.add_indicator("kafka", BrokenIndicator())
+        result = await aggregator.check()
+        assert result.status == "DOWN"
+        assert result.components["kafka"].status == "DOWN"
+
+    @pytest.mark.asyncio
+    async def test_mixed_indicators(self):
+        aggregator = HealthAggregator()
+
+        class OkIndicator:
+            async def health(self) -> HealthStatus:
+                return HealthStatus(status="UP")
+
+        class BadIndicator:
+            async def health(self) -> HealthStatus:
+                return HealthStatus(status="DOWN")
+
+        aggregator.add_indicator("db", OkIndicator())
+        aggregator.add_indicator("redis", BadIndicator())
+        result = await aggregator.check()
+        assert result.status == "DOWN"
+        assert result.components["db"].status == "UP"
+        assert result.components["redis"].status == "DOWN"

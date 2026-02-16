@@ -13,6 +13,6 @@
 # limitations under the License.
 """EDA ports — abstract interfaces for event-driven architecture."""
 
-from pyfly.eda.ports.outbound import EventConsumer, EventPublisher
+from pyfly.eda.ports.outbound import EventPublisher
 
-__all__ = ["EventConsumer", "EventPublisher"]
+__all__ = ["EventPublisher"]

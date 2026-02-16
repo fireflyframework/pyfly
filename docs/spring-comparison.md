@@ -774,7 +774,7 @@ public Order getOrder(Long id) { }
 
 ```python
 from pyfly.resilience import rate_limiter, fallback
-from pyfly.client import ServiceClient
+from pyfly.client import service_client, get
 
 # Rate limiting
 limiter = rate_limiter(max_calls=100, period=60.0)
@@ -782,12 +782,16 @@ limiter = rate_limiter(max_calls=100, period=60.0)
 @limiter
 async def get_order(self, id: int) -> Order: ...
 
-# Circuit breaker (on HTTP clients via builder)
-client = (ServiceClient.rest("order-svc")
-    .base_url("http://order-svc")
-    .circuit_breaker(failure_threshold=5)
-    .retry(max_attempts=3)
-    .build())
+# Circuit breaker + retry (declarative client)
+@service_client(
+    base_url="http://order-svc",
+    circuit_breaker=True,
+    retry=3,
+    circuit_breaker_failure_threshold=5,
+)
+class OrderClient:
+    @get("/orders/{id}")
+    async def get_order(self, id: int) -> Order: ...
 
 # Fallback
 @fallback(fallback_fn=get_cached_order)

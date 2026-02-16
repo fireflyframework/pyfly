@@ -87,7 +87,7 @@ class ConditionEvaluator:
         if value is None:
             return False
         if cond["having_value"]:
-            return str(value) == cond["having_value"]
+            return str(value).lower() == cond["having_value"].lower()
         return True  # Key exists, no specific value required
 
     def _eval_on_missing_bean(self, cond: dict, declaring_cls: type | None = None) -> bool:

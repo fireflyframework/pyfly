@@ -64,7 +64,6 @@ from pyfly.data.document.mongodb import (
     MongoRepository,
     MongoQueryMethodCompiler,
     MongoRepositoryBeanPostProcessor,
-    initialize_beanie,
     mongo_transactional,
 )
 ```
@@ -580,86 +579,85 @@ Source file: `src/pyfly/config/properties/mongodb.py` (class `DocumentProperties
 
 ## Auto-Configuration
 
-PyFly uses a config-driven auto-configuration system to detect and wire the MongoDB adapter at startup. This mirrors the Spring Boot auto-configuration pattern.
+PyFly uses a decentralized, config-driven auto-configuration system to detect and wire the MongoDB adapter at startup. Each subsystem provides its own `@auto_configuration` class that is discovered via `pyfly.auto_configuration` entry points. This mirrors the Spring Boot auto-configuration pattern.
 
 ### Detection Flow
 
-The `AutoConfigurationEngine` processes the MongoDB subsystem in its `_configure_document()` method. The flow is:
+The `DocumentAutoConfiguration` class (in `src/pyfly/data/document/auto_configuration.py`) is decorated with conditional annotations that control whether the MongoDB subsystem is activated:
 
-1. **Check enabled flag.** Read `pyfly.data.document.enabled` from config. If `false` (the default), the MongoDB subsystem is skipped entirely.
+1. **`@auto_configuration`** — Marks the class for discovery via the `pyfly.auto_configuration` entry-point group.
 
-2. **Detect provider.** Call `AutoConfiguration.detect_document_provider()`, which checks whether the `beanie` package is importable. If it is, the provider is `"beanie"`. If not, the provider is `"none"` and MongoDB is skipped.
+2. **`@conditional_on_class("beanie")`** — The class is skipped entirely if the `beanie` package is not importable. This is the library-availability gate.
 
-3. **Read connection settings.** Extract `pyfly.data.document.uri` and `pyfly.data.document.database` from config.
+3. **`@conditional_on_property("pyfly.data.document.enabled", having_value="true")`** — The class is skipped if the property is absent or not `"true"`. This is the opt-in gate.
 
-4. **Register results.** Store the provider name and connection configuration for use during application startup.
+When both conditions are satisfied, `DocumentAutoConfiguration` registers three beans via `@bean` methods:
 
 ```python
-class AutoConfiguration:
-    @staticmethod
-    def detect_document_provider() -> str:
-        """Detect the best available MongoDB / document DB provider."""
-        if AutoConfiguration.is_available("beanie"):
-            return "beanie"
-        return "none"
+@auto_configuration
+@conditional_on_class("beanie")
+@conditional_on_property("pyfly.data.document.enabled", having_value="true")
+class DocumentAutoConfiguration:
+
+    @bean
+    def motor_client(self, config: Config) -> AsyncIOMotorClient:
+        uri = str(config.get("pyfly.data.document.uri", "mongodb://localhost:27017"))
+        return AsyncIOMotorClient(uri)
+
+    @bean
+    def mongo_post_processor(self) -> MongoRepositoryBeanPostProcessor:
+        return MongoRepositoryBeanPostProcessor()
+
+    @bean
+    def odm_initializer(
+        self, config: Config, container: Container, motor_client: AsyncIOMotorClient,
+    ) -> BeanieInitializer:
+        return BeanieInitializer(motor_client=motor_client, config=config, container=container)
 ```
 
 The detection is purely library-based: if Beanie is installed in your Python environment, the MongoDB adapter is available. You still need to set `pyfly.data.document.enabled: true` in config to activate it.
 
 ### Beanie Initialization
 
-Beanie requires explicit initialization before any document operations can be performed. The `initialize_beanie()` helper function in the MongoDB adapter handles this:
+Beanie requires explicit initialization before any document operations can be performed. The `BeanieInitializer` lifecycle bean (in `src/pyfly/data/document/mongodb/initializer.py`) handles this automatically during application startup.
 
-```python
-from pyfly.data.document.mongodb import initialize_beanie
+`BeanieInitializer` is registered as a bean by `DocumentAutoConfiguration.odm_initializer()`. Because it implements the `start()`/`stop()` lifecycle protocol, `ApplicationContext._start_infrastructure()` calls it during the startup sequence:
 
+**`start()`:**
+1. Reads `pyfly.data.document.database` from config (defaults to `"pyfly"`).
+2. Scans the container for all registered `BaseDocument` subclasses.
+3. Calls Beanie's `init_beanie()` with the Motor database and discovered document models.
 
-client = await initialize_beanie(
-    uri="mongodb://localhost:27017",
-    database="my_app",
-    document_models=[ProductDocument, OrderDocument, CustomerDocument],
-)
-```
+**`stop()`:**
+1. Closes the Motor client, releasing all pooled connections.
 
-This function:
-1. Creates an `AsyncIOMotorClient` with the provided URI.
-2. Selects the target database from the client.
-3. Calls Beanie's `init_beanie()` with the database and document model list.
-4. Returns the Motor client instance for lifecycle management (e.g., closing on shutdown).
-
-Typically, you call `initialize_beanie()` during your application's startup phase (e.g., in a lifespan handler or `@pyfly_application` startup hook).
+You do not need to call any initialization function manually. As long as `pyfly.data.document.enabled: true` is set and `beanie` is installed, the `BeanieInitializer` is created and started automatically.
 
 ### Document Class Discovery
 
-For the `document_models` parameter, you need to provide all Beanie `Document` subclasses that your application uses. A typical pattern is to collect them in a central module:
+Unlike manual initialization where you must enumerate all document models, `BeanieInitializer.start()` discovers them automatically. It iterates over all registrations in the container and collects every class that is a subclass of `BaseDocument`:
 
 ```python
-# documents/__init__.py
-from documents.product import ProductDocument
-from documents.order import OrderDocument
-from documents.customer import CustomerDocument
+async def start(self) -> None:
+    from pyfly.data.document.mongodb.document import BaseDocument
 
-ALL_DOCUMENTS = [ProductDocument, OrderDocument, CustomerDocument]
+    db_name = str(self._config.get("pyfly.data.document.database", "pyfly"))
+
+    document_models: list[type] = []
+    for cls in self._container._registrations:
+        if isinstance(cls, type) and issubclass(cls, BaseDocument) and cls is not BaseDocument:
+            document_models.append(cls)
+
+    if document_models:
+        from beanie import init_beanie
+        await init_beanie(database=self._motor_client[db_name], document_models=document_models)
 ```
 
-Then pass them during initialization:
-
-```python
-from documents import ALL_DOCUMENTS
-from pyfly.data.document.mongodb import initialize_beanie
-
-
-async def startup():
-    client = await initialize_beanie(
-        uri="mongodb://localhost:27017",
-        database="my_app",
-        document_models=ALL_DOCUMENTS,
-    )
-```
+This means any `BaseDocument` subclass that is registered in the container (e.g., via `@repository` stereotype or component scanning) is automatically included in Beanie initialization. There is no need to maintain a manual list of document models.
 
 Source files:
-- `src/pyfly/config/auto.py` — `AutoConfiguration`, `AutoConfigurationEngine._configure_document()`
-- `src/pyfly/data/document/mongodb/initializer.py` — `initialize_beanie()`
+- `src/pyfly/data/document/auto_configuration.py` — `DocumentAutoConfiguration` (Motor client, post-processor, and initializer beans)
+- `src/pyfly/data/document/mongodb/initializer.py` — `BeanieInitializer` (lifecycle bean)
 
 ---
 
@@ -733,17 +731,15 @@ services:
 
 ### Usage Example
 
-A complete example showing transactional order processing:
+A complete example showing transactional order processing. The `motor_client` bean is provided automatically by `DocumentAutoConfiguration` and can be injected into your service:
 
 ```python
-from pyfly.data.document.mongodb import mongo_transactional, initialize_beanie
+from pyfly.data.document.mongodb import mongo_transactional
+from motor.motor_asyncio import AsyncIOMotorClient
 
-# Initialize Beanie during startup
-client = await initialize_beanie(
-    uri="mongodb://localhost:27017/?replicaSet=rs0",
-    database="my_app",
-    document_models=[OrderDocument, InventoryDocument],
-)
+# The Motor client is auto-configured by DocumentAutoConfiguration.
+# Inject it into your service via the container.
+client: AsyncIOMotorClient = ...
 
 
 @mongo_transactional(client)
@@ -802,13 +798,7 @@ async def find_by_status(self, status: str) -> list[OrderDocument]: ...    # Ell
 async def find_by_status(self, status: str) -> list[OrderDocument]: pass   # Pass stub
 ```
 
-Register the post-processor in your application context:
-
-```python
-from pyfly.data.document.mongodb import MongoRepositoryBeanPostProcessor
-
-context.register_post_processor(MongoRepositoryBeanPostProcessor())
-```
+The post-processor is registered automatically by `DocumentAutoConfiguration.mongo_post_processor()` when the MongoDB subsystem is enabled. No manual registration is required.
 
 Source file: `src/pyfly/data/document/mongodb/post_processor.py`
 
@@ -1296,7 +1286,6 @@ class ProductController:
 
 from pyfly.core import pyfly_application, PyFlyApplication
 from pyfly.web.adapters.starlette import create_app
-from pyfly.data.document.mongodb import initialize_beanie, MongoRepositoryBeanPostProcessor
 
 
 @pyfly_application(
@@ -1313,15 +1302,12 @@ async def main():
     pyfly_app = PyFlyApplication(Application)
     await pyfly_app.startup()
 
-    # Initialize Beanie with document models
-    client = await initialize_beanie(
-        uri="mongodb://localhost:27017",
-        database="product_catalog",
-        document_models=[ProductDocument],
-    )
-
-    # Register MongoDB post-processor for derived query methods
-    pyfly_app.context.register_post_processor(MongoRepositoryBeanPostProcessor())
+    # DocumentAutoConfiguration (discovered via pyfly.auto_configuration entry points)
+    # automatically registers and starts:
+    #   - motor_client        (AsyncIOMotorClient)
+    #   - mongo_post_processor (MongoRepositoryBeanPostProcessor)
+    #   - odm_initializer     (BeanieInitializer — scans for BaseDocument subclasses
+    #                           and calls init_beanie() during _start_infrastructure())
 
     # Create the web application
     app = create_app(

@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Declarative HTTP client — Spring-style @http_client with @get/@post etc."""
+"""Declarative HTTP client — Spring-style @service_client / @http_client with @get/@post etc."""
 from __future__ import annotations
 
 import functools
@@ -24,11 +24,30 @@ F = TypeVar("F", bound=Callable[..., Any])
 T = TypeVar("T")
 
 
-def http_client(base_url: str) -> Callable[[type[T]], type[T]]:
-    """Mark a class as a declarative HTTP client.
+def service_client(
+    base_url: str,
+    *,
+    retry: int | bool = True,
+    circuit_breaker: bool = True,
+    retry_base_delay: float | None = None,
+    circuit_breaker_failure_threshold: int | None = None,
+    circuit_breaker_recovery_timeout: float | None = None,
+) -> Callable[[type[T]], type[T]]:
+    """Mark a class as a resilient declarative HTTP client.
 
-    Methods decorated with @get, @post, etc. will have implementations
-    generated at startup by HttpClientBeanPostProcessor.
+    Methods decorated with ``@get``, ``@post``, etc. will have implementations
+    generated at startup by ``HttpClientBeanPostProcessor``, wrapped with
+    circuit breaker and retry logic.
+
+    Args:
+        base_url: Base URL for all requests.
+        retry: ``True`` for default retry, an ``int`` for max attempts, or
+            ``False`` to disable.
+        circuit_breaker: Enable circuit breaker wrapping.
+        retry_base_delay: Override the default base delay (seconds) between
+            retries.
+        circuit_breaker_failure_threshold: Override failures before opening.
+        circuit_breaker_recovery_timeout: Override recovery timeout (seconds).
     """
 
     def decorator(cls: type[T]) -> type[T]:
@@ -37,9 +56,26 @@ def http_client(base_url: str) -> Callable[[type[T]], type[T]]:
         cls.__pyfly_injectable__ = True  # type: ignore[attr-defined]
         cls.__pyfly_stereotype__ = "component"  # type: ignore[attr-defined]
         cls.__pyfly_scope__ = Scope.SINGLETON  # type: ignore[attr-defined]
+        cls.__pyfly_service_client__ = True  # type: ignore[attr-defined]
+        cls.__pyfly_resilience__ = {  # type: ignore[attr-defined]
+            "retry": retry,
+            "circuit_breaker": circuit_breaker,
+            "retry_base_delay": retry_base_delay,
+            "circuit_breaker_failure_threshold": circuit_breaker_failure_threshold,
+            "circuit_breaker_recovery_timeout": circuit_breaker_recovery_timeout,
+        }
         return cls
 
     return decorator
+
+
+def http_client(base_url: str) -> Callable[[type[T]], type[T]]:
+    """Mark a class as a declarative HTTP client (no resilience).
+
+    Equivalent to ``@service_client(base_url, retry=False, circuit_breaker=False)``.
+    Prefer ``@service_client`` for production use.
+    """
+    return service_client(base_url, retry=False, circuit_breaker=False)
 
 
 def _make_http_method_decorator(method: str) -> Callable[[str], Callable[[F], F]]:

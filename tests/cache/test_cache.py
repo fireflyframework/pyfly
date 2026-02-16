@@ -20,7 +20,7 @@ import pytest
 from pyfly.cache.adapters import InMemoryCache
 from pyfly.cache.decorators import cache
 from pyfly.cache.manager import CacheManager
-from pyfly.cache.types import CacheAdapter
+from pyfly.cache.ports.outbound import CacheAdapter
 
 
 class TestInMemoryCache:

@@ -11,12 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Tests for declarative @http_client and HTTP method decorators."""
+"""Tests for declarative @http_client, @service_client, and HTTP method decorators."""
 from __future__ import annotations
 
 import pytest
 
-from pyfly.client.declarative import delete, get, http_client, patch, post, put
+from pyfly.client.declarative import delete, get, http_client, patch, post, put, service_client
 from pyfly.container.types import Scope
 
 
@@ -37,6 +37,69 @@ class TestHttpClientDecorator:
         assert getattr(MyClient, "__pyfly_injectable__") is True
         assert getattr(MyClient, "__pyfly_stereotype__") == "component"
         assert getattr(MyClient, "__pyfly_scope__") is Scope.SINGLETON
+
+
+class TestServiceClientDecorator:
+    def test_marks_class_with_metadata(self) -> None:
+        @service_client(base_url="http://example.com")
+        class MyClient:
+            pass
+
+        assert getattr(MyClient, "__pyfly_http_client__") is True
+        assert getattr(MyClient, "__pyfly_http_base_url__") == "http://example.com"
+        assert getattr(MyClient, "__pyfly_service_client__") is True
+
+    def test_resilience_defaults(self) -> None:
+        @service_client(base_url="http://example.com")
+        class MyClient:
+            pass
+
+        res = getattr(MyClient, "__pyfly_resilience__")
+        assert res["retry"] is True
+        assert res["circuit_breaker"] is True
+        assert res["retry_base_delay"] is None
+        assert res["circuit_breaker_failure_threshold"] is None
+        assert res["circuit_breaker_recovery_timeout"] is None
+
+    def test_custom_retry_attempts(self) -> None:
+        @service_client(base_url="http://example.com", retry=5)
+        class MyClient:
+            pass
+
+        res = getattr(MyClient, "__pyfly_resilience__")
+        assert res["retry"] == 5
+
+    def test_resilience_disabled(self) -> None:
+        @service_client(base_url="http://example.com", retry=False, circuit_breaker=False)
+        class MyClient:
+            pass
+
+        res = getattr(MyClient, "__pyfly_resilience__")
+        assert res["retry"] is False
+        assert res["circuit_breaker"] is False
+
+    def test_custom_circuit_breaker_params(self) -> None:
+        @service_client(
+            base_url="http://example.com",
+            circuit_breaker_failure_threshold=10,
+            circuit_breaker_recovery_timeout=60.0,
+        )
+        class MyClient:
+            pass
+
+        res = getattr(MyClient, "__pyfly_resilience__")
+        assert res["circuit_breaker_failure_threshold"] == 10
+        assert res["circuit_breaker_recovery_timeout"] == 60.0
+
+    def test_http_client_is_alias_with_no_resilience(self) -> None:
+        @http_client(base_url="http://example.com")
+        class MyClient:
+            pass
+
+        res = getattr(MyClient, "__pyfly_resilience__")
+        assert res["retry"] is False
+        assert res["circuit_breaker"] is False
+        assert getattr(MyClient, "__pyfly_service_client__") is True
 
 
 class TestHttpMethodDecorators:

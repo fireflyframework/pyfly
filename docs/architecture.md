@@ -31,7 +31,7 @@ advanced users, and anyone who wants to understand *why* PyFly is structured the
    - [Stereotype System](#stereotype-system)
 7. [Auto-Configuration](#auto-configuration)
    - [Declarative Auto-Configuration](#declarative-auto-configuration)
-   - [Imperative Auto-Configuration](#imperative-auto-configuration)
+   - [Decentralized Auto-Configuration via Entry Points](#decentralized-auto-configuration-via-entry-points)
    - [Provider Detection](#provider-detection)
 8. [Framework-Agnostic Design](#framework-agnostic-design)
    - [Web Module](#web-module)
@@ -195,6 +195,10 @@ This unified lifecycle enables:
 - **Fail-fast startup**: adapters validate connectivity in `start()`, failing immediately if infrastructure is unreachable.
 - **Graceful shutdown**: adapters release resources in `stop()`, called in reverse initialization order.
 - **Consistent testing**: mock adapters implement the same `start()`/`stop()` contract.
+- **Generic infrastructure startup**: `ApplicationContext._start_infrastructure()` iterates all
+  resolved beans and starts any bean that defines `start()` and `stop()` methods -- no
+  hardcoded subsystem knowledge required. This also enables lifecycle beans like
+  `BeanieInitializer` (which initializes Beanie ODM and closes the Motor client).
 
 ---
 
@@ -213,7 +217,7 @@ The foundation provides primitives with zero or minimal external dependencies.
 | **Core** | `pyfly.core` | Application bootstrap (`PyFlyApplication`, `@pyfly_application`), configuration (`Config`, `@config_properties`), and banner rendering (`BannerPrinter`, `BannerMode`). |
 | **Container** | `pyfly.container` | DI container (`Container`), stereotypes (`@service`, `@component`, `@repository`, `@controller`, `@rest_controller`, `@configuration`), scopes (`Scope`), `@bean`, `@primary`, `@order`, `Qualifier`, component scanning. |
 | **Context** | `pyfly.context` | `ApplicationContext`, lifecycle hooks (`@post_construct`, `@pre_destroy`), `BeanPostProcessor` protocol, conditions (`@conditional_on_property`, `@conditional_on_class`, `@conditional_on_bean`, `@conditional_on_missing_bean`), events (`ApplicationReadyEvent`, `ContextRefreshedEvent`, `ContextClosedEvent`, `@app_event_listener`), `Environment`. |
-| **Config** | `pyfly.config` | Auto-configuration engine (`AutoConfiguration`, `AutoConfigurationEngine`). Provider detection and imperative adapter wiring. |
+| **Config** | `pyfly.config` | Auto-configuration utilities (`AutoConfiguration` for provider detection, `discover_auto_configurations()` for entry-point discovery). Each subsystem owns its own `@auto_configuration` class. |
 | **Logging** | `pyfly.logging` | Logging port (`LoggingPort`) and structlog adapter (`StructlogAdapter`). |
 
 ### Application Layer
@@ -237,9 +241,9 @@ Infrastructure modules follow the hexagonal pattern: ports in `ports/`, adapters
 | **Data** | `pyfly.data` | `RepositoryPort`, `SessionPort`, `QueryMethodCompilerPort`. | SQLAlchemy (`Repository`, `Specification`, `FilterUtils`, `@query`, `QueryMethodCompiler`, `RepositoryBeanPostProcessor`), MongoDB (`MongoRepository`, `BaseDocument`, `MongoQueryMethodCompiler`, `MongoRepositoryBeanPostProcessor`). |
 | **Messaging** | `pyfly.messaging` | `MessageBrokerPort`, `MessageHandler`, `Message`, `@message_listener`. | Kafka (`KafkaAdapter`), RabbitMQ (`RabbitMQAdapter`), in-memory (`InMemoryMessageBroker`). |
 | **Cache** | `pyfly.cache` | `CacheAdapter`, `CacheManager`, `@cacheable`, `@cache_evict`, `@cache_put`. | Redis (`RedisCacheAdapter`), in-memory (`InMemoryCache`). |
-| **Client** | `pyfly.client` | `HttpClientPort`, `ServiceClient`, `CircuitBreaker`, `RetryPolicy`, declarative `@http_client` with `@get`, `@post`, `@put`, `@patch`, `@delete`. | HTTPX (`HttpxClientAdapter`), `HttpClientBeanPostProcessor`. |
+| **Client** | `pyfly.client` | `HttpClientPort`, `@service_client`, `@http_client`, `CircuitBreaker`, `RetryPolicy`, declarative `@get`, `@post`, `@put`, `@patch`, `@delete`. | HTTPX (`HttpxClientAdapter`), `HttpClientBeanPostProcessor`. |
 | **Scheduling** | `pyfly.scheduling` | `TaskExecutorPort`, `CronExpression`, `TaskScheduler`, `@scheduled`, `@async_method`. | AsyncIO (`AsyncIOTaskExecutor`), thread pool (`ThreadPoolTaskExecutor`). |
-| **Security** | `pyfly.security` | `SecurityContext`, `PasswordEncoder`, `@secure`. | `JWTService`, `BcryptPasswordEncoder`, `SecurityMiddleware`. |
+| **Security** | `pyfly.security` | `SecurityContext`, `PasswordEncoder`, `@secure`. | `JWTService`, `BcryptPasswordEncoder`, `SecurityMiddleware` (canonical: `pyfly.web.adapters.starlette.security_middleware`, re-exported from `pyfly.security`). |
 | **Actuator** | `pyfly.actuator` | `HealthIndicator`, `HealthAggregator`, `HealthResult`, `HealthStatus`, `ActuatorEndpoint` protocol, `ActuatorRegistry`. | Extensible HTTP endpoints (`make_starlette_actuator_routes`), built-in: health, beans, env, info, loggers, metrics. Per-endpoint enable/disable via config. |
 
 ### Cross-Cutting Layer
@@ -351,17 +355,27 @@ When `await app.startup()` is called:
 
 This is where the bulk of the DI and lifecycle work happens. The steps are:
 
+0. **Register auto-configurations** -- `_register_auto_configurations()` discovers
+   `@auto_configuration` classes via `importlib.metadata.entry_points(group="pyfly.auto_configuration")`.
+   Each subsystem registers its own auto-configuration class as an entry point in
+   `pyproject.toml` (analogous to Spring Boot's `META-INF/spring.factories`). The six
+   built-in auto-configuration classes are: `WebAutoConfiguration`,
+   `CacheAutoConfiguration`, `MessagingAutoConfiguration`, `ClientAutoConfiguration`,
+   `DocumentAutoConfiguration`, `RelationalAutoConfiguration`. Third-party packages
+   can add their own by declaring entries in the same group.
+
 1. **Filter by profile** -- `_filter_by_profile()` removes registrations whose
    `__pyfly_profile__` expression does not match the `Environment.active_profiles`.
    Uses `Environment.accepts_profiles()` which supports negation and comma-separated OR.
 
-2. **Evaluate conditions (pass 1)** -- `ConditionEvaluator.should_include(cls, bean_pass=False)`
-   removes beans that fail non-bean-dependent conditions:
+1b. **Evaluate conditions (pass 1)** -- `_evaluate_conditions()` calls
+   `ConditionEvaluator.should_include(cls, bean_pass=False)` and removes beans that
+   fail non-bean-dependent conditions:
    - `@conditional_on_property` -- config key must exist (and optionally match a value).
    - `@conditional_on_class` -- Python module must be importable.
    - Stereotype `condition` callable -- must return `True`.
 
-3. **Process user `@configuration` classes** -- `_process_configurations(auto=False)`:
+2. **Process user `@configuration` classes** -- `_process_configurations(auto=False)`:
    - Find all `@configuration`-stereotyped classes that are NOT `@auto_configuration`.
    - Resolve the configuration class itself.
    - Find `@bean`-decorated methods.
@@ -369,25 +383,37 @@ This is where the bulk of the DI and lifecycle work happens. The steps are:
    - Call each method (injecting parameters from the container).
    - Register the produced bean by its return type.
 
-4. **Evaluate conditions (pass 2)** -- `ConditionEvaluator.should_include(cls, bean_pass=True)`
-   removes beans that fail bean-dependent conditions:
+2b. **Evaluate conditions (pass 2)** -- `_evaluate_bean_conditions()` calls
+   `ConditionEvaluator.should_include(cls, bean_pass=True)` and removes beans that
+   fail bean-dependent conditions:
    - `@conditional_on_bean` -- another bean of the specified type must exist.
    - `@conditional_on_missing_bean` -- no bean of the specified type must exist.
    This runs after user `@configuration` processing so user-provided beans are visible.
 
-5. **Process `@auto_configuration` classes** -- `_process_configurations(auto=True)`:
-   same as step 3 but only for classes with `__pyfly_auto_configuration__ = True`.
+2c. **Process `@auto_configuration` classes** -- `_process_configurations(auto=True)`:
+   same as step 2 but only for classes with `__pyfly_auto_configuration__ = True`.
+   Each subsystem's `@auto_configuration` class owns its own wiring: it uses
+   `@conditional_on_class` / `@conditional_on_property` / `@conditional_on_missing_bean`
+   to guard its `@bean` methods, and delegates provider detection to its own
+   ``detect_provider()`` static method when the configured provider is `"auto"`.
 
-6. **Run `AutoConfigurationEngine`** -- imperative auto-configuration that detects
-   available providers and registers adapter beans for cache, messaging, client, and
-   data subsystems. Skips any subsystem where the user has already registered a bean.
+2d. **Start infrastructure** -- `_start_infrastructure()` iterates all resolved beans
+   and starts any bean whose class defines `start()` and `stop()` lifecycle methods.
+   This is fully generic -- it does not hardcode subsystem names. Examples of lifecycle
+   beans: `RedisCacheAdapter`, `KafkaAdapter`, `BeanieInitializer`,
+   `HttpxClientAdapter`. On failure, `BeanCreationException` is raised immediately
+   (fail-fast).
 
-7. **Eagerly resolve all singletons** -- sorted by `@order` value (lower = higher
+3. **Discover post-processors** -- `_discover_post_processors()` scans registered
+   beans for `BeanPostProcessor` implementations and adds them to the post-processor
+   list.
+
+4. **Eagerly resolve all singletons** -- sorted by `@order` value (lower = higher
    priority = resolved first). For each singleton registration with no cached instance,
    call `container.resolve()` (which triggers constructor injection recursively).
    Resolution failures are silently suppressed via `contextlib.suppress(KeyError)`.
 
-8. **Run post-processors and lifecycle hooks** -- for each resolved bean instance,
+5. **Run post-processors and lifecycle hooks** -- for each resolved bean instance,
    in registration order:
    - All `BeanPostProcessor.before_init()` methods (sorted by `@order` of the post-processor).
    - All `@post_construct` methods on the bean (async-aware: if the method returns an
@@ -395,7 +421,11 @@ This is where the bulk of the DI and lifecycle work happens. The steps are:
    - All `BeanPostProcessor.after_init()` methods (sorted by `@order` of the post-processor).
    Post-processors can return replacement beans (enabling proxy patterns like AOP).
 
-9. **Publish lifecycle events**:
+6. **Wire decorator-based beans** -- connect `@app_event_listener`,
+   `@message_listener`, CQRS handlers, `@scheduled`, and `@async_method` to their
+   respective targets.
+
+7. **Publish lifecycle events**:
    - `ContextRefreshedEvent` -- signals that the context is fully initialized.
    - `ApplicationReadyEvent` -- signals that the application is ready to serve requests.
 
@@ -421,22 +451,26 @@ await app.startup()
     |
     +-- await ApplicationContext.start()
     |       |
-    |       +-- 1. Filter beans by profile expression
-    |       +-- 2. Evaluate conditions (pass 1: on_property, on_class)
-    |       +-- 3. Process user @configuration classes + @bean methods
-    |       +-- 4. Evaluate conditions (pass 2: on_bean, on_missing_bean)
-    |       +-- 5. Process @auto_configuration classes + @bean methods
-    |       +-- 6. Run AutoConfigurationEngine (provider detection)
-    |       +-- 6a. Start infrastructure adapters (fail-fast)
-    |       |       +-- For each adapter: await adapter.start()
+    |       +-- 0.  _register_auto_configurations()
+    |       |       +-- discover_auto_configurations() via entry points
+    |       |       +-- Register each @auto_configuration class
+    |       +-- 1.  _filter_by_profile()
+    |       +-- 1b. _evaluate_conditions() (pass 1: on_property, on_class)
+    |       +-- 2.  _process_configurations(auto=False)  [user @configuration]
+    |       +-- 2b. _evaluate_bean_conditions() (pass 2: on_bean, on_missing_bean)
+    |       +-- 2c. _process_configurations(auto=True)   [@auto_configuration]
+    |       +-- 2d. _start_infrastructure()
+    |       |       +-- For each bean with start()/stop(): await bean.start()
     |       |       +-- On failure: BeanCreationException
-    |       +-- 7. Eagerly resolve singletons (sorted by @order)
-    |       +-- 8. For each bean:
+    |       +-- 3.  _discover_post_processors()
+    |       +-- 4.  Eagerly resolve singletons (sorted by @order)
+    |       +-- 5.  For each bean:
     |       |       +-- BeanPostProcessor.before_init()
     |       |       +-- @post_construct methods
     |       |       +-- BeanPostProcessor.after_init()
-    |       +-- 9. Publish ContextRefreshedEvent
-    |       +-- 10. Publish ApplicationReadyEvent
+    |       +-- 6.  Wire decorator-based beans (@app_event_listener, etc.)
+    |       +-- 7.  Publish ContextRefreshedEvent
+    |       +-- 7b. Publish ApplicationReadyEvent
     |
     +-- Record startup time
     +-- Log "Started {app} in {time}s ({count} beans)"
@@ -466,7 +500,7 @@ PyFly's DI system has two layers, each with a distinct responsibility:
 
 | Component | Role | When to Use |
 |---|---|---|
-| `Container` | Low-level DI engine. Stores `Registration` objects, resolves by type hints, handles scopes, `@primary`, and `Qualifier`. No lifecycle awareness. | Standalone tests, framework extensions, custom resolution logic. |
+| `Container` | Low-level DI engine. Stores `Registration` objects, resolves by type hints, handles scopes, `@primary`, and `Qualifier`. No lifecycle awareness. Registered as a singleton bean so it can be injected into any component (e.g., auto-configuration classes that need to scan the registry). | Standalone tests, framework extensions, custom resolution logic, auto-configuration classes that need registry access. |
 | `ApplicationContext` | High-level orchestrator. Wraps the Container and adds `@bean` factory methods, lifecycle hooks, post-processors, profile filtering, condition evaluation, auto-configuration, and events. | Always use in application code. |
 
 The `ApplicationContext` exposes the underlying container via its `container` property
@@ -481,8 +515,8 @@ Bean registration happens through multiple channels:
 2. **Manual registration** -- `container.register(cls)` or `context.register_bean(cls)`.
 3. **@bean factory methods** -- methods inside `@configuration` classes, processed by
    `_process_configurations()`.
-4. **Auto-configuration** -- `AutoConfigurationEngine` registers adapter beans directly
-   into the container.
+4. **Auto-configuration** -- per-subsystem `@auto_configuration` classes (discovered via
+   entry points) register adapter beans through their `@bean` methods.
 
 Resolution follows these rules (in `Container.resolve()`):
 
@@ -516,7 +550,8 @@ The differences are:
 
 ## Auto-Configuration
 
-PyFly provides two auto-configuration mechanisms that work together.
+PyFly uses a fully decentralized auto-configuration model. Each subsystem owns its
+own `@auto_configuration` class, discovered at startup via entry points.
 
 ### Declarative Auto-Configuration
 
@@ -527,43 +562,82 @@ decorators, it provides "default with override" semantics:
 ```python
 @auto_configuration
 @conditional_on_missing_bean(CacheAdapter)
-@conditional_on_class("redis.asyncio")
-class RedisCacheAutoConfig:
+@conditional_on_property("pyfly.cache.enabled", having_value="true")
+class CacheAutoConfiguration:
     @bean
-    def cache(self) -> CacheAdapter:
-        return RedisCacheAdapter(...)
+    def cache_adapter(self, config: Config) -> CacheAdapter:
+        provider = CacheAutoConfiguration.detect_provider()
+        if provider == "redis":
+            return RedisCacheAdapter(...)
+        return InMemoryCache()
 ```
 
 This bean is only created if (1) no user-provided `CacheAdapter` exists and (2) the
-`redis` library is installed.
+cache subsystem is enabled in config.
 
 Auto-configuration classes:
+- Are discovered via `importlib.metadata.entry_points(group="pyfly.auto_configuration")`
+  by `discover_auto_configurations()` in `pyfly.config.auto`.
 - Receive an implicit `@order(1000)` (lower priority than user beans at default 0).
 - Are processed after user `@configuration` classes.
 - Have `__pyfly_auto_configuration__ = True`, `__pyfly_injectable__ = True`, and
   `__pyfly_stereotype__ = "configuration"` set by the decorator.
 
-### Imperative Auto-Configuration
+The six built-in auto-configuration classes are:
 
-The `AutoConfigurationEngine` (from `pyfly.config.auto`) runs after all declarative
-configuration. It reads config properties to determine which subsystems are enabled,
-detects available providers, and registers appropriate adapter beans.
+| Auto-Configuration Class | Module | Port/Bean | Conditions |
+|---|---|---|---|
+| `WebAutoConfiguration` | `pyfly.web.auto_configuration` | `WebServerPort` | `@conditional_on_class("starlette")`, `@conditional_on_missing_bean(WebServerPort)` |
+| `CacheAutoConfiguration` | `pyfly.cache.auto_configuration` | `CacheAdapter` | `@conditional_on_property("pyfly.cache.enabled")`, `@conditional_on_missing_bean(CacheAdapter)` |
+| `MessagingAutoConfiguration` | `pyfly.messaging.auto_configuration` | `MessageBrokerPort` | `@conditional_on_property("pyfly.messaging.provider")`, `@conditional_on_missing_bean(MessageBrokerPort)` |
+| `ClientAutoConfiguration` | `pyfly.client.auto_configuration` | `HttpClientPort` | `@conditional_on_class("httpx")`, `@conditional_on_missing_bean(HttpClientPort)` |
+| `DocumentAutoConfiguration` | `pyfly.data.document.auto_configuration` | `AsyncIOMotorClient`, `BeanieInitializer`, `MongoRepositoryBeanPostProcessor` | `@conditional_on_class("beanie")`, `@conditional_on_property("pyfly.data.document.enabled")` |
+| `RelationalAutoConfiguration` | `pyfly.data.relational.auto_configuration` | `RepositoryBeanPostProcessor` | `@conditional_on_class("sqlalchemy")`, `@conditional_on_property("pyfly.data.relational.enabled")` |
 
-For each subsystem, the engine:
+### Decentralized Auto-Configuration via Entry Points
 
-1. Checks if a bean for the port type is already registered (user override). If so, skip.
-2. Checks if the subsystem is enabled in config (e.g., `pyfly.cache.enabled`).
-3. Reads the configured provider (e.g., `pyfly.cache.provider`).
-4. If provider is `"auto"`, calls the detection method (e.g., `detect_cache_provider()`).
-5. Imports and instantiates the appropriate adapter.
-6. Registers it as a singleton bean.
+The `AutoConfigurationEngine` class has been removed. Auto-configuration is now fully
+decentralized: each subsystem owns its own `@auto_configuration` class, discovered at
+startup via `importlib.metadata.entry_points(group="pyfly.auto_configuration")`. This
+mirrors Spring Boot's `META-INF/spring.factories` / `AutoConfiguration.imports`
+mechanism and is fully pluggable -- third-party packages can add their own
+auto-configuration classes by declaring entries in the same group.
 
-The engine tracks results in a `results` dict mapping subsystem names to provider names.
+The built-in auto-configuration classes are registered in `pyproject.toml`:
+
+```toml
+[project.entry-points."pyfly.auto_configuration"]
+web        = "pyfly.web.auto_configuration:WebAutoConfiguration"
+cache      = "pyfly.cache.auto_configuration:CacheAutoConfiguration"
+messaging  = "pyfly.messaging.auto_configuration:MessagingAutoConfiguration"
+client     = "pyfly.client.auto_configuration:ClientAutoConfiguration"
+document   = "pyfly.data.document.auto_configuration:DocumentAutoConfiguration"
+relational = "pyfly.data.relational.auto_configuration:RelationalAutoConfiguration"
+```
+
+Each `@auto_configuration` class uses `@conditional_on_class`, `@conditional_on_property`,
+and `@conditional_on_missing_bean` decorators to guard its `@bean` methods. The typical
+pattern for a subsystem auto-configuration class is:
+
+1. `@conditional_on_class` -- skip the entire class if the adapter library is not installed.
+2. `@conditional_on_property` -- skip if the subsystem is not enabled in config (e.g., `pyfly.cache.enabled`).
+3. `@conditional_on_missing_bean` -- skip if the user has already provided a bean for the port type.
+4. `@bean` methods read config to determine the provider and delegate to the class's own `detect_provider()` static method when the provider is `"auto"`.
+5. The `@bean` method instantiates and returns the appropriate adapter.
+
+`discover_auto_configurations()` (from `pyfly.config.auto`) replaces the hardcoded
+engine. It is called by `ApplicationContext._register_auto_configurations()` at the
+start of the context lifecycle. Because each auto-configuration class is a regular
+`@configuration` bean with conditions, the existing condition evaluation and
+`_process_configurations()` machinery handles it generically -- no special-case code
+is needed in the context.
 
 ### Provider Detection
 
-The `AutoConfiguration` class provides static detection methods that check library
-availability via `importlib.import_module()`:
+The `AutoConfiguration` class (from `pyfly.config.auto`) provides static detection
+methods that check library availability via `importlib.import_module()`. These methods
+are called from within each subsystem's `@auto_configuration` class when the configured
+provider is `"auto"`:
 
 | Subsystem | Method | Detection Order | Returns |
 |---|---|---|---|
@@ -603,6 +677,7 @@ pyfly.web/
             controller.py        # ControllerRegistrar
             resolver.py          # ParameterResolver (with Valid[T] support)
             filter_chain.py      # WebFilterChainMiddleware
+            security_middleware.py  # SecurityMiddleware (canonical location)
             filters/             # Built-in filter implementations
                 transaction_id_filter.py
                 request_logging_filter.py
@@ -643,7 +718,7 @@ pyfly/data/                     # Data Commons
         ├── query_compiler.py   # MongoQueryMethodCompiler
         ├── post_processor.py   # MongoRepositoryBeanPostProcessor
         ├── transactional.py    # mongo_transactional
-        └── initializer.py      # initialize_beanie()
+        └── initializer.py      # BeanieInitializer lifecycle bean
 ```
 
 ### Messaging Module
@@ -815,7 +890,9 @@ The `pyfly.security` module provides:
 - `SecurityContext` -- holds the current user/principal.
 - `@secure` -- method-level authorization decorator.
 - `JWTService` -- JWT token creation and validation.
-- `SecurityMiddleware` -- HTTP request authentication middleware.
+- `SecurityMiddleware` -- HTTP request authentication middleware (canonical location:
+  `pyfly.web.adapters.starlette.security_middleware`, re-exported from `pyfly.security`
+  for backward compatibility).
 - `PasswordEncoder` / `BcryptPasswordEncoder` -- password hashing.
 
 ### Validation
@@ -900,17 +977,26 @@ not enforced.
 use `ApplicationContext` in application code, use `Container` directly only in tests
 or framework extensions.
 
-### Why Declarative + Imperative Auto-Configuration?
+### Why Decentralized Auto-Configuration?
 
 **Rationale:**
-- Declarative auto-configuration (`@auto_configuration` with `@conditional_on_*`)
-  is flexible and extensible -- users and library authors can create custom
-  auto-configuration classes.
-- Imperative auto-configuration (`AutoConfigurationEngine`) handles the common case
-  of detecting installed libraries and wiring adapters, without requiring users to
-  understand the condition system.
-- The two approaches complement each other: declarative for customization, imperative
-  for convention.
+- Each subsystem owns its own wiring via an `@auto_configuration` class with
+  `@conditional_on_*` guards. This is more cohesive than a central engine that
+  hardcodes knowledge of every subsystem.
+- Discovery via `importlib.metadata.entry_points(group="pyfly.auto_configuration")`
+  makes the system fully pluggable -- third-party packages can register their own
+  auto-configuration classes without modifying framework code.
+- The pattern mirrors Spring Boot's `META-INF/spring.factories` mechanism, which
+  has proven effective at scale.
+- Provider detection lives inside each subsystem's `@auto_configuration` class
+  (via a `detect_provider()` static method). The core `AutoConfiguration` class
+  only provides the generic `is_available()` helper — it has zero knowledge of
+  specific providers.
+
+**Trade-off:** the decentralized approach requires each subsystem to duplicate a
+small amount of boilerplate (`@auto_configuration` + `@conditional_on_*` +
+`@bean`). In practice, this boilerplate is minimal and improves cohesion -- each
+module is self-contained and independently understandable.
 
 ### Why Deep Merge Instead of Override?
 
@@ -934,6 +1020,73 @@ remove a value, you must explicitly set it to `null`/`""` in the overlay file.
 | **Observer** | `pyfly.context`, `pyfly.eda` | Application and domain events. |
 | **Decorator** | `pyfly.aop` | Aspect-oriented cross-cutting concerns via proxies. |
 | **Factory** | `pyfly.container` | Bean factories via `@configuration` / `@bean`. |
-| **Builder** | `pyfly.client` | Fluent `ServiceClient.rest()` builder. |
+| **Decorator** | `pyfly.client` | `@service_client` with declarative resilience (circuit breaker, retry). |
 | **Strategy** | `pyfly.resilience` | Pluggable resilience policies. |
 | **Template Method** | `pyfly.context` | `ApplicationContext.start()` orchestration. |
+
+---
+
+## Architectural Rules (Enforced)
+
+These rules ensure the framework stays modular, hexagonal, and Spring Boot-like. Every contributor must follow them.
+
+### Rule 1: No Subsystem Knowledge in Core
+
+`ApplicationContext`, `Container`, and `core/application.py` must **never** import or reference specific subsystem adapters (Starlette, Redis, Kafka, Motor, httpx, SQLAlchemy, etc.). All subsystem wiring lives in per-subsystem `@auto_configuration` classes.
+
+**Violation example** (banned):
+```python
+# In application_context.py — NEVER DO THIS
+from pyfly.cache.adapters.redis import RedisCacheAdapter
+if provider == "redis":
+    self._container.register(RedisCacheAdapter, ...)
+```
+
+**Correct approach**: Create a lifecycle bean (e.g. `BeanieInitializer`, `RedisCacheAdapter`) via the subsystem's `@auto_configuration` class. `_start_infrastructure()` discovers and starts them generically via MRO inspection.
+
+### Rule 2: Auto-Configuration via Entry Points
+
+Every new subsystem must:
+
+1. Create `auto_configuration.py` in its own package
+2. Use `@auto_configuration` + `@conditional_on_*` + `@bean`
+3. Register via `pyfly.auto_configuration` entry point in `pyproject.toml`
+
+```toml
+[project.entry-points."pyfly.auto_configuration"]
+my_subsystem = "pyfly.my_subsystem.auto_configuration:MyAutoConfiguration"
+```
+
+No hardcoded imports in `discover_auto_configurations()` — it reads entry points dynamically.
+
+### Rule 3: Port-Adapter Boundary
+
+- **Port interfaces** (`ports/outbound.py`) must be `Protocol` classes with **zero** adapter imports
+- **Adapter implementations** import their third-party library and implement the port
+- Core code depends on ports, never on adapters
+- `@conditional_on_missing_bean(PortType)` ensures user beans override auto-configured ones
+
+### Rule 4: Lifecycle via Duck Typing
+
+Infrastructure lifecycle is managed generically. Any bean with `start()` and `stop()` methods (defined on its class, not via `__getattr__`) is automatically started/stopped by `_start_infrastructure()`. No hardcoded adapter lists.
+
+### Rule 5: Web-Framework Agnostic Security
+
+Security middleware must live in the web adapter module (e.g., `web/adapters/starlette/security_middleware.py`). Core security (`pyfly.security`) must not import web-framework-specific types. Re-exports for convenience are acceptable.
+
+### Rule 6: Condition Evaluator Correctness
+
+- `@conditional_on_property` comparisons must be **case-insensitive** (`str(value).lower()`)
+- Two-pass evaluation: pass 1 (property/class), pass 2 (bean-dependent)
+- `@auto_configuration` classes are evaluated and processed **after** user `@configuration` classes
+
+### Adding a New Subsystem — Checklist
+
+1. [ ] Define port interface in `my_subsystem/ports/outbound.py` (Protocol, no adapter imports)
+2. [ ] Implement adapter(s) in `my_subsystem/adapters/`
+3. [ ] Create `my_subsystem/auto_configuration.py` with `@auto_configuration`, conditions, and `@bean` methods
+4. [ ] Add entry point in `pyproject.toml` under `[project.entry-points."pyfly.auto_configuration"]`
+5. [ ] Add optional dependency group in `pyproject.toml` under `[project.optional-dependencies]`
+6. [ ] Run `pip install -e .` to register the entry point
+7. [ ] Write tests that verify: bean production, condition gating, user-bean precedence
+8. [ ] Verify: `grep -r "my_subsystem" src/pyfly/context/ src/pyfly/core/` returns **zero** results

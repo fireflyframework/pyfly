@@ -22,11 +22,12 @@ from pyfly.container.autowired import Autowired
 from pyfly.container.bean import Qualifier
 from pyfly.container.registry import Registration
 from pyfly.container.types import Scope
+from pyfly.kernel.exceptions import InfrastructureException
 
 T = TypeVar("T")
 
 
-class CircularDependencyError(Exception):
+class CircularDependencyError(InfrastructureException):
     """Raised when beans form a circular dependency chain."""
 
 

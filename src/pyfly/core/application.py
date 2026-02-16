@@ -69,6 +69,7 @@ class PyFlyApplication:
         self._app_class = app_class
         self._name: str = getattr(app_class, "__pyfly_app_name__", "pyfly-app")
         self._version: str = getattr(app_class, "__pyfly_app_version__", "0.1.0")
+        self._description: str = getattr(app_class, "__pyfly_app_description__", "")
         self._scan_packages: list[str] = getattr(app_class, "__pyfly_scan_packages__", [])
         self._startup_time: float = 0.0
 
@@ -130,7 +131,10 @@ class PyFlyApplication:
             sys.stdout.flush()
 
         # Log startup info
-        self._logger.info("starting_application", app=self._name, version=self._version)
+        start_fields: dict[str, Any] = {"app": self._name, "version": self._version}
+        if self._description:
+            start_fields["description"] = self._description
+        self._logger.info("starting_application", **start_fields)
 
         if profiles:
             self._logger.info("active_profiles", profiles=profiles)
@@ -160,15 +164,50 @@ class PyFlyApplication:
 
         self._startup_time = time.perf_counter() - start
 
+        # Log comprehensive startup summary
+        self._log_startup_summary()
+
+        # Log routes and API documentation URLs
+        self._log_routes_and_docs()
+
+    def _log_startup_summary(self) -> None:
+        """Log a comprehensive startup report (Spring Boot style)."""
+        # Bean type breakdown
+        stereotype_counts = self._context.get_bean_counts_by_stereotype()
+        self._logger.info(
+            "bean_summary",
+            total=self._context.bean_count,
+            services=stereotype_counts.get("service", 0),
+            repositories=stereotype_counts.get("repository", 0),
+            controllers=stereotype_counts.get("controller", 0),
+            configurations=stereotype_counts.get("configuration", 0),
+        )
+
+        # Decorator wiring counts
+        wiring = self._context.wiring_counts
+        if any(wiring.values()):
+            self._logger.info(
+                "wiring_summary",
+                event_listeners=wiring.get("event_listeners", 0),
+                message_listeners=wiring.get("message_listeners", 0),
+                cqrs_handlers=wiring.get("cqrs_handlers", 0),
+                scheduled_tasks=wiring.get("scheduled", 0),
+                async_methods=wiring.get("async_methods", 0),
+                post_processors=wiring.get("post_processors", 0),
+            )
+
+        # Active profiles
+        profiles = self._context.environment.active_profiles
+        if profiles:
+            self._logger.info("active_profiles_summary", profiles=profiles)
+
+        # Final started message
         self._logger.info(
             "application_started",
             app=self._name,
             startup_time_s=round(self._startup_time, 3),
             beans_initialized=self._context.bean_count,
         )
-
-        # Log routes and API documentation URLs
-        self._log_routes_and_docs()
 
     def _log_routes_and_docs(self) -> None:
         """Log mapped endpoints and documentation URLs (Spring Boot style)."""

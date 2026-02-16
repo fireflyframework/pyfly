@@ -18,7 +18,7 @@ import json
 
 import pytest
 
-from pyfly.client.declarative import get, http_client, post
+from pyfly.client.declarative import get, http_client, post, service_client
 from pyfly.client.post_processor import HttpClientBeanPostProcessor
 from pyfly.context.application_context import ApplicationContext
 from pyfly.core.config import Config
@@ -83,3 +83,25 @@ class TestDeclarativeClientIntegration:
         assert len(fake.calls) == 2
         assert fake.calls[0]["method"] == "GET"
         assert fake.calls[1]["method"] == "POST"
+
+    @pytest.mark.asyncio
+    async def test_service_client_lifecycle_with_resilience(self) -> None:
+        fake = FakeHttpClient()
+        fake.responses["GET:/items/1"] = json.dumps({"id": 1}).encode()
+
+        @service_client(base_url="http://api.example.com", retry=2, circuit_breaker=True)
+        class ItemClient:
+            @get("/items/{item_id}")
+            async def get_item(self, item_id: int) -> dict: ...
+
+        ctx = ApplicationContext(Config())
+        ctx.register_bean(ItemClient)
+        ctx.register_post_processor(
+            HttpClientBeanPostProcessor(http_client_factory=lambda base_url: fake)
+        )
+        await ctx.start()
+
+        client = ctx.get_bean(ItemClient)
+        result = await client.get_item(1)
+        assert result == {"id": 1}
+        assert len(fake.calls) == 1

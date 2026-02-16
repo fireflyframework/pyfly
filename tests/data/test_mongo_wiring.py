@@ -1,0 +1,152 @@
+# Copyright 2026 Firefly Software Solutions Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+"""Tests for MongoDB auto-configuration wiring."""
+from __future__ import annotations
+
+import pytest
+
+from pyfly.core.config import Config
+
+
+class TestDocumentAutoConfiguration:
+    def test_produces_motor_client(self) -> None:
+        from motor.motor_asyncio import AsyncIOMotorClient
+
+        from pyfly.data.document.auto_configuration import DocumentAutoConfiguration
+
+        config = Config(
+            {
+                "pyfly": {
+                    "data": {
+                        "document": {
+                            "enabled": True,
+                            "uri": "mongodb://localhost:27017",
+                            "database": "testdb",
+                        }
+                    }
+                }
+            }
+        )
+        instance = DocumentAutoConfiguration()
+        client = instance.motor_client(config)
+        assert isinstance(client, AsyncIOMotorClient)
+
+    def test_produces_post_processor(self) -> None:
+        from pyfly.data.document.auto_configuration import DocumentAutoConfiguration
+        from pyfly.data.document.mongodb.post_processor import (
+            MongoRepositoryBeanPostProcessor,
+        )
+
+        instance = DocumentAutoConfiguration()
+        pp = instance.mongo_post_processor()
+        assert isinstance(pp, MongoRepositoryBeanPostProcessor)
+
+    def test_has_correct_conditions(self) -> None:
+        from pyfly.data.document.auto_configuration import DocumentAutoConfiguration
+
+        conditions = getattr(DocumentAutoConfiguration, "__pyfly_conditions__", [])
+        types = {c["type"] for c in conditions}
+        assert "on_class" in types
+        assert "on_property" in types
+
+    def test_context_registers_motor_and_pp(self) -> None:
+        """Auto-configuration registers Motor client + post-processor in the container."""
+        from motor.motor_asyncio import AsyncIOMotorClient
+
+        from pyfly.context.application_context import ApplicationContext
+        from pyfly.data.document.mongodb.initializer import BeanieInitializer
+        from pyfly.data.document.mongodb.post_processor import (
+            MongoRepositoryBeanPostProcessor,
+        )
+
+        config = Config(
+            {
+                "pyfly": {
+                    "data": {
+                        "document": {
+                            "enabled": True,
+                            "uri": "mongodb://localhost:27017",
+                            "database": "testdb",
+                        }
+                    }
+                }
+            }
+        )
+        ctx = ApplicationContext(config)
+
+        # Run the auto-configuration phases (without full lifecycle which requires MongoDB)
+        ctx._register_auto_configurations()
+        ctx._filter_by_profile()
+        ctx._evaluate_conditions()
+        ctx._process_configurations(auto=False)
+        ctx._evaluate_bean_conditions()
+        ctx._process_configurations(auto=True)
+
+        motor_client = ctx.get_bean(AsyncIOMotorClient)
+        assert motor_client is not None
+        assert isinstance(motor_client, AsyncIOMotorClient)
+
+        pp = ctx.get_bean(MongoRepositoryBeanPostProcessor)
+        assert pp is not None
+
+        initializer = ctx.get_bean(BeanieInitializer)
+        assert initializer is not None
+        assert hasattr(initializer, "start")
+        assert hasattr(initializer, "stop")
+
+    @pytest.mark.asyncio
+    async def test_skips_when_disabled(self) -> None:
+        from motor.motor_asyncio import AsyncIOMotorClient
+
+        from pyfly.context.application_context import ApplicationContext
+
+        config = Config({"pyfly": {"data": {"document": {"enabled": False}}}})
+        ctx = ApplicationContext(config)
+        await ctx.start()
+        try:
+            with pytest.raises(KeyError):
+                ctx.get_bean(AsyncIOMotorClient)
+        finally:
+            await ctx.stop()
+
+
+class TestBeanieInitializer:
+    def test_produces_initializer(self) -> None:
+        """DocumentAutoConfiguration produces a BeanieInitializer bean."""
+        from pyfly.data.document.auto_configuration import DocumentAutoConfiguration
+        from pyfly.data.document.mongodb.initializer import BeanieInitializer
+
+        instance = DocumentAutoConfiguration()
+        config = Config(
+            {
+                "pyfly": {
+                    "data": {
+                        "document": {
+                            "enabled": True,
+                            "uri": "mongodb://localhost:27017",
+                            "database": "testdb",
+                        }
+                    }
+                }
+            }
+        )
+        motor_client = instance.motor_client(config)
+
+        from pyfly.container.container import Container
+
+        container = Container()
+        initializer = instance.odm_initializer(config, container, motor_client)
+        assert isinstance(initializer, BeanieInitializer)
+        assert hasattr(initializer, "start")
+        assert hasattr(initializer, "stop")

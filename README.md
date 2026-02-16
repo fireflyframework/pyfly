@@ -248,18 +248,26 @@ class RedisCacheAutoConfig:
 
 This bean is created only when (1) no user-provided `CacheAdapter` exists and (2) the `redis` library is installed. If the user registers their own `CacheAdapter` via `@bean`, the auto-configuration is silently skipped.
 
-**2. Imperative provider detection** — The `AutoConfigurationEngine` runs after all declarative configuration. For each subsystem, it checks which libraries are on the Python path and selects the appropriate adapter:
+**2. Decentralized entry-point discovery** — Each subsystem owns its own `@auto_configuration` class, registered as a `pyfly.auto_configuration` entry point in `pyproject.toml`. At startup, `discover_auto_configurations()` uses `importlib.metadata.entry_points(group="pyfly.auto_configuration")` to find and load them — no hardcoded imports, no central engine:
 
-| Subsystem | Detects | Binds | Fallback |
-|-----------|---------|-------|----------|
-| Web | `starlette` | `StarletteWebAdapter` | none |
-| Data (SQL) | `sqlalchemy` | `Repository[T, ID]` | none |
-| Data (Document) | `motor`, `beanie` | `MongoRepository[T, ID]` | none |
-| Messaging | `aiokafka` / `aio-pika` | `KafkaAdapter` / `RabbitMQAdapter` | `InMemoryMessageBroker` |
-| Cache | `redis.asyncio` | `RedisCacheAdapter` | `InMemoryCache` |
-| HTTP Client | `httpx` | `HttpxClientAdapter` | none |
+| Entry Point | Class | Detects | Binds | Fallback |
+|-------------|-------|---------|-------|----------|
+| `web` | `WebAutoConfiguration` | `starlette` | `StarletteWebAdapter` | none |
+| `relational` | `RelationalAutoConfiguration` | `sqlalchemy` | `Repository[T, ID]` | none |
+| `document` | `DocumentAutoConfiguration` | `motor`, `beanie` | `MongoRepository[T, ID]` | none |
+| `messaging` | `MessagingAutoConfiguration` | `aiokafka` / `aio-pika` | `KafkaAdapter` / `RabbitMQAdapter` | `InMemoryMessageBroker` |
+| `cache` | `CacheAutoConfiguration` | `redis.asyncio` | `RedisCacheAdapter` | `InMemoryCache` |
+| `client` | `ClientAutoConfiguration` | `httpx` | `HttpxClientAdapter` | none |
 
-**The practical workflow:** During development, install `pip install pyfly[full]` and everything auto-wires. In production Docker images, install only the extras you need (e.g., `pip install pyfly[web,data-relational,cache]`) and the engine binds exactly those adapters. You can always override any auto-configured adapter with explicit `provider` settings in `pyfly.yaml` or by registering your own bean.
+Third-party packages can register their own auto-configurations by adding entries to the same entry-point group — the same extensibility model as Spring Boot's `META-INF/spring.factories`:
+
+```toml
+# In a third-party pyproject.toml:
+[project.entry-points."pyfly.auto_configuration"]
+my-addon = "my_package.auto_configuration:MyAutoConfiguration"
+```
+
+**The practical workflow:** During development, install `pip install pyfly[full]` and everything auto-wires. In production Docker images, install only the extras you need (e.g., `pip install pyfly[web,data-relational,cache]`) and the discovered auto-configurations bind exactly those adapters. You can always override any auto-configured adapter with explicit `provider` settings in `pyfly.yaml` or by registering your own bean.
 
 ---
 
@@ -420,7 +428,7 @@ PyFly currently implements **23 modules** organized into four layers:
 | **Kernel** | Exception hierarchy, structured error types | `fireflyframework-kernel` |
 | **Container** | Dependency injection, stereotypes, bean factories | Spring DI (built-in) |
 | **Context** | ApplicationContext, events, lifecycle hooks, conditions | Spring ApplicationContext |
-| **Config** | Auto-configuration engine with provider detection | Spring Auto-Configuration |
+| **Config** | Decentralized auto-configuration via `@auto_configuration` entry points | Spring Auto-Configuration |
 | **Logging** | Structured logging port and adapters | `fireflyframework-observability` |
 
 ### Application Layer

@@ -92,7 +92,7 @@ Make your services resilient with circuit breakers, rate limiters, and intellige
 | Guide | What You'll Learn |
 |-------|-------------------|
 | [Resilience](resilience.md) | `@rate_limiter`, `@bulkhead`, `@time_limiter`, `@fallback`, sliding window algorithms, concurrent execution limiting |
-| [HTTP Client](client.md) | `HttpClientPort`, `ServiceClient`, `CircuitBreaker`, `RetryPolicy`, declarative `@http_client`, HTTPX adapter, timeout configuration |
+| [HTTP Client](client.md) | `HttpClientPort`, `@service_client`, `@http_client`, `CircuitBreaker`, `RetryPolicy`, HTTPX adapter, timeout configuration |
 | [Caching](caching.md) | `CacheAdapter`, `CacheManager`, `@cacheable`, `@cache_evict`, `@cache_put`, Redis adapter, in-memory adapter, TTL configuration |
 
 ---
