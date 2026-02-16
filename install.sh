@@ -201,10 +201,10 @@ check_prerequisites() {
         fatal "Python venv module is required. Install it with: sudo apt install python3-venv (Debian/Ubuntu)"
     fi
 
-    if "$PYTHON_CMD" -m pip --version &>/dev/null; then
-        success "pip available"
+    if "$PYTHON_CMD" -c "import ensurepip" &>/dev/null; then
+        success "ensurepip available (pip will be installed in venv)"
     else
-        fatal "pip is required. Install it with: $PYTHON_CMD -m ensurepip --upgrade"
+        fatal "ensurepip is required. Install it with: sudo apt install python3-venv (Debian/Ubuntu) or brew install python (macOS)"
     fi
 
     if command -v git &>/dev/null; then
