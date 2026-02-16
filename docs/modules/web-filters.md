@@ -16,6 +16,7 @@ overhead and enabling centralized ordering and URL-pattern matching.
    - [TransactionIdFilter](#transactionidfilter)
    - [RequestLoggingFilter](#requestloggingfilter)
    - [SecurityHeadersFilter](#securityheadersfilter)
+   - [CsrfFilter](#csrffilter)
    - [SecurityFilter](#securityfilter)
 5. [Filter Ordering with @order](#filter-ordering-with-order)
 6. [URL Pattern Matching](#url-pattern-matching)
@@ -41,6 +42,7 @@ WebFilterChainMiddleware (single Starlette BaseHTTPMiddleware)
    +-- TransactionIdFilter  (@order HIGHEST_PRECEDENCE + 100)
    +-- RequestLoggingFilter (@order HIGHEST_PRECEDENCE + 200)
    +-- SecurityHeadersFilter(@order HIGHEST_PRECEDENCE + 300)
+   +-- CsrfFilter           (__pyfly_order__ = -50)
    +-- [User WebFilter beans, sorted by @order]
    |
    v
@@ -186,6 +188,36 @@ class SecurityHeadersFilter(OncePerRequestFilter):
 Uses `SecurityHeadersConfig` defaults if no config is provided.
 
 **Source:** `src/pyfly/web/adapters/starlette/filters/security_headers_filter.py`
+
+### CsrfFilter
+
+Implements the [double-submit cookie](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html#double-submit-cookie) pattern for CSRF protection.
+
+```python
+class CsrfFilter(OncePerRequestFilter):
+    __pyfly_order__ = -50
+    exclude_patterns = ["/actuator/*", "/health", "/ready"]
+
+    async def do_filter(self, request, call_next):
+        # Safe methods (GET, HEAD, OPTIONS, TRACE): pass through + set XSRF-TOKEN cookie
+        # Bearer bypass: requests with "Authorization: Bearer ..." skip CSRF
+        # Unsafe methods (POST, PUT, DELETE, PATCH): validate cookie vs header
+        ...
+```
+
+**How it works:**
+
+| Request Type | Behaviour |
+|---|---|
+| Safe methods (`GET`, `HEAD`, `OPTIONS`, `TRACE`) | Pass through; set/refresh `XSRF-TOKEN` cookie on the response |
+| Bearer token present (`Authorization: Bearer …`) | Skip CSRF validation (stateless JWT clients are exempt) |
+| Unsafe methods (`POST`, `PUT`, `DELETE`, `PATCH`) | Compare `XSRF-TOKEN` cookie against `X-XSRF-TOKEN` header using `secrets.compare_digest`; return 403 on mismatch or missing token |
+
+**Cookie settings:** `httponly=False` (JavaScript must read the token), `samesite="lax"`, `secure=True`, `path="/"`.
+
+After successful validation on unsafe methods, the token is rotated — a fresh token is set on the response cookie.
+
+**Source:** `src/pyfly/web/adapters/starlette/filters/csrf_filter.py`
 
 ### SecurityFilter
 
@@ -417,6 +449,7 @@ With these beans registered, `create_app()` produces this filter chain:
 TransactionIdFilter  (HIGHEST_PRECEDENCE + 100)
 RequestLoggingFilter (HIGHEST_PRECEDENCE + 200)
 SecurityHeadersFilter(HIGHEST_PRECEDENCE + 300)
+CsrfFilter           (-50)
 TenantFilter         (10)
 RequestTimingFilter  (50)
 ```

@@ -120,5 +120,6 @@ pyfly:
 
 ## See Also
 
-- [Data Relational Module Guide](../modules/data-relational.md) — Full API reference: repositories, derived queries, specifications, pagination, transactions
+- [Data Commons Guide](../modules/data.md) — Shared port APIs: `RepositoryPort`, derived query parsing, `Page`/`Pageable`/`Sort`, `Mapper`
+- [Data Relational Module Guide](../modules/data-relational.md) — SQLAlchemy adapter: repositories, specifications, transactions, custom queries
 - [Adapter Catalog](README.md)

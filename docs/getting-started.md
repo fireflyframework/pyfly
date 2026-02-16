@@ -689,7 +689,8 @@ Here is where to go next:
 
 ### Data and Events
 
-- [Data Relational](modules/data-relational.md) -- Repositories, SQLAlchemy integration, pagination
+- [Data Commons](modules/data.md) -- Repository ports, derived query parsing, pagination, sorting, entity mapping
+- [Data Relational](modules/data-relational.md) -- SQLAlchemy adapter: specifications, transactions, custom queries
 - [Events](modules/events.md) -- Event-driven architecture, `@event_listener`,
   `InMemoryEventBus`
 - [Messaging](modules/messaging.md) -- Kafka and RabbitMQ integration

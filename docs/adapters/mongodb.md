@@ -103,5 +103,6 @@ pyfly:
 
 ## See Also
 
-- [Data Document Module Guide](../modules/data-document.md) — Full API reference: MongoRepository, derived queries, Beanie ODM patterns
+- [Data Commons Guide](../modules/data.md) — Shared port APIs: `RepositoryPort`, derived query parsing, `Page`/`Pageable`/`Sort`, `Mapper`
+- [Data Document Module Guide](../modules/data-document.md) — MongoDB adapter: MongoRepository, derived queries, Beanie ODM patterns
 - [Adapter Catalog](README.md)

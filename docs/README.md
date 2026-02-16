@@ -50,8 +50,9 @@ All module guides are organized in the [`modules/`](modules/README.md) directory
 
 | Guide | Description |
 |-------|-------------|
-| [Data Relational (SQL)](modules/data-relational.md) | Repositories, derived queries, specifications, pagination, transactions (SQLAlchemy) |
-| [Data Document (MongoDB)](modules/data-document.md) | Document database support via Beanie ODM — `MongoRepository[T, ID]`, `BaseDocument`, derived queries |
+| [Data Commons](modules/data.md) | Generic repository ports, derived query parsing, pagination, sorting, entity mapping — the shared layer for all data adapters |
+| [Data Relational (SQL)](modules/data-relational.md) | SQLAlchemy adapter — `Repository[T, ID]`, specifications, transactions, custom queries |
+| [Data Document (MongoDB)](modules/data-document.md) | MongoDB adapter — `MongoRepository[T, ID]`, `BaseDocument`, Beanie ODM patterns |
 
 ### Messaging & Events
 
@@ -123,6 +124,7 @@ Browse the full [Adapter Catalog](adapters/README.md), or jump directly:
 - **New to PyFly?** Start with the [Getting Started Tutorial](getting-started.md)
 - **Coming from Spring Boot?** Read the [Spring Boot Comparison](spring-comparison.md)
 - **Building a web service?** See the [Web Layer Guide](modules/web.md)
+- **Understanding the data layer?** Start with the [Data Commons Guide](modules/data.md) for shared ports and patterns
 - **Setting up a SQL database?** See the [Data Relational Guide](modules/data-relational.md) and [SQLAlchemy Adapter](adapters/sqlalchemy.md)
 - **Setting up MongoDB?** See the [Data Document Guide](modules/data-document.md) and [MongoDB Adapter](adapters/mongodb.md)
 - **Need messaging?** See [Messaging](modules/messaging.md), [Kafka](adapters/kafka.md), and [RabbitMQ](adapters/rabbitmq.md)

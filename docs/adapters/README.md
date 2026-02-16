@@ -3,7 +3,7 @@
 Adapters are the concrete implementations that fulfill PyFly's port contracts.
 Each adapter doc covers setup, configuration, and adapter-specific features.
 
-For the full port APIs and usage patterns, see the linked module guides.
+For the shared port APIs (`RepositoryPort`, `Page`, `Pageable`, `QueryMethodParser`, `Mapper`), see the [Data Commons Guide](../modules/data.md). For adapter-specific usage patterns, see the linked module guides.
 
 ---
 

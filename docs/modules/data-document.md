@@ -1,26 +1,19 @@
-# Data Document Guide
+# Data Document — MongoDB Adapter
 
-> **PyFly Data** follows the Spring Data umbrella architecture. The framework is organized into two layers:
+> **Package:** `pyfly.data.document.mongodb`
+> **Commons:** [`pyfly.data`](data.md) — shared ports, pagination, query parsing, entity mapping
 >
-> | Layer | Package | Purpose |
-> |-------|---------|---------|
-> | **Data Commons** | `pyfly.data` | Shared abstractions — `RepositoryPort[T, ID]`, `Page`, `Pageable`, `Sort`, `QueryMethodParser`, `QueryMethodCompilerPort` |
-> | **MongoDB Adapter** | `pyfly.data.document.mongodb` | Concrete adapter — `BaseDocument`, `MongoRepository[T, ID]`, `mongo_transactional` |
+> This guide covers the **MongoDB adapter** for document databases (Beanie ODM + Motor). For generic data concepts shared across all adapters (repository ports, `Page`/`Pageable`/`Sort`, `QueryMethodParser`, `Mapper`, extensibility), see the [Data Module Guide](data.md). For relational databases, see the [Data Relational Guide](data-relational.md).
 >
-> This guide covers the **document** layer and its default **MongoDB adapter** (Beanie ODM + Motor). For relational databases, see the [Data Relational Guide](data-relational.md). Both adapters share the same commons layer and can coexist in the same project.
->
-> **Hexagonal by design:** your services depend on `RepositoryPort[T, ID]` (the port), never on `MongoRepository[T, ID]` (the adapter). MongoDB is the default document adapter today — but the layer is designed so any document backend (DynamoDB, Elasticsearch, etc.) can be added by implementing the same ports.
+> **Hexagonal by design:** your services depend on [`RepositoryPort[T, ID]`](data.md#repository-ports) (the port), never on `MongoRepository[T, ID]` (the adapter). MongoDB is the default document adapter today — but the layer is designed so any document backend (DynamoDB, Elasticsearch, etc.) can be added by implementing the same ports. See [Extending PyFly Data](data.md#extending-pyfly-data).
 
-PyFly Data Document provides a document-oriented data access layer that implements the same Repository pattern and derived query method convention as the relational adapter. It shares the framework-agnostic core — `RepositoryPort`, `QueryMethodParser`, `Page`, `Pageable`, `Sort` — while translating operations into native document database queries.
+PyFly Data Document provides a document-oriented data access layer that implements the same Repository pattern and derived query method convention as the relational adapter — backed by MongoDB via Beanie ODM and Motor.
 
 ---
 
 ## Table of Contents
 
 - [Architecture Overview](#architecture-overview)
-  - [Spring Data Analogy](#spring-data-analogy)
-  - [Layer Diagram](#layer-diagram)
-  - [Imports](#imports)
 - [Document Definition](#document-definition)
   - [BaseDocument](#basedocument)
   - [Audit Trail Fields](#audit-trail-fields)
@@ -30,7 +23,6 @@ PyFly Data Document provides a document-oriented data access layer that implemen
 - [MongoRepository\[T, ID\]](#mongorepositoryt-id)
   - [Creating a Repository](#creating-a-repository)
   - [CRUD Methods Reference](#crud-methods-reference)
-  - [RepositoryPort Compliance](#repositoryport-compliance)
 - [Derived Query Methods](#derived-query-methods)
   - [How It Works](#how-it-works)
   - [MongoQueryMethodCompiler Operator Mapping](#mongoquerymethodcompiler-operator-mapping)
@@ -55,96 +47,16 @@ PyFly Data Document provides a document-oriented data access layer that implemen
 - [Pagination](#pagination)
   - [Paginated Queries](#paginated-queries)
   - [Sort Specification Building](#sort-specification-building)
-  - [Page Result](#page-result)
-- [Specifications](#specifications)
-  - [Creating Specifications](#creating-specifications)
-  - [Combining Specifications](#combining-specifications)
-  - [Using Specifications with Repositories](#using-specifications-with-repositories)
-- [MongoFilterOperator](#mongofilteroperator)
-  - [Available Operators](#available-operators)
-  - [Composing Filters](#composing-filters)
-- [MongoFilterUtils: Query by Example](#mongofilterutils-query-by-example)
 - [Integration with Web Layer](#integration-with-web-layer)
   - [Controller with Valid\[T\] and MongoRepository](#controller-with-validt-and-mongorepository)
 - [Complete CRUD Example](#complete-crud-example)
-- [Architecture Extensibility](#architecture-extensibility)
-  - [QueryMethodCompilerPort Protocol](#querymethodcompilerport-protocol)
-  - [Adding a New Document Database Adapter](#adding-a-new-document-database-adapter)
+- [See Also](#see-also)
 
 ---
 
 ## Architecture Overview
 
-PyFly Data follows a layered, hexagonal architecture inspired by the Spring Data project family. Understanding these layers is key to using the MongoDB adapter effectively and appreciating how it relates to the rest of the data access infrastructure.
-
-### Spring Data Analogy
-
-PyFly Data maps directly to Spring Data's modular structure:
-
-| Spring Data Module       | PyFly Equivalent                         | Purpose                                    |
-|--------------------------|------------------------------------------|--------------------------------------------|
-| Spring Data Commons      | `pyfly.data`                             | Shared ports, types, parser, `Page`, `Sort`|
-| Spring Data JPA          | `pyfly.data.relational.sqlalchemy`         | Relational database adapter (SQLAlchemy)   |
-| Spring Data MongoDB      | `pyfly.data.document.mongodb`            | Document database adapter (Beanie/Motor)   |
-
-Both adapters build on the same framework-agnostic core. The `QueryMethodParser` lives in the commons layer and produces `ParsedQuery` objects. Each adapter provides its own `QueryMethodCompiler` implementation that translates those parsed queries into backend-specific operations -- SQLAlchemy column expressions for the relational adapter, or MongoDB filter documents for the document adapter.
-
-### Layer Diagram
-
-```
-+----------------------------------------------------------------------+
-|                          Your Application                            |
-|  (Services, Controllers, Domain Logic)                               |
-+----------------------------------------------------------------------+
-          |                                        |
-          v                                        v
-+-----------------------------+    +-------------------------------+
-|      pyfly.data (Commons)   |    |      pyfly.data (Commons)     |
-|  RepositoryPort[T, ID]      |    |  RepositoryPort[T, ID]        |
-|  Page, Pageable, Sort       |    |  Page, Pageable, Sort         |
-|  QueryMethodParser          |    |  QueryMethodParser            |
-|  QueryMethodCompilerPort    |    |  QueryMethodCompilerPort      |
-+-----------------------------+    +-------------------------------+
-          |                                        |
-          v                                        v
-+-----------------------------+    +-------------------------------+
-| pyfly.data.relational       |    | pyfly.data.document           |
-|        .sqlalchemy          |    |        .mongodb               |
-|                             |    |                               |
-| Repository[T, ID]           |    | MongoRepository[T, ID]        |
-| BaseEntity                  |    | BaseDocument                  |
-| QueryMethodCompiler         |    | MongoQueryMethodCompiler      |
-| RepositoryBeanPostProcessor |    | MongoRepositoryBeanPostProc.  |
-| reactive_transactional      |    | mongo_transactional           |
-+-----------------------------+    +-------------------------------+
-          |                                        |
-          v                                        v
-+-----------------------------+    +-------------------------------+
-|     SQLAlchemy (async)      |    |  Beanie ODM  +  Motor (async) |
-|     PostgreSQL / MySQL /    |    |  MongoDB                      |
-|     SQLite / etc.           |    |                               |
-+-----------------------------+    +-------------------------------+
-```
-
-The left column is the relational path (covered in the [Data Access Guide](./data-relational.md)). The right column is the document path covered in this guide. Both paths share the top commons layer, so concepts like `Page`, `Pageable`, `Sort`, derived query naming conventions, and the `RepositoryPort` protocol are identical.
-
-### Imports
-
-Imports are organized by layer:
-
-**Layer 1 — Data Commons** (shared with the relational adapter):
-
-```python
-from pyfly.data import (
-    Page, Pageable, Sort, Order,        # Pagination
-    Mapper,                              # Entity ↔ DTO mapping
-    RepositoryPort, SessionPort,         # Port interfaces
-    QueryMethodParser,                   # Derived query parsing (shared)
-    QueryMethodCompilerPort,             # Compiler contract
-)
-```
-
-**Layer 2 — MongoDB Adapter** (concrete document adapter types):
+All concrete types live in the MongoDB adapter package. The namespace `pyfly.data.document` is a pass-through and does not re-export anything.
 
 ```python
 from pyfly.data.document.mongodb import (
@@ -157,11 +69,11 @@ from pyfly.data.document.mongodb import (
 )
 ```
 
-> **Note:** `pyfly.data.document` is a namespace package and does not re-export concrete adapter types. All concrete types must be imported from the adapter package directly (`pyfly.data.document.mongodb`). Commons types like `Page`, `Pageable`, and `RepositoryPort` are always imported from `pyfly.data`.
+> **Note:** Always import concrete types from `pyfly.data.document.mongodb`. Commons types (`Page`, `Pageable`, `RepositoryPort`, etc.) are imported from `pyfly.data` — see the [Data Module Guide](data.md#import-rules).
 
 Source files:
-- `src/pyfly/data/__init__.py` -- commons layer (Page, Pageable, ports)
-- `src/pyfly/data/document/mongodb/__init__.py` -- MongoDB adapter package exports
+- `src/pyfly/data/__init__.py` — commons layer (Page, Pageable, ports)
+- `src/pyfly/data/document/mongodb/__init__.py` — MongoDB adapter package exports
 
 ---
 
@@ -328,8 +240,8 @@ Source file: `src/pyfly/data/document/mongodb/document.py`
 
 The `MongoRepository[T, ID]` class provides generic async CRUD operations for Beanie documents. It mirrors the `Repository[T, ID]` class from the SQLAlchemy adapter but operates against MongoDB. The two type parameters are:
 
-- **T** -- The document type (a `BaseDocument` subclass)
-- **ID** -- The primary key type (typically `PydanticObjectId` or `str`)
+- **T** — The document type (a `BaseDocument` subclass)
+- **ID** — The primary key type (typically `PydanticObjectId` or `str`)
 
 Unlike the SQLAlchemy `Repository`, `MongoRepository` does not require a session to be injected. Beanie uses a globally initialized Motor client, so the repository only needs the document model class:
 
@@ -340,6 +252,8 @@ repo = MongoRepository[ProductDocument, str](ProductDocument)
 product = await repo.save(ProductDocument(name="Widget", price=9.99, category="gadgets"))
 found = await repo.find_by_id(product.id)
 ```
+
+`MongoRepository[T, ID]` satisfies the [`RepositoryPort[T, ID]`](data.md#repository-ports) protocol, enabling hexagonal architecture where your service layer depends on the port, not the adapter.
 
 ### Creating a Repository
 
@@ -382,7 +296,7 @@ class OrderRepository(MongoRepository[OrderDocument, PydanticObjectId]):
 | `exists(id: ID)`                            | `bool`       | Check if a document with this ID exists        |
 | `find_paginated(page, size, pageable)`      | `Page[T]`    | Paginated query with optional sorting          |
 
-**save()** calls Beanie's `entity.save()`, which performs an upsert -- inserting the document if it is new or updating it if it already exists. The returned entity is the same object with any server-side defaults applied.
+**save()** calls Beanie's `entity.save()`, which performs an upsert — inserting the document if it is new or updating it if it already exists. The returned entity is the same object with any server-side defaults applied.
 
 **find_all()** accepts keyword arguments that are translated into equality filters passed to Beanie's `find()`:
 
@@ -408,57 +322,27 @@ pageable = Pageable.of(page=1, size=20, sort=Sort.by("name"))
 page = await repo.find_paginated(pageable=pageable)
 ```
 
-### RepositoryPort Compliance
-
-`MongoRepository` satisfies the `RepositoryPort[T, ID]` protocol defined in `pyfly.data.ports.outbound`. This means your service layer can depend on `RepositoryPort` rather than the concrete `MongoRepository`, enabling clean hexagonal architecture:
-
-```python
-from pyfly.data import RepositoryPort
-
-
-class ProductService:
-    def __init__(self, repo: RepositoryPort[ProductDocument, str]) -> None:
-        self._repo = repo
-
-    async def find_active(self) -> list[ProductDocument]:
-        return await self._repo.find_all(active=True)
-```
-
-The `RepositoryPort` protocol defines the same core CRUD methods that `MongoRepository` implements:
-
-```python
-class RepositoryPort(Protocol[T, ID]):
-    async def save(self, entity: T) -> T: ...
-    async def find_by_id(self, id: ID) -> T | None: ...
-    async def find_all(self, **filters: Any) -> list[T]: ...
-    async def delete(self, id: ID) -> None: ...
-    async def count(self) -> int: ...
-    async def exists(self, id: ID) -> bool: ...
-```
-
-This shared interface allows you to swap between the SQLAlchemy and MongoDB adapters without changing service layer code, as long as the entity/document types align.
-
 Source file: `src/pyfly/data/document/mongodb/repository.py`
 
 ---
 
 ## Derived Query Methods
 
-PyFly can automatically generate MongoDB query implementations from method names, following the same Spring Data naming convention used by the SQLAlchemy adapter. You define stub methods on your repository, and the `MongoRepositoryBeanPostProcessor` compiles them into real MongoDB queries at startup.
+PyFly automatically generates MongoDB query implementations from method names using the same Spring Data naming convention as the relational adapter. You define stub methods on your repository, and the `MongoRepositoryBeanPostProcessor` compiles them into real MongoDB queries at startup.
+
+For the full naming convention reference (prefixes, operators, connectors, ordering), see the [Data Module Guide — Derived Query Methods](data.md#derived-query-methods).
 
 ### How It Works
 
 The derived query pipeline consists of two stages, split between the shared commons layer and the MongoDB adapter:
 
-1. **Parsing (shared):** The `QueryMethodParser` (from `pyfly.data.query_parser`) parses the method name into a `ParsedQuery` containing predicates, connectors, and order clauses. This parser is identical for both the SQLAlchemy and MongoDB adapters.
+1. **Parsing (shared):** The `QueryMethodParser` (from `pyfly.data`) parses the method name into a `ParsedQuery` containing predicates, connectors, and order clauses. This parser is identical for both the SQLAlchemy and MongoDB adapters.
 
-2. **Compilation (adapter-specific):** The `MongoQueryMethodCompiler` (from `pyfly.data.document.mongodb.query_compiler`) takes the `ParsedQuery` and compiles it into an async callable that builds a MongoDB filter document and executes it via Beanie.
-
-Because the parser is shared, the naming convention is identical to the one documented in the [Data Access Guide](./data-relational.md). The prefixes, operators, connectors, and ordering suffixes are the same -- only the compiled output differs.
+2. **Compilation (adapter-specific):** The `MongoQueryMethodCompiler` takes the `ParsedQuery` and compiles it into an async callable that builds a MongoDB filter document and executes it via Beanie.
 
 ### MongoQueryMethodCompiler Operator Mapping
 
-The `MongoQueryMethodCompiler._build_clause()` method translates each parsed operator into a MongoDB filter expression. The following table shows the complete mapping:
+The `MongoQueryMethodCompiler._build_clause()` method translates each parsed operator into a MongoDB filter expression:
 
 | Operator       | Method Suffix          | MongoDB Filter Expression                    | Args |
 |----------------|------------------------|----------------------------------------------|------|
@@ -722,33 +606,6 @@ class AutoConfiguration:
 
 The detection is purely library-based: if Beanie is installed in your Python environment, the MongoDB adapter is available. You still need to set `pyfly.data.document.enabled: true` in config to activate it.
 
-```python
-def _configure_document(self, config: Config, container: Container) -> None:
-    """Auto-configure MongoDB layer if enabled."""
-    enabled = config.get("pyfly.data.document.enabled", False)
-    if not _as_bool(enabled):
-        logger.info("auto_configuration", subsystem="mongodb", status="skipped", reason="disabled")
-        return
-
-    provider = AutoConfiguration.detect_document_provider()
-    if provider == "none":
-        logger.info("auto_configuration", subsystem="mongodb", status="skipped", reason="no provider")
-        return
-
-    uri = str(config.get("pyfly.data.document.uri", "mongodb://localhost:27017"))
-    database = str(config.get("pyfly.data.document.database", "pyfly"))
-
-    self._results["mongodb"] = provider
-    self._document_config = {"uri": uri, "database": database}
-    logger.info(
-        "auto_configuration",
-        subsystem="mongodb",
-        status="configured",
-        provider=provider,
-        database=database,
-    )
-```
-
 ### Beanie Initialization
 
 Beanie requires explicit initialization before any document operations can be performed. The `initialize_beanie()` helper function in the MongoDB adapter handles this:
@@ -769,17 +626,6 @@ This function:
 2. Selects the target database from the client.
 3. Calls Beanie's `init_beanie()` with the database and document model list.
 4. Returns the Motor client instance for lifecycle management (e.g., closing on shutdown).
-
-```python
-async def initialize_beanie(
-    uri: str,
-    database: str,
-    document_models: list[type],
-) -> AsyncIOMotorClient:
-    client: AsyncIOMotorClient = AsyncIOMotorClient(uri)
-    await init_beanie(database=client[database], document_models=document_models)
-    return client
-```
 
 Typically, you call `initialize_beanie()` during your application's startup phase (e.g., in a lifespan handler or `@pyfly_application` startup hook).
 
@@ -812,8 +658,8 @@ async def startup():
 ```
 
 Source files:
-- `src/pyfly/config/auto.py` -- `AutoConfiguration`, `AutoConfigurationEngine._configure_document()`
-- `src/pyfly/data/document/mongodb/initializer.py` -- `initialize_beanie()`
+- `src/pyfly/config/auto.py` — `AutoConfiguration`, `AutoConfigurationEngine._configure_document()`
+- `src/pyfly/data/document/mongodb/initializer.py` — `initialize_beanie()`
 
 ---
 
@@ -851,19 +697,6 @@ async def transfer_funds(from_id: str, to_id: str, amount: float) -> None:
 3. Calls the wrapped function with all original arguments.
 4. On success: the transaction is committed (via the `async with` context manager).
 5. On exception: the transaction is aborted and the exception is re-raised.
-
-```python
-def mongo_transactional(client: AsyncIOMotorClient) -> Callable[[F], F]:
-    def decorator(func: F) -> F:
-        @functools.wraps(func)
-        async def wrapper(*args: Any, **kwargs: Any) -> Any:
-            async with await client.start_session() as session:
-                async with session.start_transaction():
-                    result = await func(*args, **kwargs)
-                    return result
-        return wrapper
-    return decorator
-```
 
 Unlike `@reactive_transactional` (which injects the session as the first argument), `@mongo_transactional` does not inject the session. The Beanie document operations automatically participate in the active transaction through Motor's session context.
 
@@ -960,49 +793,6 @@ The `after_init(bean, bean_name)` method:
    - Wraps the compiled function to inject `bean._model`.
    - Replaces the stub method on the bean instance.
 
-```python
-class MongoRepositoryBeanPostProcessor:
-    def __init__(self) -> None:
-        self._query_parser = QueryMethodParser()
-        self._query_compiler = MongoQueryMethodCompiler()
-
-    def after_init(self, bean: Any, bean_name: str) -> Any:
-        if not isinstance(bean, MongoRepository):
-            return bean
-
-        cls = type(bean)
-        base_names = set(dir(MongoRepository))
-
-        for attr_name in list(vars(cls)):
-            if attr_name.startswith("_"):
-                continue
-
-            attr = getattr(cls, attr_name, None)
-            if attr is None or not callable(attr):
-                continue
-
-            if attr_name in base_names:
-                continue
-
-            if any(attr_name.startswith(prefix) for prefix in _DERIVED_PREFIXES) and self._is_stub(attr):
-                parsed = self._query_parser.parse(attr_name)
-                compiled_fn = self._query_compiler.compile(parsed, bean._model)
-                wrapper = self._wrap_derived_method(compiled_fn)
-                setattr(bean, attr_name, wrapper.__get__(bean, cls))
-
-        return bean
-```
-
-The wrapper function injects `bean._model` as the first argument to the compiled query function:
-
-```python
-@staticmethod
-def _wrap_derived_method(compiled_fn: Any) -> Any:
-    async def wrapper(self_arg: Any, *args: Any) -> Any:
-        return await compiled_fn(self_arg._model, *args)
-    return wrapper
-```
-
 ### Stub Detection
 
 A method is considered a stub when its code object contains no meaningful constants beyond `None` and `Ellipsis`. This covers both forms:
@@ -1010,28 +800,6 @@ A method is considered a stub when its code object contains no meaningful consta
 ```python
 async def find_by_status(self, status: str) -> list[OrderDocument]: ...    # Ellipsis stub
 async def find_by_status(self, status: str) -> list[OrderDocument]: pass   # Pass stub
-```
-
-The detection logic:
-
-```python
-@staticmethod
-def _is_stub(method: Any) -> bool:
-    func = method
-    if isinstance(func, (staticmethod, classmethod)):
-        func = func.__func__
-    if hasattr(func, "__wrapped__"):
-        func = func.__wrapped__
-
-    code = getattr(func, "__code__", None)
-    if code is None:
-        return False
-
-    consts = set(code.co_consts)
-    consts.discard(None)
-    consts.discard(Ellipsis)
-
-    return len(consts) == 0 and code.co_code is not None
 ```
 
 Register the post-processor in your application context:
@@ -1048,17 +816,19 @@ Source file: `src/pyfly/data/document/mongodb/post_processor.py`
 
 ## Pagination
 
+For the full `Pageable`, `Sort`, `Order`, and `Page[T]` API reference, see the [Data Module Guide — Pagination & Sorting](data.md#pagination--sorting).
+
 ### Paginated Queries
 
 The `find_paginated()` method on `MongoRepository` supports both simple page/size arguments and a full `Pageable` object with sorting:
 
 ```python
+from pyfly.data import Pageable, Sort
+
 # Basic pagination (page 1, 20 items per page)
 page = await repo.find_paginated(page=1, size=20)
 
 # With Pageable (overrides page/size and adds sorting)
-from pyfly.data import Pageable, Sort
-
 pageable = Pageable.of(
     page=2,
     size=10,
@@ -1095,236 +865,6 @@ For example, `Sort(orders=(Order.desc("created_at"), Order.asc("name")))` become
 ```python
 [("created_at", pymongo.DESCENDING), ("name", pymongo.ASCENDING)]
 ```
-
-### Page Result
-
-`find_paginated()` returns a `Page[T]` -- the same `Page` dataclass used by the SQLAlchemy adapter:
-
-```python
-page = await repo.find_paginated(page=1, size=20)
-
-page.items          # list[ProductDocument] -- the items on this page
-page.total          # int -- total items across all pages
-page.page           # int -- current page number (1-based)
-page.size           # int -- maximum items per page
-page.total_pages    # int -- total number of pages (ceil(total / size))
-page.has_next       # bool -- whether there is a next page
-page.has_previous   # bool -- whether there is a previous page
-```
-
-Transform items with the `map()` method:
-
-```python
-from pydantic import BaseModel
-
-
-class ProductDTO(BaseModel):
-    id: str
-    name: str
-    price: float
-
-
-dto_page: Page[ProductDTO] = page.map(
-    lambda doc: ProductDTO(id=str(doc.id), name=doc.name, price=doc.price)
-)
-```
-
----
-
-## Specifications
-
-`MongoSpecification[T]` provides composable query predicates for MongoDB, implementing the commons `Specification[T, Q]` port. Each specification wraps a callable that produces a MongoDB filter document (`dict`). Specifications combine with standard Python operators (`&`, `|`, `~`), producing `$and`, `$or`, and `$nor` MongoDB expressions.
-
-> **Commons port:** `MongoSpecification` extends `pyfly.data.Specification[T, dict]`, the same abstract base used by the SQLAlchemy adapter's `Specification[T]`. Both adapters share the same combinator contract — only the query representation differs (SQLAlchemy `Select` vs. MongoDB `dict`).
-
-```python
-from pyfly.data.document.mongodb import MongoSpecification
-```
-
-### Creating Specifications
-
-A specification takes a callable `(root, query) -> dict` where `root` is the entity class and `query` is the current filter document:
-
-```python
-# Filter for active documents
-active = MongoSpecification(lambda root, q: {"active": True})
-
-# Filter for a specific role
-admin = MongoSpecification(lambda root, q: {"role": "admin"})
-
-# Filter with a dynamic value
-def min_age(age: int) -> MongoSpecification:
-    return MongoSpecification(lambda root, q, _a=age: {"age": {"$gte": _a}})
-```
-
-An empty dict (`{}`) is treated as a no-op — combinators skip empty predicates rather than wrapping them.
-
-### Combining Specifications
-
-Use `&` (AND), `|` (OR), and `~` (NOT) to build complex queries from simple building blocks:
-
-```python
-active = MongoSpecification(lambda root, q: {"active": True})
-admin  = MongoSpecification(lambda root, q: {"role": "admin"})
-senior = MongoSpecification(lambda root, q: {"age": {"$gte": 65}})
-
-# AND: {"$and": [{"active": true}, {"role": "admin"}]}
-active_admins = active & admin
-
-# OR: {"$or": [{"role": "admin"}, {"age": {"$gte": 65}}]}
-admin_or_senior = admin | senior
-
-# NOT: {"$nor": [{"active": true}]}
-inactive = ~active
-
-# Complex composition:
-# active admins OR senior users
-spec = (active & admin) | senior
-```
-
-### Using Specifications with Repositories
-
-`MongoRepository` provides two methods for specification-based queries:
-
-| Method | Return Type | Description |
-|--------|-------------|-------------|
-| `find_all_by_spec(spec)` | `list[T]` | Find all documents matching the specification |
-| `find_all_by_spec_paged(spec, pageable)` | `Page[T]` | Find matching documents with pagination and sorting |
-
-```python
-from pyfly.data import Pageable, Sort
-from pyfly.data.document.mongodb import MongoSpecification
-
-# Simple query
-active = MongoSpecification(lambda root, q: {"active": True})
-results = await repo.find_all_by_spec(active)
-
-# Paginated query with sorting
-pageable = Pageable.of(page=1, size=20, sort=Sort.by("name"))
-page = await repo.find_all_by_spec_paged(active, pageable)
-print(page.items)       # list[T]
-print(page.total)       # total matching documents
-print(page.has_next)    # whether there is a next page
-```
-
-Source file: `src/pyfly/data/document/mongodb/specification.py`
-
----
-
-## MongoFilterOperator
-
-`MongoFilterOperator` provides static factory methods for common field-level predicates, each returning a `MongoSpecification`. This is the MongoDB counterpart to the SQLAlchemy adapter's `FilterOperator`.
-
-```python
-from pyfly.data.document.mongodb import MongoFilterOperator
-```
-
-### Available Operators
-
-| Method | MongoDB Expression | Args | Description |
-|--------|--------------------|------|-------------|
-| `eq(field, value)` | `{field: value}` | 2 | Equal to |
-| `neq(field, value)` | `{field: {"$ne": value}}` | 2 | Not equal to |
-| `gt(field, value)` | `{field: {"$gt": value}}` | 2 | Greater than |
-| `gte(field, value)` | `{field: {"$gte": value}}` | 2 | Greater than or equal |
-| `lt(field, value)` | `{field: {"$lt": value}}` | 2 | Less than |
-| `lte(field, value)` | `{field: {"$lte": value}}` | 2 | Less than or equal |
-| `like(field, pattern)` | `{field: {"$regex": ...}}` | 2 | SQL LIKE pattern (`%` = `.*`, `_` = `.`) |
-| `contains(field, value)` | `{field: {"$regex": escaped}}` | 2 | Substring match (case-sensitive) |
-| `in_list(field, values)` | `{field: {"$in": values}}` | 2 | Value in list |
-| `is_null(field)` | `{field: None}` | 1 | Field is null |
-| `is_not_null(field)` | `{field: {"$ne": None}}` | 1 | Field is not null |
-| `between(field, low, high)` | `{field: {"$gte": low, "$lte": high}}` | 3 | Inclusive range |
-
-```python
-# Price range
-spec = MongoFilterOperator.between("price", 10.0, 100.0)
-# -> {"price": {"$gte": 10.0, "$lte": 100.0}}
-
-# Name pattern (SQL LIKE syntax)
-spec = MongoFilterOperator.like("name", "A%")
-# -> {"name": {"$regex": "^A.*$"}}
-
-# Status in list
-spec = MongoFilterOperator.in_list("status", ["PENDING", "ACTIVE"])
-# -> {"status": {"$in": ["PENDING", "ACTIVE"]}}
-```
-
-### Composing Filters
-
-Because each operator returns a `MongoSpecification`, you can chain them with `&`, `|`, and `~`:
-
-```python
-# Adults with premium status
-spec = MongoFilterOperator.gte("age", 18) & MongoFilterOperator.eq("tier", "premium")
-
-# Cheap OR on sale
-spec = MongoFilterOperator.lt("price", 5.0) | MongoFilterOperator.eq("on_sale", True)
-
-# NOT deleted
-spec = ~MongoFilterOperator.is_not_null("deleted_at")
-
-# Use with repository
-results = await repo.find_all_by_spec(spec)
-```
-
-Source file: `src/pyfly/data/document/mongodb/filter.py`
-
----
-
-## MongoFilterUtils: Query by Example
-
-`MongoFilterUtils` provides a shorthand for building equality-based specifications from keyword arguments, dictionaries, or partial entity objects. It extends the commons `BaseFilterUtils` ABC — the same base class used by the SQLAlchemy adapter's `FilterUtils`.
-
-```python
-from pyfly.data.document.mongodb import MongoFilterUtils
-```
-
-| Method | Description |
-|--------|-------------|
-| `by(**kwargs)` | Build an AND specification from keyword equality filters |
-| `from_dict(filters)` | Build an AND specification from a dict (skips `None` values) |
-| `from_example(example)` | Build an AND specification from a dataclass or object (non-`None` fields) |
-
-```python
-# From keyword arguments
-spec = MongoFilterUtils.by(role="admin", active=True)
-# Equivalent to: MongoFilterOperator.eq("role", "admin") & MongoFilterOperator.eq("active", True)
-
-# From a dictionary (None values are skipped)
-filters = {"status": "ACTIVE", "category": None, "tier": "premium"}
-spec = MongoFilterUtils.from_dict(filters)
-# Only "status" and "tier" are included
-
-# From a partial entity (dataclass or object with __dict__)
-from dataclasses import dataclass
-
-@dataclass
-class UserFilter:
-    role: str | None = None
-    active: bool | None = None
-
-spec = MongoFilterUtils.from_example(UserFilter(role="admin"))
-# Only non-None fields become eq filters
-```
-
-All three methods return a `MongoSpecification` that can be passed to `find_all_by_spec()` or `find_all_by_spec_paged()`, and can be further composed with `&`, `|`, `~`:
-
-```python
-# Base filter from user input
-base = MongoFilterUtils.by(active=True, category="electronics")
-
-# Combine with a richer predicate
-expensive = MongoFilterOperator.gt("price", 500.0)
-spec = base & expensive
-
-results = await repo.find_all_by_spec(spec)
-page = await repo.find_all_by_spec_paged(spec, Pageable.of(page=1, size=20))
-```
-
-Source files:
-- `src/pyfly/data/document/mongodb/filter.py` — `MongoFilterOperator`, `MongoFilterUtils`
-- `src/pyfly/data/filter.py` — `BaseFilterUtils` (commons ABC)
 
 ---
 
@@ -1489,18 +1029,11 @@ class TaskController:
         return 404, {"error": {"message": str(exc), "code": "TASK_NOT_FOUND"}}
 ```
 
-This example demonstrates:
-- `Valid[CreateTaskRequest]` for structured 422 validation errors on POST
-- `PathVar[str]` for path parameter binding
-- `QueryParam[str]` for optional query parameter filtering
-- `@exception_handler` for controller-level error handling
-- Derived query methods on the repository (`find_by_status`, `find_by_assignee_and_status`)
-
 ---
 
 ## Complete CRUD Example
 
-The following example demonstrates a full Product document, repository with derived queries, service, and controller -- a complete vertical slice of a PyFly application using MongoDB.
+The following example demonstrates a full Product document, repository with derived queries, service, and controller — a complete vertical slice of a PyFly application using MongoDB.
 
 ```python
 # ==========================================================================
@@ -1671,32 +1204,8 @@ class ProductService:
         docs = await self._repo.find_by_name_containing(query)
         return [self._to_response(d) for d in docs]
 
-    async def update(
-        self, product_id: str, request: UpdateProductRequest
-    ) -> ProductResponse:
-        doc = await self._repo.find_by_id(product_id)
-        if doc is None:
-            raise ResourceNotFoundException(
-                f"Product {product_id} not found",
-                code="PRODUCT_NOT_FOUND",
-            )
-        doc.name = request.name
-        doc.description = request.description
-        doc.price = request.price
-        doc.category = request.category
-        doc.tags = request.tags
-        saved = await self._repo.save(doc)
-        return self._to_response(saved)
-
     async def delete(self, product_id: str) -> None:
         await self._repo.delete(product_id)
-
-    async def count_in_category(self, category: str) -> int:
-        return await self._repo.count_by_category(category)
-
-    async def find_expensive(self, min_price: float) -> list[ProductResponse]:
-        docs = await self._repo.find_by_price_greater_than_order_by_price_desc(min_price)
-        return [self._to_response(d) for d in docs]
 
     @staticmethod
     def _to_response(doc: ProductDocument) -> ProductResponse:
@@ -1734,8 +1243,6 @@ class ProductController:
     async def list_products(
         self,
         category: QueryParam[str] = None,
-        page: QueryParam[int] = 1,
-        size: QueryParam[int] = 20,
     ) -> list[ProductResponse]:
         """List active products, optionally filtered by category."""
         return await self._service.find_all_active(category=category)
@@ -1752,26 +1259,10 @@ class ProductController:
         """Search products by name (case-insensitive contains)."""
         return await self._service.search_by_name(q)
 
-    @get_mapping("/expensive")
-    async def find_expensive(
-        self, min_price: QueryParam[float] = 100.0,
-    ) -> list[ProductResponse]:
-        """Find products above a minimum price, sorted by price descending."""
-        return await self._service.find_expensive(min_price)
-
     @post_mapping("/", status_code=201)
     async def create_product(self, body: Valid[CreateProductRequest]) -> ProductResponse:
         """Create a new product with Pydantic validation."""
         return await self._service.create(body)
-
-    @put_mapping("/{product_id}")
-    async def update_product(
-        self,
-        product_id: PathVar[str],
-        body: Valid[UpdateProductRequest],
-    ) -> ProductResponse:
-        """Replace a product's mutable fields."""
-        return await self._service.update(product_id, body)
 
     @delete_mapping("/{product_id}", status_code=204)
     async def delete_product(self, product_id: PathVar[str]) -> None:
@@ -1871,147 +1362,10 @@ pyfly:
       enabled: true
 ```
 
-This will expose:
-
-- `GET    /api/products/`              -- list active products (with optional category filter)
-- `GET    /api/products/{product_id}`  -- get a product by ID
-- `GET    /api/products/search?q=...`  -- search products by name
-- `GET    /api/products/expensive?min_price=...` -- find expensive products
-- `POST   /api/products/`             -- create a product (with `Valid[T]` validation)
-- `PUT    /api/products/{product_id}` -- update a product (with `Valid[T]` validation)
-- `DELETE /api/products/{product_id}` -- delete a product
-- `GET    /docs`                       -- Swagger UI
-- `GET    /redoc`                      -- ReDoc
-- `GET    /openapi.json`               -- OpenAPI 3.1 spec
-- `GET    /actuator/health`            -- Health check
-
 ---
 
-## Architecture Extensibility
+## See Also
 
-The PyFly Data architecture is designed to support additional document database adapters (e.g., DynamoDB, Elasticsearch, Firestore) by implementing the same `QueryMethodCompilerPort` protocol that the SQLAlchemy and MongoDB adapters implement.
-
-### QueryMethodCompilerPort Protocol
-
-The `QueryMethodCompilerPort` is defined in `pyfly.data.ports.compiler`:
-
-```python
-from collections.abc import Callable, Coroutine
-from typing import Any, Protocol, TypeVar
-
-from pyfly.data.query_parser import ParsedQuery
-
-T = TypeVar("T")
-
-
-class QueryMethodCompilerPort(Protocol):
-    """Compile a ParsedQuery into an async callable.
-
-    Each data adapter (SQLAlchemy, MongoDB, DynamoDB, etc.) provides its own
-    implementation. The shared QueryMethodParser produces ParsedQuery objects;
-    this port compiles them into backend-specific executable queries.
-    """
-
-    def compile(
-        self,
-        parsed: ParsedQuery,
-        entity: type[T],
-    ) -> Callable[..., Coroutine[Any, Any, Any]]: ...
-```
-
-The protocol requires a single method: `compile(parsed, entity)`. It receives a `ParsedQuery` (which contains the prefix, predicates, connectors, and order clauses) and the entity/document type, and returns an async callable that executes the query.
-
-This is a structural protocol (using `Protocol` from `typing`), so any class with a `compile` method matching this signature satisfies it -- no explicit inheritance required.
-
-### Adding a New Document Database Adapter
-
-To add support for a new document database (say, DynamoDB), you would:
-
-1. **Create the adapter package:** `pyfly/data/document/dynamodb/`
-
-2. **Implement a base document class** (analogous to `BaseDocument`):
-
-```python
-# pyfly/data/document/dynamodb/document.py
-class BaseDynamoDocument:
-    """Base document for DynamoDB items with audit fields."""
-    created_at: datetime
-    updated_at: datetime
-    created_by: str | None = None
-    updated_by: str | None = None
-```
-
-3. **Implement the repository** (analogous to `MongoRepository`):
-
-```python
-# pyfly/data/document/dynamodb/repository.py
-class DynamoRepository(Generic[T, ID]):
-    """Generic CRUD repository for DynamoDB."""
-    async def save(self, entity: T) -> T: ...
-    async def find_by_id(self, id: ID) -> T | None: ...
-    async def find_all(self, **filters: Any) -> list[T]: ...
-    async def delete(self, id: ID) -> None: ...
-    async def count(self) -> int: ...
-    async def exists(self, id: ID) -> bool: ...
-    async def find_paginated(self, page=1, size=20, pageable=None) -> Page[T]: ...
-```
-
-4. **Implement the query compiler** (satisfying `QueryMethodCompilerPort`):
-
-```python
-# pyfly/data/document/dynamodb/query_compiler.py
-from pyfly.data.query_parser import ParsedQuery
-
-
-class DynamoQueryMethodCompiler:
-    """Compile ParsedQuery into DynamoDB query/scan operations."""
-
-    def compile(self, parsed: ParsedQuery, entity: type[T]) -> Callable[..., Coroutine]:
-        # Translate parsed predicates into DynamoDB expressions
-        # e.g., "eq" -> Key("field").eq(value)
-        # e.g., "gt" -> Key("field").gt(value)
-        # e.g., "containing" -> Attr("field").contains(value)
-        ...
-```
-
-5. **Implement the post-processor** (analogous to `MongoRepositoryBeanPostProcessor`):
-
-```python
-# pyfly/data/document/dynamodb/post_processor.py
-class DynamoRepositoryBeanPostProcessor:
-    def __init__(self) -> None:
-        self._query_parser = QueryMethodParser()
-        self._query_compiler = DynamoQueryMethodCompiler()
-
-    def after_init(self, bean, bean_name):
-        if not isinstance(bean, DynamoRepository):
-            return bean
-        # Parse and compile derived query methods, same pattern as MongoDB
-        ...
-```
-
-6. **Add auto-detection** in `AutoConfiguration`:
-
-```python
-@staticmethod
-def detect_dynamodb_provider() -> str:
-    if AutoConfiguration.is_available("aiobotocore"):
-        return "dynamodb"
-    return "none"
-```
-
-The key insight is that the `QueryMethodParser` is fully shared -- you never need to reimplement the parsing logic. The parser produces `ParsedQuery` objects that are backend-agnostic. Your adapter only needs to compile those parsed queries into the target database's query format.
-
-This architecture means that the naming convention for derived query methods (`find_by_status_and_role_order_by_name_desc`) is consistent across all PyFly data adapters. Once you learn the convention, it works the same way whether your backend is PostgreSQL, MongoDB, DynamoDB, or any future adapter.
-
-Source files:
-- `src/pyfly/data/ports/compiler.py` -- `QueryMethodCompilerPort` protocol
-- `src/pyfly/data/query_parser.py` -- `QueryMethodParser` (shared)
-- `src/pyfly/data/document/mongodb/query_compiler.py` -- `MongoQueryMethodCompiler` (MongoDB implementation)
-- `src/pyfly/data/relational/sqlalchemy/query_compiler.py` -- `QueryMethodCompiler` (SQLAlchemy implementation)
-
----
-
-## Adapters
-
-- [MongoDB Adapter](../adapters/mongodb.md) — Setup, configuration reference, and adapter-specific features for the Beanie ODM backend
+- [Data Module Guide](data.md) — Generic commons: repository ports, pagination, query parsing, entity mapping, extensibility
+- [Data Relational Guide](data-relational.md) — SQLAlchemy adapter
+- [MongoDB Adapter Reference](../adapters/mongodb.md) — Setup, configuration, adapter-specific features

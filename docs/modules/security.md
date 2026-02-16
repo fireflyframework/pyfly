@@ -35,6 +35,21 @@ The PyFly security module provides a complete authentication and authorization s
   - [Combined Role and Permission Checks](#combined-role-and-permission-checks)
   - [How @secure Works Internally](#how-secure-works-internally)
   - [Error Responses](#secure-error-responses)
+  - [Expression-Based Access Control](#expression-based-access-control)
+- [CSRF Protection](#csrf-protection)
+  - [How Double-Submit Cookie Works](#how-double-submit-cookie-works)
+  - [CSRF Utilities](#csrf-utilities)
+  - [CsrfFilter](#csrffilter)
+  - [JavaScript Integration](#javascript-integration)
+- [OAuth2](#oauth2)
+  - [OAuth2 Resource Server (JWKS)](#oauth2-resource-server-jwks)
+  - [OAuth2 Client Registration](#oauth2-client-registration)
+  - [Built-in Provider Factories](#built-in-provider-factories)
+  - [ClientRegistrationRepository](#clientregistrationrepository)
+  - [OAuth2 Authorization Server](#oauth2-authorization-server)
+  - [Issuing Tokens](#issuing-tokens)
+  - [TokenStore Protocol](#tokenstore-protocol)
+  - [Error Codes](#error-codes)
 - [Exception Hierarchy](#exception-hierarchy)
 - [Putting It All Together](#putting-it-all-together)
   - [Configuration Layer](#configuration-layer)
@@ -49,7 +64,7 @@ The PyFly security module provides a complete authentication and authorization s
 
 ## Architecture Overview
 
-The security module consists of five components:
+The security module consists of the following components:
 
 | Component              | File                          | Purpose                                        |
 |------------------------|-------------------------------|------------------------------------------------|
@@ -58,7 +73,11 @@ The security module consists of five components:
 | `PasswordEncoder`      | `pyfly.security.password`     | Protocol for password hashing                   |
 | `BcryptPasswordEncoder`| `pyfly.security.password`     | Bcrypt implementation of PasswordEncoder        |
 | `SecurityMiddleware`   | `pyfly.security.middleware`   | Starlette middleware for token extraction        |
-| `@secure`              | `pyfly.security.decorators`   | Decorator for role/permission enforcement        |
+| `@secure`              | `pyfly.security.decorators`   | Decorator for role/permission/expression enforcement |
+| `CsrfFilter`          | `pyfly.web.adapters.starlette.filters.csrf_filter` | Double-submit cookie CSRF protection |
+| `JWKSTokenValidator`   | `pyfly.security.oauth2.resource_server` | RS256 JWT validation via remote JWKS |
+| `ClientRegistration`   | `pyfly.security.oauth2.client` | OAuth2 provider configuration dataclass        |
+| `AuthorizationServer`  | `pyfly.security.oauth2.authorization_server` | Token issuance and refresh token management |
 
 All components are exported from the top-level `pyfly.security` package:
 
@@ -70,6 +89,24 @@ from pyfly.security import (
     BcryptPasswordEncoder,
     SecurityMiddleware,
     secure,
+)
+
+# CSRF utilities
+from pyfly.security.csrf import generate_csrf_token, validate_csrf_token
+from pyfly.web.adapters.starlette.filters.csrf_filter import CsrfFilter
+
+# OAuth2
+from pyfly.security.oauth2 import (
+    JWKSTokenValidator,
+    ClientRegistration,
+    ClientRegistrationRepository,
+    InMemoryClientRegistrationRepository,
+    AuthorizationServer,
+    TokenStore,
+    InMemoryTokenStore,
+    google,
+    github,
+    keycloak,
 )
 ```
 
@@ -500,6 +537,411 @@ The `@secure` decorator wraps the function in an async wrapper that:
 | Insufficient permissions| `SecurityException("Insufficient permissions: ...", code="FORBIDDEN")`| 403 |
 
 These exceptions are caught by the global exception handler and converted to structured JSON error responses.
+
+### Expression-Based Access Control
+
+The `expression` parameter enables Spring Security-style security expressions for more complex authorization logic:
+
+```python
+@secure(expression="hasRole('ADMIN') and hasPermission('order:delete')")
+async def delete_order(order_id: str, security_context: SecurityContext) -> None:
+    ...
+```
+
+**Supported expressions:**
+
+| Expression | Description | Example |
+|---|---|---|
+| `hasRole('X')` | User has role X | `hasRole('ADMIN')` |
+| `hasAnyRole('X', 'Y')` | User has at least one of the roles | `hasAnyRole('ADMIN', 'MANAGER')` |
+| `hasPermission('X')` | User has permission X | `hasPermission('user:read')` |
+| `isAuthenticated` | User is authenticated | `isAuthenticated` |
+| `and` | Boolean AND | `hasRole('ADMIN') and hasPermission('write')` |
+| `or` | Boolean OR | `hasRole('ADMIN') or hasRole('MANAGER')` |
+| `not` | Boolean NOT | `not hasRole('GUEST')` |
+| `(...)` | Grouping | `(hasRole('ADMIN') or hasRole('MANAGER')) and hasPermission('write')` |
+
+**Complex expression examples:**
+
+```python
+# Require ADMIN role AND write permission
+@secure(expression="hasRole('ADMIN') and hasPermission('order:write')")
+async def update_order(order_id: str, security_context: SecurityContext) -> dict:
+    ...
+
+# Allow ADMIN or MANAGER with write permission
+@secure(expression="(hasRole('ADMIN') or hasRole('MANAGER')) and hasPermission('write')")
+async def approve_order(order_id: str, security_context: SecurityContext) -> dict:
+    ...
+
+# Deny guests
+@secure(expression="not hasRole('GUEST')")
+async def member_content(security_context: SecurityContext) -> dict:
+    ...
+```
+
+**Safety:** Expressions are evaluated using safe AST parsing -- no `eval()` or `exec()` is used. The expression is first reduced to a boolean-only string (`True`/`False`/`and`/`or`/`not`/parentheses), then evaluated via recursive AST walking.
+
+**Invalid expressions** (containing unsafe tokens like function calls, imports, or arithmetic) raise `SecurityException` with code `"INVALID_EXPRESSION"`.
+
+**Source:** `src/pyfly/security/decorators.py`
+
+---
+
+## CSRF Protection
+
+PyFly provides stateless CSRF protection using the double-submit cookie pattern. This is implemented as a `WebFilter` that integrates into the filter chain.
+
+### How Double-Submit Cookie Works
+
+1. On **safe requests** (GET, HEAD, OPTIONS, TRACE), the filter sets an `XSRF-TOKEN` cookie on the response.
+2. JavaScript reads the cookie and includes its value as an `X-XSRF-TOKEN` header on subsequent unsafe requests.
+3. On **unsafe requests** (POST, PUT, DELETE, PATCH), the filter validates that the header value matches the cookie value using a timing-safe comparison.
+4. If either token is missing or they don't match, the filter returns HTTP 403.
+
+Since cross-origin requests cannot read cookies from another domain, this proves the request originated from the same site.
+
+### CSRF Utilities
+
+Token generation and validation are provided by `pyfly.security.csrf`:
+
+```python
+from pyfly.security.csrf import (
+    generate_csrf_token,
+    validate_csrf_token,
+    CSRF_COOKIE_NAME,    # "XSRF-TOKEN"
+    CSRF_HEADER_NAME,    # "X-XSRF-TOKEN"
+    SAFE_METHODS,        # frozenset({"GET", "HEAD", "OPTIONS", "TRACE"})
+)
+
+# Generate a cryptographically-secure token
+token = generate_csrf_token()  # URL-safe base64 string (43 chars)
+
+# Timing-safe validation
+is_valid = validate_csrf_token(cookie_token, header_token)
+```
+
+| Function | Description |
+|---|---|
+| `generate_csrf_token()` | Generates a URL-safe token using `secrets.token_urlsafe(32)` |
+| `validate_csrf_token(cookie, header)` | Timing-safe comparison using `secrets.compare_digest` |
+
+**Source:** `src/pyfly/security/csrf.py`
+
+### CsrfFilter
+
+The `CsrfFilter` extends `OncePerRequestFilter` and runs in the WebFilter chain:
+
+```python
+from pyfly.web.adapters.starlette.filters.csrf_filter import CsrfFilter
+```
+
+| Property | Value | Description |
+|---|---|---|
+| `__pyfly_order__` | `-50` | Runs after RequestContext but before SecurityFilter |
+| `exclude_patterns` | `["/actuator/*", "/health", "/ready"]` | Paths excluded from CSRF |
+
+**Bearer bypass:** Requests with an `Authorization: Bearer ...` header skip CSRF validation entirely. JWT-based API clients are already immune to CSRF attacks because tokens are not sent automatically by browsers.
+
+**Cookie properties:**
+
+| Property | Value | Reason |
+|---|---|---|
+| `httponly` | `False` | JavaScript must read the cookie to send it as a header |
+| `samesite` | `lax` | Prevents cookies from being sent on cross-site requests |
+| `secure` | `True` | Cookie only sent over HTTPS |
+| `path` | `/` | Available to all paths |
+
+### JavaScript Integration
+
+To use CSRF protection with a JavaScript frontend:
+
+```javascript
+// Read the XSRF-TOKEN cookie
+function getCsrfToken() {
+    const match = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
+    return match ? match[1] : null;
+}
+
+// Include in requests
+fetch('/api/orders', {
+    method: 'POST',
+    headers: {
+        'Content-Type': 'application/json',
+        'X-XSRF-TOKEN': getCsrfToken(),
+    },
+    body: JSON.stringify({ item: 'Widget' }),
+    credentials: 'include',
+});
+```
+
+**Source:** `src/pyfly/web/adapters/starlette/filters/csrf_filter.py`
+
+---
+
+## OAuth2
+
+PyFly provides a complete OAuth2 implementation following hexagonal architecture. The module includes a Resource Server for validating external tokens, Client Registration for connecting to OAuth2 providers, and an Authorization Server for issuing tokens.
+
+```python
+from pyfly.security.oauth2 import (
+    # Resource Server
+    JWKSTokenValidator,
+    # Client Registration
+    ClientRegistration,
+    ClientRegistrationRepository,
+    InMemoryClientRegistrationRepository,
+    google,
+    github,
+    keycloak,
+    # Authorization Server
+    AuthorizationServer,
+    TokenStore,
+    InMemoryTokenStore,
+)
+```
+
+### OAuth2 Resource Server (JWKS)
+
+The `JWKSTokenValidator` validates RS256-signed JWTs using a remote JWKS (JSON Web Key Set) endpoint. This is used when your application acts as an **OAuth2 Resource Server** -- it receives tokens issued by an external authorization server and validates them.
+
+```python
+from pyfly.security.oauth2 import JWKSTokenValidator
+
+validator = JWKSTokenValidator(
+    jwks_uri="https://auth.example.com/.well-known/jwks.json",
+    issuer="https://auth.example.com",
+    audience="my-api",
+)
+```
+
+**Constructor parameters:**
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `jwks_uri` | `str` | required | URL of the JWKS endpoint |
+| `issuer` | `str \| None` | `None` | Expected `iss` claim (validates if set) |
+| `audience` | `str \| None` | `None` | Expected `aud` claim (validates if set) |
+| `algorithms` | `list[str] \| None` | `["RS256"]` | Allowed signing algorithms |
+
+**Validating tokens:**
+
+```python
+# Validate and get raw payload
+payload = validator.validate(token)
+# {"sub": "user-123", "roles": ["ADMIN"], "scope": "read write", ...}
+
+# Validate and build SecurityContext directly
+ctx = validator.to_security_context(token)
+# SecurityContext(user_id="user-123", roles=["ADMIN"], permissions=["read", "write"])
+```
+
+**Claim mapping for `to_security_context()`:**
+
+| JWT Claim | SecurityContext Field | Notes |
+|---|---|---|
+| `sub` | `user_id` | Standard subject claim |
+| `roles` | `roles` | Flat roles array |
+| `realm_access.roles` | `roles` | Keycloak-style nested roles (fallback) |
+| `permissions` | `permissions` | Flat permissions array |
+| `scope` | `permissions` | Space-separated scopes (fallback, split on spaces) |
+
+**Source:** `src/pyfly/security/oauth2/resource_server.py`
+
+### OAuth2 Client Registration
+
+`ClientRegistration` is a frozen dataclass that holds the configuration needed to interact with an OAuth2 provider.
+
+```python
+from pyfly.security.oauth2 import ClientRegistration
+
+registration = ClientRegistration(
+    registration_id="my-app",
+    client_id="client-id-from-provider",
+    client_secret="client-secret-from-provider",
+    authorization_grant_type="authorization_code",
+    redirect_uri="https://myapp.com/callback",
+    scopes=["openid", "profile", "email"],
+    authorization_uri="https://provider.com/authorize",
+    token_uri="https://provider.com/token",
+    user_info_uri="https://provider.com/userinfo",
+    jwks_uri="https://provider.com/.well-known/jwks.json",
+    issuer_uri="https://provider.com",
+    provider_name="Custom Provider",
+)
+```
+
+**Fields:**
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `registration_id` | `str` | required | Unique identifier for this registration |
+| `client_id` | `str` | required | OAuth2 client ID |
+| `client_secret` | `str` | `""` | OAuth2 client secret |
+| `authorization_grant_type` | `str` | `"authorization_code"` | Grant type |
+| `redirect_uri` | `str` | `""` | Redirect URI for auth code flow |
+| `scopes` | `list[str]` | `[]` | Requested scopes |
+| `authorization_uri` | `str` | `""` | Provider's authorization endpoint |
+| `token_uri` | `str` | `""` | Provider's token endpoint |
+| `user_info_uri` | `str` | `""` | Provider's userinfo endpoint |
+| `jwks_uri` | `str` | `""` | Provider's JWKS endpoint |
+| `issuer_uri` | `str` | `""` | Provider's issuer URI |
+| `provider_name` | `str` | `""` | Human-readable provider name |
+
+#### Built-in Provider Factories
+
+Pre-configured factories for common OAuth2 providers:
+
+```python
+from pyfly.security.oauth2 import google, github, keycloak
+
+# Google OAuth2
+google_reg = google(
+    client_id="your-google-client-id",
+    client_secret="your-google-client-secret",
+    redirect_uri="https://myapp.com/callback/google",
+)
+
+# GitHub OAuth2
+github_reg = github(
+    client_id="your-github-client-id",
+    client_secret="your-github-client-secret",
+)
+
+# Keycloak (derives all endpoints from the issuer URI)
+keycloak_reg = keycloak(
+    client_id="your-keycloak-client-id",
+    client_secret="your-keycloak-client-secret",
+    issuer_uri="https://keycloak.example.com/realms/myrealm",
+)
+```
+
+| Factory | Scopes | Grant Type |
+|---|---|---|
+| `google()` | `openid`, `profile`, `email` | `authorization_code` |
+| `github()` | `read:user`, `user:email` | `authorization_code` |
+| `keycloak()` | `openid`, `profile`, `email` | `authorization_code` |
+
+#### ClientRegistrationRepository
+
+The `ClientRegistrationRepository` protocol defines the port for looking up registrations:
+
+```python
+from pyfly.security.oauth2 import (
+    ClientRegistrationRepository,
+    InMemoryClientRegistrationRepository,
+)
+
+# Create a repository with registrations
+repo = InMemoryClientRegistrationRepository(google_reg, github_reg, keycloak_reg)
+
+# Look up by registration ID
+reg = repo.find_by_registration_id("google")  # Returns ClientRegistration or None
+
+# Add registrations after construction
+repo.add(custom_registration)
+
+# List all registrations
+all_regs = repo.registrations  # list[ClientRegistration]
+```
+
+**Source:** `src/pyfly/security/oauth2/client.py`
+
+### OAuth2 Authorization Server
+
+The `AuthorizationServer` issues JWT access tokens and manages refresh tokens. It supports `client_credentials` (machine-to-machine) and `refresh_token` grant types.
+
+```python
+from pyfly.security.oauth2 import (
+    AuthorizationServer,
+    InMemoryTokenStore,
+    InMemoryClientRegistrationRepository,
+    ClientRegistration,
+)
+
+# Set up client registration
+client = ClientRegistration(
+    registration_id="my-service",
+    client_id="my-service",
+    client_secret="service-secret",
+    scopes=["read", "write"],
+)
+client_repo = InMemoryClientRegistrationRepository(client)
+
+# Create authorization server
+auth_server = AuthorizationServer(
+    secret="jwt-signing-secret",
+    client_repository=client_repo,
+    token_store=InMemoryTokenStore(),
+    access_token_ttl=3600,       # 1 hour
+    refresh_token_ttl=86400,     # 24 hours
+    issuer="https://auth.myapp.com",
+)
+```
+
+**Constructor parameters:**
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `secret` | `str` | required | Secret key for HS256 token signing |
+| `client_repository` | `ClientRegistrationRepository` | required | Repository for client lookup |
+| `token_store` | `TokenStore` | required | Storage for refresh tokens |
+| `access_token_ttl` | `int` | `3600` | Access token lifetime (seconds) |
+| `refresh_token_ttl` | `int` | `86400` | Refresh token lifetime (seconds) |
+| `issuer` | `str \| None` | `None` | Token issuer (`iss` claim) |
+
+#### Issuing Tokens
+
+```python
+# Client credentials grant (machine-to-machine)
+response = await auth_server.token(
+    grant_type="client_credentials",
+    client_id="my-service",
+    client_secret="service-secret",
+    scope="read write",
+)
+# {
+#     "access_token": "eyJhbGciOiJIUzI1NiI...",
+#     "token_type": "Bearer",
+#     "expires_in": 3600,
+#     "refresh_token": "dGhpcyBpcyBhIHJlZnJlc2g...",
+#     "scope": "read write"
+# }
+
+# Refresh token grant
+new_response = await auth_server.token(
+    grant_type="refresh_token",
+    client_id="my-service",
+    client_secret="service-secret",
+    refresh_token=response["refresh_token"],
+)
+```
+
+**Refresh token rotation:** When a refresh token is used, the old token is automatically revoked and a new one is issued. This limits the window of vulnerability if a token is compromised.
+
+#### TokenStore Protocol
+
+The `TokenStore` protocol defines the port for token persistence:
+
+```python
+class TokenStore(Protocol):
+    async def store(self, token_id: str, token_data: dict[str, Any]) -> None: ...
+    async def find(self, token_id: str) -> dict[str, Any] | None: ...
+    async def revoke(self, token_id: str) -> None: ...
+```
+
+`InMemoryTokenStore` is the built-in adapter for development and testing. In production, implement `TokenStore` with Redis or a database backend.
+
+#### Error Codes
+
+| Error Code | Cause |
+|---|---|
+| `INVALID_CLIENT` | Unknown client ID or wrong secret |
+| `INVALID_REQUEST` | Missing required parameter (e.g., refresh_token) |
+| `UNSUPPORTED_GRANT_TYPE` | Grant type not supported |
+| `INVALID_GRANT` | Invalid, expired, or mismatched refresh token |
+
+**Source:** `src/pyfly/security/oauth2/authorization_server.py`
 
 ---
 

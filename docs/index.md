@@ -272,8 +272,9 @@ PyFly is organized into four layers:
 | Module | Description | Guide |
 |--------|-------------|-------|
 | **Web** | HTTP routing, controllers, middleware, OpenAPI | [Web Layer](modules/web.md) |
-| **Data Relational** | Repository pattern, specifications, pagination (SQLAlchemy) | [Data Relational](modules/data-relational.md) |
-| **Data Document** | Document database support (MongoDB via Beanie ODM) | [Data Document](modules/data-document.md) |
+| **Data** | Repository ports, derived queries, pagination, sorting, entity mapping | [Data Commons](modules/data.md) |
+| **Data Relational** | SQLAlchemy adapter — specifications, transactions, custom queries | [Data Relational](modules/data-relational.md) |
+| **Data Document** | MongoDB adapter — Beanie ODM, document repositories | [Data Document](modules/data-document.md) |
 | **CQRS** | Command/Query segregation with mediator | [CQRS](modules/cqrs.md) |
 | **Validation** | Input validation with Pydantic | [Validation](modules/validation.md) |
 
@@ -318,7 +319,8 @@ PyFly is organized into four layers:
 - [Error Handling](modules/error-handling.md) — Exception hierarchy, structured error responses
 - [Web Layer](modules/web.md) — Controllers, routing, parameter binding, middleware, CORS, OpenAPI
 - [Actuator](modules/actuator.md) — Health checks, beans, environment, info endpoints
-- [Data Relational](modules/data-relational.md) — Repositories, derived queries, specifications, pagination
+- [Data Commons](modules/data.md) — Repository ports, derived queries, pagination, sorting, entity mapping
+- [Data Relational](modules/data-relational.md) — SQLAlchemy adapter: specifications, transactions, custom queries
 - [Messaging](modules/messaging.md) — Kafka, RabbitMQ, in-memory message broker
 - [Events](modules/events.md) — Event-driven architecture, domain events, application events
 - [CQRS](modules/cqrs.md) — Command/Query separation, mediator pattern

@@ -21,12 +21,21 @@ event-driven tests for PyFly applications.
 4. [Event Assertions](#event-assertions)
    - [assert_event_published()](#assert_event_published)
    - [assert_no_events_published()](#assert_no_events_published)
-5. [Testing Patterns](#testing-patterns)
+5. [mock_bean()](#mock_bean)
+6. [Test Slices](#test-slices)
+   - [@WebTest](#webtest)
+   - [@DataTest](#datatest)
+   - [@ServiceTest](#servicetest)
+   - [get_test_slice()](#get_test_slice)
+7. [PyFlyTestClient](#pyflytestclient)
+   - [TestResponse](#testresponse)
+   - [Fluent Assertion Methods](#fluent-assertion-methods)
+8. [Testing Patterns](#testing-patterns)
    - [Unit Testing Services](#unit-testing-services)
    - [Integration Testing with In-Memory Adapters](#integration-testing-with-in-memory-adapters)
    - [Testing Controllers](#testing-controllers)
    - [Testing Event Handlers](#testing-event-handlers)
-6. [Complete Example](#complete-example)
+9. [Complete Example](#complete-example)
 
 ---
 
@@ -41,6 +50,11 @@ from pyfly.testing import (
     create_test_container,
     assert_event_published,
     assert_no_events_published,
+    mock_bean,
+    WebTest, DataTest, ServiceTest,
+    get_test_slice,
+    PyFlyTestClient,
+    TestResponse,
 )
 ```
 
@@ -356,6 +370,304 @@ assert_no_events_published(events)
 | `events` | `list[EventEnvelope]` | List of captured event envelopes     |
 
 **Source:** `src/pyfly/testing/assertions.py`
+
+---
+
+## mock_bean()
+
+`mock_bean()` is a Python descriptor that provides fresh `AsyncMock` instances for each test. It replaces the manual boilerplate of creating `AsyncMock(spec=...)` fixtures.
+
+```python
+from pyfly.testing import mock_bean, PyFlyTestCase
+
+
+class TestOrderService(PyFlyTestCase):
+    order_repo = mock_bean(OrderRepository)
+    event_publisher = mock_bean(EventPublisher)
+
+    async def test_create_order(self):
+        self.order_repo.save.return_value = Order(id="1")
+
+        service = OrderService(self.order_repo, self.event_publisher)
+        result = await service.create_order({"customer": "Alice"})
+
+        self.order_repo.save.assert_called_once()
+```
+
+### How It Works
+
+`mock_bean()` returns a `MockBeanDescriptor` — a Python descriptor that lazily creates an `AsyncMock(spec=bean_type)` per test instance. Each test method gets a fresh mock because the mock is attached to the instance, not the class.
+
+**Parameters:**
+
+| Parameter | Type | Description |
+|---|---|---|
+| `bean_type` | `type` | The type to mock (used as the `spec` argument to `AsyncMock`) |
+
+**Returns:** A descriptor that provides an `AsyncMock` instance when accessed on an instance.
+
+**Key behaviors:**
+
+- Each test instance gets its own mock (no state leakage between tests)
+- The mock has the `spec` of the given type, so typos in method names are caught
+- The `bean_type` property on the descriptor is available for introspection
+
+```python
+# Access the underlying type
+TestOrderService.order_repo.bean_type  # OrderRepository
+```
+
+**Source:** `src/pyfly/testing/mock.py`
+
+---
+
+## Test Slices
+
+Test slices are class decorators that mark test classes for focused testing of specific application layers. They mirror Spring Boot's `@WebMvcTest`, `@DataJpaTest`, and `@SpringBootTest` annotations.
+
+```python
+from pyfly.testing import WebTest, DataTest, ServiceTest, get_test_slice
+```
+
+### @WebTest
+
+Marks a test class as a web-layer test. Use this for testing controllers and filters in isolation, with the service layer mocked.
+
+```python
+from pyfly.testing import WebTest, mock_bean
+
+
+@WebTest
+class TestUserController:
+    user_service = mock_bean(UserService)
+
+    async def test_get_users_returns_200(self):
+        self.user_service.list_users.return_value = [{"id": "1", "name": "Alice"}]
+        # ... test controller with mocked service
+```
+
+### @DataTest
+
+Marks a test class as a data-layer test. Use this for testing repositories with in-memory backends.
+
+```python
+from pyfly.testing import DataTest
+
+
+@DataTest
+class TestUserRepository:
+    async def test_save_and_find(self):
+        # ... test repository operations
+```
+
+### @ServiceTest
+
+Marks a test class as a service-layer test. Use this for testing services with mocked repositories.
+
+```python
+from pyfly.testing import ServiceTest, mock_bean
+
+
+@ServiceTest
+class TestOrderService:
+    order_repo = mock_bean(OrderRepository)
+
+    async def test_place_order(self):
+        # ... test service logic
+```
+
+### get_test_slice()
+
+Inspect which slice a test class belongs to:
+
+```python
+from pyfly.testing import get_test_slice, WebTest, DataTest
+
+@WebTest
+class MyWebTest: ...
+
+@DataTest
+class MyDataTest: ...
+
+class PlainTest: ...
+
+get_test_slice(MyWebTest)    # "web"
+get_test_slice(MyDataTest)   # "data"
+get_test_slice(PlainTest)    # None
+```
+
+| Decorator | Slice Value | Purpose |
+|---|---|---|
+| `@WebTest` | `"web"` | Controllers and filters |
+| `@DataTest` | `"data"` | Repositories and queries |
+| `@ServiceTest` | `"service"` | Services and business logic |
+
+**Source:** `src/pyfly/testing/slices.py`
+
+---
+
+## PyFlyTestClient
+
+`PyFlyTestClient` is a test HTTP client that wraps Starlette's `TestClient` with fluent assertion methods. It makes controller tests more readable by chaining assertions directly on the response.
+
+```python
+from starlette.applications import Starlette
+from starlette.routing import Route
+from starlette.responses import JSONResponse
+from pyfly.testing import PyFlyTestClient
+
+
+def get_users(request):
+    return JSONResponse([{"id": "1", "name": "Alice"}])
+
+app = Starlette(routes=[Route("/api/users", get_users)])
+client = PyFlyTestClient(app)
+
+# Fluent assertion chaining
+client.get("/api/users") \
+    .assert_status(200) \
+    .assert_json_path("$[0].name", value="Alice") \
+    .assert_header("content-type", value="application/json")
+```
+
+### Creating a Client
+
+```python
+from pyfly.testing import PyFlyTestClient
+
+# Pass any ASGI application
+client = PyFlyTestClient(app)
+```
+
+The client wraps Starlette's `TestClient` with `raise_server_exceptions=False`, so server errors return as HTTP 500 responses instead of raising exceptions in test code.
+
+### HTTP Methods
+
+| Method | Description |
+|---|---|
+| `client.get(url, **kwargs)` | Send GET request |
+| `client.post(url, **kwargs)` | Send POST request |
+| `client.put(url, **kwargs)` | Send PUT request |
+| `client.delete(url, **kwargs)` | Send DELETE request |
+| `client.patch(url, **kwargs)` | Send PATCH request |
+
+All methods return a `TestResponse` instance. Pass any keyword arguments supported by Starlette's `TestClient` (e.g., `json=`, `headers=`, `cookies=`).
+
+### TestResponse
+
+`TestResponse` wraps the HTTP response with fluent assertion methods. All assert methods return `self` for chaining.
+
+**Properties:**
+
+| Property | Type | Description |
+|---|---|---|
+| `status_code` | `int` | HTTP status code |
+| `headers` | `dict[str, str]` | Response headers (lowercase keys) |
+| `body` | `bytes` | Raw response body |
+
+**Methods:**
+
+| Method | Description |
+|---|---|
+| `json()` | Parse and return body as JSON (cached) |
+
+### Fluent Assertion Methods
+
+#### assert_status(expected)
+
+Assert the response status code:
+
+```python
+client.get("/api/users").assert_status(200)
+client.post("/api/orders", json={}).assert_status(422)
+```
+
+#### assert_json_path(path, *, value=..., exists=True)
+
+Assert a JSON path exists (or not) and optionally matches a value. Uses [JSONPath](https://goessner.net/articles/JsonPath/) syntax via `jsonpath_ng`:
+
+```python
+response = client.get("/api/users/1")
+
+# Assert path exists
+response.assert_json_path("$.name")
+
+# Assert path has specific value
+response.assert_json_path("$.name", value="Alice")
+
+# Assert path does NOT exist
+response.assert_json_path("$.deleted_at", exists=False)
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `path` | `str` | required | JSONPath expression |
+| `value` | `Any` | `...` (unset) | Expected value (only checked if provided) |
+| `exists` | `bool` | `True` | Whether the path should exist |
+
+#### assert_header(name, *, value=None, exists=True)
+
+Assert a response header exists and optionally matches a value:
+
+```python
+response.assert_header("content-type", value="application/json")
+response.assert_header("x-custom", exists=False)
+```
+
+#### assert_body_contains(text)
+
+Assert the response body contains a text substring:
+
+```python
+client.get("/health").assert_body_contains("UP")
+```
+
+### Complete Test Example
+
+```python
+import pytest
+from starlette.applications import Starlette
+from starlette.routing import Route
+from starlette.responses import JSONResponse
+
+from pyfly.testing import PyFlyTestClient
+
+
+def list_items(request):
+    return JSONResponse(
+        [{"id": "1", "name": "Widget", "price": 9.99}],
+        headers={"X-Total-Count": "1"},
+    )
+
+def create_item(request):
+    return JSONResponse({"id": "2", "name": "Gadget"}, status_code=201)
+
+
+app = Starlette(routes=[
+    Route("/api/items", list_items, methods=["GET"]),
+    Route("/api/items", create_item, methods=["POST"]),
+])
+
+
+class TestItemsAPI:
+    @pytest.fixture(autouse=True)
+    def setup_client(self):
+        self.client = PyFlyTestClient(app)
+
+    def test_list_items(self):
+        self.client.get("/api/items") \
+            .assert_status(200) \
+            .assert_json_path("$[0].name", value="Widget") \
+            .assert_json_path("$[0].price", value=9.99) \
+            .assert_header("x-total-count", value="1")
+
+    def test_create_item(self):
+        self.client.post("/api/items", json={"name": "Gadget"}) \
+            .assert_status(201) \
+            .assert_json_path("$.name", value="Gadget")
+```
+
+**Source:** `src/pyfly/testing/client.py`
 
 ---
 

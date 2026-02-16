@@ -40,6 +40,11 @@
   - [Excluding Fields](#excluding-fields)
   - [Mapping Lists](#mapping-lists)
   - [add\_mapping() Reference](#add_mapping-reference)
+- [Projections](#projections)
+  - [@projection Decorator](#projection-decorator)
+  - [Projection Utilities](#projection-utilities)
+  - [Mapper.register\_projection() and Mapper.project()](#mapperregister_projection-and-mapperproject)
+  - [Query Compiler Integration](#query-compiler-integration)
 - [Specification Port](#specification-port)
 - [BaseFilterUtils Port](#basefilterutils-port)
 - [BaseRepositoryPostProcessor Port](#baserepositorypostprocessor-port)
@@ -129,6 +134,12 @@ from pyfly.data import (
     BaseFilterUtils,                     # Query by Example ABC
     BaseRepositoryPostProcessor,         # BeanPostProcessor ABC
     DERIVED_PREFIXES,                    # ("find_by_", "count_by_", ...)
+)
+
+from pyfly.data.projection import (     # Projection utilities
+    projection,                          # @projection decorator
+    is_projection,                       # Check if type is a projection
+    projection_fields,                   # Get projection field names
 )
 ```
 
@@ -603,6 +614,107 @@ dtos = mapper.map_list(orders, OrderDTO)
 The mapper supports both dataclasses and plain objects. Source field extraction uses `dataclasses.asdict()` for dataclasses and `vars()` for other objects. Destination field discovery uses `dataclasses.fields()` or `get_type_hints()`.
 
 Source file: `src/pyfly/data/mapper.py`
+
+---
+
+## Projections
+
+Projections let you define a **subset of entity fields** as a Protocol type. Query compilers use projections to select only the required columns/fields from the database, and `Mapper.project()` maps full entities to projection types with optional computed fields.
+
+### @projection Decorator
+
+Mark a `Protocol` class as a projection interface:
+
+```python
+from typing import Protocol
+from pyfly.data.projection import projection
+
+
+@projection
+class OrderSummary(Protocol):
+    id: str
+    status: str
+    total: float
+```
+
+The `@projection` decorator adds an internal marker that query compilers and `Mapper` use to identify projection types. The Protocol declares only the fields you need — the query compiler will select just those columns.
+
+### Projection Utilities
+
+Two introspection functions are available:
+
+```python
+from pyfly.data.projection import is_projection, projection_fields
+
+is_projection(OrderSummary)       # True
+is_projection(OrderDTO)           # False (not decorated)
+
+projection_fields(OrderSummary)   # ["id", "status", "total"]
+```
+
+| Function | Return Type | Description |
+|---|---|---|
+| `is_projection(cls)` | `bool` | Check if a type is marked with `@projection` |
+| `projection_fields(cls)` | `list[str]` | Get the field names declared on a projection type |
+
+### Mapper.register_projection() and Mapper.project()
+
+`Mapper` supports projections alongside its standard `map()` method. Use `register_projection()` to optionally add computed-field transforms, then `project()` to map entities:
+
+```python
+from pyfly.data import Mapper
+from pyfly.data.projection import projection
+
+
+@projection
+class OrderSummary(Protocol):
+    id: str
+    status: str
+    line_total: float  # computed field
+
+
+mapper = Mapper()
+mapper.register_projection(Order, OrderSummary, transforms={
+    "line_total": lambda order: order.quantity * order.unit_price,
+})
+
+summary = mapper.project(order, OrderSummary)
+# summary.id, summary.status come from field-name matching
+# summary.line_total is computed by the transform
+```
+
+**Key differences from `map()`:**
+
+| Feature | `map()` | `project()` |
+|---|---|---|
+| Field mapping | Configurable via `add_mapping()` | Matches by name only |
+| Transforms | Receive the *field value* | Receive the *entire source object* |
+| Use case | DTO mapping between full types | Selecting a subset of fields |
+
+**`register_projection()` parameters:**
+
+| Parameter | Type | Description |
+|---|---|---|
+| `source_type` | `type[S]` | The source entity type |
+| `projection_type` | `type[D]` | The projection Protocol type |
+| `transforms` | `dict[str, Callable] \| None` | `{dest_field: fn(source)}` — callable receives the full source object |
+
+If a projection field has no registered transform, `project()` falls back to standard field-name matching from the source object.
+
+### Query Compiler Integration
+
+When a repository method returns a projection type, the query compiler automatically selects only the columns declared by the projection. This reduces data transfer and improves performance:
+
+```python
+class OrderRepository(Repository[Order, str]):
+    async def find_by_status(self, status: str) -> list[OrderSummary]: ...
+```
+
+The compiler calls `projection_fields(OrderSummary)` to determine which columns to SELECT, rather than fetching the full entity.
+
+Source files:
+- `src/pyfly/data/projection.py` — `@projection`, `is_projection`, `projection_fields`
+- `src/pyfly/data/mapper.py` — `Mapper.register_projection()`, `Mapper.project()`
 
 ---
 

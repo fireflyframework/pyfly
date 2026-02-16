@@ -35,17 +35,21 @@ and the full reference of framework defaults.
    - [Defining a Config Class](#defining-a-config-class)
    - [Binding at Runtime](#binding-at-runtime)
    - [Type Coercion in bind()](#type-coercion-in-bind)
-9. [Framework Defaults Reference](#framework-defaults-reference)
-   - [Application](#application-defaults)
-   - [Profiles](#profiles-defaults)
-   - [Banner](#banner-defaults)
-   - [Logging](#logging-defaults)
-   - [Web](#web-defaults)
-   - [Data](#data-defaults)
-   - [Cache](#cache-defaults)
-   - [Messaging](#messaging-defaults)
-   - [Client](#client-defaults)
-10. [Complete Example: Multi-Environment Setup](#complete-example-multi-environment-setup)
+9. [@Value (Field-Level Config Injection)](#value-field-level-config-injection)
+   - [Expression Syntax](#expression-syntax)
+   - [Usage in Beans](#usage-in-beans)
+   - [@Value vs @config_properties](#value-vs-config_properties)
+10. [Framework Defaults Reference](#framework-defaults-reference)
+    - [Application](#application-defaults)
+    - [Profiles](#profiles-defaults)
+    - [Banner](#banner-defaults)
+    - [Logging](#logging-defaults)
+    - [Web](#web-defaults)
+    - [Data](#data-defaults)
+    - [Cache](#cache-defaults)
+    - [Messaging](#messaging-defaults)
+    - [Client](#client-defaults)
+11. [Complete Example: Multi-Environment Setup](#complete-example-multi-environment-setup)
 
 ---
 
@@ -583,6 +587,65 @@ string data (e.g., from environment variable injection), `bind()` coerces:
 | `bool` | `value.lower() in ("true", "1", "yes")` |
 
 Fields not present in the config section use the dataclass default values.
+
+---
+
+## @Value (Field-Level Config Injection)
+
+While `@config_properties` binds an entire configuration section to a dataclass, `@Value` injects individual configuration values directly into bean fields. It works as a Python descriptor that resolves expressions at bean creation time.
+
+```python
+from pyfly.core.value import Value
+```
+
+### Expression Syntax
+
+`@Value` supports three expression forms:
+
+| Expression | Behaviour | Example |
+|---|---|---|
+| `${key}` | Resolve from Config; raise `KeyError` if missing | `Value("${pyfly.app.name}")` |
+| `${key:default}` | Resolve from Config; use default if missing | `Value("${pyfly.timeout:30}")` |
+| `literal` | Return the string as-is (no `${}` wrapper) | `Value("hello")` |
+
+The key uses dot-notation to navigate the Config hierarchy (e.g., `pyfly.data.mongodb.uri` resolves to `config["pyfly"]["data"]["mongodb"]["uri"]`).
+
+### Usage in Beans
+
+Declare `Value` descriptors as class-level fields on any bean:
+
+```python
+from pyfly.container import service
+from pyfly.core.value import Value
+
+
+@service
+class NotificationService:
+    app_name: str = Value("${pyfly.app.name}")
+    max_retries: int = Value("${notifications.max-retries:3}")
+    sender_email: str = Value("${notifications.sender:noreply@example.com}")
+
+    async def send(self, to: str, message: str) -> None:
+        # self.app_name, self.max_retries, self.sender_email
+        # are resolved from Config when the bean is created
+        ...
+```
+
+The DI container resolves `Value` descriptors during bean initialization, before `@post_construct` hooks run.
+
+### @Value vs @config_properties
+
+| Feature | `@Value` | `@config_properties` |
+|---|---|---|
+| Granularity | Individual fields | Entire config section |
+| Location | Any bean class | Dedicated config dataclass |
+| Default values | Inline `${key:default}` | Dataclass field defaults |
+| Type coercion | Manual (values returned as strings) | Automatic via `bind()` |
+| Use case | A few scattered config values | Structured config with many related fields |
+
+**Rule of thumb:** Use `@Value` for 1-3 config values in a bean. Use `@config_properties` when a component needs a whole section of related configuration.
+
+Source file: `src/pyfly/core/value.py`
 
 ---
 

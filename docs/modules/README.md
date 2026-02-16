@@ -55,8 +55,9 @@ PyFly Data follows the **Spring Data architecture**: a shared commons layer (`py
 
 | Guide | What You'll Learn |
 |-------|-------------------|
-| [Data Relational — SQL (SQLAlchemy)](data-relational.md) | `Repository[T, ID]`, `BaseEntity`, derived query methods (`find_by_name_and_active_order_by_created_at_desc`), `Specification` pattern, `Page`/`Pageable`/`Sort`, `reactive_transactional`, `RepositoryBeanPostProcessor`, Alembic migrations |
-| [Data Document — MongoDB (Beanie)](data-document.md) | `MongoRepository[T, ID]`, `BaseDocument`, `MongoQueryMethodCompiler`, `MongoRepositoryBeanPostProcessor`, `mongo_transactional`, `initialize_beanie()`, `DocumentProperties`, Beanie ODM setup, `QueryMethodCompilerPort` architecture extensibility |
+| [Data Commons](data.md) | `RepositoryPort[T, ID]`, `CrudRepository`, `PagingRepository`, `QueryMethodParser`, `QueryMethodCompilerPort`, `Page`/`Pageable`/`Sort`, `Mapper`, derived query naming convention, building custom adapters |
+| [Data Relational — SQLAlchemy Adapter](data-relational.md) | `Repository[T, ID]`, `BaseEntity`, `Specification` pattern, `@query` (JPQL/native SQL), `reactive_transactional`, `FilterOperator`/`FilterUtils`, `RepositoryBeanPostProcessor`, Alembic migrations |
+| [Data Document — MongoDB Adapter](data-document.md) | `MongoRepository[T, ID]`, `BaseDocument`, `MongoQueryMethodCompiler`, `mongo_transactional`, `MongoRepositoryBeanPostProcessor`, Beanie ODM setup |
 
 > **Multi-backend projects:** You can use SQL and MongoDB simultaneously. The CLI supports selecting both `data-relational` (SQL) and `data-document` features together — templates generate both `ItemEntity` + `ItemDocument` and both repository types.
 

@@ -1,17 +1,13 @@
-# Data Relational Guide
+# Data Relational — SQLAlchemy Adapter
 
-> **PyFly Data** follows the Spring Data umbrella architecture. The framework is organized into two layers:
+> **Package:** `pyfly.data.relational.sqlalchemy`
+> **Commons:** [`pyfly.data`](data.md) — shared ports, pagination, query parsing, entity mapping
 >
-> | Layer | Package | Purpose |
-> |-------|---------|---------|
-> | **Data Commons** | `pyfly.data` | Shared abstractions — `RepositoryPort[T, ID]`, `Page`, `Pageable`, `Sort`, `QueryMethodParser`, `QueryMethodCompilerPort` |
-> | **SQLAlchemy Adapter** | `pyfly.data.relational.sqlalchemy` | Concrete adapter — `Base`, `BaseEntity`, `Repository[T, ID]`, `Specification`, `FilterOperator`, `FilterUtils`, `@query`, `reactive_transactional` |
+> This guide covers the **SQLAlchemy adapter** for relational databases. For generic data concepts shared across all adapters (repository ports, `Page`/`Pageable`/`Sort`, `QueryMethodParser`, `Mapper`, extensibility), see the [Data Module Guide](data.md). For document databases, see the [Data Document Guide](data-document.md).
 >
-> This guide covers the **relational** layer and its default **SQLAlchemy adapter**. For document databases, see the [Data Document Guide](data-document.md). Both adapters share the same commons layer and can coexist in the same project.
->
-> **Hexagonal by design:** your services depend on `RepositoryPort[T, ID]` (the port), never on `Repository[T, ID]` (the adapter). SQLAlchemy is the default relational adapter today — but the layer is designed so any relational backend (Tortoise ORM, Django ORM, etc.) can be added by implementing the same ports.
+> **Hexagonal by design:** your services depend on [`RepositoryPort[T, ID]`](data.md#repository-ports) (the port), never on `Repository[T, ID]` (the adapter). SQLAlchemy is the default relational adapter today — but the layer is designed so any relational backend (Tortoise ORM, Django ORM, etc.) can be added by implementing the same ports.
 
-PyFly Data Relational implements the Repository pattern with Spring Data-style derived query methods, composable specifications, pagination, entity mapping, and declarative transaction management. Framework-agnostic ports define the repository and session contracts; the SQLAlchemy adapter provides the concrete implementation.
+PyFly Data Relational implements the Repository pattern with Spring Data-style derived query methods, composable specifications, pagination, entity mapping, and declarative transaction management — backed by SQLAlchemy's async ORM.
 
 ---
 
@@ -26,17 +22,7 @@ PyFly Data Relational implements the Repository pattern with Spring Data-style d
   - [Repository Class](#repository-class)
   - [Creating a Repository](#creating-a-repository)
   - [CRUD Methods Reference](#crud-methods-reference)
-- [Repository Ports](#repository-ports)
-  - [RepositoryPort](#repositoryport)
-  - [SessionPort](#sessionport)
-  - [CrudRepository](#crudrepository)
-  - [PagingRepository](#pagingrepository)
 - [Derived Query Methods](#derived-query-methods)
-  - [Naming Convention](#naming-convention)
-  - [Prefixes](#prefixes)
-  - [Operators](#operators)
-  - [Connectors](#connectors)
-  - [Ordering](#ordering)
   - [Complete Derived Query Examples](#complete-derived-query-examples)
 - [Custom Queries with @query](#custom-queries-with-query)
   - [JPQL-Like Syntax](#jpql-like-syntax)
@@ -52,50 +38,19 @@ PyFly Data Relational implements the Repository pattern with Spring Data-style d
   - [Composing Filters](#composing-filters)
 - [FilterUtils: Query by Example](#filterutils-query-by-example)
 - [Pagination](#pagination)
-  - [Pageable: Requesting a Page](#pageable-requesting-a-page)
-  - [Sort and Order](#sort-and-order)
-  - [Page: The Result](#page-the-result)
   - [Paginated Queries](#paginated-queries)
   - [Paginated Specification Queries](#paginated-specification-queries)
-- [Entity Mapping](#entity-mapping)
-  - [Basic Mapping](#basic-mapping)
-  - [Custom Field Mapping](#custom-field-mapping)
-  - [Transformers](#transformers)
-  - [Excluding Fields](#excluding-fields)
-  - [Mapping Lists](#mapping-lists)
 - [Transaction Management](#transaction-management)
 - [RepositoryBeanPostProcessor](#repositorybeanpostprocessor)
   - [How It Works](#how-it-works)
   - [Stub Detection](#stub-detection)
-- [QueryMethodParser and QueryMethodCompiler](#querymethodparser-and-querymethodcompiler)
-  - [Parser Internals](#parser-internals)
-  - [Compiler Internals](#compiler-internals)
+- [QueryMethodCompiler](#querymethodcompiler)
 - [Complete CRUD Example](#complete-crud-example)
+- [See Also](#see-also)
 
 ---
 
 ## Architecture Overview
-
-The data module follows a hexagonal architecture with two distinct layers:
-
-### Layer 1: Data Commons (`pyfly.data`)
-
-Framework-agnostic types shared by **all** data adapters (relational and document). These contain zero backend-specific code:
-
-```python
-from pyfly.data import (
-    Page, Pageable, Sort, Order,       # Pagination
-    Mapper,                             # Entity ↔ DTO mapping
-    RepositoryPort, SessionPort,        # Port interfaces
-    CrudRepository, PagingRepository,   # Extended port interfaces
-    QueryMethodParser,                  # Derived query parsing (shared)
-    QueryMethodCompilerPort,            # Compiler contract
-)
-```
-
-Your service layer should depend on these ports — never on the adapter directly.
-
-### Layer 2: SQLAlchemy Adapter (`pyfly.data.relational.sqlalchemy`)
 
 All concrete types live in the SQLAlchemy adapter package. The namespace `pyfly.data.relational` is a pass-through and does not re-export anything.
 
@@ -112,7 +67,7 @@ from pyfly.data.relational.sqlalchemy import (
 )
 ```
 
-> **Note:** Always import concrete types from `pyfly.data.relational.sqlalchemy`. The `pyfly.data.relational` namespace is reserved for future cross-adapter abstractions and does not export any types.
+> **Note:** Always import concrete types from `pyfly.data.relational.sqlalchemy`. Commons types (`Page`, `Pageable`, `RepositoryPort`, etc.) are imported from `pyfly.data` — see the [Data Module Guide](data.md#import-rules).
 
 ---
 
@@ -189,6 +144,8 @@ order = await repo.save(Order(customer_id="abc", status="PENDING"))
 found = await repo.find_by_id(order.id)
 ```
 
+`Repository[T, ID]` satisfies the [`RepositoryPort[T, ID]`](data.md#repository-ports) protocol, enabling hexagonal architecture where your service layer depends on the port, not the adapter.
+
 ### Creating a Repository
 
 Subclass `Repository[T, ID]` and register it as a bean with the `@repository` stereotype:
@@ -244,124 +201,11 @@ orders = await repo.find_all(status="PENDING", customer_id="abc")
 
 ---
 
-## Repository Ports
-
-For hexagonal architecture, your service layer should depend on ports rather than the concrete `Repository` class.
-
-### RepositoryPort
-
-The base repository interface:
-
-```python
-class RepositoryPort(Protocol[T]):
-    async def save(self, entity: T) -> T: ...
-    async def find_by_id(self, id: UUID) -> T | None: ...
-    async def find_all(self, **filters: Any) -> list[T]: ...
-    async def delete(self, id: UUID) -> None: ...
-    async def count(self) -> int: ...
-    async def exists(self, id: UUID) -> bool: ...
-```
-
-### SessionPort
-
-Abstract session interface for transaction management:
-
-```python
-class SessionPort(Protocol):
-    async def begin(self) -> Any: ...
-    async def commit(self) -> None: ...
-    async def rollback(self) -> None: ...
-```
-
-### CrudRepository
-
-Spring Data-style CRUD interface with type parameters for both entity and ID:
-
-```python
-class CrudRepository(Protocol[T, ID]):
-    async def save(self, entity: T) -> T: ...
-    async def find_by_id(self, id: ID) -> T | None: ...
-    async def find_all(self) -> list[T]: ...
-    async def delete(self, entity: T) -> None: ...
-    async def delete_by_id(self, id: ID) -> None: ...
-    async def count(self) -> int: ...
-    async def exists_by_id(self, id: ID) -> bool: ...
-```
-
-### PagingRepository
-
-Extends `CrudRepository` with pagination:
-
-```python
-class PagingRepository(CrudRepository[T, ID], Protocol[T, ID]):
-    async def find_all_paged(
-        self, page: int = 1, size: int = 20, sort: list[str] | None = None
-    ) -> Page[T]: ...
-```
-
----
-
 ## Derived Query Methods
 
-PyFly can automatically generate query implementations from method names, following the Spring Data naming convention. You define stub methods on your repository and the `RepositoryBeanPostProcessor` compiles them into real SQLAlchemy queries at startup.
+PyFly automatically generates query implementations from method names using the Spring Data naming convention. You define stub methods on your repository and the `RepositoryBeanPostProcessor` compiles them into real SQLAlchemy queries at startup.
 
-### Naming Convention
-
-```
-<prefix>_<field>[_<operator>][_<connector>_<field>[_<operator>]]*[_order_by_<field>_<direction>]*
-```
-
-### Prefixes
-
-| Prefix       | Return Type | Description                            |
-|--------------|-------------|----------------------------------------|
-| `find_by_`   | `list[T]`   | Find all matching entities             |
-| `count_by_`  | `int`       | Count matching entities                |
-| `exists_by_` | `bool`      | Check if any entity matches            |
-| `delete_by_` | `int`       | Delete matching entities (return count)|
-
-### Operators
-
-Operators are suffixed to field names. They are checked longest-first to avoid partial matches (e.g., `_greater_than_equal` before `_greater_than`).
-
-| Suffix                 | Operator      | SQL Equivalent       | Args  |
-|------------------------|---------------|----------------------|-------|
-| *(none)*               | `eq`          | `=`                  | 1     |
-| `_greater_than`        | `gt`          | `>`                  | 1     |
-| `_less_than`           | `lt`          | `<`                  | 1     |
-| `_greater_than_equal`  | `gte`         | `>=`                 | 1     |
-| `_less_than_equal`     | `lte`         | `<=`                 | 1     |
-| `_between`             | `between`     | `BETWEEN ? AND ?`    | 2     |
-| `_like`                | `like`        | `LIKE ?`             | 1     |
-| `_containing`          | `containing`  | `LIKE %?%`           | 1     |
-| `_in`                  | `in`          | `IN (?)`             | 1 (list) |
-| `_not`                 | `not`         | `!=`                 | 1     |
-| `_is_null`             | `is_null`     | `IS NULL`            | 0     |
-| `_is_not_null`         | `is_not_null` | `IS NOT NULL`        | 0     |
-
-### Connectors
-
-Connect multiple predicates with `_and_` or `_or_`:
-
-```python
-# AND: status = ? AND customer_id = ?
-async def find_by_status_and_customer_id(self, status: str, customer_id: str) -> list[Order]: ...
-
-# OR: status = ? OR role = ?
-async def find_by_status_or_role(self, status: str, role: str) -> list[User]: ...
-```
-
-### Ordering
-
-Append `_order_by_{field}_{asc|desc}` to control result ordering. Multiple sort fields can be chained:
-
-```python
-# ORDER BY created_at DESC
-async def find_by_status_order_by_created_at_desc(self, status: str) -> list[Order]: ...
-
-# ORDER BY name ASC, created_at DESC
-async def find_by_active_order_by_name_asc_created_at_desc(self, active: bool) -> list[User]: ...
-```
+For the full naming convention reference (prefixes, operators, connectors, ordering), see the [Data Module Guide — Derived Query Methods](data.md#derived-query-methods).
 
 ### Complete Derived Query Examples
 
@@ -412,13 +256,13 @@ class OrderRepository(Repository[Order, UUID]):
         self, status: str
     ) -> list[Order]: ...
 
-    # Complex: AND + OR + ordering
+    # Complex: AND + ordering
     async def find_by_status_and_customer_id_order_by_total_desc(
         self, status: str, customer_id: str
     ) -> list[Order]: ...
 ```
 
-Each of these method bodies should be a stub (`...` or `pass`). The `RepositoryBeanPostProcessor` detects them and replaces them with real implementations at startup.
+Each method body should be a stub (`...` or `pass`). The `RepositoryBeanPostProcessor` detects them and replaces them with real implementations at startup.
 
 ---
 
@@ -634,109 +478,13 @@ spec = FilterUtils.from_example(example)
 
 ## Pagination
 
-### Pageable: Requesting a Page
-
-`Pageable` is a frozen dataclass that encapsulates pagination parameters:
-
-```python
-from pyfly.data import Pageable, Sort, Order as SortOrder
-
-# Simple pagination
-pageable = Pageable.of(page=1, size=20)
-
-# With sorting
-pageable = Pageable.of(page=1, size=20, sort=Sort.by("created_at").descending())
-
-# Unpaged (fetch all results)
-pageable = Pageable.unpaged()
-```
-
-**Pageable fields and properties:**
-
-| Field/Property | Type    | Description                                         |
-|----------------|---------|-----------------------------------------------------|
-| `page`         | `int`   | Page number (1-based, must be >= 1)                  |
-| `size`         | `int`   | Maximum items per page (must be >= 1)                |
-| `sort`         | `Sort`  | Sort criteria                                        |
-| `offset`       | `int`   | Calculated SQL offset: `(page - 1) * size`           |
-| `is_paged`     | `bool`  | `True` for normal pagination, `False` for unpaged    |
-
-**Navigation methods:**
-
-```python
-next_page = pageable.next()        # Pageable for page + 1
-prev_page = pageable.previous()    # Pageable for page - 1 (minimum page 1)
-```
-
-**Validation:** `Pageable.__post_init__` raises `ValueError` if `page < 1` or `size < 1` (except for the unpaged sentinel).
-
-### Sort and Order
-
-`Sort` is a collection of `Order` objects:
-
-```python
-from pyfly.data import Sort, Order as SortOrder
-
-# Sort by a single field ascending
-sort = Sort.by("name")
-
-# Sort by a single field descending
-sort = Sort.by("name").descending()
-
-# Multiple sort fields
-sort = Sort(orders=(
-    SortOrder.desc("created_at"),
-    SortOrder.asc("name"),
-))
-
-# Combine sorts
-sort1 = Sort.by("name")
-sort2 = Sort.by("created_at").descending()
-combined = sort1.and_then(sort2)
-
-# No sorting
-sort = Sort.unsorted()
-
-# Flip all directions
-reversed_sort = sort.descending()  # All orders become desc
-```
-
-`Order` is a single sort directive:
-
-```python
-order_asc = SortOrder.asc("name")       # Order(property="name", direction="asc")
-order_desc = SortOrder.desc("created_at") # Order(property="created_at", direction="desc")
-```
-
-### Page: The Result
-
-`Page[T]` is a frozen dataclass returned by paginated queries:
-
-```python
-page = await repo.find_paginated(page=1, size=20)
-
-page.items          # list[Order] -- the items on this page
-page.total          # int -- total items across all pages
-page.page           # int -- current page number (1-based)
-page.size           # int -- maximum items per page
-page.total_pages    # int -- total number of pages (ceil(total / size))
-page.has_next       # bool -- whether there is a next page
-page.has_previous   # bool -- whether there is a previous page
-```
-
-**Transforming items:**
-
-The `map()` method transforms each item while preserving pagination metadata:
-
-```python
-dto_page: Page[OrderDTO] = page.map(
-    lambda order: OrderDTO(id=str(order.id), status=order.status)
-)
-```
+For the full `Pageable`, `Sort`, `Order`, and `Page[T]` API reference, see the [Data Module Guide — Pagination & Sorting](data.md#pagination--sorting).
 
 ### Paginated Queries
 
 ```python
+from pyfly.data import Pageable, Sort
+
 # Basic pagination
 page = await repo.find_paginated(page=1, size=20)
 
@@ -762,93 +510,6 @@ The implementation:
 2. Counts total matching rows via a subquery.
 3. Applies sort orders from `Pageable.sort`.
 4. Applies `offset` and `limit` for pagination.
-
----
-
-## Entity Mapping
-
-The `Mapper` class provides type-to-type mapping between entities and DTOs, inspired by MapStruct. It automatically matches fields by name and supports custom renaming, transformers, and exclusion.
-
-### Basic Mapping
-
-```python
-from pyfly.data import Mapper
-from dataclasses import dataclass
-
-
-@dataclass
-class OrderDTO:
-    id: str
-    status: str
-    total: float
-
-
-mapper = Mapper()
-dto = mapper.map(order_entity, OrderDTO)
-# Matches fields by name: id, status, total
-```
-
-### Custom Field Mapping
-
-When source and destination field names differ:
-
-```python
-mapper = Mapper()
-mapper.add_mapping(
-    Order, OrderDTO,
-    field_map={"customer_id": "buyer_id"},
-    # Source field "customer_id" maps to destination field "buyer_id"
-)
-dto = mapper.map(order, OrderDTO)
-```
-
-The `field_map` uses `{source_name: dest_name}` format. Reverse lookup is performed: for each destination field, the mapper checks if any source field maps to it.
-
-### Transformers
-
-Apply functions to transform field values during mapping:
-
-```python
-mapper.add_mapping(
-    Order, OrderDTO,
-    transformers={
-        "status": str.upper,        # "pending" -> "PENDING"
-        "total": lambda v: round(v, 2),
-    },
-)
-```
-
-Transformers are keyed by destination field name and applied after the value is retrieved from the source.
-
-### Excluding Fields
-
-Omit specific fields from the mapping:
-
-```python
-mapper.add_mapping(
-    Order, OrderDTO,
-    exclude={"internal_notes", "audit_log"},
-)
-```
-
-### Mapping Lists
-
-```python
-dtos = mapper.map_list(orders, OrderDTO)
-# Equivalent to [mapper.map(o, OrderDTO) for o in orders]
-```
-
-**`add_mapping()` full parameter reference:**
-
-| Parameter      | Type                               | Description                                    |
-|----------------|------------------------------------|------------------------------------------------|
-| `source_type`  | `type[S]`                          | Source class to map from                        |
-| `dest_type`    | `type[D]`                          | Destination class to map to                     |
-| `field_map`    | `dict[str, str] \| None`           | `{source_field: dest_field}` renaming           |
-| `transformers` | `dict[str, Callable] \| None`      | `{dest_field: transform_fn}` value transformers |
-| `exclude`      | `set[str] \| None`                 | Destination fields to skip                      |
-
-The mapper supports both dataclasses and plain objects. Source field extraction uses `dataclasses.asdict()` for dataclasses and `vars()` for other objects. Destination field discovery uses `dataclasses.fields()` or `get_type_hints()`.
 
 ---
 
@@ -926,32 +587,9 @@ context.register_post_processor(RepositoryBeanPostProcessor())
 
 ---
 
-## QueryMethodParser and QueryMethodCompiler
+## QueryMethodCompiler
 
-These two classes form the internal pipeline that powers derived query methods.
-
-### Parser Internals
-
-`QueryMethodParser.parse(method_name)` returns a `ParsedQuery` dataclass:
-
-```python
-@dataclass
-class ParsedQuery:
-    prefix: str                          # "find_by", "count_by", "exists_by", "delete_by"
-    predicates: list[FieldPredicate]     # [{field_name: "status", operator: "eq"}, ...]
-    connectors: list[str]               # ["and", "or", ...]
-    order_clauses: list[OrderClause]    # [{field_name: "name", direction: "desc"}, ...]
-```
-
-The parsing algorithm:
-1. Extracts the prefix.
-2. Splits off the `_order_by_` suffix.
-3. Splits the remaining body by `_and_` and `_or_` connectors.
-4. Parses each segment for field name and operator suffix (longest-match).
-
-### Compiler Internals
-
-`QueryMethodCompiler.compile(parsed, entity)` dispatches to the appropriate compile method based on the prefix and returns an async callable:
+The SQLAlchemy `QueryMethodCompiler` implements the [`QueryMethodCompilerPort`](data.md#querymethodcompilerport) protocol. It takes `ParsedQuery` objects produced by the shared `QueryMethodParser` and compiles them into SQLAlchemy column expressions.
 
 | Prefix       | Generated Query Pattern                             |
 |--------------|-----------------------------------------------------|
@@ -1097,6 +735,8 @@ class ProductService:
 
 ---
 
-## Adapters
+## See Also
 
-- [SQLAlchemy Adapter](../adapters/sqlalchemy.md) — Setup, configuration reference, and adapter-specific features for the SQLAlchemy backend
+- [Data Module Guide](data.md) — Generic commons: repository ports, pagination, query parsing, entity mapping, extensibility
+- [Data Document Guide](data-document.md) — MongoDB adapter
+- [SQLAlchemy Adapter Reference](../adapters/sqlalchemy.md) — Setup, configuration, adapter-specific features
