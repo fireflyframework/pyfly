@@ -42,7 +42,7 @@ async def handle_order(self, event: dict) -> None:
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `pyfly.messaging.provider` | `str` | `"auto"` | Adapter selection (`auto`, `kafka`, `rabbitmq`) |
+| `pyfly.messaging.provider` | `str` | `"memory"` | Adapter selection (`auto`, `kafka`, `rabbitmq`, `memory`) |
 | `pyfly.messaging.kafka.bootstrap-servers` | `str` | `"localhost:9092"` | Comma-separated Kafka broker addresses |
 
 When `provider` is `"auto"`, PyFly selects the adapter based on which library is installed. If `aiokafka` is found, the Kafka adapter is used.

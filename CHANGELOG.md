@@ -17,8 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - **Decentralized auto-configuration** — `AutoConfigurationEngine` has been removed. Each subsystem now owns its own `@auto_configuration` class (e.g. `CacheAutoConfiguration`, `MessagingAutoConfiguration`, `WebAutoConfiguration`, `RelationalAutoConfiguration`, `DocumentAutoConfiguration`, `ClientAutoConfiguration`). The central `AutoConfigurationEngine.configure()` call is replaced by `discover_auto_configurations()` which discovers `@auto_configuration` classes via the `pyfly.auto_configuration` entry-point group. Third-party packages can register their own auto-configuration classes through the same mechanism. Provider detection (`detect_provider()`) now lives inside each subsystem's auto-configuration class; the core `AutoConfiguration` class only exposes the generic `is_available()` helper
 - **`ApplicationContext` Beanie initialization** — `_initialize_beanie()` has been removed from `ApplicationContext`. Beanie ODM initialization is now handled by `BeanieInitializer`, a lifecycle bean registered by `DocumentAutoConfiguration`
-- **`SecurityMiddleware` relocated** — Canonical location moved from `pyfly.security` to `pyfly.web.adapters.starlette.security_middleware`. The middleware is now registered as a `WebFilter` via the web filter chain rather than being applied directly
-- **`ServiceClient` removed** — `pyfly.client.service_client` has been deleted. HTTP client functionality is provided by the declarative `@http_client` interface and `HttpClientPort` adapter
+- **`SecurityMiddleware` relocated** — Canonical location moved from `pyfly.security` to `pyfly.web.adapters.starlette.security_middleware`. JWT enforcement is now handled by `SecurityFilter` (a `WebFilter` in the filter chain); `SecurityMiddleware` is retained as a `BaseHTTPMiddleware` for backward compatibility
+- **`ServiceClient` class removed** — The `pyfly.client.service_client` module (containing the `ServiceClient` class) has been deleted. The `@service_client` decorator remains available in `pyfly.client.declarative` and is exported from `pyfly.client`. HTTP client functionality is provided by the declarative `@http_client` / `@service_client` interface and `HttpClientPort` adapter
 - **`pyfly.observability` consolidated** — `pyfly.observability.health` and `pyfly.observability.logging` removed; health and logging concerns are handled by `pyfly.actuator` and `pyfly.logging` respectively
 - **`pyfly.cache.types` removed** — Cache type definitions consolidated into `pyfly.cache` package exports
 
@@ -29,7 +29,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 
 - **Spring Data umbrella refactoring** — `pyfly.data` is now a pure commons layer (Page, Pageable, ports, QueryMethodParser). Relational modules moved to `pyfly.data.relational` (Specification, Filter, Query, SQLAlchemy adapter). Document modules moved to `pyfly.data.document` (MongoDB/Beanie adapter). Config prefixes changed to `pyfly.data.relational.*` and `pyfly.data.document.*`. Feature names renamed to `data-relational` and `data-document`. Properties renamed to `RelationalProperties` and `DocumentProperties`
-- **MongoDB/Document Database Support** (`pyfly.data.document.mongodb`) — `MongoRepository[T, ID]`, `BaseDocument`, `MongoQueryMethodCompiler`, `MongoRepositoryBeanPostProcessor`, `mongo_transactional`, `initialize_beanie()`. Install via `pip install pyfly[data-document]`
+- **MongoDB/Document Database Support** (`pyfly.data.document.mongodb`) — `MongoRepository[T, ID]`, `BaseDocument`, `MongoQueryMethodCompiler`, `MongoRepositoryBeanPostProcessor`, `mongo_transactional`. Install via `pip install pyfly[data-document]`. Beanie ODM initialization is handled by `BeanieInitializer` lifecycle bean (registered by `DocumentAutoConfiguration` in alpha.4)
 - `DocumentProperties` configuration (`pyfly.data.document.*` — uri, database, pool sizes)
 - Auto-detection of Beanie ODM via `AutoConfiguration.detect_document_provider()` [Superseded in alpha.4: detection now handled by `DocumentAutoConfiguration` registered via `@auto_configuration`]
 - CLI scaffolding: `--features data-document` generates Beanie documents, MongoRepository, and MongoDB config. Both `data-relational` and `data-document` can be selected together for multi-backend projects
@@ -116,7 +116,7 @@ The first public release of PyFly — the official native Python implementation 
 ### Application Layer
 
 - **`pyfly.web`** — HTTP routing (`@get_mapping`, `@post_mapping`, etc.), parameter binding (`Body`, `PathVar`, `QueryParam`, `Header`, `Cookie`), CORS, security headers, exception handling, Starlette/ASGI adapter
-- **`pyfly.data`** — `RepositoryPort`, `SessionPort`, derived query methods (`@query`, `QueryMethodParser`), `Specification` pattern, `Page`/`Pageable`/`Sort`, `Mapper`, SQLAlchemy async adapter
+- **`pyfly.data`** — `RepositoryPort`, `SessionPort`, derived query methods (`QueryMethodParser`), `Specification` pattern, `Page`/`Pageable`/`Sort`, `Mapper`, SQLAlchemy async adapter. The `@query` decorator lives in `pyfly.data.relational.sqlalchemy.query`
 - **`pyfly.cqrs`** — `Command`, `Query`, `CommandHandler`, `QueryHandler`, `Mediator`, logging and metrics middleware
 - **`pyfly.validation`** — `@validate_input`, `@validator`, Pydantic model validation
 
@@ -133,10 +133,10 @@ The first public release of PyFly — the official native Python implementation 
 ### Cross-Cutting Layer
 
 - **`pyfly.aop`** — `@aspect`, `@before`, `@after`, `@around`, `@after_returning`, `@after_throwing`, `AspectBeanPostProcessor`
-- **`pyfly.observability`** — `@timed`, `@counted`, `@span`, `MetricsRegistry`, `HealthChecker`
-- **`pyfly.actuator`** — Health, beans, environment, and info endpoints via `make_actuator_routes()`
+- **`pyfly.observability`** — `@timed`, `@counted`, `@span`, `MetricsRegistry`
+- **`pyfly.actuator`** — Health, beans, environment, and info endpoints via `ActuatorEndpoint` protocol and `ActuatorRegistry`
 - **`pyfly.testing`** — `PyFlyTestCase`, `create_test_container`, event assertions
-- **`pyfly.cli`** — `pyfly new`, `pyfly run`, `pyfly info`, `pyfly doctor`, `pyfly db` (init, migrate, upgrade, downgrade)
+- **`pyfly.cli`** — `pyfly new`, `pyfly run`, `pyfly info`, `pyfly doctor`, `pyfly db` (init, migrate, upgrade, downgrade), `pyfly license`, `pyfly sbom`
 
 ### Tooling
 

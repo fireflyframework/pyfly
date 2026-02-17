@@ -706,7 +706,7 @@ Every key can be overridden in your config file or via environment variables.
 | Key | Default | Description |
 |---|---|---|
 | `pyfly.cache.enabled` | `false` | Enable caching. |
-| `pyfly.cache.provider` | `"auto"` | Cache provider: `auto`, `redis`, or `memory`. |
+| `pyfly.cache.provider` | `"memory"` | Cache provider: `redis` or `memory`. |
 | `pyfly.cache.redis.url` | `"redis://localhost:6379/0"` | Redis connection URL. |
 | `pyfly.cache.ttl` | `300` | Default cache TTL in seconds. |
 
@@ -714,7 +714,7 @@ Every key can be overridden in your config file or via environment variables.
 
 | Key | Default | Description |
 |---|---|---|
-| `pyfly.messaging.provider` | `"auto"` | Messaging provider: `auto`, `kafka`, `rabbitmq`, or `memory`. |
+| `pyfly.messaging.provider` | `"memory"` | Messaging provider: `kafka`, `rabbitmq`, or `memory`. |
 | `pyfly.messaging.kafka.bootstrap-servers` | `"localhost:9092"` | Kafka bootstrap servers. |
 | `pyfly.messaging.rabbitmq.url` | `"amqp://guest:guest@localhost/"` | RabbitMQ connection URL. |
 
@@ -760,12 +760,12 @@ pyfly:
     pool-size: 5
   cache:
     enabled: false
-    provider: "auto"
+    provider: "memory"
     redis:
       url: "redis://localhost:6379/0"
     ttl: 300
   messaging:
-    provider: "auto"
+    provider: "memory"
     kafka:
       bootstrap-servers: "localhost:9092"
     rabbitmq:
@@ -823,11 +823,11 @@ pyfly:
 
   cache:
     enabled: true
-    provider: "auto"
+    provider: "memory"
     ttl: 300
 
   messaging:
-    provider: "auto"
+    provider: "memory"
 
   logging:
     level:
@@ -907,7 +907,7 @@ class DataConfig:
 @dataclass
 class CacheConfig:
     enabled: bool = False
-    provider: str = "auto"
+    provider: str = "memory"
     ttl: int = 300
 ```
 

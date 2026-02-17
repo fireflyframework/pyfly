@@ -64,6 +64,8 @@ class CacheAdapter(Protocol):
     async def evict(self, key: str) -> bool: ...
     async def exists(self, key: str) -> bool: ...
     async def clear(self) -> None: ...
+    async def start(self) -> None: ...
+    async def stop(self) -> None: ...
 ```
 
 ### Method Reference
@@ -75,6 +77,8 @@ class CacheAdapter(Protocol):
 | `evict(key)`                     | `bool`        | Remove a specific key. Returns `True` if the key existed, `False` otherwise. |
 | `exists(key)`                    | `bool`        | Check whether a key exists and has not expired. |
 | `clear()`                        | `None`        | Remove all entries from the cache. |
+| `start()`                        | `None`        | Initialize the cache backend (called during application startup). |
+| `stop()`                         | `None`        | Shut down the cache backend (called during application shutdown). |
 
 ---
 
@@ -427,8 +431,8 @@ Configure caching in your `pyfly.yaml`:
 ```yaml
 pyfly:
   cache:
-    enabled: true
-    provider: auto        # "redis", "memory", or "auto"
+    enabled: false
+    provider: memory      # "redis" or "memory"
     ttl: 300              # Default TTL in seconds (5 minutes)
 
     redis:
@@ -437,8 +441,8 @@ pyfly:
 
 | Property                 | Default                      | Description |
 |--------------------------|------------------------------|-------------|
-| `pyfly.cache.enabled`   | `true`                       | Enable or disable caching globally. |
-| `pyfly.cache.provider`  | `"auto"`                     | Cache provider: `"redis"`, `"memory"`, or `"auto"` (detect from installed libraries). |
+| `pyfly.cache.enabled`   | `false`                      | Enable or disable caching globally. |
+| `pyfly.cache.provider`  | `"memory"`                   | Cache provider: `"redis"` or `"memory"`. |
 | `pyfly.cache.ttl`       | `300`                        | Default TTL in seconds, applied when decorators do not specify their own TTL. |
 | `pyfly.cache.redis.url` | `"redis://localhost:6379/0"` | Redis connection URL (only used when provider is `"redis"` or auto-detected). |
 

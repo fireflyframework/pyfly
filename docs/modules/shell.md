@@ -916,8 +916,8 @@ runner invocation:
 
 ```python
 import pytest
-from pyfly.context.application_context import ApplicationContext
-from pyfly.core.config import Config
+from pyfly.context import ApplicationContext
+from pyfly.core import Config
 from pyfly.shell import ShellRunnerPort
 
 

@@ -42,7 +42,7 @@ async def handle_order(self, event: dict) -> None:
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `pyfly.messaging.provider` | `str` | `"auto"` | Adapter selection (`auto`, `kafka`, `rabbitmq`) |
+| `pyfly.messaging.provider` | `str` | `"memory"` | Adapter selection (`auto`, `kafka`, `rabbitmq`, `memory`) |
 | `pyfly.messaging.rabbitmq.url` | `str` | `"amqp://guest:guest@localhost/"` | RabbitMQ connection URL (AMQP) |
 
 When `provider` is `"auto"`, PyFly selects the adapter based on which library is installed. If `aio-pika` is found, the RabbitMQ adapter is used.

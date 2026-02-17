@@ -377,7 +377,7 @@ Configure messaging in your `pyfly.yaml`:
 ```yaml
 pyfly:
   messaging:
-    provider: auto             # "kafka", "rabbitmq", "memory", or "auto"
+    provider: memory           # "kafka", "rabbitmq", or "memory"
 
     kafka:
       bootstrap-servers: localhost:9092
@@ -389,7 +389,7 @@ pyfly:
 
 | Property                              | Default                            | Description |
 |---------------------------------------|------------------------------------|-------------|
-| `pyfly.messaging.provider`            | `"auto"`                           | Which adapter to use. `"auto"` detects from installed libraries. |
+| `pyfly.messaging.provider`            | `"memory"`                         | Which adapter to use: `"kafka"`, `"rabbitmq"`, or `"memory"`. |
 | `pyfly.messaging.kafka.bootstrap-servers` | `"localhost:9092"`            | Kafka bootstrap servers (comma-separated). |
 | `pyfly.messaging.rabbitmq.url`        | `"amqp://guest:guest@localhost/"`  | AMQP connection URL for RabbitMQ. |
 | `pyfly.messaging.rabbitmq.exchange-name` | `"pyfly"`                      | RabbitMQ exchange name. |

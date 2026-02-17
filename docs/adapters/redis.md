@@ -48,7 +48,7 @@ async def delete_order(self, id: int) -> None:
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `pyfly.cache.enabled` | `bool` | `false` | Enable caching |
-| `pyfly.cache.provider` | `str` | `"auto"` | Adapter selection (`auto`, `redis`, `memory`) |
+| `pyfly.cache.provider` | `str` | `"memory"` | Adapter selection (`auto`, `redis`, `memory`) |
 | `pyfly.cache.redis.url` | `str` | `"redis://localhost:6379/0"` | Redis connection URL |
 | `pyfly.cache.ttl` | `int` | `300` | Default TTL in seconds |
 

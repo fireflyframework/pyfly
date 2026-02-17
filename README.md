@@ -149,8 +149,9 @@ class OrderService:
 | `@component` | Generic managed bean | Any |
 | `@service` | Business logic | Service |
 | `@repository` | Data access | Data |
+| `@controller` | Web controller (template responses) | Web |
 | `@rest_controller` | REST endpoints (JSON) | Web |
-| `@shell_component` | CLI commands | Shell |
+| `@shell_component` | CLI commands (import from `pyfly.shell`) | Shell |
 | `@configuration` + `@bean` | Bean factory methods | Infrastructure |
 
 All stereotypes default to **singleton scope** (one instance per application). You can override with `@service(scope=Scope.TRANSIENT)` for a new instance on every injection, or `Scope.REQUEST` for one instance per HTTP request.
@@ -240,6 +241,9 @@ This works through two complementary mechanisms:
 **1. Declarative auto-configuration** — `@configuration` classes guarded by conditions. They act as "default with override" factories:
 
 ```python
+from pyfly.context.conditions import auto_configuration, conditional_on_class, conditional_on_missing_bean
+from pyfly.container.bean import bean
+
 @auto_configuration
 @conditional_on_missing_bean(CacheAdapter)    # only if user hasn't registered one
 @conditional_on_class("redis.asyncio")        # only if redis is installed
@@ -369,18 +373,30 @@ Run `pyfly new` without arguments for a guided experience:
 ```
 $ pyfly new
 
-  ╭─ PyFly Project Generator ─╮
-  ╰────────────────────────────╯
-  Project name: order-service
-  Package name [order_service]:
-  Archetype:
-    1) core         Minimal microservice
-    2) web-api      Full REST API with layered architecture
-    3) hexagonal    Hexagonal architecture (ports & adapters)
-    4) library      Reusable library package
-    5) cli          Command-line application with interactive shell
-  Select archetype [1]: 2
-  Features (comma-separated, enter for defaults) [web]: web,data-relational
+  ╭──────────────────────────────────╮
+  │   PyFly Project Generator        │
+  ╰──────────────────────────────────╯
+
+  Step 1 of 4 — Project Details
+  ? Project name: order-service
+  ? Package name: order_service
+
+  Step 2 of 4 — Architecture
+  ? Select archetype: (use arrow keys)
+    ❯ core          Minimal microservice with DI container and config
+      web-api       Full REST API with controller/service/repository layers
+      hexagonal     Clean architecture with domain isolation
+      library       Reusable library with py.typed and packaging best practices
+      cli           Command-line application with interactive shell and DI
+
+  Step 3 of 4 — Features
+  ? Select features: (space to toggle, enter to confirm)
+    ❯ [x] web          HTTP server, REST controllers, OpenAPI docs
+      [ ] data-relational  Data Relational — SQL databases (SQLAlchemy ORM)
+      ...
+
+  Step 4 of 4 — Review & Create
+  ? Create this project? Yes
 ```
 
 ### Generated Web API Structure
@@ -390,20 +406,29 @@ order-service/
 ├── Dockerfile              # Multi-stage production build
 ├── README.md               # Project docs with quick start
 ├── pyfly.yaml              # Framework configuration
-├── pyproject.toml           # Dependencies based on selected features
+├── pyproject.toml          # Dependencies based on selected features
+├── .gitignore
 ├── .env.example
 ├── src/order_service/
+│   ├── __init__.py
 │   ├── app.py              # @pyfly_application entry point
+│   ├── main.py             # ASGI app factory
 │   ├── controllers/
+│   │   ├── __init__.py
 │   │   ├── health_controller.py   # @rest_controller — /health
 │   │   └── item_controller.py     # @rest_controller — CRUD /items
 │   ├── services/
+│   │   ├── __init__.py
 │   │   └── item_service.py        # @service — business logic
 │   ├── models/
+│   │   ├── __init__.py
 │   │   └── item.py                # Pydantic DTOs
 │   └── repositories/
+│       ├── __init__.py
 │       └── item_repository.py     # @repository — data access
 └── tests/
+    ├── __init__.py
+    ├── conftest.py
     └── test_item_controller.py
 ```
 
@@ -417,6 +442,8 @@ order-service/
 | `pyfly db init` | Initialize Alembic migration environment |
 | `pyfly db migrate -m "msg"` | Auto-generate a database migration |
 | `pyfly db upgrade` | Apply pending migrations |
+| `pyfly license` | Display the Apache 2.0 license |
+| `pyfly sbom` | Software Bill of Materials (table or JSON) |
 
 See the full [CLI Reference](docs/cli.md) for details.
 
@@ -424,7 +451,7 @@ See the full [CLI Reference](docs/cli.md) for details.
 
 ## Modules
 
-PyFly currently implements **24 modules** organized into four layers:
+PyFly currently implements **25 modules** organized into four layers:
 
 ### Foundation Layer
 
@@ -480,7 +507,7 @@ Full documentation lives in the [`docs/`](docs/README.md) directory:
 - [Getting Started Tutorial](docs/getting-started.md) — Build your first PyFly application step by step
 - [Installation](docs/installation.md) — Install and configure PyFly with the right extras
 - [Architecture Overview](docs/architecture.md) — Understand the framework's design and patterns
-- [CLI Reference](docs/cli.md) — Command-line tools (new, run, db, info, doctor)
+- [CLI Reference](docs/cli.md) — Command-line tools (new, run, db, info, doctor, license, sbom)
 - [Spring Boot Comparison](docs/spring-comparison.md) — Side-by-side concept mapping for Java developers
 
 ### Module Guides

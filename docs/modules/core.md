@@ -282,8 +282,9 @@ Merge order (later wins):
 @classmethod
 def from_sources(
     cls,
-    config_dir: str | Path,
+    base_dir: str | Path,
     active_profiles: list[str] | None = None,
+    load_defaults: bool = True,
 ) -> Config:
 ```
 
@@ -291,10 +292,11 @@ Multi-source configuration loading with source tracking. Unlike `from_file()` wh
 takes a single file path, `from_sources()` auto-discovers all config files in the
 given directory:
 
-1. Loads framework defaults (`pyfly-defaults.yaml`)
-2. Discovers and loads `pyfly.yaml` or `pyfly.toml` in the directory
-3. Loads profile overlay files for each active profile
-4. Records which sources were loaded in `loaded_sources`
+1. Loads framework defaults (`pyfly-defaults.yaml`) — skipped if `load_defaults=False`
+2. Discovers and loads `config/pyfly.yaml` or `config/pyfly.toml` (config subdirectory)
+3. Discovers and loads `pyfly.yaml` or `pyfly.toml` (project root)
+4. Loads profile overlay files for each active profile (from both locations)
+5. Records which sources were loaded in `loaded_sources`
 
 ### Config Source Tracking: loaded_sources
 
@@ -655,13 +657,13 @@ pyfly:
 
   cache:
     enabled: false
-    provider: "auto"
+    provider: "memory"
     redis:
       url: "redis://localhost:6379/0"
     ttl: 300
 
   messaging:
-    provider: "auto"
+    provider: "memory"
     kafka:
       bootstrap-servers: "localhost:9092"
     rabbitmq:
@@ -691,9 +693,9 @@ pyfly:
 | `pyfly.data.url` | `"sqlite+aiosqlite:///pyfly.db"` | Database URL |
 | `pyfly.data.pool-size` | `5` | Connection pool size |
 | `pyfly.cache.enabled` | `false` | Enable caching |
-| `pyfly.cache.provider` | `"auto"` | Cache backend (`auto`, `redis`, `memory`) |
+| `pyfly.cache.provider` | `"memory"` | Cache backend (`redis`, `memory`) |
 | `pyfly.cache.ttl` | `300` | Default TTL in seconds |
-| `pyfly.messaging.provider` | `"auto"` | Messaging backend (`auto`, `kafka`, `rabbitmq`, `memory`) |
+| `pyfly.messaging.provider` | `"memory"` | Messaging backend (`kafka`, `rabbitmq`, `memory`) |
 | `pyfly.client.timeout` | `30` | HTTP client timeout in seconds |
 | `pyfly.client.retry.max-attempts` | `3` | Retry attempts |
 | `pyfly.client.circuit-breaker.failure-threshold` | `5` | Circuit breaker failure threshold |

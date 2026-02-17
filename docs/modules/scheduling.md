@@ -472,11 +472,11 @@ from datetime import timedelta
 from pyfly.container import service
 from pyfly.context import post_construct, pre_destroy
 from pyfly.scheduling import (
-    AsyncIOTaskExecutor,
     CronExpression,
     TaskScheduler,
     scheduled,
 )
+from pyfly.scheduling.adapters.asyncio_executor import AsyncIOTaskExecutor
 
 
 @service

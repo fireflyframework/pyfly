@@ -2,7 +2,7 @@
 
 The PyFly CLI provides command-line tools for project scaffolding, application management, database migrations, environment diagnostics, and framework information.
 
-**Install:** `pip install -e ".[cli]"` (requires Click, Rich, Jinja2)
+**Install:** `pip install -e ".[cli]"` (requires Click, Rich, Jinja2, questionary)
 
 **Entry point:** `pyfly` (registered as a console script via `pyproject.toml`)
 
@@ -21,6 +21,8 @@ The PyFly CLI provides command-line tools for project scaffolding, application m
   - [pyfly db migrate](#pyfly-db-migrate)
   - [pyfly db upgrade](#pyfly-db-upgrade)
   - [pyfly db downgrade](#pyfly-db-downgrade)
+- [pyfly license](#pyfly-license)
+- [pyfly sbom](#pyfly-sbom)
 - [Development Workflow](#typical-development-workflow)
 
 ---
@@ -37,11 +39,13 @@ pyfly
 ├── run       — Start the application server
 ├── info      — Display framework information
 ├── doctor    — Diagnose environment
-└── db        — Database migration commands
-    ├── init      — Initialize Alembic
-    ├── migrate   — Generate migration
-    ├── upgrade   — Apply migrations
-    └── downgrade — Revert migrations
+├── db        — Database migration commands
+│   ├── init      — Initialize Alembic
+│   ├── migrate   — Generate migration
+│   ├── upgrade   — Apply migrations
+│   └── downgrade — Revert migrations
+├── license   — Display the Apache 2.0 license
+└── sbom      — Software Bill of Materials
 ```
 
 ### Architecture
@@ -58,6 +62,8 @@ src/pyfly/cli/
 ├── info.py          # pyfly info — environment information
 ├── doctor.py        # pyfly doctor — environment diagnostics
 ├── db.py            # pyfly db — Alembic migration management
+├── license.py       # pyfly license — display Apache 2.0 license
+├── sbom.py          # pyfly sbom — Software Bill of Materials
 ├── templates.py     # Jinja2-based template renderer
 └── templates/       # Jinja2 template files (.j2)
     ├── pyproject.toml.j2
@@ -81,6 +87,7 @@ The CLI uses a custom Rich theme for consistent, colored output across all comma
 | `warning` | Bold yellow | Warnings (non-fatal issues) |
 | `error` | Bold red | Errors (fatal issues) |
 | `pyfly` | Bold magenta | PyFly branding elements |
+| `dim` | Dim | Secondary text, descriptions |
 
 All commands share a single `console` instance from `pyfly.cli.console`, ensuring consistent styling. The `print_banner()` function renders the PyFly ASCII art banner.
 
@@ -140,16 +147,16 @@ Features control which PyFly extras are included as dependencies and which confi
 
 | Feature | What it adds |
 |---------|-------------|
-| `web` | HTTP routing, controllers, OpenAPI |
-| `data-relational` | Data Relational — SQL databases (SQLAlchemy ORM, repositories, migrations) |
-| `data-document` | Data Document — Document databases (MongoDB with Beanie ODM, repositories) |
-| `eda` | Event-driven architecture, Kafka config |
-| `cache` | Redis caching, cache config |
-| `client` | HTTP client (httpx) |
-| `security` | JWT authentication, password encoding |
-| `scheduling` | Cron-based scheduling |
-| `observability` | Prometheus, OpenTelemetry |
-| `cqrs` | CQRS pattern support |
+| `web` | HTTP server, REST controllers, OpenAPI docs |
+| `data-relational` | Data Relational — SQL databases (SQLAlchemy ORM) |
+| `data-document` | Data Document — Document databases (Beanie ODM) |
+| `eda` | Event-driven architecture, in-memory event bus |
+| `cache` | Caching with in-memory adapter |
+| `client` | Resilient HTTP client with retry and circuit breaker |
+| `security` | JWT authentication, password hashing |
+| `scheduling` | Cron-based task scheduling |
+| `observability` | Prometheus metrics, OpenTelemetry tracing |
+| `cqrs` | Command/Query Responsibility Segregation |
 | `shell` | Spring Shell-inspired CLI commands with DI |
 
 ### Core Archetype
@@ -167,7 +174,8 @@ my-service/
 ├── src/
 │   └── my_service/
 │       ├── __init__.py
-│       └── app.py
+│       ├── app.py
+│       └── main.py
 └── tests/
     ├── __init__.py
     └── conftest.py
@@ -189,14 +197,19 @@ my-api/
 │   └── my_api/
 │       ├── __init__.py
 │       ├── app.py
+│       ├── main.py
 │       ├── controllers/
+│       │   ├── __init__.py
 │       │   ├── health_controller.py    # @rest_controller — /health
 │       │   └── item_controller.py      # @rest_controller — CRUD /items
 │       ├── services/
+│       │   ├── __init__.py
 │       │   └── item_service.py         # @service — business logic
 │       ├── models/
+│       │   ├── __init__.py
 │       │   └── item.py                 # Pydantic request/response DTOs
 │       └── repositories/
+│           ├── __init__.py
 │           └── item_repository.py      # @repository — in-memory store
 └── tests/
     ├── __init__.py
@@ -220,27 +233,36 @@ my-hex/
 │   └── my_hex/
 │       ├── __init__.py
 │       ├── app.py
+│       ├── main.py
 │       ├── domain/
+│       │   ├── __init__.py
 │       │   ├── models.py              # Domain entities (dataclasses)
 │       │   ├── events.py              # Domain events
 │       │   └── ports/
+│       │       ├── __init__.py
 │       │       ├── inbound.py         # Use-case Protocols
 │       │       └── outbound.py        # Repository Protocols
 │       ├── application/
+│       │   ├── __init__.py
 │       │   └── services.py            # @service — implements inbound ports
 │       ├── infrastructure/
+│       │   ├── __init__.py
 │       │   ├── config.py              # @configuration beans
 │       │   └── adapters/
+│       │       ├── __init__.py
 │       │       └── persistence.py     # @repository — implements outbound ports
 │       └── api/
+│           ├── __init__.py
 │           ├── controllers.py         # @rest_controller
 │           └── dto.py                 # Pydantic request/response DTOs
 └── tests/
     ├── __init__.py
     ├── conftest.py
     ├── domain/
+    │   ├── __init__.py
     │   └── test_models.py
     └── application/
+        ├── __init__.py
         └── test_services.py
 ```
 
@@ -280,8 +302,10 @@ my-tool/
 │       ├── app.py
 │       ├── main.py                    # CLI entry point (asyncio.run)
 │       ├── commands/
+│       │   ├── __init__.py
 │       │   └── hello_command.py       # @shell_component — example commands
 │       └── services/
+│           ├── __init__.py
 │           └── greeting_service.py    # @service — business logic
 └── tests/
     ├── __init__.py
@@ -310,24 +334,24 @@ $ pyfly new
   ? Project name: my-service
   ? Package name: my_service
   ? Select archetype: (use arrow keys)
-    ❯ core          Minimal microservice
-      web-api       Full REST API with layered architecture
-      hexagonal     Hexagonal architecture (ports & adapters)
-      library       Reusable library package
-      cli           Command-line application with interactive shell
+    ❯ core          Minimal microservice with DI container and config
+      web-api       Full REST API with controller/service/repository layers
+      hexagonal     Clean architecture with domain isolation
+      library       Reusable library with py.typed and packaging best practices
+      cli           Command-line application with interactive shell and DI
 
   ? Select features: (space to toggle, enter to confirm)
-    ❯ [x] web          HTTP routing, controllers, OpenAPI
-      [ ] data-relational  Data Relational — SQL databases (SQLAlchemy)
-      [ ] data-document    Data Document — MongoDB (Beanie ODM)
-      [ ] cache        Caching with Redis adapter
-      [ ] security     JWT, password encoding
-      [ ] eda          Event-driven architecture
-      [ ] client       HTTP client (httpx)
-      [ ] scheduling   Cron-based scheduling
-      [ ] observability  Prometheus, OpenTelemetry
-      [ ] cqrs         CQRS pattern support
-      [ ] shell        Spring Shell-inspired CLI commands
+    ❯ [x] web          HTTP server, REST controllers, OpenAPI docs
+      [ ] data-relational  Data Relational — SQL databases (SQLAlchemy ORM)
+      [ ] data-document    Data Document — Document databases (Beanie ODM)
+      [ ] cache        Caching with in-memory adapter
+      [ ] security     JWT authentication, password hashing
+      [ ] eda          Event-driven architecture, in-memory event bus
+      [ ] client       Resilient HTTP client with retry and circuit breaker
+      [ ] scheduling   Cron-based task scheduling
+      [ ] observability  Prometheus metrics, OpenTelemetry tracing
+      [ ] cqrs         Command/Query Responsibility Segregation
+      [ ] shell        Spring Shell-inspired CLI commands with DI
 
   ╭─ Project Summary ───────────────╮
   │   Name:      my-service         │
@@ -395,39 +419,34 @@ pyfly run [OPTIONS]
 | Option | Default | Description |
 |--------|---------|-------------|
 | `--host` | `0.0.0.0` | Bind address |
-| `--port` | `8080` | Port number |
+| `--port` | From `pyfly.yaml` or `8080` | Port number (resolved from: CLI flag → `pyfly.web.port` in config → `8080`) |
 | `--reload` | `false` | Enable auto-reload on code changes (for development) |
-| `--app` | Auto-discovered | Application import path (e.g., `myapp.app:Application`) |
+| `--app` | Auto-discovered | Application import path (e.g., `myapp.main:app`) |
+
+### Path Setup
+
+Before discovery, `pyfly run` automatically adds the `src/` directory to `sys.path` if it exists. This allows running from a src-layout project root without `pip install -e .` first.
 
 ### Application Discovery
 
-When `--app` is not provided, `pyfly run` attempts to discover the application automatically:
+When `--app` is not provided, `pyfly run` attempts to discover the application automatically using a three-stage resolution:
 
-1. Looks for `pyfly.yaml` in the current directory
-2. Reads the `app.module` key for the import path
+1. **Canonical**: reads `pyfly.app.module` from `pyfly.yaml` (nested under `pyfly:` key)
+2. **Flat fallback**: reads `app.module` from `pyfly.yaml` (flat layout)
+3. **Auto-discovery**: scans `src/<package>/main.py` and constructs the import path
 
 ```yaml
-# pyfly.yaml
-app:
-  module: my_service.app:Application
+# pyfly.yaml — canonical layout
+pyfly:
+  app:
+    module: my_service.main:app
 ```
 
 If neither `--app` nor a discoverable config file is found, the command exits with a clear error:
 
 ```
-✗ No application found.
-  Provide --app flag or create a pyfly.yaml in the current directory.
-```
-
-### Startup Output
-
-When the server starts, the CLI displays connection details:
-
-```
-Starting PyFly application...
-  App:    my_service.app:Application
-  Host:   0.0.0.0:8080
-  Reload: on
+No application found.
+Provide --app flag or create a pyfly.yaml in the current directory.
 ```
 
 ### Requirements
@@ -481,25 +500,25 @@ The command displays two Rich tables:
 
 **2. Installed Extras Table**
 
-Shows the installation status of each optional module by attempting to import the underlying library:
+Shows the installation status of each optional module by attempting to import the underlying library. The table has two columns — **Extra** and **Status**:
 
-| Extra | Detection Module | What It Provides |
-|-------|-----------------|------------------|
-| `web` | `starlette` | HTTP server, routing, middleware |
-| `data-relational` | `sqlalchemy` | SQL database access, repositories |
-| `data-document` | `beanie` | MongoDB document database, repositories |
-| `eda` | `aiokafka` | Event-driven architecture |
-| `kafka` | `aiokafka` | Apache Kafka messaging |
-| `rabbitmq` | `aio_pika` | RabbitMQ messaging |
-| `redis` | `redis` | Redis client |
-| `cache` | `redis` | Caching with Redis |
-| `client` | `httpx` | HTTP client with retry |
-| `observability` | `prometheus_client` | Metrics, tracing, logging |
-| `security` | `jwt` | JWT authentication |
-| `scheduling` | `croniter` | Cron scheduling |
-| `cli` | `rich` | CLI tools |
+| Extra | Detection Module |
+|-------|-----------------|
+| `web` | `starlette` |
+| `data-relational` | `sqlalchemy` |
+| `data-document` | `beanie` |
+| `eda` | `aiokafka` |
+| `kafka` | `aiokafka` |
+| `rabbitmq` | `aio_pika` |
+| `redis` | `redis` |
+| `cache` | `redis` |
+| `client` | `httpx` |
+| `observability` | `prometheus_client` |
+| `security` | `jwt` |
+| `scheduling` | `croniter` |
+| `cli` | `rich` |
 
-Each extra shows as either `✓ installed` (green) or `not installed` (dimmed).
+Each extra shows as either `installed` (green) or `not installed` (dimmed).
 
 This is useful for verifying which framework modules are available after installation, especially when using selective extras rather than `full`.
 
@@ -550,10 +569,12 @@ Checks for recommended development tools:
 
 | Tool | Purpose | Impact if Missing |
 |------|---------|-------------------|
-| `uvicorn` | ASGI server (`pyfly run`) | Informational only |
-| `alembic` | Database migrations (`pyfly db`) | Informational only |
-| `ruff` | Linter & formatter | Informational only |
-| `mypy` | Type checker | Informational only |
+| `uvicorn` | ASGI server (`pyfly run`) | Shown as `-` (dimmed) |
+| `alembic` | Database migrations (`pyfly db`) | Shown as `-` (dimmed) |
+| `ruff` | Linter & formatter | Shown as `-` (dimmed) |
+| `mypy` | Type checker | Shown as `-` (dimmed) |
+
+Missing optional tools are shown with a `-` dash indicator (dimmed), while missing required tools use `✗` (red) and cause the overall check to fail.
 
 **5. PyFly Installation**
 
@@ -575,7 +596,14 @@ The doctor command ends with a clear summary:
 
 Database migration commands powered by [Alembic](https://alembic.sqlalchemy.org/). These commands wrap Alembic's functionality with PyFly-specific defaults and Rich output.
 
-All `pyfly db` subcommands expect `alembic.ini` to exist in the current directory (created by `pyfly db init`).
+The `migrate`, `upgrade`, and `downgrade` subcommands expect `alembic.ini` to exist in the current directory (created by `pyfly db init`).
+
+All `pyfly db` subcommands require Alembic to be installed. If not available:
+
+```
+✗ alembic is not installed.
+  Install it with: pip install 'pyfly[data-relational]'
+```
 
 ### pyfly db init
 
@@ -591,7 +619,7 @@ pyfly db init
 2. Creates `alembic.ini` configuration file
 3. **Overwrites `alembic/env.py`** with a PyFly-customized template that includes:
    - `async_engine_from_config` for async database support (asyncpg, aiosqlite)
-   - `Base.metadata` from `pyfly.data` as the target metadata for autogeneration
+   - `Base.metadata` from `pyfly.data.relational.sqlalchemy` as the target metadata for autogeneration
    - Support for both offline (SQL script) and online (async connection) migration modes
 
 **Error handling:** If an `alembic/` directory already exists, the command exits with an error rather than overwriting.
@@ -660,6 +688,60 @@ pyfly db downgrade REVISION
 pyfly db downgrade -1       # Revert one migration step
 pyfly db downgrade abc123   # Revert to specific revision
 pyfly db downgrade base     # Revert all migrations
+```
+
+---
+
+## pyfly license
+
+Display the Apache 2.0 license text for the PyFly Framework.
+
+### Usage
+
+```bash
+pyfly license
+```
+
+The command first tries to read the `LICENSE` file from the installed package resources, then falls back to the project root filesystem. If no license file is found, it displays a summary with a link to the Apache 2.0 license.
+
+---
+
+## pyfly sbom
+
+Display the Software Bill of Materials (SBOM) — a table of all PyFly dependencies with their required and installed versions.
+
+### Usage
+
+```bash
+pyfly sbom [OPTIONS]
+```
+
+### Options
+
+| Option | Description |
+|--------|-------------|
+| `--json` | Output as JSON instead of a Rich table |
+
+### Output
+
+The command displays a Rich table with three columns:
+
+| Column | Description |
+|--------|-------------|
+| Package | Dependency name |
+| Required | Version specifier from `pyproject.toml` |
+| Installed | Installed version (green) or `not installed` (yellow) |
+
+The JSON output includes the PyFly version, license, and full dependency list — useful for compliance and auditing pipelines.
+
+### Examples
+
+```bash
+# Display as Rich table
+pyfly sbom
+
+# Export as JSON
+pyfly sbom --json
 ```
 
 ---
