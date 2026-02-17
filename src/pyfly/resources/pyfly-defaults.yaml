@@ -39,3 +39,10 @@ pyfly:
     circuit-breaker:
       failure-threshold: 5
       recovery-timeout: 30
+  admin:
+    enabled: true
+    path: "/admin"
+    title: "PyFly Admin"
+    theme: "auto"
+    require-auth: false
+    refresh-interval: 5000

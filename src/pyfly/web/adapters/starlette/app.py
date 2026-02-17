@@ -122,6 +122,7 @@ def create_app(
         routes.extend(extra_routes)
 
     # Mount actuator endpoints when enabled
+    agg = None
     if actuator_enabled:
         from pyfly.actuator.adapters.starlette import make_starlette_actuator_routes
         from pyfly.actuator.endpoints.beans_endpoint import BeansEndpoint
@@ -159,6 +160,76 @@ def create_app(
             registry.discover_from_context(context)
 
         routes.extend(make_starlette_actuator_routes(registry))
+
+    # Mount admin dashboard when enabled
+    admin_enabled = False
+    if context is not None:
+        admin_enabled = str(
+            context.config.get("pyfly.admin.enabled", "false")
+        ).lower() in ("true", "1", "yes")
+
+    if admin_enabled and context is not None:
+        from pyfly.admin.adapters.starlette import AdminRouteBuilder
+        from pyfly.admin.config import AdminProperties
+        from pyfly.admin.middleware.trace_collector import TraceCollectorFilter
+        from pyfly.admin.providers.beans_provider import BeansProvider
+        from pyfly.admin.providers.cache_provider import CacheProvider
+        from pyfly.admin.providers.config_provider import ConfigProvider
+        from pyfly.admin.providers.cqrs_provider import CqrsProvider
+        from pyfly.admin.providers.env_provider import EnvProvider
+        from pyfly.admin.providers.health_provider import HealthProvider
+        from pyfly.admin.providers.loggers_provider import LoggersProvider
+        from pyfly.admin.providers.mappings_provider import MappingsProvider
+        from pyfly.admin.providers.metrics_provider import MetricsProvider
+        from pyfly.admin.providers.overview_provider import OverviewProvider
+        from pyfly.admin.providers.scheduled_provider import ScheduledProvider
+        from pyfly.admin.providers.traces_provider import TracesProvider
+        from pyfly.admin.registry import AdminViewRegistry
+
+        admin_props = AdminProperties()
+        try:
+            admin_props = context.config.bind(AdminProperties)
+        except Exception:
+            pass
+
+        # Find trace collector from context (registered by auto-config)
+        trace_collector = None
+        for _cls, reg in context.container._registrations.items():
+            if reg.instance is not None and isinstance(reg.instance, TraceCollectorFilter):
+                trace_collector = reg.instance
+                break
+
+        # Find view registry from context
+        view_registry = AdminViewRegistry()
+        for _cls, reg in context.container._registrations.items():
+            if reg.instance is not None and isinstance(reg.instance, AdminViewRegistry):
+                view_registry = reg.instance
+                view_registry.discover_from_context(context)
+                break
+
+        # Reuse health aggregator if actuator created one
+        health_agg = None
+        if actuator_enabled:
+            health_agg = agg
+
+        admin_builder = AdminRouteBuilder(
+            properties=admin_props,
+            overview=OverviewProvider(context, health_agg),
+            beans=BeansProvider(context),
+            health=HealthProvider(health_agg),
+            env=EnvProvider(context),
+            config=ConfigProvider(context),
+            loggers=LoggersProvider(),
+            metrics=MetricsProvider(),
+            scheduled=ScheduledProvider(context),
+            mappings=MappingsProvider(context),
+            caches=CacheProvider(context),
+            cqrs=CqrsProvider(context),
+            traces=TracesProvider(trace_collector),
+            view_registry=view_registry,
+            trace_collector=trace_collector,
+        )
+        routes.extend(admin_builder.build_routes())
 
     # Collect route metadata (used for OpenAPI and startup logging)
     route_metadata = registrar.collect_route_metadata(context) if context is not None else []
