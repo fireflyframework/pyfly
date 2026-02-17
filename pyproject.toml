@@ -121,6 +121,7 @@ relational = "pyfly.data.relational.auto_configuration:RelationalAutoConfigurati
 shell = "pyfly.shell.auto_configuration:ShellAutoConfiguration"
 cqrs = "pyfly.cqrs.config.auto_configuration:CqrsAutoConfiguration"
 admin = "pyfly.admin.auto_configuration:AdminAutoConfiguration"
+transactional = "pyfly.transactional.auto_configuration:TransactionalEngineAutoConfiguration"
 
 [project.scripts]
 pyfly = "pyfly.cli.main:cli"

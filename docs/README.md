@@ -62,6 +62,12 @@ All module guides are organized in the [`modules/`](modules/README.md) directory
 | [Events (EDA)](modules/events.md) | Event-driven architecture, domain events, application events, event bus |
 | [CQRS](modules/cqrs.md) | Command/Query separation, CommandBus/QueryBus pipeline, validation, authorization, caching |
 
+### Distributed Transactions
+
+| Guide | Description |
+|-------|-------------|
+| [Transactional Engine](modules/transactional.md) | SAGA and TCC distributed transaction patterns, compensation, recovery, saga composition |
+
 ### Security
 
 | Guide | Description |
@@ -135,6 +141,7 @@ Browse the full [Adapter Catalog](adapters/README.md), or jump directly:
 - **Setting up a SQL database?** See the [Data Relational Guide](modules/data-relational.md) and [SQLAlchemy Adapter](adapters/sqlalchemy.md)
 - **Setting up MongoDB?** See the [Data Document Guide](modules/data-document.md) and [MongoDB Adapter](adapters/mongodb.md)
 - **Need messaging?** See [Messaging](modules/messaging.md), [Kafka](adapters/kafka.md), and [RabbitMQ](adapters/rabbitmq.md)
+- **Need distributed transactions?** See the [Transactional Engine Guide](modules/transactional.md) for SAGA and TCC patterns
 - **Browse all modules:** See the [Module Guides Index](modules/README.md)
 - **Building a CLI app?** See the [Shell Guide](modules/shell.md) and [Click Adapter](adapters/click.md)
 - **Browse all adapters:** See the [Adapter Catalog](adapters/README.md)

@@ -10,7 +10,7 @@
   <a href="https://github.com/fireflyframework"><img src="https://img.shields.io/badge/Firefly_Framework-official-ff6600?logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0id2hpdGUiIGQ9Ik0xMiAyQzYuNDggMiAyIDYuNDggMiAxMnM0LjQ4IDEwIDEwIDEwIDEwLTQuNDggMTAtMTBTMTcuNTIgMiAxMiAyeiIvPjwvc3ZnPg==" alt="Firefly Framework"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.12%2B-blue?logo=python&logoColor=white" alt="Python 3.12+"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-green" alt="License: Apache 2.0"></a>
-  <a href="#"><img src="https://img.shields.io/badge/version-0.1.0--alpha.4-yellow" alt="Version: 0.1.0-alpha.4"></a>
+  <a href="#"><img src="https://img.shields.io/badge/version-0.1.0--alpha.5-yellow" alt="Version: 0.1.0-alpha.4"></a>
   <a href="#"><img src="https://img.shields.io/badge/type--checked-mypy%20strict-blue?logo=python&logoColor=white" alt="Type Checked: mypy strict"></a>
   <a href="#"><img src="https://img.shields.io/badge/code%20style-ruff-purple?logo=ruff&logoColor=white" alt="Code Style: Ruff"></a>
   <a href="#"><img src="https://img.shields.io/badge/async-first-brightgreen" alt="Async First"></a>
@@ -451,13 +451,13 @@ See the full [CLI Reference](docs/cli.md) for details.
 
 ## Modules
 
-PyFly currently implements **25 modules** organized into four layers:
+PyFly currently implements **26 modules** organized into four layers:
 
 ### Foundation Layer
 
 | Module | Description | Firefly Java Equivalent |
 |--------|-------------|------------------------|
-| **Core** | Application bootstrap, lifecycle, banner, configuration | `fireflyframework-core` |
+| **Core** | Application bootstrap, lifecycle, banner, configuration | `fireflyframework-starter-core` |
 | **Kernel** | Exception hierarchy, structured error types | `fireflyframework-kernel` |
 | **Container** | Dependency injection, stereotypes, bean factories | Spring DI (built-in) |
 | **Context** | ApplicationContext, events, lifecycle hooks, conditions | Spring ApplicationContext |
@@ -479,7 +479,7 @@ PyFly currently implements **25 modules** organized into four layers:
 
 | Module | Description | Firefly Java Equivalent |
 |--------|-------------|------------------------|
-| **Security** | JWT, password encoding, authorization | Part of `fireflyframework-application` |
+| **Security** | JWT, password encoding, authorization | Part of `fireflyframework-starter-application` |
 | **Messaging** | Kafka, RabbitMQ, in-memory broker | `fireflyframework-eda` |
 | **EDA** | Event-driven architecture, event bus | `fireflyframework-eda` |
 | **Cache** | Caching decorators, Redis adapter | `fireflyframework-cache` |
@@ -487,6 +487,7 @@ PyFly currently implements **25 modules** organized into four layers:
 | **Scheduling** | Cron jobs, fixed-rate tasks | Spring Scheduling |
 | **Resilience** | Rate limiter, bulkhead, timeout, fallback | Resilience4j (in `fireflyframework-client`) |
 | **Shell** | CLI commands, interactive REPL, runners | Spring Shell |
+| **Transactional** | Distributed Saga and TCC transaction orchestration with compensation and recovery | `fireflyframework-transactional-engine` |
 
 ### Cross-Cutting Layer
 
@@ -494,7 +495,7 @@ PyFly currently implements **25 modules** organized into four layers:
 |--------|-------------|------------------------|
 | **AOP** | Aspect-oriented programming | Spring AOP |
 | **Observability** | Prometheus metrics, OpenTelemetry tracing | `fireflyframework-observability` |
-| **Actuator** | Health checks, monitoring endpoints | `fireflyframework-core` (actuator) |
+| **Actuator** | Health checks, monitoring endpoints | `fireflyframework-starter-core` (actuator) |
 | **Testing** | Test fixtures and assertions | Spring Test |
 | **CLI** | Command-line tools | `fireflyframework-cli` |
 
@@ -522,6 +523,7 @@ Browse all guides in the [Module Guides Index](docs/modules/README.md):
 - [WebFilters](docs/modules/web-filters.md) — Request/response filter chain
 - [Actuator](docs/modules/actuator.md) — Health checks, extensible endpoints
 - [Custom Actuator Endpoints](docs/modules/custom-actuator-endpoints.md) — Build your own actuator endpoints
+- [Transactional Engine](docs/modules/transactional.md) — SAGA and TCC distributed transaction patterns
 
 ### Adapter Reference
 
@@ -539,7 +541,7 @@ See **[ROADMAP.md](ROADMAP.md)** for the full roadmap toward feature parity with
 
 | Phase | Focus | Key Modules |
 |-------|-------|-------------|
-| **Phase 1** | Core Distributed Patterns | Event Sourcing, Saga/TCC, Workflow, DDD |
+| **Phase 1** | Core Distributed Patterns | Event Sourcing, ~~Saga/TCC~~ (done), Workflow, DDD |
 | **Phase 2** | Business Logic | Rule Engine, Plugins, Data Processing |
 | **Phase 3** | Enterprise Integrations | Notifications, IDP, ECM, Webhooks |
 | **Phase 4** | Administrative | Backoffice, Config Server, Utils |
@@ -550,7 +552,7 @@ See **[ROADMAP.md](ROADMAP.md)** for the full roadmap toward feature parity with
 
 See **[CHANGELOG.md](CHANGELOG.md)** for detailed release notes.
 
-**Current:** v0.1.0-alpha.4 (2026-02-17) — Shell subsystem (`@shell_component`, `@shell_method`, `CommandLineRunner`, Click adapter), decentralized auto-configuration via entry points.
+**Current:** v0.1.0-alpha.5 (2026-02-17) — Transactional engine module (`@saga`, `@saga_step`, `@tcc`, `@tcc_participant`), SAGA and TCC distributed transaction patterns with compensation, recovery, and composition.
 
 ---
 

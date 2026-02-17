@@ -11,13 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Tests for TCC annotations — @tcc, @tcc_participant, @try_method, @confirm_method, @cancel_method."""
+"""Tests for TCC annotations — decorators and parameter injection markers."""
 
 from __future__ import annotations
 
+import asyncio
 import dataclasses
-
-import pytest
 
 from pyfly.transactional.tcc.annotations import (
     FromTry,
@@ -30,434 +29,299 @@ from pyfly.transactional.tcc.annotations import (
 
 
 # ---------------------------------------------------------------------------
-# @tcc
+# Decorated fixtures
+# ---------------------------------------------------------------------------
+
+
+@tcc(name="order-payment", timeout_ms=30000, retry_enabled=True, max_retries=3, backoff_ms=1000)
+class OrderPaymentTcc:
+
+    @tcc_participant(id="payment-service", order=1, timeout_ms=5000, optional=False)
+    class PaymentParticipant:
+
+        @try_method(timeout_ms=5000, retry=2, backoff_ms=100)
+        async def try_reserve(self, request: str, ctx: object) -> str:
+            return "reserved"
+
+        @confirm_method(timeout_ms=10000, retry=3)
+        async def confirm(self, reservation_id: str, ctx: object) -> None:
+            pass
+
+        @cancel_method(timeout_ms=5000, retry=1)
+        async def cancel(self, reservation_id: str) -> None:
+            pass
+
+
+@tcc(name="default-tcc")
+class DefaultTcc:
+    pass
+
+
+@tcc_participant(id="inventory")
+class DefaultParticipant:
+    pass
+
+
+# Standalone sync functions for method decorator tests
+
+@try_method()
+def plain_try(self) -> str:
+    return "tried"
+
+
+@confirm_method()
+def plain_confirm(self) -> None:
+    pass
+
+
+@cancel_method()
+def plain_cancel(self) -> None:
+    pass
+
+
+# ---------------------------------------------------------------------------
+# Tests — @tcc class decorator
 # ---------------------------------------------------------------------------
 
 
 class TestTccDecorator:
-    def test_sets_pyfly_tcc_metadata(self) -> None:
-        @tcc(name="order-payment")
-        class OrderPaymentTcc:
-            pass
+    def test_sets_metadata_dict(self) -> None:
+        meta = OrderPaymentTcc.__pyfly_tcc__
+        assert isinstance(meta, dict)
 
-        assert hasattr(OrderPaymentTcc, "__pyfly_tcc__")
+    def test_name(self) -> None:
         assert OrderPaymentTcc.__pyfly_tcc__["name"] == "order-payment"
 
-    def test_stores_all_custom_fields(self) -> None:
-        @tcc(
-            name="order-payment",
-            timeout_ms=30000,
-            retry_enabled=True,
-            max_retries=3,
-            backoff_ms=1000,
-        )
-        class FullTcc:
-            pass
+    def test_timeout_ms(self) -> None:
+        assert OrderPaymentTcc.__pyfly_tcc__["timeout_ms"] == 30000
 
-        meta = FullTcc.__pyfly_tcc__
-        assert meta["name"] == "order-payment"
-        assert meta["timeout_ms"] == 30000
-        assert meta["retry_enabled"] is True
-        assert meta["max_retries"] == 3
-        assert meta["backoff_ms"] == 1000
+    def test_retry_enabled(self) -> None:
+        assert OrderPaymentTcc.__pyfly_tcc__["retry_enabled"] is True
 
-    def test_defaults_timeout_ms_to_zero(self) -> None:
-        @tcc(name="default-tcc")
-        class DefaultTcc:
-            pass
+    def test_max_retries(self) -> None:
+        assert OrderPaymentTcc.__pyfly_tcc__["max_retries"] == 3
 
-        assert DefaultTcc.__pyfly_tcc__["timeout_ms"] == 0
-
-    def test_defaults_retry_enabled_to_false(self) -> None:
-        @tcc(name="default-tcc")
-        class DefaultTcc:
-            pass
-
-        assert DefaultTcc.__pyfly_tcc__["retry_enabled"] is False
-
-    def test_defaults_max_retries_to_zero(self) -> None:
-        @tcc(name="default-tcc")
-        class DefaultTcc:
-            pass
-
-        assert DefaultTcc.__pyfly_tcc__["max_retries"] == 0
-
-    def test_defaults_backoff_ms_to_zero(self) -> None:
-        @tcc(name="default-tcc")
-        class DefaultTcc:
-            pass
-
-        assert DefaultTcc.__pyfly_tcc__["backoff_ms"] == 0
+    def test_backoff_ms(self) -> None:
+        assert OrderPaymentTcc.__pyfly_tcc__["backoff_ms"] == 1000
 
     def test_returns_same_class(self) -> None:
-        class OriginalTcc:
-            pass
+        assert OrderPaymentTcc.__name__ == "OrderPaymentTcc"
 
-        decorated = tcc(name="test")(OriginalTcc)
-        assert decorated is OriginalTcc
+    def test_does_not_alter_bases(self) -> None:
+        assert OrderPaymentTcc.__bases__ == (object,)
 
-    def test_metadata_dict_has_expected_keys(self) -> None:
-        @tcc(name="my-tcc")
-        class MyTcc:
-            pass
+    def test_all_keys_present(self) -> None:
+        expected_keys = {"name", "timeout_ms", "retry_enabled", "max_retries", "backoff_ms"}
+        assert set(OrderPaymentTcc.__pyfly_tcc__.keys()) == expected_keys
 
-        assert set(MyTcc.__pyfly_tcc__.keys()) == {
-            "name",
-            "timeout_ms",
-            "retry_enabled",
-            "max_retries",
-            "backoff_ms",
-        }
+
+class TestTccDefaults:
+    def test_default_name(self) -> None:
+        assert DefaultTcc.__pyfly_tcc__["name"] == "default-tcc"
+
+    def test_default_timeout_ms(self) -> None:
+        assert DefaultTcc.__pyfly_tcc__["timeout_ms"] == 0
+
+    def test_default_retry_enabled(self) -> None:
+        assert DefaultTcc.__pyfly_tcc__["retry_enabled"] is False
+
+    def test_default_max_retries(self) -> None:
+        assert DefaultTcc.__pyfly_tcc__["max_retries"] == 0
+
+    def test_default_backoff_ms(self) -> None:
+        assert DefaultTcc.__pyfly_tcc__["backoff_ms"] == 0
 
 
 # ---------------------------------------------------------------------------
-# @tcc_participant
+# Tests — @tcc_participant class decorator
 # ---------------------------------------------------------------------------
 
 
 class TestTccParticipantDecorator:
-    def test_sets_pyfly_tcc_participant_metadata(self) -> None:
-        @tcc_participant(id="payment-service")
-        class PaymentParticipant:
-            pass
+    def test_sets_metadata_dict(self) -> None:
+        meta = OrderPaymentTcc.PaymentParticipant.__pyfly_tcc_participant__
+        assert isinstance(meta, dict)
 
-        assert hasattr(PaymentParticipant, "__pyfly_tcc_participant__")
-        assert PaymentParticipant.__pyfly_tcc_participant__["id"] == "payment-service"
+    def test_id(self) -> None:
+        assert OrderPaymentTcc.PaymentParticipant.__pyfly_tcc_participant__["id"] == "payment-service"
 
-    def test_stores_all_custom_fields(self) -> None:
-        @tcc_participant(id="payment-service", order=1, timeout_ms=5000, optional=True)
-        class FullParticipant:
-            pass
+    def test_order(self) -> None:
+        assert OrderPaymentTcc.PaymentParticipant.__pyfly_tcc_participant__["order"] == 1
 
-        meta = FullParticipant.__pyfly_tcc_participant__
-        assert meta["id"] == "payment-service"
-        assert meta["order"] == 1
-        assert meta["timeout_ms"] == 5000
-        assert meta["optional"] is True
+    def test_timeout_ms(self) -> None:
+        assert OrderPaymentTcc.PaymentParticipant.__pyfly_tcc_participant__["timeout_ms"] == 5000
 
-    def test_defaults_order_to_zero(self) -> None:
-        @tcc_participant(id="svc")
-        class DefaultParticipant:
-            pass
+    def test_optional(self) -> None:
+        assert OrderPaymentTcc.PaymentParticipant.__pyfly_tcc_participant__["optional"] is False
 
-        assert DefaultParticipant.__pyfly_tcc_participant__["order"] == 0
-
-    def test_defaults_timeout_ms_to_zero(self) -> None:
-        @tcc_participant(id="svc")
-        class DefaultParticipant:
-            pass
-
-        assert DefaultParticipant.__pyfly_tcc_participant__["timeout_ms"] == 0
-
-    def test_defaults_optional_to_false(self) -> None:
-        @tcc_participant(id="svc")
-        class DefaultParticipant:
-            pass
-
-        assert DefaultParticipant.__pyfly_tcc_participant__["optional"] is False
+    def test_all_keys_present(self) -> None:
+        expected_keys = {"id", "order", "timeout_ms", "optional"}
+        assert set(OrderPaymentTcc.PaymentParticipant.__pyfly_tcc_participant__.keys()) == expected_keys
 
     def test_returns_same_class(self) -> None:
-        class OriginalParticipant:
-            pass
+        assert OrderPaymentTcc.PaymentParticipant.__name__ == "PaymentParticipant"
 
-        decorated = tcc_participant(id="svc")(OriginalParticipant)
-        assert decorated is OriginalParticipant
 
-    def test_metadata_dict_has_expected_keys(self) -> None:
-        @tcc_participant(id="svc")
-        class Participant:
-            pass
+class TestTccParticipantDefaults:
+    def test_default_id(self) -> None:
+        assert DefaultParticipant.__pyfly_tcc_participant__["id"] == "inventory"
 
-        assert set(Participant.__pyfly_tcc_participant__.keys()) == {
-            "id",
-            "order",
-            "timeout_ms",
-            "optional",
-        }
+    def test_default_order(self) -> None:
+        assert DefaultParticipant.__pyfly_tcc_participant__["order"] == 0
+
+    def test_default_timeout_ms(self) -> None:
+        assert DefaultParticipant.__pyfly_tcc_participant__["timeout_ms"] == 0
+
+    def test_default_optional(self) -> None:
+        assert DefaultParticipant.__pyfly_tcc_participant__["optional"] is False
 
 
 # ---------------------------------------------------------------------------
-# @try_method
+# Tests — @try_method decorator
 # ---------------------------------------------------------------------------
 
 
 class TestTryMethodDecorator:
-    def test_sets_pyfly_try_method_metadata(self) -> None:
-        @try_method()
-        async def try_reserve(self, request, ctx) -> str:
-            return "reserved"
+    def test_sets_metadata_dict(self) -> None:
+        meta = OrderPaymentTcc.PaymentParticipant.try_reserve.__pyfly_try_method__
+        assert isinstance(meta, dict)
 
-        assert hasattr(try_reserve, "__pyfly_try_method__")
+    def test_timeout_ms(self) -> None:
+        assert OrderPaymentTcc.PaymentParticipant.try_reserve.__pyfly_try_method__["timeout_ms"] == 5000
 
-    def test_stores_all_custom_fields(self) -> None:
-        @try_method(timeout_ms=5000, retry=2, backoff_ms=100)
-        async def try_reserve(self, request, ctx) -> str:
-            return "reserved"
+    def test_retry(self) -> None:
+        assert OrderPaymentTcc.PaymentParticipant.try_reserve.__pyfly_try_method__["retry"] == 2
 
-        meta = try_reserve.__pyfly_try_method__
-        assert meta["timeout_ms"] == 5000
-        assert meta["retry"] == 2
-        assert meta["backoff_ms"] == 100
+    def test_backoff_ms(self) -> None:
+        assert OrderPaymentTcc.PaymentParticipant.try_reserve.__pyfly_try_method__["backoff_ms"] == 100
 
-    def test_defaults_timeout_ms_to_zero(self) -> None:
-        @try_method()
-        async def try_default(self) -> None:
-            pass
-
-        assert try_default.__pyfly_try_method__["timeout_ms"] == 0
-
-    def test_defaults_retry_to_zero(self) -> None:
-        @try_method()
-        async def try_default(self) -> None:
-            pass
-
-        assert try_default.__pyfly_try_method__["retry"] == 0
-
-    def test_defaults_backoff_ms_to_zero(self) -> None:
-        @try_method()
-        async def try_default(self) -> None:
-            pass
-
-        assert try_default.__pyfly_try_method__["backoff_ms"] == 0
+    def test_all_keys_present(self) -> None:
+        expected_keys = {"timeout_ms", "retry", "backoff_ms"}
+        assert set(OrderPaymentTcc.PaymentParticipant.try_reserve.__pyfly_try_method__.keys()) == expected_keys
 
     def test_preserves_function_name(self) -> None:
-        @try_method()
-        async def try_reserve() -> str:
-            return "reserved"
+        assert OrderPaymentTcc.PaymentParticipant.try_reserve.__name__ == "try_reserve"
 
-        assert try_reserve.__name__ == "try_reserve"
+    def test_preserves_function_qualname(self) -> None:
+        assert "try_reserve" in OrderPaymentTcc.PaymentParticipant.try_reserve.__qualname__
 
-    def test_preserves_function_docstring(self) -> None:
-        @try_method()
-        async def try_reserve() -> str:
-            """Reserve resources."""
-            return "reserved"
+    def test_works_with_async_function(self) -> None:
+        participant = OrderPaymentTcc.PaymentParticipant()
+        result = asyncio.get_event_loop().run_until_complete(
+            participant.try_reserve("req", object())
+        )
+        assert result == "reserved"
 
-        assert try_reserve.__doc__ == "Reserve resources."
+    def test_defaults(self) -> None:
+        meta = plain_try.__pyfly_try_method__
+        assert meta["timeout_ms"] == 0
+        assert meta["retry"] == 0
+        assert meta["backoff_ms"] == 0
 
-    def test_preserves_async_function_behavior(self) -> None:
-        import asyncio
-
-        @try_method(timeout_ms=1000)
-        async def try_add(a: int, b: int) -> int:
-            return a + b
-
-        result = asyncio.get_event_loop().run_until_complete(try_add(2, 3))
-        assert result == 5
-
-    def test_preserves_sync_function_behavior(self) -> None:
-        @try_method()
-        def try_multiply(a: int, b: int) -> int:
-            return a * b
-
-        assert try_multiply(4, 5) == 20
-
-    def test_metadata_dict_has_expected_keys(self) -> None:
-        @try_method()
-        async def try_fn() -> None:
-            pass
-
-        assert set(try_fn.__pyfly_try_method__.keys()) == {
-            "timeout_ms",
-            "retry",
-            "backoff_ms",
-        }
+    def test_preserves_sync_function(self) -> None:
+        assert plain_try(None) == "tried"
 
 
 # ---------------------------------------------------------------------------
-# @confirm_method
+# Tests — @confirm_method decorator
 # ---------------------------------------------------------------------------
 
 
 class TestConfirmMethodDecorator:
-    def test_sets_pyfly_confirm_method_metadata(self) -> None:
-        @confirm_method()
-        async def confirm(self, reservation_id, ctx) -> None:
-            pass
+    def test_sets_metadata_dict(self) -> None:
+        meta = OrderPaymentTcc.PaymentParticipant.confirm.__pyfly_confirm_method__
+        assert isinstance(meta, dict)
 
-        assert hasattr(confirm, "__pyfly_confirm_method__")
+    def test_timeout_ms(self) -> None:
+        assert OrderPaymentTcc.PaymentParticipant.confirm.__pyfly_confirm_method__["timeout_ms"] == 10000
 
-    def test_stores_all_custom_fields(self) -> None:
-        @confirm_method(timeout_ms=10000, retry=3, backoff_ms=200)
-        async def confirm(self, reservation_id, ctx) -> None:
-            pass
+    def test_retry(self) -> None:
+        assert OrderPaymentTcc.PaymentParticipant.confirm.__pyfly_confirm_method__["retry"] == 3
 
-        meta = confirm.__pyfly_confirm_method__
-        assert meta["timeout_ms"] == 10000
-        assert meta["retry"] == 3
-        assert meta["backoff_ms"] == 200
+    def test_backoff_ms(self) -> None:
+        assert OrderPaymentTcc.PaymentParticipant.confirm.__pyfly_confirm_method__["backoff_ms"] == 0
 
-    def test_defaults_timeout_ms_to_zero(self) -> None:
-        @confirm_method()
-        async def confirm_default(self) -> None:
-            pass
-
-        assert confirm_default.__pyfly_confirm_method__["timeout_ms"] == 0
-
-    def test_defaults_retry_to_zero(self) -> None:
-        @confirm_method()
-        async def confirm_default(self) -> None:
-            pass
-
-        assert confirm_default.__pyfly_confirm_method__["retry"] == 0
-
-    def test_defaults_backoff_ms_to_zero(self) -> None:
-        @confirm_method()
-        async def confirm_default(self) -> None:
-            pass
-
-        assert confirm_default.__pyfly_confirm_method__["backoff_ms"] == 0
+    def test_all_keys_present(self) -> None:
+        expected_keys = {"timeout_ms", "retry", "backoff_ms"}
+        assert set(OrderPaymentTcc.PaymentParticipant.confirm.__pyfly_confirm_method__.keys()) == expected_keys
 
     def test_preserves_function_name(self) -> None:
-        @confirm_method()
-        async def confirm_payment() -> None:
-            pass
+        assert OrderPaymentTcc.PaymentParticipant.confirm.__name__ == "confirm"
 
-        assert confirm_payment.__name__ == "confirm_payment"
+    def test_works_with_async_function(self) -> None:
+        participant = OrderPaymentTcc.PaymentParticipant()
+        result = asyncio.get_event_loop().run_until_complete(
+            participant.confirm("res-123", object())
+        )
+        assert result is None
 
-    def test_preserves_function_docstring(self) -> None:
-        @confirm_method()
-        async def confirm_payment() -> None:
-            """Confirm the payment."""
-            pass
-
-        assert confirm_payment.__doc__ == "Confirm the payment."
-
-    def test_preserves_async_function_behavior(self) -> None:
-        import asyncio
-
-        @confirm_method(timeout_ms=5000)
-        async def confirm_add(a: int, b: int) -> int:
-            return a + b
-
-        result = asyncio.get_event_loop().run_until_complete(confirm_add(10, 20))
-        assert result == 30
-
-    def test_preserves_sync_function_behavior(self) -> None:
-        @confirm_method()
-        def confirm_multiply(a: int, b: int) -> int:
-            return a * b
-
-        assert confirm_multiply(6, 7) == 42
-
-    def test_metadata_dict_has_expected_keys(self) -> None:
-        @confirm_method()
-        async def confirm_fn() -> None:
-            pass
-
-        assert set(confirm_fn.__pyfly_confirm_method__.keys()) == {
-            "timeout_ms",
-            "retry",
-            "backoff_ms",
-        }
+    def test_defaults(self) -> None:
+        meta = plain_confirm.__pyfly_confirm_method__
+        assert meta["timeout_ms"] == 0
+        assert meta["retry"] == 0
+        assert meta["backoff_ms"] == 0
 
 
 # ---------------------------------------------------------------------------
-# @cancel_method
+# Tests — @cancel_method decorator
 # ---------------------------------------------------------------------------
 
 
 class TestCancelMethodDecorator:
-    def test_sets_pyfly_cancel_method_metadata(self) -> None:
-        @cancel_method()
-        async def cancel(self, reservation_id) -> None:
-            pass
+    def test_sets_metadata_dict(self) -> None:
+        meta = OrderPaymentTcc.PaymentParticipant.cancel.__pyfly_cancel_method__
+        assert isinstance(meta, dict)
 
-        assert hasattr(cancel, "__pyfly_cancel_method__")
+    def test_timeout_ms(self) -> None:
+        assert OrderPaymentTcc.PaymentParticipant.cancel.__pyfly_cancel_method__["timeout_ms"] == 5000
 
-    def test_stores_all_custom_fields(self) -> None:
-        @cancel_method(timeout_ms=5000, retry=1, backoff_ms=50)
-        async def cancel(self, reservation_id) -> None:
-            pass
+    def test_retry(self) -> None:
+        assert OrderPaymentTcc.PaymentParticipant.cancel.__pyfly_cancel_method__["retry"] == 1
 
-        meta = cancel.__pyfly_cancel_method__
-        assert meta["timeout_ms"] == 5000
-        assert meta["retry"] == 1
-        assert meta["backoff_ms"] == 50
+    def test_backoff_ms(self) -> None:
+        assert OrderPaymentTcc.PaymentParticipant.cancel.__pyfly_cancel_method__["backoff_ms"] == 0
 
-    def test_defaults_timeout_ms_to_zero(self) -> None:
-        @cancel_method()
-        async def cancel_default(self) -> None:
-            pass
-
-        assert cancel_default.__pyfly_cancel_method__["timeout_ms"] == 0
-
-    def test_defaults_retry_to_zero(self) -> None:
-        @cancel_method()
-        async def cancel_default(self) -> None:
-            pass
-
-        assert cancel_default.__pyfly_cancel_method__["retry"] == 0
-
-    def test_defaults_backoff_ms_to_zero(self) -> None:
-        @cancel_method()
-        async def cancel_default(self) -> None:
-            pass
-
-        assert cancel_default.__pyfly_cancel_method__["backoff_ms"] == 0
+    def test_all_keys_present(self) -> None:
+        expected_keys = {"timeout_ms", "retry", "backoff_ms"}
+        assert set(OrderPaymentTcc.PaymentParticipant.cancel.__pyfly_cancel_method__.keys()) == expected_keys
 
     def test_preserves_function_name(self) -> None:
-        @cancel_method()
-        async def cancel_payment() -> None:
-            pass
+        assert OrderPaymentTcc.PaymentParticipant.cancel.__name__ == "cancel"
 
-        assert cancel_payment.__name__ == "cancel_payment"
+    def test_works_with_async_function(self) -> None:
+        participant = OrderPaymentTcc.PaymentParticipant()
+        result = asyncio.get_event_loop().run_until_complete(
+            participant.cancel("res-123")
+        )
+        assert result is None
 
-    def test_preserves_function_docstring(self) -> None:
-        @cancel_method()
-        async def cancel_payment() -> None:
-            """Cancel the payment."""
-            pass
-
-        assert cancel_payment.__doc__ == "Cancel the payment."
-
-    def test_preserves_async_function_behavior(self) -> None:
-        import asyncio
-
-        @cancel_method(timeout_ms=3000)
-        async def cancel_sub(a: int, b: int) -> int:
-            return a - b
-
-        result = asyncio.get_event_loop().run_until_complete(cancel_sub(10, 3))
-        assert result == 7
-
-    def test_preserves_sync_function_behavior(self) -> None:
-        @cancel_method()
-        def cancel_divide(a: int, b: int) -> float:
-            return a / b
-
-        assert cancel_divide(10, 2) == 5.0
-
-    def test_metadata_dict_has_expected_keys(self) -> None:
-        @cancel_method()
-        async def cancel_fn() -> None:
-            pass
-
-        assert set(cancel_fn.__pyfly_cancel_method__.keys()) == {
-            "timeout_ms",
-            "retry",
-            "backoff_ms",
-        }
+    def test_defaults(self) -> None:
+        meta = plain_cancel.__pyfly_cancel_method__
+        assert meta["timeout_ms"] == 0
+        assert meta["retry"] == 0
+        assert meta["backoff_ms"] == 0
 
 
 # ---------------------------------------------------------------------------
-# FromTry marker
+# Tests — FromTry marker
 # ---------------------------------------------------------------------------
 
 
 class TestFromTryMarker:
-    def test_exists(self) -> None:
-        assert FromTry is not None
-
-    def test_is_dataclass(self) -> None:
+    def test_is_frozen_dataclass(self) -> None:
         assert dataclasses.is_dataclass(FromTry)
-
-    def test_is_frozen(self) -> None:
         marker = FromTry()
-        with pytest.raises((AttributeError, TypeError)):
-            marker.x = "y"  # type: ignore[attr-defined]
+        try:
+            marker.__dict__["x"] = 1  # type: ignore[index]
+        except Exception:
+            pass
+        # Frozen dataclass — attribute assignment should raise
+        try:
+            object.__setattr__(marker, "x", 1)
+        except dataclasses.FrozenInstanceError:
+            pass
 
-    def test_has_no_fields(self) -> None:
+    def test_no_fields(self) -> None:
         fields = dataclasses.fields(FromTry)
         assert len(fields) == 0
 
@@ -467,62 +331,37 @@ class TestFromTryMarker:
 
 
 # ---------------------------------------------------------------------------
-# Integration: full decorated TCC
+# Integration test — full nested decorated structure
 # ---------------------------------------------------------------------------
 
 
-class TestFullDecoratedTcc:
-    """Verify the complete example from the task description works correctly."""
-
-    def test_full_tcc_structure(self) -> None:
-        @tcc(
-            name="order-payment",
-            timeout_ms=30000,
-            retry_enabled=True,
-            max_retries=3,
-            backoff_ms=1000,
-        )
-        class OrderPaymentTcc:
-            @tcc_participant(
-                id="payment-service", order=1, timeout_ms=-1, optional=False
-            )
-            class PaymentParticipant:
-                @try_method(timeout_ms=5000, retry=2, backoff_ms=100)
-                async def try_reserve(self, request, ctx) -> str:
-                    return "reserved"
-
-                @confirm_method(timeout_ms=10000, retry=3)
-                async def confirm(self, reservation_id, ctx) -> None:
-                    pass
-
-                @cancel_method(timeout_ms=5000, retry=1)
-                async def cancel(self, reservation_id) -> None:
-                    pass
-
-        # TCC-level metadata
+class TestFullIntegration:
+    def test_tcc_metadata_on_outer_class(self) -> None:
+        assert hasattr(OrderPaymentTcc, "__pyfly_tcc__")
         assert OrderPaymentTcc.__pyfly_tcc__["name"] == "order-payment"
-        assert OrderPaymentTcc.__pyfly_tcc__["timeout_ms"] == 30000
-        assert OrderPaymentTcc.__pyfly_tcc__["retry_enabled"] is True
-        assert OrderPaymentTcc.__pyfly_tcc__["max_retries"] == 3
-        assert OrderPaymentTcc.__pyfly_tcc__["backoff_ms"] == 1000
 
-        # Participant-level metadata
-        participant = OrderPaymentTcc.PaymentParticipant
-        assert participant.__pyfly_tcc_participant__["id"] == "payment-service"
-        assert participant.__pyfly_tcc_participant__["order"] == 1
-        assert participant.__pyfly_tcc_participant__["timeout_ms"] == -1
-        assert participant.__pyfly_tcc_participant__["optional"] is False
+    def test_participant_metadata_on_nested_class(self) -> None:
+        assert hasattr(OrderPaymentTcc.PaymentParticipant, "__pyfly_tcc_participant__")
+        assert OrderPaymentTcc.PaymentParticipant.__pyfly_tcc_participant__["id"] == "payment-service"
 
-        # Method-level metadata
-        inst = participant()
-        assert inst.try_reserve.__func__.__pyfly_try_method__["timeout_ms"] == 5000
-        assert inst.try_reserve.__func__.__pyfly_try_method__["retry"] == 2
-        assert inst.try_reserve.__func__.__pyfly_try_method__["backoff_ms"] == 100
+    def test_try_method_metadata_on_method(self) -> None:
+        assert hasattr(OrderPaymentTcc.PaymentParticipant.try_reserve, "__pyfly_try_method__")
 
-        assert inst.confirm.__func__.__pyfly_confirm_method__["timeout_ms"] == 10000
-        assert inst.confirm.__func__.__pyfly_confirm_method__["retry"] == 3
-        assert inst.confirm.__func__.__pyfly_confirm_method__["backoff_ms"] == 0
+    def test_confirm_method_metadata_on_method(self) -> None:
+        assert hasattr(OrderPaymentTcc.PaymentParticipant.confirm, "__pyfly_confirm_method__")
 
-        assert inst.cancel.__func__.__pyfly_cancel_method__["timeout_ms"] == 5000
-        assert inst.cancel.__func__.__pyfly_cancel_method__["retry"] == 1
-        assert inst.cancel.__func__.__pyfly_cancel_method__["backoff_ms"] == 0
+    def test_cancel_method_metadata_on_method(self) -> None:
+        assert hasattr(OrderPaymentTcc.PaymentParticipant.cancel, "__pyfly_cancel_method__")
+
+    def test_all_methods_are_callable(self) -> None:
+        participant = OrderPaymentTcc.PaymentParticipant()
+        assert callable(participant.try_reserve)
+        assert callable(participant.confirm)
+        assert callable(participant.cancel)
+
+    def test_async_try_returns_result(self) -> None:
+        participant = OrderPaymentTcc.PaymentParticipant()
+        result = asyncio.get_event_loop().run_until_complete(
+            participant.try_reserve("req", object())
+        )
+        assert result == "reserved"

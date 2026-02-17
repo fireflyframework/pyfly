@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## v0.1.0-alpha.5 (2026-02-17)
+
+### Added
+
+- **Transactional engine** (`pyfly.transactional`) — Full port of `fireflyframework-transactional-engine` (Java/Spring Boot) to Python/asyncio. Implements two distributed transaction patterns:
+  - **SAGA pattern** — `@saga` and `@saga_step` decorators with DAG-based topological execution, 5 compensation policies (STRICT_SEQUENTIAL, GROUPED_PARALLEL, RETRY_WITH_BACKOFF, CIRCUIT_BREAKER, BEST_EFFORT_PARALLEL), parameter injection via `typing.Annotated` markers (`Input`, `FromStep`, `Header`, `Variable`, `SetVariable`, `FromCompensationResult`, `CompensationError`), retry with exponential backoff and jitter, step timeout via `asyncio.wait_for`, layer concurrency via `asyncio.Semaphore`
+  - **TCC pattern** — `@tcc` and `@tcc_participant` decorators with `@try_method`, `@confirm_method`, `@cancel_method` for three-phase Try-Confirm-Cancel transactions, participant ordering, timeout and retry support
+  - **Saga composition** — `SagaCompositionBuilder` fluent DSL for orchestrating multiple sagas into a DAG with cross-saga data flow and compensation management
+  - **Persistence** — `TransactionalPersistencePort` protocol with `InMemoryPersistenceAdapter` default, state tracking for saga and TCC executions, recovery service for stale/in-flight sagas
+  - **Observability** — `TransactionalEventsPort` protocol with `LoggerEventsAdapter` and `CompositeEventsAdapter`
+  - **Backpressure** — `BackpressureStrategyPort` protocol with 3 strategies: `AdaptiveBackpressureStrategy`, `BatchedBackpressureStrategy`, `CircuitBreakerBackpressureStrategy`
+  - **Compensation error handling** — `CompensationErrorHandlerPort` protocol with 4 handlers: `FailFastHandler`, `LogAndContinueHandler`, `RetryWithBackoffHandler`, `CompositeCompensationErrorHandler`
+  - **Auto-configuration** — `TransactionalEngineAutoConfiguration` with 14 `@bean` factory methods, enabled via `pyfly.transactional.enabled=true`
+  - **681 tests** including end-to-end integration tests
+
+---
+
 ## v0.1.0-alpha.4 (2026-02-17)
 
 ### Added

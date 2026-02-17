@@ -26,6 +26,7 @@ If you're coming from the Java/Spring Boot ecosystem, this guide shows you how e
 - [Resilience Patterns](#resilience-patterns)
 - [Observability](#observability)
 - [Messaging](#messaging)
+- [Distributed Transactions](#distributed-transactions)
 - [Quick Reference Table](#quick-reference-table)
 
 ---
@@ -894,6 +895,109 @@ class OrderPublisher:
 
 ---
 
+## Distributed Transactions
+
+### Spring Boot (fireflyframework-transactional-engine)
+
+```java
+@Saga(name = "create-order", layerConcurrency = 5)
+@Component
+public class CreateOrderSaga {
+
+    @SagaStep(
+        id = "reserve-inventory",
+        compensate = "releaseInventory",
+        retry = 3,
+        backoffMs = 100,
+        timeoutMs = 5000
+    )
+    public Mono<ReservationResult> reserveInventory(
+        @Input OrderRequest request,
+        SagaContext ctx
+    ) {
+        return inventoryService.reserve(request.getItems());
+    }
+
+    public Mono<Void> releaseInventory(
+        @FromStep("reserve-inventory") ReservationResult result
+    ) {
+        return inventoryService.release(result);
+    }
+}
+```
+
+### PyFly
+
+```python
+@saga(name="create-order", layer_concurrency=5)
+@component
+class CreateOrderSaga:
+
+    @saga_step(
+        id="reserve-inventory",
+        compensate="release_inventory",
+        retry=3,
+        backoff_ms=100,
+        timeout_ms=5000,
+    )
+    async def reserve_inventory(
+        self,
+        request: Annotated[OrderRequest, Input],
+        ctx: SagaContext,
+    ) -> ReservationResult:
+        return await self.inventory_service.reserve(request.items)
+
+    async def release_inventory(
+        self,
+        result: Annotated[ReservationResult, FromStep("reserve-inventory")],
+    ) -> None:
+        await self.inventory_service.release(result)
+```
+
+**Key differences:**
+- **Reactive vs async/await:** Java uses Project Reactor (`Mono<T>`, `Flux<T>`). PyFly uses native `async/await` with `asyncio.gather`, `asyncio.Semaphore`, and `asyncio.wait_for`
+- **Annotations vs decorators:** Java uses `@SagaStep(id = "...")`. PyFly uses `@saga_step(id="...")`
+- **Parameter injection:** Java uses `@Input`, `@FromStep`. PyFly uses `typing.Annotated` with marker classes: `Annotated[T, Input]`, `Annotated[T, FromStep("step-id")]`
+- **Configuration:** Java uses `@ConfigurationProperties`. PyFly uses `@config_properties` with YAML binding
+
+### TCC Pattern
+
+**Java:**
+```java
+@Tcc(name = "order-payment")
+@Component
+public class OrderPaymentTcc {
+    @TccParticipant(id = "payment-service", order = 1)
+    public class PaymentParticipant {
+        @TryMethod
+        public Mono<ReservationId> tryReserve(@Input PaymentRequest request) { }
+        @ConfirmMethod
+        public Mono<Void> confirm(@FromTry ReservationId id) { }
+        @CancelMethod
+        public Mono<Void> cancel(@FromTry ReservationId id) { }
+    }
+}
+```
+
+**PyFly:**
+```python
+@tcc(name="order-payment")
+@component
+class OrderPaymentTcc:
+    @tcc_participant(id="payment-service", order=1)
+    class PaymentParticipant:
+        @try_method
+        async def try_reserve(self, request: Annotated[PaymentRequest, Input]) -> ReservationId: ...
+        @confirm_method
+        async def confirm(self, id: Annotated[ReservationId, FromTry]) -> None: ...
+        @cancel_method
+        async def cancel(self, id: Annotated[ReservationId, FromTry]) -> None: ...
+```
+
+The patterns map one-to-one. See the [Transactional Engine Guide](modules/transactional.md) for complete documentation.
+
+---
+
 ## Quick Reference Table
 
 A complete mapping of Spring Boot concepts to PyFly equivalents:
@@ -960,6 +1064,19 @@ A complete mapping of Spring Boot concepts to PyFly equivalents:
 | `@EventListener` | `@event_listener` | Event handling |
 | Micrometer `@Timed` | `@timed` | Method timing |
 | Micrometer `@Counted` | `@counted` | Invocation counting |
+| `@Saga` | `@saga` | Saga orchestration class |
+| `@SagaStep` | `@saga_step` | Saga step definition |
+| `@Input` | `Annotated[T, Input]` | Inject saga input |
+| `@FromStep("id")` | `Annotated[T, FromStep("id")]` | Inject prior step result |
+| `@Tcc` | `@tcc` | TCC transaction class |
+| `@TccParticipant` | `@tcc_participant` | TCC participant definition |
+| `@TryMethod` | `@try_method` | TCC try phase |
+| `@ConfirmMethod` | `@confirm_method` | TCC confirm phase |
+| `@CancelMethod` | `@cancel_method` | TCC cancel phase |
+| `@FromTry` | `Annotated[T, FromTry]` | Inject try phase result |
+| `CompensationPolicy` | `CompensationPolicy` | Compensation strategy enum |
+| `SagaContext` | `SagaContext` | Saga execution context |
+| `SagaResult` | `SagaResult` | Saga execution result |
 
 ---
 

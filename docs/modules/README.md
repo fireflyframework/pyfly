@@ -97,6 +97,16 @@ Make your services resilient with circuit breakers, rate limiters, and intellige
 
 ---
 
+## Distributed Transactions
+
+Coordinate multi-step operations across services with automatic compensation and recovery.
+
+| Guide | What You'll Learn |
+|-------|-------------------|
+| [Transactional Engine](transactional.md) | `@saga`, `@saga_step`, `@tcc`, `@tcc_participant`, `@try_method`, `@confirm_method`, `@cancel_method`, parameter injection (`Input`, `FromStep`, `Header`, `Variable`), 5 compensation policies, DAG-based execution, saga composition, backpressure strategies, persistence and recovery |
+
+---
+
 ## CLI & Shell
 
 Build CLI applications with DI-integrated commands, interactive REPLs, and post-startup runners.
@@ -158,6 +168,7 @@ pyfly/
 ├── aop/             Aspect-oriented programming
 ├── observability/   Metrics, tracing, health checks
 ├── actuator/        Monitoring endpoints, extensible registry
+├── transactional/   SAGA and TCC distributed transactions
 ├── shell/           CLI commands, runners, Click adapter
 ├── testing/         Test fixtures and assertions
 └── cli/             Project scaffolding and tooling
