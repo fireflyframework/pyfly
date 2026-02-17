@@ -115,6 +115,7 @@ messaging = "pyfly.messaging.auto_configuration:MessagingAutoConfiguration"
 client = "pyfly.client.auto_configuration:ClientAutoConfiguration"
 document = "pyfly.data.document.auto_configuration:DocumentAutoConfiguration"
 relational = "pyfly.data.relational.auto_configuration:RelationalAutoConfiguration"
+shell = "pyfly.shell.auto_configuration:ShellAutoConfiguration"
 
 [project.scripts]
 pyfly = "pyfly.cli.main:cli"
