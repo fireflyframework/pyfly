@@ -47,7 +47,7 @@ pyfly:
     require-auth: false
     refresh-interval: 5000
   transactional:
-    enabled: true
+    enabled: false
     saga:
       compensation_policy: STRICT_SEQUENTIAL
       default_timeout_ms: 300000

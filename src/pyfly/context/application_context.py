@@ -352,16 +352,21 @@ class ApplicationContext:
             # Resolve the configuration class itself
             config_instance = self._container.resolve(cls)
 
-            # Find @bean methods
+            # Collect @bean methods and sort by dependency order so that
+            # beans whose parameters depend on other beans from the same
+            # configuration class are created after their dependencies.
+            bean_methods: list[tuple[str, Any]] = []
             for attr_name in dir(config_instance):
                 method = getattr(config_instance, attr_name, None)
                 if method is None or not getattr(method, "__pyfly_bean__", False):
                     continue
-
-                # Evaluate method-level @conditional_on_* conditions
                 if not evaluator.should_include_method(method):
                     continue
+                bean_methods.append((attr_name, method))
 
+            bean_methods = self._sort_bean_methods(bean_methods)
+
+            for attr_name, method in bean_methods:
                 # Get return type from method hints
                 hints = typing.get_type_hints(method)
                 return_type = hints.get("return")
@@ -412,6 +417,57 @@ class ApplicationContext:
                 raise
 
         return method(**kwargs)
+
+    @staticmethod
+    def _sort_bean_methods(
+        methods: list[tuple[str, Any]],
+    ) -> list[tuple[str, Any]]:
+        """Topologically sort @bean methods so dependencies are created first.
+
+        Builds a graph where each bean's return type is a node and edges point
+        from parameter types to the bean that produces them.  Falls back to the
+        original order when no intra-class dependencies exist.
+        """
+        # Map return_type -> (attr_name, method)
+        producers: dict[type, str] = {}
+        method_hints: dict[str, dict[str, type]] = {}
+
+        for attr_name, method in methods:
+            hints = typing.get_type_hints(method)
+            ret = hints.get("return")
+            if ret is not None:
+                producers[ret] = attr_name
+            param_hints = {k: v for k, v in hints.items() if k != "return"}
+            method_hints[attr_name] = param_hints
+
+        # Build adjacency: attr_name -> set of attr_names it depends on
+        deps: dict[str, set[str]] = {}
+        for attr_name, _method in methods:
+            deps[attr_name] = set()
+            for _pname, ptype in method_hints.get(attr_name, {}).items():
+                if ptype in producers and producers[ptype] != attr_name:
+                    deps[attr_name].add(producers[ptype])
+
+        # Kahn's algorithm
+        in_degree = {name: len(d) for name, d in deps.items()}
+        queue = [name for name, deg in in_degree.items() if deg == 0]
+        ordered: list[str] = []
+        while queue:
+            node = queue.pop(0)
+            ordered.append(node)
+            for name, d in deps.items():
+                if node in d:
+                    d.discard(node)
+                    in_degree[name] -= 1
+                    if in_degree[name] == 0:
+                        queue.append(name)
+
+        # If cycle detected, fall back to original order
+        if len(ordered) != len(methods):
+            return methods
+
+        name_to_entry = {attr_name: (attr_name, method) for attr_name, method in methods}
+        return [name_to_entry[n] for n in ordered]
 
     # ------------------------------------------------------------------
     # Wiring: auto-discover and connect decorator-based beans
