@@ -25,6 +25,7 @@ const routes = {
     'mappings':   () => import('./views/mappings.js'),
     'caches':     () => import('./views/caches.js'),
     'cqrs':       () => import('./views/cqrs.js'),
+    'transactions': () => import('./views/transactions.js'),
     'traces':     () => import('./views/traces.js'),
     'logfile':    () => import('./views/logfile.js'),
     'instances':  () => import('./views/instances.js'),

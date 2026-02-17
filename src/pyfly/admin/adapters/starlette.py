@@ -38,6 +38,7 @@ if TYPE_CHECKING:
     from pyfly.admin.providers.overview_provider import OverviewProvider
     from pyfly.admin.providers.scheduled_provider import ScheduledProvider
     from pyfly.admin.providers.traces_provider import TracesProvider
+    from pyfly.admin.providers.transactions_provider import TransactionsProvider
     from pyfly.admin.registry import AdminViewRegistry
     from pyfly.admin.server.instance_registry import InstanceRegistry
 
@@ -60,6 +61,7 @@ class AdminRouteBuilder:
         mappings: MappingsProvider,
         caches: CacheProvider,
         cqrs: CqrsProvider,
+        transactions: TransactionsProvider,
         traces: TracesProvider,
         view_registry: AdminViewRegistry,
         trace_collector: TraceCollectorFilter | None = None,
@@ -77,6 +79,7 @@ class AdminRouteBuilder:
         self._mappings = mappings
         self._caches = caches
         self._cqrs = cqrs
+        self._transactions = transactions
         self._traces = traces
         self._view_registry = view_registry
         self._trace_collector = trace_collector
@@ -106,6 +109,7 @@ class AdminRouteBuilder:
             Route(f"{api}/caches", self._handle_caches, methods=["GET"]),
             Route(f"{api}/caches/{{name}}/evict", self._handle_cache_evict, methods=["POST"]),
             Route(f"{api}/cqrs", self._handle_cqrs, methods=["GET"]),
+            Route(f"{api}/transactions", self._handle_transactions, methods=["GET"]),
             Route(f"{api}/traces", self._handle_traces, methods=["GET"]),
             Route(f"{api}/views", self._handle_views, methods=["GET"]),
             Route(f"{api}/settings", self._handle_settings, methods=["GET"]),
@@ -208,6 +212,9 @@ class AdminRouteBuilder:
 
     async def _handle_cqrs(self, request: Request) -> JSONResponse:
         return JSONResponse(await self._cqrs.get_handlers())
+
+    async def _handle_transactions(self, request: Request) -> JSONResponse:
+        return JSONResponse(await self._transactions.get_transactions())
 
     async def _handle_traces(self, request: Request) -> JSONResponse:
         limit = int(request.query_params.get("limit", "100"))

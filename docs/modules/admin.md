@@ -65,9 +65,9 @@ http://localhost:8080/admin
 ```
 
 That is all. The dashboard auto-discovers beans, health indicators, loggers,
-scheduled tasks, HTTP mappings, caches, CQRS handlers, and metrics from the
-running `ApplicationContext` and presents them in 14 built-in views with
-real-time updates.
+scheduled tasks, HTTP mappings, caches, CQRS handlers, transactions, and
+metrics from the running `ApplicationContext` and presents them in 15 built-in
+views with real-time updates.
 
 ---
 
@@ -100,7 +100,8 @@ The admin module is structured into four layers:
 |  OverviewProvider    BeansProvider     HealthProvider           |
 |  EnvProvider         ConfigProvider    LoggersProvider          |
 |  MetricsProvider     ScheduledProvider MappingsProvider         |
-|  CacheProvider       CqrsProvider     TracesProvider           |
+|  CacheProvider       CqrsProvider     TransactionsProvider     |
+|  TracesProvider                                                |
 |                                                               |
 +-------------------------------+------------------------------+
                                 | reads from
@@ -108,7 +109,8 @@ The admin module is structured into four layers:
 |              APPLICATION CONTEXT + DI CONTAINER                |
 |                                                               |
 |  Bean registry, HealthAggregator, CacheManager,               |
-|  Mediator, TaskScheduler, ControllerRegistrar, Config          |
+|  CommandBus, QueryBus, SagaRegistry, TccRegistry,             |
+|  TaskScheduler, ControllerRegistrar, Config                   |
 |                                                               |
 +--------------------------------------------------------------+
 ```
@@ -205,7 +207,7 @@ pyfly:
 
 ## Built-in Views
 
-The dashboard ships with 14 views organized into four sections in the sidebar.
+The dashboard ships with 15 views organized into four sections in the sidebar.
 Each view has a corresponding REST API endpoint and (where applicable) an SSE
 stream for live updates.
 
@@ -239,7 +241,8 @@ stream for live updates.
 |------|-----------|-------------|
 | **Mappings** | `mappings` | All registered HTTP route mappings with methods, paths, and handler references. |
 | **Caches** | `caches` | Registered cache names with eviction controls. POST to evict individual keys. |
-| **CQRS** | `cqrs` | Registered command handlers and query handlers from the Mediator. |
+| **CQRS** | `cqrs` | Registered command and query handlers with bus pipeline introspection (validation, authorization, metrics, event publishing). |
+| **Transactions** | `transactions` | Saga definitions with step DAGs, TCC transactions with participant phase coverage, and in-flight execution count. |
 | **Log Viewer** | `logfile` | Tail-style log file viewer for application log output. |
 
 ### Fleet (Server Mode Only)
@@ -300,7 +303,8 @@ All API endpoints return JSON responses. The base path defaults to `/admin/api`
 | `GET` | `/admin/api/mappings` | List HTTP route mappings. |
 | `GET` | `/admin/api/caches` | List cache names. |
 | `POST` | `/admin/api/caches/{name}/evict` | Evict a cache key. Body: `{"key": "..."}`. |
-| `GET` | `/admin/api/cqrs` | List CQRS command/query handlers. |
+| `GET` | `/admin/api/cqrs` | List CQRS command/query handlers and bus pipeline status. |
+| `GET` | `/admin/api/transactions` | List saga and TCC definitions with in-flight count. |
 | `GET` | `/admin/api/traces` | List HTTP traces. Optional query param: `?limit=100`. |
 | `GET` | `/admin/api/views` | List registered view extensions (built-in + custom). |
 | `GET` | `/admin/api/settings` | Dashboard settings (title, theme, refresh interval, server mode flag). |

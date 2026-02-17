@@ -31,6 +31,7 @@ from pyfly.admin.providers.metrics_provider import MetricsProvider
 from pyfly.admin.providers.overview_provider import OverviewProvider
 from pyfly.admin.providers.scheduled_provider import ScheduledProvider
 from pyfly.admin.providers.traces_provider import TracesProvider
+from pyfly.admin.providers.transactions_provider import TransactionsProvider
 from pyfly.admin.registry import AdminViewRegistry
 from tests.admin.test_providers import _make_mock_context
 
@@ -55,6 +56,7 @@ def admin_client():
         mappings=MappingsProvider(ctx),
         caches=CacheProvider(ctx),
         cqrs=CqrsProvider(ctx),
+        transactions=TransactionsProvider(ctx),
         traces=TracesProvider(None),
         view_registry=AdminViewRegistry(),
     )
@@ -128,6 +130,17 @@ class TestAdminAPI:
         assert resp.status_code == 200
         data = resp.json()
         assert "handlers" in data
+
+    def test_transactions(self, admin_client):
+        resp = admin_client.get("/admin/api/transactions")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "sagas" in data
+        assert "tcc" in data
+        assert "saga_count" in data
+        assert "tcc_count" in data
+        assert "total" in data
+        assert "in_flight" in data
 
     def test_traces(self, admin_client):
         resp = admin_client.get("/admin/api/traces")

@@ -18,6 +18,7 @@ const ICONS = {
     route: 'M16.5 9.4l-9-5.19 M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z M3.27 6.96L12 12.01l8.73-5.05 M12 22.08V12',
     database: 'M12 2C6.48 2 2 3.79 2 6v12c0 2.21 4.48 4 10 4s10-1.79 10-4V6c0-2.21-4.48-4-10-4z M2 6c0 2.21 4.48 4 10 4s10-1.79 10-4 M2 12c0 2.21 4.48 4 10 4s10-1.79 10-4',
     arrows: 'M17 1l4 4-4 4 M3 11V9a4 4 0 014-4h14 M7 23l-4-4 4-4 M21 13v2a4 4 0 01-4 4H3',
+    shuffle: 'M16 3h5v5 M4 20L21 3 M21 16v5h-5 M15 15l6 6 M4 4l5 5',
     activity: 'M22 12h-4l-3 9L9 3l-3 9H2',
     fileText: 'M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z M14 2v6h6 M16 13H8 M16 17H8 M10 9H8',
     server: 'M2 4h20v6H2z M2 14h20v6H2z M6 8h.01 M6 18h.01',
@@ -41,6 +42,7 @@ const NAV_ITEMS = [
     { id: 'mappings',  label: 'Mappings',       icon: 'route',    section: 'Infrastructure' },
     { id: 'caches',    label: 'Caches',         icon: 'database' },
     { id: 'cqrs',      label: 'CQRS',           icon: 'arrows' },
+    { id: 'transactions', label: 'Transactions', icon: 'shuffle' },
     { id: 'logfile',   label: 'Log Viewer',     icon: 'fileText' },
 ];
 

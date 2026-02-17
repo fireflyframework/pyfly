@@ -184,6 +184,7 @@ def create_app(
         from pyfly.admin.providers.overview_provider import OverviewProvider
         from pyfly.admin.providers.scheduled_provider import ScheduledProvider
         from pyfly.admin.providers.traces_provider import TracesProvider
+        from pyfly.admin.providers.transactions_provider import TransactionsProvider
         from pyfly.admin.registry import AdminViewRegistry
 
         admin_props = AdminProperties()
@@ -225,6 +226,7 @@ def create_app(
             mappings=MappingsProvider(context),
             caches=CacheProvider(context),
             cqrs=CqrsProvider(context),
+            transactions=TransactionsProvider(context),
             traces=TracesProvider(trace_collector),
             view_registry=view_registry,
             trace_collector=trace_collector,

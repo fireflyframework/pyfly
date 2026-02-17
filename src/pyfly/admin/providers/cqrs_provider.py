@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""CQRS data provider -- command/query handler listing."""
+"""CQRS data provider -- command/query handler listing and bus introspection."""
 
 from __future__ import annotations
 
@@ -22,13 +22,21 @@ if TYPE_CHECKING:
 
 
 class CqrsProvider:
-    """Provides CQRS handler information."""
+    """Provides CQRS handler information and bus pipeline details."""
 
     def __init__(self, context: ApplicationContext) -> None:
         self._context = context
 
     async def get_handlers(self) -> dict[str, Any]:
         handlers: list[dict[str, Any]] = []
+        pipeline: dict[str, Any] = {
+            "command_bus": False,
+            "query_bus": False,
+            "validation": False,
+            "authorization": False,
+            "metrics": False,
+            "event_publishing": False,
+        }
         try:
             from pyfly.cqrs import HandlerRegistry
             for _cls, reg in self._context.container._registrations.items():
@@ -52,6 +60,32 @@ class CqrsProvider:
                             "handler_name": type(handler).__name__,
                             "kind": "query",
                         })
+
+            # Detect bus pipeline features
+            pipeline.update(self._detect_pipeline())
         except ImportError:
             pass
-        return {"handlers": handlers, "total": len(handlers)}
+        return {"handlers": handlers, "total": len(handlers), "pipeline": pipeline}
+
+    def _detect_pipeline(self) -> dict[str, Any]:
+        """Introspect registered CQRS buses for pipeline features."""
+        result: dict[str, Any] = {}
+        try:
+            from pyfly.cqrs.command.bus import DefaultCommandBus
+            from pyfly.cqrs.query.bus import DefaultQueryBus
+
+            for _cls, reg in self._context.container._registrations.items():
+                if reg.instance is None:
+                    continue
+                if isinstance(reg.instance, DefaultCommandBus):
+                    bus = reg.instance
+                    result["command_bus"] = True
+                    result["validation"] = bus._validation is not None
+                    result["authorization"] = bus._authorization is not None
+                    result["metrics"] = bus._metrics is not None
+                    result["event_publishing"] = bus._event_publisher is not None
+                elif isinstance(reg.instance, DefaultQueryBus):
+                    result["query_bus"] = True
+        except ImportError:
+            pass
+        return result

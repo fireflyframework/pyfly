@@ -134,6 +134,88 @@ class TestLoggersProvider:
         assert result["configuredLevel"] == "DEBUG"
 
 
+class TestTransactionsProvider:
+    async def test_get_transactions_empty(self):
+        from pyfly.admin.providers.transactions_provider import TransactionsProvider
+        ctx = _make_mock_context()
+        provider = TransactionsProvider(ctx)
+        result = await provider.get_transactions()
+        assert result["saga_count"] == 0
+        assert result["tcc_count"] == 0
+        assert result["total"] == 0
+        assert result["in_flight"] == 0
+        assert result["sagas"] == []
+        assert result["tcc"] == []
+
+    async def test_get_transactions_with_saga_registry(self):
+        from unittest.mock import MagicMock
+        from pyfly.admin.providers.transactions_provider import TransactionsProvider
+        from pyfly.transactional.saga.registry.saga_registry import SagaRegistry
+        from pyfly.transactional.saga.registry.saga_definition import SagaDefinition
+        from pyfly.transactional.saga.registry.step_definition import StepDefinition
+
+        ctx = _make_mock_context()
+
+        # Create a mock saga registry with one definition
+        registry = SagaRegistry()
+        saga_def = SagaDefinition(name="order-saga", bean=object(), layer_concurrency=3)
+        saga_def.steps["reserve"] = StepDefinition(
+            id="reserve", retry=2, timeout_ms=5000,
+        )
+        saga_def.steps["charge"] = StepDefinition(
+            id="charge", depends_on=["reserve"],
+        )
+        registry._sagas["order-saga"] = saga_def
+
+        reg_entry = MagicMock()
+        reg_entry.name = "sagaRegistry"
+        reg_entry.instance = registry
+        ctx.container._registrations[SagaRegistry] = reg_entry
+
+        provider = TransactionsProvider(ctx)
+        result = await provider.get_transactions()
+        assert result["saga_count"] == 1
+        assert result["total"] == 1
+        assert result["sagas"][0]["name"] == "order-saga"
+        assert result["sagas"][0]["step_count"] == 2
+        assert result["sagas"][0]["layer_concurrency"] == 3
+
+    async def test_get_transactions_with_tcc_registry(self):
+        from unittest.mock import MagicMock
+        from pyfly.admin.providers.transactions_provider import TransactionsProvider
+        from pyfly.transactional.tcc.registry.tcc_registry import TccRegistry
+        from pyfly.transactional.tcc.registry.tcc_definition import TccDefinition
+        from pyfly.transactional.tcc.registry.participant_definition import ParticipantDefinition
+
+        ctx = _make_mock_context()
+
+        # Create a mock TCC registry with one definition
+        registry = TccRegistry()
+        tcc_def = TccDefinition(
+            name="payment-tcc", bean=object(),
+            timeout_ms=30000, retry_enabled=True, max_retries=3,
+        )
+        tcc_def.participants["debit"] = ParticipantDefinition(
+            id="debit", order=0, try_method=lambda: None,
+            confirm_method=lambda: None, cancel_method=lambda: None,
+        )
+        registry._tccs["payment-tcc"] = tcc_def
+
+        reg_entry = MagicMock()
+        reg_entry.name = "tccRegistry"
+        reg_entry.instance = registry
+        ctx.container._registrations[TccRegistry] = reg_entry
+
+        provider = TransactionsProvider(ctx)
+        result = await provider.get_transactions()
+        assert result["tcc_count"] == 1
+        assert result["tcc"][0]["name"] == "payment-tcc"
+        assert result["tcc"][0]["participant_count"] == 1
+        assert result["tcc"][0]["participants"][0]["has_try"] is True
+        assert result["tcc"][0]["participants"][0]["has_confirm"] is True
+        assert result["tcc"][0]["participants"][0]["has_cancel"] is True
+
+
 class TestConfigProvider:
     async def test_get_config_grouped(self):
         ctx = _make_mock_context()

@@ -2,10 +2,11 @@
  * PyFly Admin — CQRS View.
  *
  * Displays CQRS command and query handler registrations with
- * stat cards, searchable table, and kind badges.
+ * stat cards, bus pipeline feature indicators, searchable table,
+ * and kind badges.
  *
  * Data source:
- *   GET /admin/api/cqrs -> { handlers: [...], total: N }
+ *   GET /admin/api/cqrs -> { handlers: [...], total: N, pipeline: {...} }
  */
 
 import { createTable } from '../components/table.js';
@@ -157,6 +158,65 @@ export async function render(container, api) {
     statsRow.appendChild(qryCard);
 
     wrapper.appendChild(statsRow);
+
+    // ── Bus Pipeline card ─────────────────────────────────────
+    const pipeline = data.pipeline || {};
+    const pipelineCard = document.createElement('div');
+    pipelineCard.className = 'admin-card mb-lg';
+
+    const pipelineHeader = document.createElement('div');
+    pipelineHeader.className = 'admin-card-header';
+    const pipelineTitle = document.createElement('h3');
+    pipelineTitle.textContent = 'Bus Pipeline';
+    pipelineHeader.appendChild(pipelineTitle);
+    pipelineCard.appendChild(pipelineHeader);
+
+    const pipelineBody = document.createElement('div');
+    pipelineBody.className = 'admin-card-body';
+    pipelineBody.style.display = 'flex';
+    pipelineBody.style.flexWrap = 'wrap';
+    pipelineBody.style.gap = '16px';
+
+    const pipelineFeatures = [
+        { key: 'command_bus', label: 'Command Bus' },
+        { key: 'query_bus', label: 'Query Bus' },
+        { key: 'validation', label: 'Validation' },
+        { key: 'authorization', label: 'Authorization' },
+        { key: 'metrics', label: 'Metrics' },
+        { key: 'event_publishing', label: 'Event Publishing' },
+    ];
+
+    for (const feat of pipelineFeatures) {
+        const active = !!pipeline[feat.key];
+        const item = document.createElement('div');
+        item.style.display = 'inline-flex';
+        item.style.alignItems = 'center';
+        item.style.gap = '6px';
+
+        const dot = document.createElement('span');
+        dot.style.width = '10px';
+        dot.style.height = '10px';
+        dot.style.borderRadius = '50%';
+        dot.style.display = 'inline-block';
+        dot.style.backgroundColor = active
+            ? 'var(--admin-success)'
+            : 'var(--admin-text-muted)';
+        dot.style.opacity = active ? '1' : '0.3';
+        item.appendChild(dot);
+
+        const label = document.createElement('span');
+        label.style.fontSize = '0.85rem';
+        label.style.color = active
+            ? 'var(--admin-text-primary)'
+            : 'var(--admin-text-muted)';
+        label.textContent = feat.label;
+        item.appendChild(label);
+
+        pipelineBody.appendChild(item);
+    }
+
+    pipelineCard.appendChild(pipelineBody);
+    wrapper.appendChild(pipelineCard);
 
     // ── Handlers table ───────────────────────────────────────
     const tableCard = document.createElement('div');
