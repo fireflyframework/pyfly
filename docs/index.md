@@ -298,6 +298,7 @@ PyFly is organized into four layers:
 | **Observability** | Prometheus metrics, OpenTelemetry tracing | [Observability](modules/observability.md) |
 | **Logging** | Structured logging with structlog | [Observability](modules/observability.md) |
 | **Actuator** | Health checks, monitoring endpoints | [Actuator](modules/actuator.md) |
+| **Admin** | Embedded management dashboard, real-time monitoring | [Admin Dashboard](modules/admin.md) |
 | **Testing** | Test fixtures and assertions | [Testing](modules/testing.md) |
 | **CLI** | Command-line tools | [CLI Reference](cli.md) |
 
@@ -319,6 +320,7 @@ PyFly is organized into four layers:
 - [Error Handling](modules/error-handling.md) — Exception hierarchy, structured error responses
 - [Web Layer](modules/web.md) — Controllers, routing, parameter binding, middleware, CORS, OpenAPI
 - [Actuator](modules/actuator.md) — Health checks, beans, environment, info endpoints
+- [Admin Dashboard](modules/admin.md) — Embedded management dashboard, real-time monitoring, server mode
 - [Data Commons](modules/data.md) — Repository ports, derived queries, pagination, sorting, entity mapping
 - [Data Relational](modules/data-relational.md) — SQLAlchemy adapter: specifications, transactions, custom queries
 - [Messaging](modules/messaging.md) — Kafka, RabbitMQ, in-memory message broker
