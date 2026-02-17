@@ -64,42 +64,41 @@ PyFly Shell is built on the same two concepts as every other PyFly module:
   without changing any command code.
 
 ```
-┌──────────────────────────────────────────────────────────┐
-│                    YOUR APPLICATION                       │
-│                                                          │
-│  @shell_component                                        │
-│  class DbCommands:                                       │
-│      @shell_method(group="db")                           │
-│      def migrate(self, target: str = "head") -> str: ... │
-│                                                          │
-│  @service  # implements CommandLineRunner                 │
-│  class Seeder:                                           │
-│      async def run(self, args: list[str]) -> None: ...   │
-│                                                          │
-└────────────────────────────┬─────────────────────────────┘
-                             │ depends on
-┌────────────────────────────┴─────────────────────────────┐
-│              ShellRunnerPort  (Python Protocol)           │
-│                                                          │
-│  register_command(key, handler, *, help_text, group,     │
-│                   params)                                 │
-│  run(args) -> int                                        │
-│  run_interactive() -> None                               │
-│                                                          │
-│              CommandLineRunner / ApplicationRunner        │
-│  run(args: list[str]) -> None                            │
-│  run(args: ApplicationArguments) -> None                 │
-│                                                          │
-└────────────────────────────┬─────────────────────────────┘
-                             │ implements
-┌────────────────────────────┴─────────────────────────────┐
-│              ClickShellAdapter  (Click 8.1+)             │
-│                                                          │
-│  Converts ShellParam → click.Option / click.Argument     │
-│  Wraps async handlers for synchronous Click dispatch     │
-│  Supports grouped sub-commands (e.g. "db migrate")       │
-│                                                          │
-└──────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│                       YOUR APPLICATION                       │
+│                                                              │
+│  @shell_component                                            │
+│  class DbCommands:                                           │
+│      @shell_method(group="db")                               │
+│      def migrate(self, target: str = "head") -> str: ...     │
+│                                                              │
+│  @service  # implements CommandLineRunner                    │
+│  class Seeder:                                               │
+│      async def run(self, args: list[str]) -> None: ...       │
+│                                                              │
+└──────────────────────────────────┬───────────────────────────┘
+                                   │ depends on
+┌──────────────────────────────────┴───────────────────────────┐
+│              ShellRunnerPort  (Python Protocol)              │
+│                                                              │
+│  register_command(key, handler, *, help_text, group, params) │
+│  run(args) -> int                                            │
+│  run_interactive() -> None                                   │
+│                                                              │
+│              CommandLineRunner / ApplicationRunner           │
+│  run(args: list[str]) -> None                                │
+│  run(args: ApplicationArguments) -> None                     │
+│                                                              │
+└──────────────────────────────────┬───────────────────────────┘
+                                   │ implements
+┌──────────────────────────────────┴───────────────────────────┐
+│              ClickShellAdapter  (Click 8.1+)                 │
+│                                                              │
+│  Converts ShellParam → click.Option / click.Argument         │
+│  Wraps async handlers for synchronous Click dispatch         │
+│  Supports grouped sub-commands (e.g. "db migrate")           │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
 ```
 
 **Wiring lifecycle:** During `ApplicationContext.start()`, the framework:
