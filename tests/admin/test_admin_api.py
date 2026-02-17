@@ -93,3 +93,59 @@ class TestAdminAPI:
         assert resp.status_code == 200
         data = resp.json()
         assert data["title"] == "PyFly Admin"
+
+    def test_env(self, admin_client):
+        resp = admin_client.get("/admin/api/env")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "active_profiles" in data
+        assert "properties" in data
+
+    def test_config(self, admin_client):
+        resp = admin_client.get("/admin/api/config")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "groups" in data
+
+    def test_scheduled(self, admin_client):
+        resp = admin_client.get("/admin/api/scheduled")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "tasks" in data
+
+    def test_mappings(self, admin_client):
+        resp = admin_client.get("/admin/api/mappings")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "mappings" in data
+
+    def test_caches(self, admin_client):
+        resp = admin_client.get("/admin/api/caches")
+        assert resp.status_code == 200
+
+    def test_cqrs(self, admin_client):
+        resp = admin_client.get("/admin/api/cqrs")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "handlers" in data
+
+    def test_traces(self, admin_client):
+        resp = admin_client.get("/admin/api/traces")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "traces" in data
+
+    def test_views(self, admin_client):
+        resp = admin_client.get("/admin/api/views")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "views" in data
+
+    def test_metrics(self, admin_client):
+        resp = admin_client.get("/admin/api/metrics")
+        assert resp.status_code == 200
+
+    def test_spa_routing(self, admin_client):
+        resp = admin_client.get("/admin/")
+        assert resp.status_code == 200
+        assert "text/html" in resp.headers["content-type"]
