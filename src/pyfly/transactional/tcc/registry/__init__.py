@@ -11,4 +11,20 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""TCC registry — discovery, indexing and validation of TCC beans."""
 
+from pyfly.transactional.tcc.registry.participant_definition import (
+    ParticipantDefinition,
+)
+from pyfly.transactional.tcc.registry.tcc_definition import TccDefinition
+from pyfly.transactional.tcc.registry.tcc_registry import (
+    TccRegistry,
+    TccValidationError,
+)
+
+__all__ = [
+    "ParticipantDefinition",
+    "TccDefinition",
+    "TccRegistry",
+    "TccValidationError",
+]
