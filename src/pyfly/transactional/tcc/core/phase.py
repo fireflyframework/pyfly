@@ -11,17 +11,23 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""TCC core domain types — TccPhase, TccContext, TccResult, ParticipantResult."""
+"""TccPhase — enumeration of the three TCC lifecycle phases."""
 
 from __future__ import annotations
 
-from pyfly.transactional.tcc.core.context import TccContext
-from pyfly.transactional.tcc.core.phase import TccPhase
-from pyfly.transactional.tcc.core.result import ParticipantResult, TccResult
+from enum import Enum
 
-__all__ = [
-    "ParticipantResult",
-    "TccContext",
-    "TccPhase",
-    "TccResult",
-]
+
+class TccPhase(str, Enum):
+    """Phase of a TCC execution.
+
+    A TCC transaction progresses through three phases:
+
+    * **TRY** — tentatively reserve resources.
+    * **CONFIRM** — commit all reserved resources.
+    * **CANCEL** — release / roll back all reserved resources.
+    """
+
+    TRY = "TRY"
+    CONFIRM = "CONFIRM"
+    CANCEL = "CANCEL"
