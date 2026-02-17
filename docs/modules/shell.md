@@ -1,64 +1,125 @@
 # Shell Guide
 
 PyFly's shell module provides a Spring Shell-inspired CLI application framework
-with full dependency injection integration. Decorate methods with `@shell_method`
-inside `@shell_component` classes, and PyFly automatically registers them as CLI
-commands, infers parameters from type hints, and wires everything through the DI
-container at startup. The module also supports `CommandLineRunner` and
-`ApplicationRunner` protocols for one-shot post-startup tasks.
+with full dependency injection integration. It follows the hexagonal architecture
+pattern: a `ShellRunnerPort` protocol defines the contract for command execution,
+while pluggable adapters (Click, and in the future Typer, etc.) supply the
+implementation. You write CLI commands as methods on `@shell_component` classes,
+and the framework infers CLI parameters from type hints, registers them with the
+adapter, and wires everything through the DI container at startup.
+
+The module also provides `CommandLineRunner` and `ApplicationRunner` protocols
+for one-shot post-startup tasks — the Python equivalent of Spring Boot's runner
+interfaces.
 
 ---
 
 ## Table of Contents
 
 1. [Architecture Overview](#architecture-overview)
-2. [Core Concepts](#core-concepts)
-   - [@shell_component](#shell_component)
-   - [@shell_method](#shell_method)
-   - [@shell_option and @shell_argument](#shell_option-and-shell_argument)
-3. [Parameter Inference](#parameter-inference)
-4. [ShellRunnerPort Protocol](#shellrunnerport-protocol)
-5. [CommandLineRunner and ApplicationRunner](#commandlinerunner-and-applicationrunner)
-6. [ApplicationArguments](#applicationarguments)
-7. [Auto-Configuration](#auto-configuration)
-8. [Configuration Reference](#configuration-reference)
-9. [Complete Example: Database Migration CLI](#complete-example-database-migration-cli)
-10. [Testing](#testing)
-11. [See Also](#see-also)
+2. [The @shell_component Stereotype](#the-shell_component-stereotype)
+3. [The @shell_method Decorator](#the-shell_method-decorator)
+4. [Parameter Inference](#parameter-inference)
+   - [Inference Rules](#inference-rules)
+   - [PEP 604 and Optional Handling](#pep-604-and-optional-handling)
+   - [The MISSING Sentinel](#the-missing-sentinel)
+5. [Explicit Overrides: @shell_option and @shell_argument](#explicit-overrides-shell_option-and-shell_argument)
+   - [@shell_option](#shell_option)
+   - [@shell_argument](#shell_argument)
+   - [Override Merge Behavior](#override-merge-behavior)
+6. [Data Models](#data-models)
+   - [ShellParam](#shellparam)
+   - [CommandResult](#commandresult)
+7. [ShellRunnerPort Protocol](#shellrunnerport-protocol)
+8. [Adapters](#adapters)
+   - [ClickShellAdapter](#clickshelladapter)
+9. [CommandLineRunner and ApplicationRunner](#commandlinerunner-and-applicationrunner)
+   - [CommandLineRunner](#commandlinerunner)
+   - [ApplicationRunner](#applicationrunner)
+   - [Execution Order](#execution-order)
+10. [ApplicationArguments](#applicationarguments)
+11. [Auto-Configuration](#auto-configuration)
+12. [How Wiring Works](#how-wiring-works)
+    - [Step 1: Command Registration](#step-1-command-registration)
+    - [Step 2: Runner Invocation](#step-2-runner-invocation)
+13. [Configuration Reference](#configuration-reference)
+14. [Complete Example: DevOps Toolkit CLI](#complete-example-devops-toolkit-cli)
+15. [Testing](#testing)
+    - [Unit Testing Commands Directly](#unit-testing-commands-directly)
+    - [Testing Through the Adapter](#testing-through-the-adapter)
+    - [Integration Testing with ApplicationContext](#integration-testing-with-applicationcontext)
+16. [Spring Shell Comparison](#spring-shell-comparison)
 
 ---
 
 ## Architecture Overview
 
+PyFly Shell is built on the same two concepts as every other PyFly module:
+
+* **Port** — `ShellRunnerPort` is a `Protocol` that defines command registration,
+  single-shot execution, and interactive REPL operations. Your application code
+  depends only on this abstraction.
+* **Adapter** — `ClickShellAdapter` implements the port using the
+  [Click](https://click.palletsprojects.com) library. You can swap adapters
+  without changing any command code.
+
 ```
-@shell_component classes (your code)
-          |
-          v
-    @shell_method methods
-          |  (infer_params extracts ShellParam descriptors from type hints)
-          v
-    ShellRunnerPort  (protocol / port)
-          |
-          +-- ClickShellAdapter   (Click library — default)
-          +-- (Future: Typer, etc.)
-          |
-          v
-    ApplicationContext wires everything at startup
+┌──────────────────────────────────────────────────────────┐
+│                    YOUR APPLICATION                       │
+│                                                          │
+│  @shell_component                                        │
+│  class DbCommands:                                       │
+│      @shell_method(group="db")                           │
+│      def migrate(self, target: str = "head") -> str: ... │
+│                                                          │
+│  @service  # implements CommandLineRunner                 │
+│  class Seeder:                                           │
+│      async def run(self, args: list[str]) -> None: ...   │
+│                                                          │
+└────────────────────────────┬─────────────────────────────┘
+                             │ depends on
+┌────────────────────────────┴─────────────────────────────┐
+│              ShellRunnerPort  (Python Protocol)           │
+│                                                          │
+│  register_command(key, handler, *, help_text, group,     │
+│                   params)                                 │
+│  run(args) -> int                                        │
+│  run_interactive() -> None                               │
+│                                                          │
+│              CommandLineRunner / ApplicationRunner        │
+│  run(args: list[str]) -> None                            │
+│  run(args: ApplicationArguments) -> None                 │
+│                                                          │
+└────────────────────────────┬─────────────────────────────┘
+                             │ implements
+┌────────────────────────────┴─────────────────────────────┐
+│              ClickShellAdapter  (Click 8.1+)             │
+│                                                          │
+│  Converts ShellParam → click.Option / click.Argument     │
+│  Wraps async handlers for synchronous Click dispatch     │
+│  Supports grouped sub-commands (e.g. "db migrate")       │
+│                                                          │
+└──────────────────────────────────────────────────────────┘
 ```
 
-Your CLI commands live in `@shell_component` classes that participate in DI like
-any other stereotype. The `ApplicationContext` scans these classes at startup,
-finds all `@shell_method` methods, infers CLI parameters from type hints, and
-registers them with the `ShellRunnerPort` adapter.
+**Wiring lifecycle:** During `ApplicationContext.start()`, the framework:
+
+1. Evaluates auto-configuration conditions and registers `ClickShellAdapter` as
+   the `ShellRunnerPort` bean (if `pyfly.shell.enabled=true`).
+2. Scans all `@shell_component` beans for `@shell_method` methods.
+3. Calls `infer_params()` on each method to build `ShellParam` descriptors from
+   type hints, merging any explicit `@shell_option` / `@shell_argument` metadata.
+4. Registers each command with the `ShellRunnerPort` adapter.
+5. After publishing `ApplicationReadyEvent`, discovers and invokes any
+   `CommandLineRunner` / `ApplicationRunner` beans.
 
 ---
 
-## Core Concepts
+## The @shell_component Stereotype
 
-### @shell_component
-
-Marks a class as a DI-managed shell component. It behaves like `@component` but
-signals that the class contains CLI command methods:
+`@shell_component` marks a class as a DI-managed shell component. It behaves
+identically to `@component` (singleton scope, constructor injection, lifecycle
+hooks) but signals that the class contains CLI command methods.
 
 ```python
 from pyfly.shell import shell_component, shell_method
@@ -73,15 +134,25 @@ class GreetingCommands:
         return self._service.greet(name)
 ```
 
-The DI container resolves `GreetingService` automatically — shell components
-have full access to constructor injection, `Autowired()` fields, and all other
-DI features.
+The decorator sets the following metadata on the class:
 
-### @shell_method
+| Attribute | Value |
+|-----------|-------|
+| `__pyfly_stereotype__` | `"shell_component"` |
+| `__pyfly_scope__` | `Scope.SINGLETON` |
+| `__pyfly_injectable__` | `True` |
 
-Marks a method as a CLI command. The method is registered with the shell adapter
-using an auto-derived command name (underscores become hyphens) or an explicit
-`key`:
+Shell components have full access to all DI features: constructor injection,
+`Autowired()` fields, `@post_construct` / `@pre_destroy` lifecycle hooks,
+`@order` for prioritization, and `Optional[T]` / `list[T]` injection.
+
+---
+
+## The @shell_method Decorator
+
+`@shell_method` marks a method as a CLI command. The `ApplicationContext` scans
+`@shell_component` beans at startup and registers every `@shell_method` with the
+`ShellRunnerPort` adapter.
 
 ```python
 @shell_method(key="say-hello", help="Greet a user", group="greetings")
@@ -90,69 +161,237 @@ def say_hello(self, name: str, loud: bool = False) -> str:
     return msg.upper() if loud else msg
 ```
 
+### Parameters
+
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `key` | `str` | method name (kebab-case) | The command name in the CLI |
-| `help` | `str` | `""` | Help text for the command |
-| `group` | `str` | `""` | Command group for organised help output |
+| `key` | `str` | `""` | The command name in the CLI. Empty means the method name with underscores replaced by hyphens (e.g. `say_hello` → `say-hello`). |
+| `help` | `str` | `""` | Help text displayed in the shell's `--help` output. |
+| `group` | `str` | `""` | Logical command group. Commands in a group are registered as sub-commands (e.g. `db migrate`, `db rollback`). |
 
-### @shell_option and @shell_argument
+### Metadata Attributes
 
-Override inferred parameter metadata when you need explicit control:
+The decorator sets the following attributes on the wrapped function:
+
+| Attribute | Value |
+|-----------|-------|
+| `__pyfly_shell_method__` | `True` |
+| `__pyfly_shell_key__` | The command name (kebab-case) |
+| `__pyfly_shell_help__` | The help text string |
+| `__pyfly_shell_group__` | The group name string |
+
+During startup, `ApplicationContext._wire_shell_commands()` scans for methods
+carrying `__pyfly_shell_method__ = True` and registers them with the adapter.
+
+### Async Commands
+
+Both sync and async methods are supported. Async handlers are automatically
+wrapped for the adapter:
 
 ```python
-from pyfly.shell import shell_method, shell_option, shell_argument
-
-@shell_method()
-@shell_option("--verbose", is_flag=True, help="Enable verbose output")
-@shell_argument("service", help="Service to deploy")
-def deploy(service: str, verbose: bool = False) -> str:
-    return f"Deploying {service}{'(verbose)' if verbose else ''}"
+@shell_method(help="Fetch remote data")
+async def fetch(self, url: str) -> str:
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(url)
+        return f"Status: {resp.status_code}"
 ```
-
-**@shell_option parameters:**
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `name` | `str` | required | Option name (e.g. `--verbose`) |
-| `type` | `type \| None` | `None` | Value type (`None` = infer from signature) |
-| `is_flag` | `bool` | `False` | Boolean flag (no value expected) |
-| `help` | `str` | `""` | Help text |
-| `default` | `Any` | `None` | Default value |
-
-**@shell_argument parameters:**
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `name` | `str` | required | Argument name |
-| `type` | `type \| None` | `None` | Value type (`None` = infer from signature) |
-| `help` | `str` | `""` | Help text |
-| `required` | `bool` | `True` | Whether the argument must be supplied |
-| `default` | `Any` | `None` | Default value |
 
 ---
 
 ## Parameter Inference
 
-PyFly automatically infers CLI parameters from your method's type hints using
-`infer_params()`. The rules are:
+PyFly infers CLI parameters from a method's type hints and defaults using
+`infer_params()`. This eliminates the need for manual Click/argparse boilerplate
+in most cases.
 
-| Signature Pattern | CLI Mapping | Example |
-|-------------------|-------------|---------|
-| `name: str` (no default) | Positional argument | `greet Alice` |
-| `count: int = 3` (has default) | `--count` option | `greet --count 5` |
-| `verbose: bool = False` | `--verbose` flag | `greet --verbose` |
-| `query: str \| None = None` | `--query` option (optional) | `search --query foo` |
+### Inference Rules
 
-Explicit `@shell_option` / `@shell_argument` decorators are merged on top of the
-inferred defaults, so you only need them when you want to add help text, override
-a default, or change the inferred kind.
+| Signature Pattern | CLI Mapping | is_option | is_flag | Default |
+|-------------------|-------------|-----------|---------|---------|
+| `name: str` | Positional argument | `False` | `False` | `MISSING` |
+| `count: int` | Positional argument | `False` | `False` | `MISSING` |
+| `count: int = 3` | `--count` option | `True` | `False` | `3` |
+| `verbose: bool = False` | `--verbose` flag | `True` | `True` | `False` |
+| `query: str \| None = None` | `--query` option | `True` | `False` | `None` |
+| `query: Optional[str] = None` | `--query` option | `True` | `False` | `None` |
+
+**The general rules are:**
+
+1. **No default + non-bool type** → positional argument.
+2. **Has a default** → named `--option`.
+3. **`bool` type** → always a `--flag` (defaults to `False` if no default given).
+4. **Optional / union with `None`** → named `--option` with `None` default.
+
+### PEP 604 and Optional Handling
+
+`infer_params()` uses `_unwrap_optional()` internally to handle both legacy and
+modern union syntax:
+
+- `typing.Optional[str]` → unwraps to `str`, marks as optional
+- `typing.Union[str, None]` → unwraps to `str`, marks as optional
+- `str | None` (PEP 604, Python 3.10+) → unwraps to `str`, marks as optional
+- `str | int` (non-optional union) → left as-is, not unwrapped
+
+### The MISSING Sentinel
+
+`MISSING` is a module-level sentinel that distinguishes "no default was
+provided" from an explicit `None` default. This is necessary because `None` is a
+valid default value for optional parameters.
+
+```python
+from pyfly.shell.result import MISSING
+
+# MISSING is a singleton instance of _MissingSentinel
+repr(MISSING)  # "MISSING"
+
+# Usage in ShellParam
+param = ShellParam(name="name", param_type=str, is_option=False)
+param.default is MISSING  # True — no default provided
+```
+
+### Skipping `self` and `return`
+
+The `self` parameter and the return type annotation are automatically excluded
+from inference. Only user-facing parameters are converted to `ShellParam`
+descriptors.
+
+---
+
+## Explicit Overrides: @shell_option and @shell_argument
+
+While parameter inference handles most cases, you can attach explicit metadata
+when you need help text, custom defaults, or different parameter kinds.
+
+### @shell_option
+
+Attach option metadata to a shell command method:
+
+```python
+@shell_method()
+@shell_option("--verbose", is_flag=True, help="Enable verbose output")
+@shell_option("--env", help="Target environment", default="staging")
+def deploy(verbose: bool = False, env: str = "staging") -> str:
+    return f"Deploying to {env}"
+```
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `name` | `str` | *required* | Option name (e.g. `--verbose`). Leading dashes are stripped and hyphens converted to underscores to match the function parameter name. |
+| `type` | `type \| None` | `None` | Expected value type. `None` means infer from the function signature. |
+| `is_flag` | `bool` | `False` | If `True`, the option is a boolean flag (no value expected). |
+| `help` | `str` | `""` | Help text for this option. |
+| `default` | `Any` | `None` | Default value when the option is not supplied. |
+
+The decorator stores metadata in a list at `func.__pyfly_shell_options__`.
+
+### @shell_argument
+
+Attach positional argument metadata to a shell command method:
+
+```python
+@shell_method()
+@shell_argument("service", help="Service to deploy")
+def deploy(service: str) -> str:
+    return f"Deploying {service}"
+```
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `name` | `str` | *required* | The argument name (must match a function parameter). |
+| `type` | `type \| None` | `None` | Expected value type. `None` means infer from the function signature. |
+| `help` | `str` | `""` | Help text for this argument. |
+| `required` | `bool` | `True` | Whether the argument must be supplied. |
+| `default` | `Any` | `None` | Default value when the argument is not supplied. |
+
+The decorator stores metadata in a list at `func.__pyfly_shell_arguments__`.
+
+### Override Merge Behavior
+
+When `infer_params()` processes a method, it:
+
+1. Builds a `{param_name: metadata}` lookup from `@shell_option` entries
+   (normalising `--kebab-case` to `snake_case`).
+2. Builds a separate lookup from `@shell_argument` entries.
+3. For each function parameter, checks for an explicit override first.
+4. If found, the override's `help`, `default`, `is_flag`, and `choices` values
+   take precedence over the inferred defaults.
+5. If no override exists, the standard inference rules apply.
+
+This means you only need `@shell_option` / `@shell_argument` when the inference
+defaults are insufficient — typically to add help text or constrain choices.
+
+---
+
+## Data Models
+
+### ShellParam
+
+`ShellParam` is a frozen dataclass that describes a single parameter for a shell
+command. It is the intermediate representation between your Python type hints and
+the adapter's native parameter types (e.g. `click.Option`, `click.Argument`).
+
+```python
+from pyfly.shell import ShellParam
+from pyfly.shell.result import MISSING
+
+param = ShellParam(
+    name="count",
+    param_type=int,
+    is_option=True,
+    default=3,
+    help_text="Number of retries",
+)
+```
+
+#### Fields
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `name` | `str` | *required* | The parameter name (matches the Python function parameter). |
+| `param_type` | `type` | *required* | The Python type (`str`, `int`, `float`, `bool`). |
+| `is_option` | `bool` | *required* | `True` for named `--options`, `False` for positional arguments. |
+| `default` | `Any` | `MISSING` | The default value. `MISSING` means the parameter is required. |
+| `help_text` | `str` | `""` | Help text displayed in `--help` output. |
+| `choices` | `list[str] \| None` | `None` | Restrict accepted values to a fixed set. |
+| `is_flag` | `bool` | `False` | If `True`, the option is a boolean flag (no value expected). |
+
+Because the dataclass is frozen, `ShellParam` instances are immutable and safe
+to use as dict keys or in sets.
+
+### CommandResult
+
+`CommandResult` is a mutable dataclass that wraps the output and exit code from
+a command invocation:
+
+```python
+from pyfly.shell import CommandResult
+
+result = CommandResult(output="Migrated to head", exit_code=0)
+result.is_success  # True
+
+failed = CommandResult(output="Connection refused", exit_code=1)
+failed.is_success  # False
+```
+
+#### Fields
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `output` | `str` | `""` | The text output produced by the command. |
+| `exit_code` | `int` | `0` | The exit code. `0` means success; non-zero means failure. |
+
+#### Properties
+
+| Property | Return Type | Description |
+|----------|-------------|-------------|
+| `is_success` | `bool` | Returns `True` when `exit_code == 0`. |
 
 ---
 
 ## ShellRunnerPort Protocol
 
-The port contract that any shell adapter must implement:
+The port is defined as a `@runtime_checkable` `Protocol`, so you can use
+`isinstance()` checks at runtime and depend on it for type hints everywhere.
 
 ```python
 from pyfly.shell import ShellRunnerPort
@@ -173,66 +412,227 @@ class ShellRunnerPort(Protocol):
     async def run_interactive(self) -> None: ...
 ```
 
-| Method | Description |
-|--------|-------------|
-| `register_command()` | Register a command with its handler, parameters, and metadata |
-| `run()` | Execute the shell with the given arguments, return exit code |
-| `run_interactive()` | Start an interactive REPL loop |
+### Method Reference
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `register_command(key, handler, *, help_text, group, params)` | `None` | Register a command. `key` is the command name (kebab-case). `handler` is the callable. `group` nests the command under a sub-group (e.g. `group="db"` → `db <key>`). `params` is a list of `ShellParam` descriptors for the command's CLI parameters. |
+| `run(args)` | `int` | Execute the shell with the given argument list and return the exit code. Pass `None` or `[]` for no arguments. |
+| `run_interactive()` | `None` | Start an interactive REPL loop. Reads input lines, tokenises them, and dispatches to the appropriate command. Exits on `EOF` or `Ctrl+C`. |
+
+---
+
+## Adapters
+
+### ClickShellAdapter
+
+The default adapter, backed by [Click](https://click.palletsprojects.com) 8.1+.
+It translates `ShellParam` descriptors into native Click parameters and manages
+a `click.Group` as the root command.
+
+**Install:** `pip install pyfly[shell]` (this pulls in `click`).
+
+#### Constructor
+
+```python
+from pyfly.shell.adapters.click_adapter import ClickShellAdapter
+
+adapter = ClickShellAdapter(name="myapp", help_text="My CLI application")
+```
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `name` | `str` | `"app"` | The root command name. |
+| `help_text` | `str` | `""` | Help text for the root command. |
+
+#### Type Mapping
+
+Python types are mapped to Click parameter types:
+
+| Python Type | Click Type |
+|-------------|------------|
+| `str` | `click.STRING` |
+| `int` | `click.INT` |
+| `float` | `click.FLOAT` |
+| `bool` | `click.BOOL` |
+
+Unknown types fall back to `click.STRING`.
+
+#### ShellParam → Click Parameter Conversion
+
+Each `ShellParam` is converted by `_build_click_param()`:
+
+| ShellParam State | Click Type | Behavior |
+|------------------|------------|----------|
+| `is_flag=True` | `click.Option` with `is_flag=True` | `--verbose` toggles a boolean |
+| `is_option=True` | `click.Option` | `--count 5` with type validation |
+| `is_option=False` | `click.Argument` | Positional, required unless default provided |
+
+Option names are auto-generated from the parameter name: underscores become
+hyphens (e.g. `max_retries` → `--max-retries`).
+
+#### Async Handler Wrapping
+
+Click is a synchronous library, so async command handlers need special treatment.
+`_wrap_handler()` wraps async coroutine functions:
+
+- **No running event loop** — Uses `asyncio.run()` to create a new loop.
+- **Running event loop** (e.g. inside `pytest-asyncio`) — Dispatches to a
+  `ThreadPoolExecutor` to avoid blocking the existing loop.
+
+Sync handlers are passed through unchanged.
+
+#### Grouped Sub-Commands
+
+Commands with a `group` parameter are nested under a `click.Group`:
+
+```python
+adapter.register_command("migrate", handler, group="db")
+adapter.register_command("rollback", handler, group="db")
+
+# CLI usage:
+#   myapp db migrate
+#   myapp db rollback
+```
+
+Multiple commands can share the same group. The sub-group is created lazily on
+first use and added to the root `click.Group`.
+
+#### Invocation Modes
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `invoke(args)` | `tuple[int, str]` | Synchronous invocation. Returns `(exit_code, output)`. Catches `SystemExit` (from `--help`), `UsageError`, and general exceptions. |
+| `run(args)` | `int` | Async wrapper around `invoke()`. Returns the exit code only. |
+| `run_interactive()` | `None` | REPL loop: `input("> ")` → split → `invoke()` → print output. Exits on `EOF` or `Ctrl+C`. |
 
 ---
 
 ## CommandLineRunner and ApplicationRunner
 
-These protocols provide post-startup hooks — beans that implement them are
-invoked automatically after the `ApplicationContext` has fully started. This
-mirrors Spring Boot's `CommandLineRunner` and `ApplicationRunner`:
+These protocols provide **post-startup hooks** — beans that implement them are
+invoked automatically after the `ApplicationContext` has fully started and
+`ApplicationReadyEvent` has been published. This mirrors Spring Boot's
+`CommandLineRunner` and `ApplicationRunner` interfaces.
+
+### CommandLineRunner
+
+Receives raw CLI arguments as `list[str]`:
 
 ```python
-from pyfly.shell import CommandLineRunner, ApplicationRunner, ApplicationArguments
+from pyfly.container import service
 
 @service
-class DbMigrator:
-    """Runs database migrations on startup."""
+class DatabaseSeeder:
+    """Seed the database after startup if --seed is passed."""
+
+    def __init__(self, repo: ItemRepository) -> None:
+        self._repo = repo
 
     async def run(self, args: list[str]) -> None:
-        if "--migrate" in args:
-            await self._apply_migrations()
+        if "--seed" in args:
+            await self._repo.save(Item(name="Default Item"))
 ```
 
-- **`CommandLineRunner`** — Receives raw `list[str]` arguments
-- **`ApplicationRunner`** — Receives parsed `ApplicationArguments`
+#### Protocol Definition
 
-Runners are invoked in `@order` priority (lowest first). The `ApplicationContext`
-distinguishes runners from `ShellRunnerPort` instances to prevent structural
-typing false matches.
+```python
+@runtime_checkable
+class CommandLineRunner(Protocol):
+    async def run(self, args: list[str]) -> None: ...
+```
+
+Any bean with an `async def run(self, args: list[str]) -> None` method
+structurally satisfies this protocol.
+
+### ApplicationRunner
+
+Receives parsed `ApplicationArguments` for richer CLI argument introspection:
+
+```python
+from pyfly.container import service
+from pyfly.shell import ApplicationArguments
+
+@service
+class ConfigPrinter:
+    """Print configuration summary if --show-config is passed."""
+
+    async def run(self, args: ApplicationArguments) -> None:
+        if args.contains_option("show-config"):
+            print(f"Config sources: {args.non_option_args}")
+```
+
+#### Protocol Definition
+
+```python
+@runtime_checkable
+class ApplicationRunner(Protocol):
+    async def run(self, args: ApplicationArguments) -> None: ...
+```
+
+The `ApplicationContext` determines which protocol a bean satisfies by inspecting
+the type hint of the first parameter in `run()`. If it is `ApplicationArguments`,
+the raw CLI args are parsed via `ApplicationArguments.from_args()` before
+invocation.
+
+### Execution Order
+
+Runners are invoked in `@order` priority (lowest value first, default is 0). If
+multiple runners have the same order, their execution order is unspecified.
+
+**Important:** `ShellRunnerPort` adapters are explicitly excluded from runner
+detection. Because both `ShellRunnerPort` and `CommandLineRunner` define
+`async def run(...)`, Python's structural typing would otherwise cause the
+adapter to falsely match `CommandLineRunner`. The framework uses an
+`isinstance(instance, ShellRunnerPort)` guard to prevent this.
 
 ---
 
 ## ApplicationArguments
 
-A parsed representation of command-line arguments that separates option args
-(`--key=value`, `--flag`) from non-option args:
+`ApplicationArguments` is a dataclass that provides a parsed view of raw CLI
+tokens, separating option arguments (`--key=value`, `--flag`) from non-option
+arguments (everything else).
 
 ```python
 from pyfly.shell import ApplicationArguments
 
-args = ApplicationArguments.from_args(["serve", "--port=8080", "--debug"])
+args = ApplicationArguments.from_args(["serve", "--port=8080", "--debug", "extra"])
 
-args.source_args      # ["serve", "--port=8080", "--debug"]
+args.source_args      # ["serve", "--port=8080", "--debug", "extra"]
 args.option_args      # ["--port=8080", "--debug"]
-args.non_option_args  # ["serve"]
-
-args.contains_option("port")       # True
-args.get_option_values("port")     # ["8080"]
-args.contains_option("verbose")    # False
+args.non_option_args  # ["serve", "extra"]
 ```
+
+### Fields
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `source_args` | `list[str]` | `[]` | The original, unmodified argument list. |
+| `option_args` | `list[str]` | `[]` | Arguments starting with `--`. |
+| `non_option_args` | `list[str]` | `[]` | Arguments not starting with `--`. |
+
+### Class Methods
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `from_args(args)` | `ApplicationArguments` | Parse a raw `list[str]` into option and non-option groups. |
+
+### Instance Methods
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `contains_option(name)` | `bool` | Check if `--name` or `--name=value` is present in `option_args`. |
+| `get_option_values(name)` | `list[str]` | Extract all values for `--name=value` options. Returns an empty list if the option is not present or has no `=value` suffix. |
 
 ---
 
 ## Auto-Configuration
 
-Shell auto-configuration is activated when `pyfly.shell.enabled` is set to
-`true` and no user-provided `ShellRunnerPort` bean exists:
+Shell auto-configuration is activated when two conditions are met:
+
+1. `pyfly.shell.enabled` is set to `true` in configuration.
+2. No user-provided `ShellRunnerPort` bean exists in the container.
 
 ```yaml
 # pyfly.yaml
@@ -241,16 +641,34 @@ pyfly:
     enabled: true
 ```
 
-The `ShellAutoConfiguration` class registers a `ClickShellAdapter` as the
-default `ShellRunnerPort`:
+The `ShellAutoConfiguration` class is discovered via the `pyfly.auto_configuration`
+entry-point group in `pyproject.toml`:
 
-| Condition | Bean | Type |
-|-----------|------|------|
-| `pyfly.shell.enabled=true` + no existing `ShellRunnerPort` | `shell_runner` | `ClickShellAdapter` |
+```toml
+[project.entry-points."pyfly.auto_configuration"]
+shell = "pyfly.shell.auto_configuration:ShellAutoConfiguration"
+```
 
-You can override by registering your own `ShellRunnerPort` bean:
+### Conditions and Beans
+
+| Condition | Effect |
+|-----------|--------|
+| `@conditional_on_property("pyfly.shell.enabled", having_value="true")` | Only activates when shell is explicitly enabled. |
+| `@conditional_on_missing_bean(ShellRunnerPort)` | Skipped if the user has already registered a `ShellRunnerPort` bean. |
+
+| Bean | Type | Adapter |
+|------|------|---------|
+| `shell_runner` | `ShellRunnerPort` | `ClickShellAdapter()` |
+
+### Overriding the Default Adapter
+
+Register your own `ShellRunnerPort` bean and the auto-configuration is silently
+skipped:
 
 ```python
+from pyfly.container import configuration, bean
+from pyfly.shell import ShellRunnerPort
+
 @configuration
 class MyShellConfig:
     @bean
@@ -260,92 +678,242 @@ class MyShellConfig:
 
 ---
 
+## How Wiring Works
+
+### Step 1: Command Registration
+
+After auto-configuration, `ApplicationContext._wire_shell_commands()` runs during
+step 6 of the startup sequence (after `@post_construct`, scheduled tasks, and
+async method wiring):
+
+1. Iterates all registered beans looking for `__pyfly_stereotype__ == "shell_component"`.
+2. For each shell component, iterates public attributes looking for
+   `__pyfly_shell_method__ == True`.
+3. On the first match, lazily resolves `ShellRunnerPort` from the container. If
+   no `ShellRunnerPort` is registered, wiring is skipped silently.
+4. Calls `infer_params(method)` to build `ShellParam` descriptors.
+5. Reads `__pyfly_shell_key__`, `__pyfly_shell_help__`, and
+   `__pyfly_shell_group__` from the method.
+6. Calls `runner.register_command(key, method, help_text=..., group=..., params=...)`.
+7. Logs the total count of wired commands.
+
+### Step 2: Runner Invocation
+
+After `ApplicationReadyEvent` is published, `ApplicationContext._invoke_runners()`
+runs:
+
+1. Scans all registered beans for `CommandLineRunner` or `ApplicationRunner`
+   conformance (via `isinstance()` with `@runtime_checkable` protocols).
+2. Excludes `ShellRunnerPort` instances to prevent structural typing false
+   matches.
+3. Sorts runners by `@order` priority (lowest first).
+4. For each runner, inspects the type hint of `run()`'s first parameter:
+   - If it is `ApplicationArguments` → calls `runner.run(ApplicationArguments.from_args(sys.argv[1:]))`.
+   - Otherwise → calls `runner.run(sys.argv[1:])`.
+5. Awaits the result if the method is a coroutine.
+
+---
+
 ## Configuration Reference
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `pyfly.shell.enabled` | `bool` | `false` | Enable the shell subsystem and auto-configuration |
+| `pyfly.shell.enabled` | `bool` | `false` | Enable the shell subsystem and auto-configuration. When `false`, no `ShellRunnerPort` is registered and `@shell_method` methods are not wired. |
 
 ---
 
-## Complete Example: Database Migration CLI
+## Complete Example: DevOps Toolkit CLI
+
+A realistic multi-command CLI application with DI-wired services, grouped
+commands, async handlers, and a startup runner.
 
 ```python
-from pyfly.container import service
-from pyfly.shell import shell_component, shell_method, shell_option
+# app.py
+from pyfly.core import pyfly_application
 
-@service
-class MigrationService:
-    def __init__(self, engine: AsyncEngine) -> None:
-        self._engine = engine
-
-    async def migrate(self, target: str = "head") -> str:
-        # Run Alembic migrations...
-        return f"Migrated to {target}"
-
-    async def rollback(self, steps: int = 1) -> str:
-        return f"Rolled back {steps} step(s)"
-
-
-@shell_component
-class DbCommands:
-    def __init__(self, migrations: MigrationService) -> None:
-        self._migrations = migrations
-
-    @shell_method(group="db", help="Apply database migrations")
-    @shell_option("--target", help="Migration target revision")
-    async def migrate(self, target: str = "head") -> str:
-        return await self._migrations.migrate(target)
-
-    @shell_method(group="db", help="Rollback database migrations")
-    async def rollback(self, steps: int = 1) -> str:
-        return await self._migrations.rollback(steps)
+@pyfly_application(scan_packages=["devops_toolkit"])
+class DevOpsApp:
+    pass
 ```
 
-Running the application:
+```yaml
+# pyfly.yaml
+pyfly:
+  shell:
+    enabled: true
+  data:
+    relational:
+      enabled: true
+      url: sqlite+aiosqlite:///devops.db
+```
+
+```python
+# services/deployment_service.py
+from pyfly.container import service
+
+@service
+class DeploymentService:
+    def __init__(self, repo: DeploymentRepository) -> None:
+        self._repo = repo
+
+    async def deploy(self, service_name: str, env: str, force: bool) -> str:
+        deployment = Deployment(service=service_name, env=env, forced=force)
+        await self._repo.save(deployment)
+        return f"Deployed {service_name} to {env}" + (" (forced)" if force else "")
+
+    async def rollback(self, service_name: str, steps: int) -> str:
+        history = await self._repo.find_recent(service_name, limit=steps)
+        for entry in reversed(history):
+            await self._repo.mark_rolled_back(entry.id)
+        return f"Rolled back {len(history)} deployment(s) for {service_name}"
+
+    async def list_deployments(self, env: str | None, limit: int) -> list[str]:
+        deployments = await self._repo.find_by_env(env, limit=limit)
+        return [f"{d.service} → {d.env} ({d.created_at})" for d in deployments]
+```
+
+```python
+# commands/deploy_commands.py
+from pyfly.shell import shell_component, shell_method, shell_option, shell_argument
+
+@shell_component
+class DeployCommands:
+    def __init__(self, service: DeploymentService) -> None:
+        self._service = service
+
+    @shell_method(group="deploy", help="Deploy a service to an environment")
+    @shell_argument("service_name", help="Name of the service to deploy")
+    @shell_option("--env", help="Target environment")
+    @shell_option("--force", is_flag=True, help="Force deployment even if checks fail")
+    async def push(self, service_name: str, env: str = "staging", force: bool = False) -> str:
+        return await self._service.deploy(service_name, env, force)
+
+    @shell_method(group="deploy", help="Rollback recent deployments")
+    @shell_argument("service_name", help="Name of the service to rollback")
+    async def rollback(self, service_name: str, steps: int = 1) -> str:
+        return await self._service.rollback(service_name, steps)
+
+    @shell_method(group="deploy", help="List recent deployments")
+    @shell_option("--env", help="Filter by environment")
+    async def ls(self, env: str | None = None, limit: int = 10) -> str:
+        items = await self._service.list_deployments(env, limit)
+        return "\n".join(items) if items else "No deployments found"
+```
+
+```python
+# runners/health_checker.py
+from pyfly.container import service, order
+from pyfly.shell import ApplicationArguments
+
+@service
+@order(10)
+class HealthChecker:
+    """Check service health after startup if --health-check is passed."""
+
+    async def run(self, args: ApplicationArguments) -> None:
+        if args.contains_option("health-check"):
+            # Perform connectivity checks...
+            print("All health checks passed")
+```
+
+### CLI Usage
 
 ```bash
-# Single command execution
-python -m myapp db migrate --target head
+# Deploy a service
+python -m devops_toolkit deploy push order-service --env production --force
+
+# Rollback
+python -m devops_toolkit deploy rollback order-service --steps 2
+
+# List deployments for staging
+python -m devops_toolkit deploy ls --env staging --limit 5
+
+# Run with startup health check
+python -m devops_toolkit --health-check
 
 # Interactive REPL
-python -m myapp --interactive
-> db migrate
-Migrated to head
-> db rollback --steps 2
-Rolled back 2 step(s)
+python -m devops_toolkit --interactive
+> deploy push payment-service --env staging
+Deployed payment-service to staging
+> deploy ls --env staging
+payment-service → staging (2026-02-17 14:30:00)
+> ^C
 ```
 
 ---
 
 ## Testing
 
-Shell commands are ordinary methods on DI-managed classes — test them directly
-or through the `ClickShellAdapter`:
+### Unit Testing Commands Directly
+
+Shell commands are ordinary methods on DI-managed classes. The simplest way to
+test them is to instantiate the class with mock dependencies:
+
+```python
+from unittest.mock import AsyncMock
+
+import pytest
+
+
+@pytest.mark.asyncio
+async def test_deploy_command():
+    mock_service = AsyncMock(spec=DeploymentService)
+    mock_service.deploy.return_value = "Deployed api to staging"
+
+    commands = DeployCommands(service=mock_service)
+    result = await commands.push("api", env="staging", force=False)
+
+    assert result == "Deployed api to staging"
+    mock_service.deploy.assert_called_once_with("api", "staging", False)
+```
+
+### Testing Through the Adapter
+
+Test the full CLI parameter parsing by registering commands with a
+`ClickShellAdapter`:
 
 ```python
 from pyfly.shell import ShellParam
 from pyfly.shell.adapters.click_adapter import ClickShellAdapter
+from pyfly.shell.param_inference import infer_params
 
 
-def test_greet_command():
+def test_deploy_via_adapter():
     adapter = ClickShellAdapter()
     captured = {}
 
-    def greet(name: str) -> None:
-        captured["name"] = name
+    def deploy(service_name: str, env: str = "staging", force: bool = False) -> None:
+        captured.update(service_name=service_name, env=env, force=force)
 
     adapter.register_command(
-        "greet",
-        greet,
-        params=[ShellParam(name="name", param_type=str, is_option=False)],
+        "deploy",
+        deploy,
+        params=infer_params(deploy),
     )
-    exit_code, output = adapter.invoke(["greet", "Alice"])
+
+    exit_code, _ = adapter.invoke(["deploy", "api", "--env", "production", "--force"])
     assert exit_code == 0
-    assert captured["name"] == "Alice"
+    assert captured == {"service_name": "api", "env": "production", "force": True}
+
+
+def test_deploy_defaults():
+    adapter = ClickShellAdapter()
+    captured = {}
+
+    def deploy(service_name: str, env: str = "staging", force: bool = False) -> None:
+        captured.update(service_name=service_name, env=env, force=force)
+
+    adapter.register_command("deploy", deploy, params=infer_params(deploy))
+
+    exit_code, _ = adapter.invoke(["deploy", "api"])
+    assert exit_code == 0
+    assert captured == {"service_name": "api", "env": "staging", "force": False}
 ```
 
-For integration tests with the full `ApplicationContext`:
+### Integration Testing with ApplicationContext
+
+Test the full wiring pipeline — auto-configuration, command registration, and
+runner invocation:
 
 ```python
 import pytest
@@ -355,7 +923,7 @@ from pyfly.shell import ShellRunnerPort
 
 
 @pytest.mark.asyncio
-async def test_shell_wiring():
+async def test_shell_auto_configuration():
     config = Config({"pyfly": {"shell": {"enabled": True}}})
     ctx = ApplicationContext(config)
     await ctx.start()
@@ -364,13 +932,38 @@ async def test_shell_wiring():
         assert runner is not None
     finally:
         await ctx.stop()
+
+
+@pytest.mark.asyncio
+async def test_shell_disabled_by_default():
+    config = Config({"pyfly": {}})
+    ctx = ApplicationContext(config)
+    await ctx.start()
+    try:
+        with pytest.raises(KeyError):
+            ctx.get_bean(ShellRunnerPort)
+    finally:
+        await ctx.stop()
 ```
 
 ---
 
-## See Also
+## Spring Shell Comparison
 
-- [Click Adapter](../adapters/click.md) — Adapter-specific features and configuration
-- [Dependency Injection Guide](dependency-injection.md) — Constructor injection and stereotypes
-- [Core & Lifecycle Guide](core.md) — Application startup sequence
-- Spring Shell documentation — The Java equivalent that inspired this module
+| Spring Shell (Java) | PyFly Shell (Python) |
+|---------------------|---------------------|
+| `@ShellComponent` | `@shell_component` |
+| `@ShellMethod` | `@shell_method` |
+| `@ShellOption` | `@shell_option` |
+| `@ShellMethodAvailability` | *(not yet implemented)* |
+| `CommandLineRunner` | `CommandLineRunner` protocol |
+| `ApplicationRunner` | `ApplicationRunner` protocol |
+| `ApplicationArguments` | `ApplicationArguments` dataclass |
+| JLine (terminal) | Click (CLI framework) |
+| `spring.shell.*` config | `pyfly.shell.*` config |
+
+---
+
+## Adapters
+
+- [Click Adapter](../adapters/click.md) — Setup, configuration reference, and adapter-specific features for the Click CLI backend
