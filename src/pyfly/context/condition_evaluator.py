@@ -15,7 +15,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from pyfly.container.container import Container
@@ -64,6 +64,19 @@ class ConditionEvaluator:
             if not self._evaluate(cond, declaring_cls=cls):
                 return False
 
+        return True
+
+    def should_include_method(self, method: Any) -> bool:
+        """Return True if all conditions on a ``@bean`` method pass.
+
+        Evaluates ``@conditional_on_property`` and ``@conditional_on_class``
+        decorators applied directly to ``@bean`` methods within
+        ``@configuration`` classes.
+        """
+        conditions: list[dict] = getattr(method, "__pyfly_conditions__", [])
+        for cond in conditions:
+            if not self._evaluate(cond):
+                return False
         return True
 
     # ------------------------------------------------------------------

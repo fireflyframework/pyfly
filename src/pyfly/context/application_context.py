@@ -340,6 +340,8 @@ class ApplicationContext:
             auto: When False, process only user @configuration classes.
                   When True, process only @auto_configuration classes.
         """
+        evaluator = ConditionEvaluator(self._config, self._container)
+
         for cls, _reg in list(self._container._registrations.items()):
             if getattr(cls, "__pyfly_stereotype__", "") != "configuration":
                 continue
@@ -356,6 +358,10 @@ class ApplicationContext:
                 if method is None or not getattr(method, "__pyfly_bean__", False):
                     continue
 
+                # Evaluate method-level @conditional_on_* conditions
+                if not evaluator.should_include_method(method):
+                    continue
+
                 # Get return type from method hints
                 hints = typing.get_type_hints(method)
                 return_type = hints.get("return")
@@ -367,10 +373,23 @@ class ApplicationContext:
                 bean_name = getattr(method, "__pyfly_bean_name__", "") or attr_name
                 bean_scope = getattr(method, "__pyfly_bean_scope__", Scope.SINGLETON)
 
-                # Register the produced bean
-                self._container.register(return_type, scope=bean_scope, name=bean_name)
+                # Register bean: use the concrete type so multiple beans
+                # returning the same interface type don't overwrite each other
+                impl_type = type(result)
+                self._container.register(impl_type, scope=bean_scope, name=bean_name)
                 if bean_scope == Scope.SINGLETON:
-                    self._container._registrations[return_type].instance = result
+                    self._container._registrations[impl_type].instance = result
+
+                # Bind return type → concrete type for list[T] resolution
+                if return_type is not impl_type:
+                    self._container.bind(return_type, impl_type)
+
+                # Also keep a direct registration for the return type
+                # (for single-bean resolution) unless it already exists
+                if return_type not in self._container._registrations:
+                    self._container.register(return_type, scope=bean_scope)
+                    if bean_scope == Scope.SINGLETON:
+                        self._container._registrations[return_type].instance = result
 
     def _call_bean_method(self, config_instance: Any, method: Any) -> Any:
         """Call a @bean method, injecting its parameters from the container."""
