@@ -4,9 +4,9 @@ PyFly's roadmap is driven by achieving feature parity with the full [Firefly Fra
 
 ---
 
-## Current State (v0.1.0-alpha.4)
+## Current State (v0.1.0-alpha.5)
 
-PyFly ships with **25 modules** covering the foundation, application, infrastructure, and cross-cutting layers. See the [Changelog](CHANGELOG.md) for full details on what's included.
+PyFly ships with **26 modules** covering the foundation, application, infrastructure, and cross-cutting layers. See the [Changelog](CHANGELOG.md) for full details on what's included.
 
 ---
 
@@ -15,7 +15,7 @@ PyFly ships with **25 modules** covering the foundation, application, infrastruc
 | Module | Description | Java Source |
 |--------|-------------|-------------|
 | **Event Sourcing** | Event store, aggregate roots, snapshots, projections, outbox pattern | [`fireflyframework-eventsourcing`](https://github.com/fireflyframework/fireflyframework-eventsourcing) |
-| **Saga / Transactions** | Distributed Saga and TCC transaction orchestration with compensation and recovery | [`fireflyframework-transactional-engine`](https://github.com/fireflyframework/fireflyframework-transactional-engine) |
+| ~~**Saga / Transactions**~~ | ~~Distributed Saga and TCC transaction orchestration with compensation and recovery~~ | ~~[`fireflyframework-transactional-engine`](https://github.com/fireflyframework/fireflyframework-transactional-engine)~~ **Done in v0.1.0-alpha.5** |
 | **Workflow** | Workflow orchestration engine with state persistence, scheduling, and DLQ | [`fireflyframework-workflow`](https://github.com/fireflyframework/fireflyframework-workflow) |
 | **Domain** | DDD building blocks — base entities, value objects, aggregate roots, domain events | [`fireflyframework-starter-domain`](https://github.com/fireflyframework/fireflyframework-starter-domain) |
 
