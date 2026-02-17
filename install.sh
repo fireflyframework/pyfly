@@ -249,22 +249,34 @@ prompt_install_dir() {
 prompt_extras() {
     if [ "$IS_INTERACTIVE" = true ] && [ -z "${PYFLY_EXTRAS:-}" ]; then
         printf "\n${BOLD}Available extras:${RESET}\n"
-        printf "  ${CYAN}1${RESET}) full      — All modules (recommended)\n"
-        printf "  ${CYAN}2${RESET}) web       — Web framework (Starlette, uvicorn)\n"
-        printf "  ${CYAN}3${RESET}) data      — Database (SQLAlchemy, SQLite default)\n"
-        printf "  ${CYAN}4${RESET}) eda       — Event-Driven (in-memory default)\n"
-        printf "  ${CYAN}5${RESET}) security  — Auth & JWT\n"
-        printf "  ${CYAN}6${RESET}) custom    — Enter comma-separated extras\n"
+        printf "  ${CYAN} 1${RESET}) full             — All modules (recommended)\n"
+        printf "  ${CYAN} 2${RESET}) web              — Web framework (Starlette, uvicorn, admin dashboard)\n"
+        printf "  ${CYAN} 3${RESET}) data-relational  — SQL databases (SQLAlchemy, Alembic, SQLite default)\n"
+        printf "  ${CYAN} 4${RESET}) data-document    — Document databases (MongoDB, Beanie ODM)\n"
+        printf "  ${CYAN} 5${RESET}) eda              — Event-Driven Architecture (Kafka, RabbitMQ, in-memory)\n"
+        printf "  ${CYAN} 6${RESET}) cache            — Caching (Redis, in-memory)\n"
+        printf "  ${CYAN} 7${RESET}) client           — HTTP client (HTTPX, circuit breaker, retry)\n"
+        printf "  ${CYAN} 8${RESET}) security         — Auth & JWT (PyJWT, bcrypt)\n"
+        printf "  ${CYAN} 9${RESET}) scheduling       — Cron jobs and scheduled tasks\n"
+        printf "  ${CYAN}10${RESET}) observability    — Prometheus metrics, OpenTelemetry tracing\n"
+        printf "  ${CYAN}11${RESET}) shell            — CLI commands (Click, interactive REPL)\n"
+        printf "  ${CYAN}12${RESET}) custom           — Enter comma-separated extras\n"
         printf "\n${BOLD}Select extras${RESET} ${DIM}[1]${RESET}: "
         prompt_read choice
         case "${choice:-1}" in
-            1) EXTRAS="full" ;;
-            2) EXTRAS="web" ;;
-            3) EXTRAS="data" ;;
-            4) EXTRAS="eda" ;;
-            5) EXTRAS="security" ;;
-            6)
-                printf "${BOLD}Enter extras${RESET} ${DIM}(comma-separated, e.g. web,data,security)${RESET}: "
+            1)  EXTRAS="full" ;;
+            2)  EXTRAS="web" ;;
+            3)  EXTRAS="data-relational" ;;
+            4)  EXTRAS="data-document" ;;
+            5)  EXTRAS="eda" ;;
+            6)  EXTRAS="cache" ;;
+            7)  EXTRAS="client" ;;
+            8)  EXTRAS="security" ;;
+            9)  EXTRAS="scheduling" ;;
+            10) EXTRAS="observability" ;;
+            11) EXTRAS="shell" ;;
+            12)
+                printf "${BOLD}Enter extras${RESET} ${DIM}(comma-separated, e.g. web,data-relational,cache,security)${RESET}: "
                 prompt_read custom_extras
                 EXTRAS="${custom_extras:-full}"
                 ;;
