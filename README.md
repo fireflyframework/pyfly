@@ -523,6 +523,7 @@ Browse all guides in the [Module Guides Index](docs/modules/README.md):
 - [WebFilters](docs/modules/web-filters.md) — Request/response filter chain
 - [Actuator](docs/modules/actuator.md) — Health checks, extensible endpoints
 - [Custom Actuator Endpoints](docs/modules/custom-actuator-endpoints.md) — Build your own actuator endpoints
+- [Transactional Engine](docs/modules/transactional.md) — SAGA and TCC distributed transaction patterns
 
 ### Adapter Reference
 
