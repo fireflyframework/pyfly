@@ -1,35 +1,266 @@
 /**
- * PyFly Admin — Configuration View (stub).
+ * PyFly Admin — Configuration View.
  *
- * Displays application configuration properties.
- * Full implementation in Task 11.
+ * Displays application configuration properties grouped by prefix
+ * using collapsible accordion sections.
+ *
+ * Data source:  GET /admin/api/config
+ *   -> { groups: { "pyfly.web": { port: 8080, adapter: "auto" }, ... } }
  */
 
+/* ── Helpers ──────────────────────────────────────────────────── */
+
+/**
+ * Create a chevron SVG for expand/collapse toggles.
+ * @returns {SVGElement}
+ */
+function createChevron() {
+    const svgNS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(svgNS, 'svg');
+    svg.setAttribute('class', 'chevron');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', '2');
+    svg.setAttribute('stroke-linecap', 'round');
+    svg.setAttribute('stroke-linejoin', 'round');
+    const path = document.createElementNS(svgNS, 'path');
+    path.setAttribute('d', 'M9 18l6-6-6-6');
+    svg.appendChild(path);
+    return svg;
+}
+
+/**
+ * Build a key-value table for a group's properties.
+ * @param {Object<string, *>} props
+ * @returns {HTMLTableElement}
+ */
+function buildGroupTable(props) {
+    const table = document.createElement('table');
+    table.className = 'kv-table';
+    const tbody = document.createElement('tbody');
+
+    for (const [key, val] of Object.entries(props)) {
+        const tr = document.createElement('tr');
+
+        const th = document.createElement('th');
+        th.textContent = key;
+        tr.appendChild(th);
+
+        const td = document.createElement('td');
+        if (val != null && typeof val === 'object') {
+            td.className = 'text-mono text-sm';
+            td.textContent = JSON.stringify(val);
+        } else {
+            td.className = 'text-mono text-sm';
+            const text = val != null ? String(val) : '';
+            td.textContent = text;
+
+            // Style based on type
+            if (val === true || val === false || val === 'true' || val === 'false') {
+                td.style.color = 'var(--admin-warning)';
+                td.style.fontWeight = '600';
+            } else if (typeof val === 'number' || (typeof val === 'string' && val !== '' && !isNaN(Number(val)))) {
+                td.style.color = 'var(--admin-info)';
+                td.style.fontWeight = '600';
+            }
+        }
+
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+    }
+
+    table.appendChild(tbody);
+    return table;
+}
+
+/**
+ * Build a single collapsible accordion section for a config group.
+ * @param {string}  prefix      Group prefix name
+ * @param {object}  props       Key-value properties for this group
+ * @param {boolean} startExpanded
+ * @returns {HTMLElement}
+ */
+function buildAccordionSection(prefix, props, startExpanded) {
+    const card = document.createElement('div');
+    card.className = 'admin-card';
+    card.style.marginBottom = '12px';
+
+    // Header
+    const header = document.createElement('div');
+    header.className = 'collapsible-header';
+    if (startExpanded) {
+        header.classList.add('expanded');
+    }
+
+    header.appendChild(createChevron());
+
+    const nameEl = document.createElement('span');
+    nameEl.style.fontWeight = '600';
+    nameEl.style.flex = '1';
+    nameEl.className = 'text-mono';
+    nameEl.textContent = prefix;
+    header.appendChild(nameEl);
+
+    const countBadge = document.createElement('span');
+    countBadge.className = 'badge badge-neutral';
+    const propCount = Object.keys(props).length;
+    countBadge.textContent = propCount + (propCount === 1 ? ' property' : ' properties');
+    header.appendChild(countBadge);
+
+    card.appendChild(header);
+
+    // Collapsible content
+    const content = document.createElement('div');
+    content.className = 'collapsible-content';
+    if (startExpanded) {
+        content.classList.add('expanded');
+    }
+
+    const contentInner = document.createElement('div');
+    contentInner.style.padding = '0 16px 16px';
+
+    contentInner.appendChild(buildGroupTable(props));
+
+    content.appendChild(contentInner);
+    card.appendChild(content);
+
+    // Toggle expand/collapse
+    header.addEventListener('click', () => {
+        const isExpanded = header.classList.contains('expanded');
+        if (isExpanded) {
+            header.classList.remove('expanded');
+            content.classList.remove('expanded');
+        } else {
+            header.classList.add('expanded');
+            content.classList.add('expanded');
+        }
+    });
+
+    return card;
+}
+
+/* ── Render ───────────────────────────────────────────────────── */
+
+/**
+ * Render the configuration view.
+ * @param {HTMLElement} container
+ * @param {import('../api.js').AdminAPI} api
+ */
 export async function render(container, api) {
+    container.replaceChildren();
+
     const wrapper = document.createElement('div');
     wrapper.className = 'view-enter';
 
+    // Page header
     const header = document.createElement('div');
     header.className = 'page-header';
+    const headerLeft = document.createElement('div');
     const h1 = document.createElement('h1');
     h1.textContent = 'Configuration';
+    headerLeft.appendChild(h1);
     const sub = document.createElement('div');
     sub.className = 'page-subtitle';
     sub.textContent = 'application.config';
-    header.appendChild(h1);
-    header.appendChild(sub);
+    headerLeft.appendChild(sub);
+    header.appendChild(headerLeft);
     wrapper.appendChild(header);
 
-    const card = document.createElement('div');
-    card.className = 'admin-card';
-    const body = document.createElement('div');
-    body.className = 'admin-card-body empty-state';
-    const t = document.createElement('div');
-    t.className = 'empty-state-text';
-    t.textContent = 'Configuration view will be implemented in a subsequent task.';
-    body.appendChild(t);
-    card.appendChild(body);
-    wrapper.appendChild(card);
-
+    // Loading
+    const loader = document.createElement('div');
+    loader.className = 'loading-spinner';
+    wrapper.appendChild(loader);
     container.appendChild(wrapper);
+
+    // Fetch config data
+    let configData;
+    try {
+        configData = await api.get('/config');
+    } catch (err) {
+        wrapper.removeChild(loader);
+        const errCard = document.createElement('div');
+        errCard.className = 'admin-card';
+        const errBody = document.createElement('div');
+        errBody.className = 'admin-card-body empty-state';
+        const errText = document.createElement('div');
+        errText.className = 'empty-state-text';
+        errText.textContent = 'Failed to load configuration: ' + err.message;
+        errBody.appendChild(errText);
+        errCard.appendChild(errBody);
+        wrapper.appendChild(errCard);
+        return;
+    }
+
+    wrapper.removeChild(loader);
+
+    const groups = configData.groups || {};
+    const groupNames = Object.keys(groups);
+
+    if (groupNames.length === 0) {
+        const emptyCard = document.createElement('div');
+        emptyCard.className = 'admin-card';
+        const emptyBody = document.createElement('div');
+        emptyBody.className = 'admin-card-body empty-state';
+        const emptyText = document.createElement('div');
+        emptyText.className = 'empty-state-text';
+        emptyText.textContent = 'No configuration groups found';
+        emptyBody.appendChild(emptyText);
+        emptyCard.appendChild(emptyBody);
+        wrapper.appendChild(emptyCard);
+        return;
+    }
+
+    // ── Stat row ─────────────────────────────────────────────
+    const statsRow = document.createElement('div');
+    statsRow.className = 'grid-3 mb-lg';
+
+    // Total groups
+    const totalGroupCard = document.createElement('div');
+    totalGroupCard.className = 'stat-card';
+    const totalContent = document.createElement('div');
+    totalContent.className = 'stat-card-content';
+    const totalVal = document.createElement('div');
+    totalVal.className = 'stat-card-value';
+    totalVal.textContent = String(groupNames.length);
+    totalContent.appendChild(totalVal);
+    const totalLabel = document.createElement('div');
+    totalLabel.className = 'stat-card-label';
+    totalLabel.textContent = 'Config Groups';
+    totalContent.appendChild(totalLabel);
+    totalGroupCard.appendChild(totalContent);
+    statsRow.appendChild(totalGroupCard);
+
+    // Total properties
+    let totalProps = 0;
+    for (const name of groupNames) {
+        totalProps += Object.keys(groups[name]).length;
+    }
+    const totalPropsCard = document.createElement('div');
+    totalPropsCard.className = 'stat-card';
+    const propsContent = document.createElement('div');
+    propsContent.className = 'stat-card-content';
+    const propsVal = document.createElement('div');
+    propsVal.className = 'stat-card-value';
+    propsVal.textContent = String(totalProps);
+    propsContent.appendChild(propsVal);
+    const propsLabel = document.createElement('div');
+    propsLabel.className = 'stat-card-label';
+    propsLabel.textContent = 'Total Properties';
+    propsContent.appendChild(propsLabel);
+    totalPropsCard.appendChild(propsContent);
+    statsRow.appendChild(totalPropsCard);
+
+    wrapper.appendChild(statsRow);
+
+    // ── Accordion sections ───────────────────────────────────
+    const accordionContainer = document.createElement('div');
+
+    for (let i = 0; i < groupNames.length; i++) {
+        const name = groupNames[i];
+        const section = buildAccordionSection(name, groups[name], i === 0);
+        accordionContainer.appendChild(section);
+    }
+
+    wrapper.appendChild(accordionContainer);
 }
