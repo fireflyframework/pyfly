@@ -60,7 +60,7 @@ All module guides are organized in the [`modules/`](modules/README.md) directory
 |-------|-------------|
 | [Messaging](modules/messaging.md) | Kafka, RabbitMQ, in-memory broker, message publishing and consumption |
 | [Events (EDA)](modules/events.md) | Event-driven architecture, domain events, application events, event bus |
-| [CQRS](modules/cqrs.md) | Command/Query separation, mediator pattern, middleware pipeline |
+| [CQRS](modules/cqrs.md) | Command/Query separation, CommandBus/QueryBus pipeline, validation, authorization, caching |
 
 ### Security
 

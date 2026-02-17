@@ -275,7 +275,7 @@ PyFly is organized into four layers:
 | **Data** | Repository ports, derived queries, pagination, sorting, entity mapping | [Data Commons](modules/data.md) |
 | **Data Relational** | SQLAlchemy adapter — specifications, transactions, custom queries | [Data Relational](modules/data-relational.md) |
 | **Data Document** | MongoDB adapter — Beanie ODM, document repositories | [Data Document](modules/data-document.md) |
-| **CQRS** | Command/Query segregation with mediator | [CQRS](modules/cqrs.md) |
+| **CQRS** | Command/Query segregation with CommandBus/QueryBus | [CQRS](modules/cqrs.md) |
 | **Validation** | Input validation with Pydantic | [Validation](modules/validation.md) |
 
 ### Infrastructure Layer
@@ -323,7 +323,7 @@ PyFly is organized into four layers:
 - [Data Relational](modules/data-relational.md) — SQLAlchemy adapter: specifications, transactions, custom queries
 - [Messaging](modules/messaging.md) — Kafka, RabbitMQ, in-memory message broker
 - [Events](modules/events.md) — Event-driven architecture, domain events, application events
-- [CQRS](modules/cqrs.md) — Command/Query separation, mediator pattern
+- [CQRS](modules/cqrs.md) — Command/Query separation, CommandBus/QueryBus pipeline
 - [Security](modules/security.md) — JWT authentication, password encoding, authorization
 - [Resilience](modules/resilience.md) — Rate limiting, bulkhead, timeout, fallback
 - [HTTP Client](modules/client.md) — Service client, circuit breaker, retry

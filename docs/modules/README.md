@@ -71,7 +71,7 @@ Build event-driven and message-driven architectures with pluggable broker backen
 |-------|-------------------|
 | [Messaging](messaging.md) | `MessageBrokerPort`, `@message_listener`, Kafka adapter (`aiokafka`), RabbitMQ adapter (`aio-pika`), in-memory broker, message publishing and consumption |
 | [Events (EDA)](events.md) | `EventPublisher`, `EventEnvelope`, `@event_listener`, `@publish_result`, `InMemoryEventBus`, `ErrorStrategy`, domain events, application events |
-| [CQRS](cqrs.md) | `Command`, `Query`, `CommandHandler`, `QueryHandler`, `Mediator`, logging middleware, metrics middleware, pipeline composition |
+| [CQRS](cqrs.md) | `Command`, `Query`, `CommandHandler`, `QueryHandler`, `CommandBus`, `QueryBus`, `HandlerRegistry`, validation, authorization, caching, distributed tracing |
 
 ---
 
@@ -150,7 +150,7 @@ pyfly/
 ├── security/        JWT, password encoding, authorization
 ├── messaging/       Kafka, RabbitMQ, in-memory broker
 ├── eda/             Event-driven architecture, event bus
-├── cqrs/            Command/Query segregation, mediator
+├── cqrs/            Command/Query segregation, CommandBus/QueryBus
 ├── cache/           Redis, in-memory caching
 ├── client/          HTTP client, circuit breaker, retry
 ├── scheduling/      Cron jobs, task scheduler

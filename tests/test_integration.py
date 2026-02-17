@@ -36,7 +36,17 @@ from pyfly.cache.adapters.memory import InMemoryCache
 from pyfly.container.stereotypes import rest_controller, service
 from pyfly.context.application_context import ApplicationContext
 from pyfly.core.config import Config
-from pyfly.cqrs import Command, CommandHandler, Mediator, Query, QueryHandler, command_handler, query_handler
+from pyfly.cqrs import (
+    Command,
+    CommandHandler,
+    DefaultCommandBus,
+    DefaultQueryBus,
+    HandlerRegistry,
+    Query,
+    QueryHandler,
+    command_handler,
+    query_handler,
+)
 from pyfly.eda import EventEnvelope
 from pyfly.eda.adapters.memory import InMemoryEventBus
 from pyfly.kernel.exceptions import ResourceNotFoundException, ValidationException
@@ -57,22 +67,22 @@ class CreateOrderRequest(BaseModel):
 
 
 @dataclass(frozen=True)
-class CreateOrderCommand(Command):
+class CreateOrderCommand(Command[dict]):
     product: str
     quantity: int
     customer_id: str
 
 
 @dataclass(frozen=True)
-class GetOrderQuery(Query):
+class GetOrderQuery(Query[dict]):
     order_id: str
 
 
 # --- Handlers ---
 
 @command_handler
-class CreateOrderHandler(CommandHandler[CreateOrderCommand]):
-    async def handle(self, command: CreateOrderCommand) -> dict:
+class CreateOrderHandler(CommandHandler[CreateOrderCommand, dict]):
+    async def do_handle(self, command: CreateOrderCommand) -> dict:
         return {
             "id": "ord-001",
             "product": command.product,
@@ -83,8 +93,8 @@ class CreateOrderHandler(CommandHandler[CreateOrderCommand]):
 
 
 @query_handler
-class GetOrderHandler(QueryHandler[GetOrderQuery]):
-    async def handle(self, query: GetOrderQuery) -> dict:
+class GetOrderHandler(QueryHandler[GetOrderQuery, dict]):
+    async def do_handle(self, query: GetOrderQuery) -> dict:
         if query.order_id == "ord-001":
             return {"id": "ord-001", "product": "Widget", "status": "created"}
         raise ResourceNotFoundException(
@@ -119,7 +129,7 @@ class TestEndToEndOrderService:
         event_bus = InMemoryEventBus()
         cache_backend = InMemoryCache()
         metrics = MetricsRegistry()
-        mediator = Mediator()
+        registry = HandlerRegistry()
         published_events: list[EventEnvelope] = []
 
         async def capture_events(event: EventEnvelope) -> None:
@@ -128,8 +138,10 @@ class TestEndToEndOrderService:
         event_bus.subscribe("order.*", capture_events)
 
         # 2. Register handlers
-        mediator.register_handler(CreateOrderCommand, CreateOrderHandler())
-        mediator.register_handler(GetOrderQuery, GetOrderHandler())
+        registry.register_command_handler(CreateOrderHandler())
+        registry.register_query_handler(GetOrderHandler())
+        command_bus = DefaultCommandBus(registry=registry)
+        query_bus = DefaultQueryBus(registry=registry)
 
         # 3. Validate input
         request_data = {"product": "Widget", "quantity": 5, "customer_id": "cust-001"}
@@ -140,13 +152,13 @@ class TestEndToEndOrderService:
         assert ctx.is_authenticated
         assert ctx.has_permission("order:create")
 
-        # 5. Send command through CQRS mediator
+        # 5. Send command through CQRS bus
         command = CreateOrderCommand(
             product=validated.product,
             quantity=validated.quantity,
             customer_id=validated.customer_id,
         )
-        order = await mediator.send(command)
+        order = await command_bus.send(command)
         assert order["id"] == "ord-001"
         assert order["status"] == "created"
 
@@ -157,7 +169,7 @@ class TestEndToEndOrderService:
         # 7. Query with caching
         @cache(backend=cache_backend, key="order:{order_id}")
         async def get_cached_order(order_id: str) -> dict:
-            return await mediator.send(GetOrderQuery(order_id=order_id))
+            return await query_bus.query(GetOrderQuery(order_id=order_id))
 
         result1 = await get_cached_order("ord-001")
         result2 = await get_cached_order("ord-001")  # From cache
@@ -193,12 +205,17 @@ class TestEndToEndOrderService:
 
     @pytest.mark.asyncio
     async def test_not_found_propagates(self):
-        """Verify ResourceNotFoundException propagates from query handler."""
-        mediator = Mediator()
-        mediator.register_handler(GetOrderQuery, GetOrderHandler())
+        """Verify ResourceNotFoundException propagates from query handler (wrapped by bus)."""
+        from pyfly.cqrs.exceptions import QueryProcessingException
 
-        with pytest.raises(ResourceNotFoundException, match="not found"):
-            await mediator.send(GetOrderQuery(order_id="nonexistent"))
+        registry = HandlerRegistry()
+        registry.register_query_handler(GetOrderHandler())
+        query_bus = DefaultQueryBus(registry=registry)
+
+        with pytest.raises(QueryProcessingException) as exc_info:
+            await query_bus.query(GetOrderQuery(order_id="nonexistent"))
+        assert isinstance(exc_info.value.cause, ResourceNotFoundException)
+        assert "not found" in str(exc_info.value.cause)
 
     def test_web_error_handling(self):
         """Verify that framework exceptions are properly mapped to HTTP responses."""
