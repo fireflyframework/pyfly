@@ -74,12 +74,25 @@ def _wrap_handler(handler: Callable[..., Any]) -> Callable[..., Any]:
     """Wrap *handler* so Click can call it.
 
     If the handler is an async coroutine function, wrap it so that
-    ``asyncio.run()`` is used to execute it.
+    it is executed synchronously.  When a loop is already running
+    (e.g. inside ``pytest-asyncio``), the coroutine is scheduled on
+    the existing loop; otherwise ``asyncio.run()`` creates a new one.
     """
     if asyncio.iscoroutinefunction(handler):
         @functools.wraps(handler)
         def _sync_wrapper(**kwargs: Any) -> Any:
-            return asyncio.run(handler(**kwargs))
+            coro = handler(**kwargs)
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                # No running loop — safe to use asyncio.run()
+                return asyncio.run(coro)
+            # Already inside a running loop — run the coroutine via a new
+            # thread so we don't block the event loop.
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                future = pool.submit(asyncio.run, coro)
+                return future.result()
         return _sync_wrapper
     return handler
 
