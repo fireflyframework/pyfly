@@ -127,6 +127,13 @@ class SagaEngine:
                 ctx.correlation_id,
                 exc,
             )
+            # Derive completed step IDs from the context since the
+            # orchestrator raised before returning a value.
+            completed_step_ids = [
+                step_id
+                for step_id, status in ctx.step_statuses.items()
+                if status == StepStatus.DONE
+            ]
             try:
                 await self._compensator.compensate(
                     policy=compensation_policy,

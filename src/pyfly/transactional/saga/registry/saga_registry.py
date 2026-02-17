@@ -91,13 +91,16 @@ class SagaRegistry:
             compensate_name: str | None = step_meta.get("compensate")
             depends_on: list[str] = step_meta.get("depends_on", [])
 
-            # Resolve the bound step method on the bean instance.
-            step_method: Callable[..., Any] | None = getattr(bean, attr_name, None)
+            # Resolve the *unbound* step method on the class so that
+            # ``StepInvoker._call`` can pass the bean as the first positional
+            # argument (``self``).  This is consistent with how the TCC
+            # registry resolves participant methods.
+            step_method: Callable[..., Any] | None = getattr(cls, attr_name, None)
 
-            # Resolve the compensation method by name lookup on the bean.
+            # Resolve the compensation method by name lookup on the class.
             compensate_method: Callable[..., Any] | None = None
             if compensate_name is not None:
-                compensate_method = getattr(bean, compensate_name, None)
+                compensate_method = getattr(cls, compensate_name, None)
 
             step_def = StepDefinition(
                 id=step_id,
