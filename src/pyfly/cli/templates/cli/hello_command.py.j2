@@ -1,0 +1,23 @@
+"""Example CLI commands."""
+
+from pyfly.shell import shell_component, shell_method
+
+from {{ package_name }}.services.greeting_service import GreetingService
+
+
+@shell_component
+class HelloCommand:
+    """Greeting commands for {{ name }}."""
+
+    def __init__(self, greeting_service: GreetingService) -> None:
+        self._greeting_service = greeting_service
+
+    @shell_method(description="Say hello")
+    def hello(self, name: str = "World") -> str:
+        """Greet someone by name."""
+        return self._greeting_service.greet(name)
+
+    @shell_method(description="Say goodbye")
+    def goodbye(self, name: str = "World") -> str:
+        """Say goodbye to someone."""
+        return f"Goodbye, {name}!"

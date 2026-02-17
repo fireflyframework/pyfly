@@ -258,7 +258,9 @@ def new_command(name: str | None, archetype: str | None, features_str: str | Non
     console.print(f"    cd {project_dir}")
     console.print("    python -m venv .venv && source .venv/bin/activate")
     console.print('    pip install -e ".[dev]"')
-    if archetype != "library":
+    if archetype == "cli":
+        console.print(f"    python -m {name.replace('-', '_').replace(' ', '_').lower()}.main")
+    elif archetype != "library":
         console.print("    pyfly run --reload")
     console.print()
     print_post_generation_tips(features)

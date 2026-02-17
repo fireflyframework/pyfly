@@ -20,7 +20,9 @@ RUN pip install --no-cache-dir /tmp/*.whl \
 
 COPY pyfly.yaml .
 
-{% if has_web or archetype in ("web-api", "hexagonal", "core") %}
+{% if archetype == "cli" %}
+CMD ["python", "-m", "{{ package_name }}.main"]
+{% elif has_web or archetype in ("web-api", "hexagonal", "core") %}
 EXPOSE 8080
 
 CMD ["python", "-m", "uvicorn", "{{ package_name }}.main:app", "--host", "0.0.0.0", "--port", "8080"]

@@ -1,0 +1,21 @@
+"""Tests for hello command."""
+
+from {{ package_name }}.commands.hello_command import HelloCommand
+from {{ package_name }}.services.greeting_service import GreetingService
+
+
+class TestHelloCommand:
+    def test_hello_default(self):
+        svc = GreetingService()
+        cmd = HelloCommand(greeting_service=svc)
+        assert cmd.hello() == "Hello, World! Welcome to {{ name }}."
+
+    def test_hello_with_name(self):
+        svc = GreetingService()
+        cmd = HelloCommand(greeting_service=svc)
+        assert cmd.hello("PyFly") == "Hello, PyFly! Welcome to {{ name }}."
+
+    def test_goodbye(self):
+        svc = GreetingService()
+        cmd = HelloCommand(greeting_service=svc)
+        assert cmd.goodbye("PyFly") == "Goodbye, PyFly!"

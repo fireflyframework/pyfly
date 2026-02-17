@@ -1,0 +1,12 @@
+"""Greeting service."""
+
+from pyfly.container import service
+
+
+@service
+class GreetingService:
+    """Business logic for greeting operations."""
+
+    def greet(self, name: str) -> str:
+        """Generate a greeting message."""
+        return f"Hello, {name}! Welcome to {{ name }}."

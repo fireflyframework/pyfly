@@ -17,6 +17,11 @@ from pyfly.core import pyfly_application
         "{{ package_name }}.services",
         "{{ package_name }}.repositories",
     ],
+{% elif archetype == "cli" %}
+    scan_packages=[
+        "{{ package_name }}.commands",
+        "{{ package_name }}.services",
+    ],
 {% else %}
     scan_packages=["{{ package_name }}"],
 {% endif %}

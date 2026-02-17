@@ -298,6 +298,27 @@ class TestNewFeatures:
         ])
         assert result.exit_code != 0
 
+    def test_shell_feature_adds_dependency(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-svc", "--features", "shell", "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+
+        pyproject = (tmp_path / "my-svc" / "pyproject.toml").read_text()
+        assert "pyfly[shell]" in pyproject
+
+    def test_shell_feature_adds_config(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-svc", "--features", "shell", "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+
+        config = (tmp_path / "my-svc" / "pyfly.yaml").read_text()
+        assert "shell:" in config
+        assert "enabled: true" in config
+
     def test_no_features_for_library(self, tmp_path: Path):
         runner = CliRunner()
         result = runner.invoke(cli, [
@@ -504,6 +525,23 @@ class TestNewInteractive:
         assert (tmp_path / "my-lib").exists()
         # checkbox should NOT have been called for library
         mock_q.checkbox.assert_not_called()
+
+    @patch("pyfly.cli.new.questionary")
+    def test_interactive_cli(self, mock_q, tmp_path: Path):
+        mock_q.text.return_value.unsafe_ask.side_effect = ["my-cli", "my_cli"]
+        mock_q.select.return_value.unsafe_ask.return_value = "cli"
+        mock_q.checkbox.return_value.unsafe_ask.return_value = ["shell"]
+        mock_q.confirm.return_value.unsafe_ask.return_value = True
+
+        runner = CliRunner()
+        result = runner.invoke(
+            cli,
+            ["new", "--directory", str(tmp_path)],
+        )
+        assert result.exit_code == 0, result.output
+
+        p = tmp_path / "my-cli"
+        assert (p / "src" / "my_cli" / "commands" / "hello_command.py").exists()
 
 
 class TestNameValidation:
@@ -1061,3 +1099,172 @@ class TestDoctorCommand:
         assert result.exit_code == 0
         # git should be found in any dev environment
         assert "git" in result.output
+
+
+class TestNewCli:
+    """Tests for the cli archetype."""
+
+    def test_cli_creates_full_structure(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-tool", "--archetype", "cli", "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+
+        p = tmp_path / "my-tool"
+        pkg = p / "src" / "my_tool"
+
+        # Core files
+        assert (p / "pyproject.toml").exists()
+        assert (p / "pyfly.yaml").exists()
+        assert (p / "Dockerfile").exists()
+        assert (p / "README.md").exists()
+        assert (p / ".gitignore").exists()
+        assert (p / ".env.example").exists()
+
+        # CLI package structure
+        assert (pkg / "app.py").exists()
+        assert (pkg / "main.py").exists()
+        assert (pkg / "commands" / "__init__.py").exists()
+        assert (pkg / "commands" / "hello_command.py").exists()
+        assert (pkg / "services" / "__init__.py").exists()
+        assert (pkg / "services" / "greeting_service.py").exists()
+
+        # Test file
+        assert (p / "tests" / "test_hello_command.py").exists()
+
+    def test_cli_has_shell_component(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-tool", "--archetype", "cli", "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+
+        command = (tmp_path / "my-tool" / "src" / "my_tool" / "commands" / "hello_command.py").read_text()
+        assert "@shell_component" in command
+
+    def test_cli_has_shell_method(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-tool", "--archetype", "cli", "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+
+        command = (tmp_path / "my-tool" / "src" / "my_tool" / "commands" / "hello_command.py").read_text()
+        assert "@shell_method" in command
+
+    def test_cli_service_uses_stereotype(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-tool", "--archetype", "cli", "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+
+        service = (tmp_path / "my-tool" / "src" / "my_tool" / "services" / "greeting_service.py").read_text()
+        assert "@service" in service
+        assert "from pyfly.container import service" in service
+
+    def test_cli_app_scan_packages(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-tool", "--archetype", "cli", "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+
+        app = (tmp_path / "my-tool" / "src" / "my_tool" / "app.py").read_text()
+        assert "my_tool.commands" in app
+        assert "my_tool.services" in app
+
+    def test_cli_default_features_shell(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-tool", "--archetype", "cli", "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+
+        pyproject = (tmp_path / "my-tool" / "pyproject.toml").read_text()
+        assert "pyfly[shell]" in pyproject
+
+    def test_cli_config_has_shell_enabled(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-tool", "--archetype", "cli", "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+
+        config = (tmp_path / "my-tool" / "pyfly.yaml").read_text()
+        assert "shell:" in config
+        assert "enabled: true" in config
+
+    def test_cli_main_is_not_asgi(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-tool", "--archetype", "cli", "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+
+        main = (tmp_path / "my-tool" / "src" / "my_tool" / "main.py").read_text()
+        assert "create_app" not in main
+        assert "uvicorn" not in main
+        assert "asyncio.run" in main
+
+    def test_cli_dockerfile_no_expose(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-tool", "--archetype", "cli", "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+
+        dockerfile = (tmp_path / "my-tool" / "Dockerfile").read_text()
+        assert "EXPOSE" not in dockerfile
+        assert "my_tool.main" in dockerfile
+
+    def test_cli_readme_mentions_cli(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-tool", "--archetype", "cli", "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+
+        readme = (tmp_path / "my-tool" / "README.md").read_text()
+        assert "command-line" in readme.lower() or "CLI" in readme
+
+    def test_cli_config_no_module_field(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-tool", "--archetype", "cli", "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+
+        config = (tmp_path / "my-tool" / "pyfly.yaml").read_text()
+        assert "module:" not in config
+
+    def test_cli_config_no_web_section(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-tool", "--archetype", "cli", "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+
+        config = (tmp_path / "my-tool" / "pyfly.yaml").read_text()
+        assert "web:" not in config
+        assert "port: 8080" not in config
+
+    def test_cli_pyproject_description(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-tool", "--archetype", "cli", "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+
+        pyproject = (tmp_path / "my-tool" / "pyproject.toml").read_text()
+        assert "PyFly CLI application" in pyproject
+
+    def test_cli_next_steps_show_python_m(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-tool", "--archetype", "cli", "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+        assert "python -m my_tool.main" in result.output
+        assert "pyfly run" not in result.output

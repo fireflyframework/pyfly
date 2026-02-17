@@ -1,0 +1,17 @@
+"""CLI entry point — bootstraps PyFly and runs the shell."""
+
+import asyncio
+
+from pyfly.core import PyFlyApplication
+
+from {{ package_name }}.app import Application
+
+
+def main() -> None:
+    """Bootstrap and run the CLI application."""
+    pyfly = PyFlyApplication(Application)
+    asyncio.run(pyfly.run())
+
+
+if __name__ == "__main__":
+    main()

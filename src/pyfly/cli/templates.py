@@ -22,7 +22,7 @@ from jinja2 import Environment, PackageLoader
 # Available features that map to PyFly extras
 AVAILABLE_FEATURES: list[str] = [
     "web", "data-relational", "data-document", "eda", "cache", "client",
-    "security", "scheduling", "observability", "cqrs",
+    "security", "scheduling", "observability", "cqrs", "shell",
 ]
 
 # Default features per archetype
@@ -31,6 +31,7 @@ DEFAULT_FEATURES: dict[str, list[str]] = {
     "web-api": ["web"],
     "hexagonal": ["web"],
     "library": [],
+    "cli": ["shell"],
 }
 
 # Archetype descriptions for interactive mode
@@ -39,6 +40,7 @@ ARCHETYPE_DESCRIPTIONS: dict[str, str] = {
     "web-api": "Full REST API with layered architecture",
     "hexagonal": "Hexagonal architecture (ports & adapters)",
     "library": "Reusable library package",
+    "cli": "Command-line application with interactive shell",
 }
 
 # Rich metadata for archetypes (wizard display)
@@ -67,6 +69,12 @@ ARCHETYPE_DETAILS: dict[str, dict[str, str | list[str]]] = {
         "layers": ["Package"],
         "good_for": "Shared utilities, SDKs, internal libraries",
     },
+    "cli": {
+        "title": "CLI Application",
+        "tagline": "Command-line application with interactive shell and DI",
+        "layers": ["Commands", "Services", "Config"],
+        "good_for": "DevOps tools, admin utilities, batch processors, interactive CLIs",
+    },
 }
 
 # Feature groups for categorized display in the wizard
@@ -75,6 +83,7 @@ FEATURE_GROUPS: list[tuple[str, list[str]]] = [
     ("Data & Storage", ["data-relational", "data-document", "cache"]),
     ("Messaging & Events", ["eda", "cqrs"]),
     ("Infrastructure", ["client", "security", "scheduling", "observability"]),
+    ("CLI & Shell", ["shell"]),
 ]
 
 # Extended feature details (what gets added)
@@ -119,6 +128,10 @@ FEATURE_DETAILS: dict[str, dict[str, str]] = {
         "short": "Command/Query Responsibility Segregation",
         "adds": "Mediator, CommandHandler, QueryHandler, middleware pipeline",
     },
+    "shell": {
+        "short": "Spring Shell-inspired CLI commands with DI",
+        "adds": "@shell_component, @shell_method, CommandLineRunner, ClickShellAdapter",
+    },
 }
 
 # Post-generation tips per feature
@@ -155,6 +168,10 @@ FEATURE_TIPS: dict[str, list[str]] = {
     ],
     "cqrs": [
         "Register handlers via @component — Mediator auto-discovers them",
+    ],
+    "shell": [
+        "Run your CLI with: python -m {{ package_name }}.main",
+        "Add commands with @shell_method in any @shell_component class",
     ],
 }
 
@@ -248,6 +265,27 @@ _ARCHETYPE_FILES: dict[str, list[tuple[str, str]]] = {
         ("readme.md.j2", "README.md"),
         ("py.typed.j2", "src/{package_name}/py.typed"),
     ],
+    "cli": [
+        ("pyproject.toml.j2", "pyproject.toml"),
+        ("app.py.j2", "src/{package_name}/app.py"),
+        ("cli/main.py.j2", "src/{package_name}/main.py"),
+        ("init.py.j2", "src/{package_name}/__init__.py"),
+        ("pyfly.yaml.j2", "pyfly.yaml"),
+        ("conftest.py.j2", "tests/conftest.py"),
+        ("init_empty.j2", "tests/__init__.py"),
+        ("gitignore.j2", ".gitignore"),
+        ("readme.md.j2", "README.md"),
+        ("dockerfile.j2", "Dockerfile"),
+        ("env.example.j2", ".env.example"),
+        # Commands
+        ("init_empty.j2", "src/{package_name}/commands/__init__.py"),
+        ("cli/hello_command.py.j2", "src/{package_name}/commands/hello_command.py"),
+        # Services
+        ("init_empty.j2", "src/{package_name}/services/__init__.py"),
+        ("cli/greeting_service.py.j2", "src/{package_name}/services/greeting_service.py"),
+        # Tests
+        ("cli/test_hello_command.py.j2", "tests/test_hello_command.py"),
+    ],
 }
 
 
@@ -280,6 +318,7 @@ def _build_context(name: str, archetype: str, features: list[str]) -> dict[str, 
         "has_scheduling": "scheduling" in features,
         "has_observability": "observability" in features,
         "has_cqrs": "cqrs" in features,
+        "has_shell": "shell" in features,
     }
 
 
@@ -299,7 +338,7 @@ def generate_project(name: str, project_dir: Path, archetype: str, features: lis
     Args:
         name: Project name (e.g. ``"my-service"``).
         project_dir: Target directory to create.
-        archetype: One of ``core``, ``web-api``, ``hexagonal``, ``library``.
+        archetype: One of ``core``, ``web-api``, ``hexagonal``, ``library``, ``cli``.
         features: Selected PyFly extras (e.g. ``["web", "data-relational"]``).
     """
     env = _get_env()

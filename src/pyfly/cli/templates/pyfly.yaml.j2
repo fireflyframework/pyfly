@@ -1,7 +1,7 @@
 pyfly:
   app:
     name: {{ name }}
-{% if archetype != "library" %}
+{% if archetype not in ("library", "cli") %}
     module: {{ package_name }}.main:app
 {% endif %}
 
@@ -9,6 +9,11 @@ pyfly:
   web:
     port: 8080
     adapter: auto
+{% endif %}
+
+{% if archetype == "cli" or has_shell %}
+  shell:
+    enabled: true
 {% endif %}
 
 {% if archetype != "library" %}

@@ -6,6 +6,8 @@ A reusable PyFly library.
 A PyFly application using hexagonal architecture (ports & adapters).
 {% elif archetype == "web-api" %}
 A PyFly REST API with layered architecture.
+{% elif archetype == "cli" %}
+A PyFly command-line application with interactive shell.
 {% else %}
 A PyFly microservice.
 {% endif %}
@@ -19,7 +21,11 @@ source .venv/bin/activate
 
 # Install dependencies (editable mode for development)
 pip install -e ".[dev]"
-{% if archetype != "library" %}
+{% if archetype == "cli" %}
+
+# Run the CLI application
+python -m {{ package_name }}.main
+{% elif archetype != "library" %}
 
 # Run the application
 pyfly run --reload
@@ -66,6 +72,14 @@ pytest
       item.py                       # Request/response DTOs
     repositories/                   # Data access
       item_repository.py            # Example repository
+{% elif archetype == "cli" %}
+  src/{{ package_name }}/
+    app.py                          # Application definition
+    main.py                         # CLI entry point
+    commands/                       # Shell commands
+      hello_command.py              # Example @shell_component
+    services/                       # Business logic
+      greeting_service.py           # Example @service
 {% else %}
   src/{{ package_name }}/
     app.py                          # Application definition
@@ -76,6 +90,20 @@ pytest
   pyproject.toml                    # Project metadata
   Dockerfile                        # Container build
 ```
+{% if archetype == "cli" %}
+
+## Usage
+
+```bash
+# Run the CLI application
+python -m {{ package_name }}.main
+
+# Available commands (once running):
+#   hello [--name NAME]    Say hello
+#   goodbye [--name NAME]  Say goodbye
+#   help                   Show available commands
+```
+{% else %}
 
 ## API Documentation
 
@@ -83,6 +111,7 @@ Once running, visit:
 - **Swagger UI:** http://localhost:8080/docs
 - **ReDoc:** http://localhost:8080/redoc
 - **OpenAPI JSON:** http://localhost:8080/openapi.json
+{% endif %}
 {% endif %}
 
 ## Development
