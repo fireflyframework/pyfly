@@ -22,7 +22,7 @@ from jinja2 import Environment, PackageLoader
 # Available features that map to PyFly extras
 AVAILABLE_FEATURES: list[str] = [
     "web", "data-relational", "data-document", "eda", "cache", "client",
-    "security", "scheduling", "observability", "cqrs", "shell",
+    "security", "scheduling", "observability", "cqrs", "shell", "transactional",
 ]
 
 # Default features per archetype
@@ -82,6 +82,7 @@ FEATURE_GROUPS: list[tuple[str, list[str]]] = [
     ("Web & API", ["web"]),
     ("Data & Storage", ["data-relational", "data-document", "cache"]),
     ("Messaging & Events", ["eda", "cqrs"]),
+    ("Distributed Transactions", ["transactional"]),
     ("Infrastructure", ["client", "security", "scheduling", "observability"]),
     ("CLI & Shell", ["shell"]),
 ]
@@ -132,6 +133,10 @@ FEATURE_DETAILS: dict[str, dict[str, str]] = {
         "short": "Spring Shell-inspired CLI commands with DI",
         "adds": "@shell_component, @shell_method, CommandLineRunner, ClickShellAdapter",
     },
+    "transactional": {
+        "short": "Distributed SAGA and TCC transaction patterns",
+        "adds": "@saga, @saga_step, @tcc, @tcc_participant, SagaEngine, TccEngine",
+    },
 }
 
 # Post-generation tips per feature
@@ -173,6 +178,11 @@ FEATURE_TIPS: dict[str, list[str]] = {
     "shell": [
         "Add commands with @shell_method in any @shell_component class",
         "Shell auto-configuration activates when pyfly.shell.enabled=true",
+    ],
+    "transactional": [
+        "Define sagas with @saga and @saga_step — steps run as a DAG with compensation",
+        "Define TCC transactions with @tcc and @tcc_participant (Try-Confirm-Cancel)",
+        "Enable via pyfly.transactional.enabled=true in pyfly.yaml",
     ],
 }
 
@@ -320,6 +330,7 @@ def _build_context(name: str, archetype: str, features: list[str]) -> dict[str, 
         "has_observability": "observability" in features,
         "has_cqrs": "cqrs" in features,
         "has_shell": "shell" in features,
+        "has_transactional": "transactional" in features,
     }
 
 

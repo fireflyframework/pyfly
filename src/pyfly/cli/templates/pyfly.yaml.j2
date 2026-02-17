@@ -83,3 +83,13 @@ pyfly:
     tracing:
       enabled: true
 {% endif %}
+{% if has_transactional %}
+
+  transactional:
+    enabled: true
+    # saga:
+    #   default_timeout_ms: 30000
+    #   recovery_interval_ms: 60000
+    # tcc:
+    #   default_timeout_ms: 30000
+{% endif %}
