@@ -15,9 +15,10 @@
 
 from __future__ import annotations
 
-from pyfly.admin.config import AdminProperties
+from pyfly.admin.config import AdminClientProperties, AdminProperties
 from pyfly.admin.middleware.trace_collector import TraceCollectorFilter
 from pyfly.admin.registry import AdminViewRegistry
+from pyfly.admin.server.client_registration import AdminClientRegistration
 from pyfly.container.bean import bean
 from pyfly.context.conditions import (
     auto_configuration,
@@ -44,3 +45,20 @@ class AdminAutoConfiguration:
     @bean
     def admin_trace_collector(self) -> TraceCollectorFilter:
         return TraceCollectorFilter()
+
+    @bean
+    @conditional_on_property("pyfly.admin.client.url")
+    def admin_client_registration(
+        self, config: Config
+    ) -> AdminClientRegistration | None:
+        """Create a client registration bean when an admin server URL is set."""
+        client_props: AdminClientProperties = config.bind(AdminClientProperties)
+        if not client_props.url:
+            return None
+        app_name = config.get("pyfly.app.name", "unknown")
+        app_url = config.get("pyfly.app.url", "http://localhost:8080")
+        return AdminClientRegistration(
+            admin_server_url=client_props.url,
+            app_name=app_name,
+            app_url=app_url,
+        )
