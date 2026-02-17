@@ -451,7 +451,7 @@ See the full [CLI Reference](docs/cli.md) for details.
 
 ## Modules
 
-PyFly currently implements **26 modules** organized into four layers:
+PyFly currently implements **27 modules** organized into four layers:
 
 ### Foundation Layer
 
@@ -496,6 +496,7 @@ PyFly currently implements **26 modules** organized into four layers:
 | **AOP** | Aspect-oriented programming | Spring AOP |
 | **Observability** | Prometheus metrics, OpenTelemetry tracing | `fireflyframework-observability` |
 | **Actuator** | Health checks, monitoring endpoints | `fireflyframework-starter-core` (actuator) |
+| **Admin** | Embedded management dashboard with 15 views, SSE streams, server mode fleet monitoring | Spring Boot Admin |
 | **Testing** | Test fixtures and assertions | Spring Test |
 | **CLI** | Command-line tools | `fireflyframework-cli` |
 
@@ -524,6 +525,7 @@ Browse all guides in the [Module Guides Index](docs/modules/README.md):
 - [Actuator](docs/modules/actuator.md) — Health checks, extensible endpoints
 - [Custom Actuator Endpoints](docs/modules/custom-actuator-endpoints.md) — Build your own actuator endpoints
 - [Transactional Engine](docs/modules/transactional.md) — SAGA and TCC distributed transaction patterns
+- [Admin Dashboard](docs/modules/admin.md) — Embedded management dashboard, server mode, custom views
 
 ### Adapter Reference
 
@@ -552,7 +554,7 @@ See **[ROADMAP.md](ROADMAP.md)** for the full roadmap toward feature parity with
 
 See **[CHANGELOG.md](CHANGELOG.md)** for detailed release notes.
 
-**Current:** v0.1.0-alpha.5 (2026-02-17) — Transactional engine module (`@saga`, `@saga_step`, `@tcc`, `@tcc_participant`), SAGA and TCC distributed transaction patterns with compensation, recovery, and composition.
+**Current:** v0.1.0-alpha.5 (2026-02-17) — Transactional engine module (`@saga`, `@saga_step`, `@tcc`, `@tcc_participant`), SAGA and TCC distributed transaction patterns with compensation, recovery, and composition. Admin dashboard with 15 built-in views, SSE streams, server mode fleet monitoring, and custom view extensibility.
 
 ---
 

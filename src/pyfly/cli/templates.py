@@ -139,6 +139,7 @@ FEATURE_TIPS: dict[str, list[str]] = {
     "web": [
         "Visit http://localhost:8080/docs for Swagger UI",
         "Visit http://localhost:8080/redoc for ReDoc",
+        "Visit http://localhost:8080/admin for the Admin Dashboard",
     ],
     "data-relational": [
         "Run 'pyfly db init' to set up Alembic migrations",

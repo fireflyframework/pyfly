@@ -117,6 +117,16 @@ Build CLI applications with DI-integrated commands, interactive REPLs, and post-
 
 ---
 
+## Administration
+
+Monitor and manage your running applications with an embedded dashboard.
+
+| Guide | What You'll Learn |
+|-------|-------------------|
+| [Admin Dashboard](admin.md) | `pyfly.admin.enabled`, 15 built-in views (Overview, Health, Beans, Environment, Configuration, Loggers, Metrics, Scheduled Tasks, Traces, Mappings, Caches, CQRS, Transactions, Log Viewer, Instances), SSE streams, server mode fleet monitoring, `AdminViewExtension` protocol for custom views, client auto-registration |
+
+---
+
 ## Operations
 
 Monitor, schedule, and observe your applications in production.
@@ -168,6 +178,7 @@ pyfly/
 ├── aop/             Aspect-oriented programming
 ├── observability/   Metrics, tracing, health checks
 ├── actuator/        Monitoring endpoints, extensible registry
+├── admin/           Embedded management dashboard, SSE, server mode
 ├── transactional/   SAGA and TCC distributed transactions
 ├── shell/           CLI commands, runners, Click adapter
 ├── testing/         Test fixtures and assertions

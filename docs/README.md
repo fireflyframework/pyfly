@@ -88,6 +88,12 @@ All module guides are organized in the [`modules/`](modules/README.md) directory
 |-------|-------------|
 | [Shell](modules/shell.md) | `@shell_component`, `@shell_method`, `CommandLineRunner`, `ApplicationRunner`, Click adapter |
 
+### Administration
+
+| Guide | Description |
+|-------|-------------|
+| [Admin Dashboard](modules/admin.md) | Embedded management dashboard with 15 views, SSE streams, server mode, custom view extensibility |
+
 ### Operations
 
 | Guide | Description |
@@ -144,4 +150,5 @@ Browse the full [Adapter Catalog](adapters/README.md), or jump directly:
 - **Need distributed transactions?** See the [Transactional Engine Guide](modules/transactional.md) for SAGA and TCC patterns
 - **Browse all modules:** See the [Module Guides Index](modules/README.md)
 - **Building a CLI app?** See the [Shell Guide](modules/shell.md) and [Click Adapter](adapters/click.md)
+- **Need an admin dashboard?** See the [Admin Dashboard Guide](modules/admin.md) for monitoring, fleet management, and custom views
 - **Browse all adapters:** See the [Adapter Catalog](adapters/README.md)

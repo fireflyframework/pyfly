@@ -22,6 +22,14 @@ pyfly:
       enabled: true
 {% endif %}
 
+{% if has_web or archetype in ("web-api", "hexagonal") %}
+  admin:
+    enabled: true
+    # title: "{{ name }} Admin"
+    # theme: auto
+    # require_auth: false
+{% endif %}
+
   logging:
     level:
       root: INFO
