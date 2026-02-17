@@ -227,7 +227,7 @@ Application-layer modules provide framework-agnostic domain patterns.
 | Module | Package | Purpose |
 |---|---|---|
 | **Validation** | `pyfly.validation` | Input validation decorators (`@validate_input`, `@validator`) and Pydantic model validation (`validate_model`). |
-| **CQRS** | `pyfly.cqrs` | Command/Query Responsibility Segregation: `Command`, `Query`, `CommandHandler`, `QueryHandler`, `Mediator`, and middleware (`LoggingMiddleware`, `MetricsMiddleware`). |
+| **CQRS** | `pyfly.cqrs` | Command/Query Responsibility Segregation: `Command`, `Query`, `CommandHandler`, `QueryHandler`, `CommandBus`, `QueryBus`, `HandlerRegistry`, validation, authorization, caching, and distributed tracing. |
 | **EDA** | `pyfly.eda` | Event-Driven Architecture: `EventPublisher` port, `EventEnvelope`, `@event_listener`, `@publish_result`, `InMemoryEventBus`, `ErrorStrategy`. |
 
 ### Infrastructure Layer
@@ -1015,7 +1015,7 @@ remove a value, you must explicitly set it to `null`/`""` in the overlay file.
 | **Repository** | `pyfly.data` | Abstract data access behind ports. |
 | **Specification** | `pyfly.data` | Composable query predicates. |
 | **Circuit Breaker** | `pyfly.client` | Prevent cascading failures. |
-| **Mediator** | `pyfly.cqrs` | Route commands/queries to handlers. |
+| **Command/Query Bus** | `pyfly.cqrs` | Route commands/queries to handlers through a full pipeline. |
 | **Chain of Responsibility** | `pyfly.web` | Exception converter chain. |
 | **Observer** | `pyfly.context`, `pyfly.eda` | Application and domain events. |
 | **Decorator** | `pyfly.aop` | Aspect-oriented cross-cutting concerns via proxies. |

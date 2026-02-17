@@ -472,7 +472,7 @@ PyFly currently implements **25 modules** organized into four layers:
 | **Data** | Repository ports, derived queries, pagination, sorting, entity mapping | Spring Data Commons |
 | **Data Relational** | SQLAlchemy adapter — specifications, transactions, custom queries | `fireflyframework-r2dbc` |
 | **Data Document** | MongoDB adapter — Beanie ODM, document repositories | `fireflyframework-mongodb` |
-| **CQRS** | Command/Query segregation with mediator | `fireflyframework-cqrs` |
+| **CQRS** | Command/Query segregation with CommandBus/QueryBus, validation, authorization, caching | `fireflyframework-cqrs` |
 | **Validation** | Input validation with Pydantic | `fireflyframework-validators` |
 
 ### Infrastructure Layer

@@ -500,36 +500,36 @@ class ApplicationContext:
             logger.debug("Wired %d @message_listener method(s)", count)
 
     def _wire_cqrs_handlers(self) -> None:
-        """Scan beans for @command_handler / @query_handler and register with Mediator."""
-        count = 0
-        mediator: Any | None = None
+        """Scan beans for @command_handler / @query_handler and register with HandlerRegistry."""
+        registry: Any | None = None
+        # Lazy-resolve HandlerRegistry on first decorated handler hit
         for cls, reg in self._container._registrations.items():
-            handler_type = getattr(cls, "__pyfly_handler_type__", None)
-            if handler_type is None:
+            if getattr(cls, "__pyfly_handler_type__", None) is None:
                 continue
             if reg.instance is None:
                 continue
-            # Lazy-resolve mediator on first hit
-            if mediator is None:
+            if registry is None:
                 try:
-                    from pyfly.cqrs.mediator import Mediator
+                    from pyfly.cqrs.command.registry import HandlerRegistry
 
-                    mediator = self._container.resolve(Mediator)
+                    registry = self._container.resolve(HandlerRegistry)
                 except KeyError:
-                    logger.debug("No Mediator registered; skipping CQRS handler wiring")
+                    logger.debug("No HandlerRegistry registered; skipping CQRS handler wiring")
                     self._wiring_counts["cqrs_handlers"] = 0
                     return
-            # Infer the message type from the handler's handle() method type hints
-            handle_method = getattr(reg.instance, "handle", None)
-            if handle_method is None:
-                continue
-            hints = typing.get_type_hints(handle_method)
-            hints.pop("return", None)
-            for param_type in hints.values():
-                if isinstance(param_type, type):
-                    mediator.register_handler(param_type, reg.instance)
-                    count += 1
-                    break
+                break
+
+        if registry is None:
+            self._wiring_counts["cqrs_handlers"] = 0
+            return
+
+        beans = [
+            reg.instance
+            for reg in self._container._registrations.values()
+            if reg.instance is not None
+        ]
+        registry.discover_from_beans(beans)
+        count = registry.command_handler_count + registry.query_handler_count
         self._wiring_counts["cqrs_handlers"] = count
         if count:
             logger.debug("Wired %d CQRS handler(s)", count)
