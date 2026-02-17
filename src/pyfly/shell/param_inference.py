@@ -20,7 +20,7 @@ import types
 import typing
 from typing import Any, Callable, Union, get_type_hints
 
-from pyfly.shell.result import ShellParam, _MISSING
+from pyfly.shell.result import ShellParam, MISSING
 
 _SKIP = frozenset({"self", "return"})
 
@@ -52,12 +52,24 @@ def _unwrap_optional(tp: Any) -> tuple[Any, bool]:
 
 
 def infer_params(func: Callable[..., Any]) -> list[ShellParam]:
-    """Build a list of :class:`ShellParam` from *func*'s signature and type hints."""
+    """Build a list of :class:`ShellParam` from *func*'s signature and type hints.
+
+    Explicit ``@shell_option`` / ``@shell_argument`` decorator metadata is
+    merged on top of the inferred defaults when present.
+    """
     sig = inspect.signature(func)
     try:
         hints = get_type_hints(func)
     except Exception:  # pragma: no cover – defensive for unresolvable hints
         hints = {}
+
+    # Build lookup tables from explicit @shell_option / @shell_argument metadata
+    option_overrides = _build_override_map(
+        getattr(func, "__pyfly_shell_options__", [])
+    )
+    argument_overrides = _build_override_map(
+        getattr(func, "__pyfly_shell_arguments__", [])
+    )
 
     params: list[ShellParam] = []
 
@@ -75,7 +87,39 @@ def infer_params(func: Callable[..., Any]) -> list[ShellParam]:
         elif was_optional:
             default = None
         else:
-            default = _MISSING
+            default = MISSING
+
+        # Check for explicit overrides
+        opt_meta = option_overrides.get(name)
+        arg_meta = argument_overrides.get(name)
+
+        if opt_meta is not None:
+            # Explicit @shell_option override
+            params.append(
+                ShellParam(
+                    name=name,
+                    param_type=inner_type,
+                    is_option=True,
+                    default=opt_meta.get("default", default),
+                    help_text=opt_meta.get("help", ""),
+                    is_flag=opt_meta.get("is_flag", False),
+                    choices=opt_meta.get("choices"),
+                )
+            )
+            continue
+
+        if arg_meta is not None:
+            # Explicit @shell_argument override
+            params.append(
+                ShellParam(
+                    name=name,
+                    param_type=inner_type,
+                    is_option=False,
+                    default=arg_meta.get("default", default),
+                    help_text=arg_meta.get("help", ""),
+                )
+            )
+            continue
 
         # bool → flag option
         if inner_type is bool:
@@ -84,7 +128,7 @@ def infer_params(func: Callable[..., Any]) -> list[ShellParam]:
                     name=name,
                     param_type=bool,
                     is_option=True,
-                    default=default if default is not _MISSING else False,
+                    default=default if default is not MISSING else False,
                     is_flag=True,
                 )
             )
@@ -103,3 +147,18 @@ def infer_params(func: Callable[..., Any]) -> list[ShellParam]:
         )
 
     return params
+
+
+def _build_override_map(metadata_list: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Build a {param_name: metadata} lookup from decorator metadata.
+
+    Option names like ``--env`` are normalised to ``env``.
+    """
+    result: dict[str, dict[str, Any]] = {}
+    for entry in metadata_list:
+        raw_name: str = entry.get("name", "")
+        # Normalise --kebab-case to snake_case param name
+        clean = raw_name.lstrip("-").replace("-", "_")
+        if clean:
+            result[clean] = entry
+    return result

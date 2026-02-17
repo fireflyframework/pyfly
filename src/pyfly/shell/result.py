@@ -18,7 +18,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-_MISSING = object()
+class _MissingSentinel:
+    """Sentinel indicating no default value was provided."""
+
+    def __repr__(self) -> str:
+        return "MISSING"
+
+
+MISSING = _MissingSentinel()
 
 
 @dataclass(frozen=True)
@@ -28,7 +35,7 @@ class ShellParam:
     name: str
     param_type: type
     is_option: bool
-    default: Any = _MISSING
+    default: Any = MISSING
     help_text: str = ""
     choices: list[str] | None = None
     is_flag: bool = False

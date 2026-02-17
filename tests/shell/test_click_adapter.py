@@ -19,7 +19,7 @@ import pytest
 
 from pyfly.shell.adapters.click_adapter import ClickShellAdapter
 from pyfly.shell.ports.outbound import ShellRunnerPort
-from pyfly.shell.result import ShellParam, _MISSING
+from pyfly.shell.result import ShellParam, MISSING
 
 
 # ---------------------------------------------------------------------------

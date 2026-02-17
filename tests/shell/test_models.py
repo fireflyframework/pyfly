@@ -17,7 +17,7 @@ import dataclasses
 
 import pytest
 
-from pyfly.shell.result import CommandResult, ShellParam, _MISSING
+from pyfly.shell.result import CommandResult, ShellParam, MISSING
 
 
 # ---------------------------------------------------------------------------
@@ -31,7 +31,7 @@ class TestShellParam:
         assert p.name == "name"
         assert p.param_type is str
         assert p.is_option is False
-        assert p.default is _MISSING
+        assert p.default is MISSING
 
     def test_flag_param(self):
         p = ShellParam(name="verbose", param_type=bool, is_option=True, is_flag=True)

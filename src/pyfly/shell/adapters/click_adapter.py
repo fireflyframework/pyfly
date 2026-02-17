@@ -23,7 +23,7 @@ from typing import Any
 
 import click
 
-from pyfly.shell.result import ShellParam, _MISSING
+from pyfly.shell.result import ShellParam, MISSING
 
 # ---- type mapping from Python types to Click parameter types ----
 
@@ -43,7 +43,7 @@ def _build_click_param(sp: ShellParam) -> click.Parameter:
         return click.Option(
             [f"--{sp.name.replace('_', '-')}", sp.name],
             is_flag=True,
-            default=sp.default if sp.default is not _MISSING else False,
+            default=sp.default if sp.default is not MISSING else False,
             help=sp.help_text or None,
         )
 
@@ -52,7 +52,7 @@ def _build_click_param(sp: ShellParam) -> click.Parameter:
             "type": click_type,
             "help": sp.help_text or None,
         }
-        if sp.default is not _MISSING:
+        if sp.default is not MISSING:
             kwargs["default"] = sp.default
         else:
             kwargs["required"] = True
@@ -64,7 +64,7 @@ def _build_click_param(sp: ShellParam) -> click.Parameter:
 
     # Positional argument
     kwargs_arg: dict[str, Any] = {"type": click_type}
-    if sp.default is not _MISSING:
+    if sp.default is not MISSING:
         kwargs_arg["default"] = sp.default
         kwargs_arg["required"] = False
     return click.Argument([sp.name], **kwargs_arg)

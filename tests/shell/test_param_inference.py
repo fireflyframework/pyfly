@@ -17,8 +17,9 @@ from __future__ import annotations
 
 from typing import Optional
 
+from pyfly.shell.decorators import shell_argument, shell_method, shell_option
 from pyfly.shell.param_inference import infer_params
-from pyfly.shell.result import ShellParam, _MISSING
+from pyfly.shell.result import ShellParam, MISSING
 
 
 # ---------------------------------------------------------------------------
@@ -36,7 +37,7 @@ class TestStrArgument:
         assert p.name == "name"
         assert p.param_type is str
         assert p.is_option is False
-        assert p.default is _MISSING
+        assert p.default is MISSING
 
 
 class TestIntArgument:
@@ -49,7 +50,7 @@ class TestIntArgument:
         assert p.name == "count"
         assert p.param_type is int
         assert p.is_option is False
-        assert p.default is _MISSING
+        assert p.default is MISSING
 
 
 class TestBoolFlag:
@@ -130,7 +131,7 @@ class TestMultipleParams:
 
         # name → positional argument
         assert name_p == ShellParam(
-            name="name", param_type=str, is_option=False, default=_MISSING
+            name="name", param_type=str, is_option=False, default=MISSING
         )
 
         # count → option with default
@@ -146,3 +147,39 @@ class TestMultipleParams:
             default=False,
             is_flag=True,
         )
+
+
+# ---------------------------------------------------------------------------
+# Explicit decorator overrides
+# ---------------------------------------------------------------------------
+
+
+class TestShellOptionOverride:
+    """@shell_option metadata overrides inferred param."""
+
+    def test_option_override_with_help_and_flag(self):
+        @shell_method()
+        @shell_option("--verbose", is_flag=True, help="Enable verbose output")
+        def deploy(verbose: bool = False) -> str:
+            return "deployed"
+
+        (p,) = infer_params(deploy)
+        assert p.name == "verbose"
+        assert p.is_option is True
+        assert p.is_flag is True
+        assert p.help_text == "Enable verbose output"
+
+
+class TestShellArgumentOverride:
+    """@shell_argument metadata overrides inferred param."""
+
+    def test_argument_override_with_help(self):
+        @shell_method()
+        @shell_argument("service", help="Service to deploy")
+        def deploy(service: str) -> str:
+            return service
+
+        (p,) = infer_params(deploy)
+        assert p.name == "service"
+        assert p.is_option is False
+        assert p.help_text == "Service to deploy"
