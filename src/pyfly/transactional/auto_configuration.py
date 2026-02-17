@@ -82,30 +82,36 @@ class TransactionalEngineAutoConfiguration:
 
     @bean
     def saga_engine_properties(self) -> SagaEngineProperties:
+        """Create default saga engine configuration properties."""
         return SagaEngineProperties()
 
     @bean
     def tcc_engine_properties(self) -> TccEngineProperties:
+        """Create default TCC engine configuration properties."""
         return TccEngineProperties()
 
     @bean
     def backpressure_properties(self) -> BackpressureProperties:
+        """Create default backpressure configuration properties."""
         return BackpressureProperties()
 
     # -- Default infrastructure adapters ------------------------------------
 
     @bean
     def in_memory_persistence_adapter(self) -> InMemoryPersistenceAdapter:
+        """Create in-memory persistence adapter as the default transaction store."""
         return InMemoryPersistenceAdapter()
 
     @bean
     def logger_events_adapter(self) -> LoggerEventsAdapter:
+        """Create logger-based events adapter as the default observability sink."""
         return LoggerEventsAdapter()
 
     # -- Saga engine components ---------------------------------------------
 
     @bean
     def saga_argument_resolver(self) -> ArgumentResolver:
+        """Create the argument resolver for saga step parameter injection."""
         return ArgumentResolver()
 
     @bean
@@ -113,6 +119,7 @@ class TransactionalEngineAutoConfiguration:
         self,
         argument_resolver: ArgumentResolver,
     ) -> StepInvoker:
+        """Create the step invoker that executes saga step and compensation methods."""
         return StepInvoker(argument_resolver=argument_resolver)
 
     @bean
@@ -121,6 +128,7 @@ class TransactionalEngineAutoConfiguration:
         step_invoker: StepInvoker,
         events_adapter: LoggerEventsAdapter,
     ) -> SagaCompensator:
+        """Create the compensator that reverses completed steps on saga failure."""
         return SagaCompensator(
             step_invoker=step_invoker,
             events_port=events_adapter,
@@ -132,6 +140,7 @@ class TransactionalEngineAutoConfiguration:
         step_invoker: StepInvoker,
         events_adapter: LoggerEventsAdapter,
     ) -> SagaExecutionOrchestrator:
+        """Create the orchestrator that executes saga steps in topological layer order."""
         return SagaExecutionOrchestrator(
             step_invoker=step_invoker,
             events_port=events_adapter,
@@ -139,6 +148,7 @@ class TransactionalEngineAutoConfiguration:
 
     @bean
     def saga_registry(self) -> SagaRegistry:
+        """Create the saga registry that discovers and indexes ``@saga``-decorated beans."""
         return SagaRegistry()
 
     @bean
@@ -151,6 +161,7 @@ class TransactionalEngineAutoConfiguration:
         persistence_adapter: InMemoryPersistenceAdapter,
         events_adapter: LoggerEventsAdapter,
     ) -> SagaEngine:
+        """Create the saga engine that coordinates execution, compensation, and persistence."""
         return SagaEngine(
             registry=registry,
             step_invoker=step_invoker,
@@ -164,6 +175,7 @@ class TransactionalEngineAutoConfiguration:
 
     @bean
     def tcc_registry(self) -> TccRegistry:
+        """Create the TCC registry that discovers and indexes ``@tcc``-decorated beans."""
         return TccRegistry()
 
     @bean
@@ -173,6 +185,7 @@ class TransactionalEngineAutoConfiguration:
         persistence_adapter: InMemoryPersistenceAdapter,
         events_adapter: LoggerEventsAdapter,
     ) -> TccEngine:
+        """Create the TCC engine that orchestrates Try-Confirm-Cancel transactions."""
         tcc_argument_resolver = TccArgumentResolver()
         tcc_invoker = TccParticipantInvoker(argument_resolver=tcc_argument_resolver)
         tcc_orchestrator = TccExecutionOrchestrator(participant_invoker=tcc_invoker)
@@ -194,6 +207,7 @@ class TransactionalEngineAutoConfiguration:
         saga_engine: SagaEngine,
         events_adapter: LoggerEventsAdapter,
     ) -> SagaRecoveryService:
+        """Create the recovery service that resumes stale or in-flight sagas."""
         return SagaRecoveryService(
             persistence_port=persistence_adapter,
             saga_engine=saga_engine,

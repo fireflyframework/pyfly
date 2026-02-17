@@ -457,7 +457,7 @@ PyFly currently implements **25 modules** organized into four layers:
 
 | Module | Description | Firefly Java Equivalent |
 |--------|-------------|------------------------|
-| **Core** | Application bootstrap, lifecycle, banner, configuration | `fireflyframework-core` |
+| **Core** | Application bootstrap, lifecycle, banner, configuration | `fireflyframework-starter-core` |
 | **Kernel** | Exception hierarchy, structured error types | `fireflyframework-kernel` |
 | **Container** | Dependency injection, stereotypes, bean factories | Spring DI (built-in) |
 | **Context** | ApplicationContext, events, lifecycle hooks, conditions | Spring ApplicationContext |
@@ -479,7 +479,7 @@ PyFly currently implements **25 modules** organized into four layers:
 
 | Module | Description | Firefly Java Equivalent |
 |--------|-------------|------------------------|
-| **Security** | JWT, password encoding, authorization | Part of `fireflyframework-application` |
+| **Security** | JWT, password encoding, authorization | Part of `fireflyframework-starter-application` |
 | **Messaging** | Kafka, RabbitMQ, in-memory broker | `fireflyframework-eda` |
 | **EDA** | Event-driven architecture, event bus | `fireflyframework-eda` |
 | **Cache** | Caching decorators, Redis adapter | `fireflyframework-cache` |
@@ -494,7 +494,7 @@ PyFly currently implements **25 modules** organized into four layers:
 |--------|-------------|------------------------|
 | **AOP** | Aspect-oriented programming | Spring AOP |
 | **Observability** | Prometheus metrics, OpenTelemetry tracing | `fireflyframework-observability` |
-| **Actuator** | Health checks, monitoring endpoints | `fireflyframework-core` (actuator) |
+| **Actuator** | Health checks, monitoring endpoints | `fireflyframework-starter-core` (actuator) |
 | **Testing** | Test fixtures and assertions | Spring Test |
 | **CLI** | Command-line tools | `fireflyframework-cli` |
 
