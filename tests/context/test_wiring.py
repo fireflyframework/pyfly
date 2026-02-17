@@ -128,18 +128,22 @@ class TestMessageListenerWiring:
 
 class TestCQRSHandlerWiring:
     @pytest.mark.asyncio
-    async def test_skips_when_no_mediator(self):
-        """If no Mediator is registered, CQRS handler wiring is skipped gracefully."""
-        from pyfly.cqrs.decorators import command_handler
-        from pyfly.cqrs.types import Command, CommandHandler
+    async def test_skips_when_no_registry(self):
+        """If no HandlerRegistry is registered, CQRS handler wiring is skipped gracefully."""
+        from dataclasses import dataclass
 
-        class CreateOrder(Command):
-            pass
+        from pyfly.cqrs.command.handler import CommandHandler
+        from pyfly.cqrs.decorators import command_handler
+        from pyfly.cqrs.types import Command
+
+        @dataclass
+        class CreateOrder(Command[str]):
+            name: str = ""
 
         @command_handler
         @service
-        class CreateOrderHandler(CommandHandler[CreateOrder]):
-            async def handle(self, command: CreateOrder):
+        class CreateOrderHandler(CommandHandler[CreateOrder, str]):
+            async def do_handle(self, command: CreateOrder) -> str:
                 return "created"
 
         ctx = ApplicationContext(Config({}))

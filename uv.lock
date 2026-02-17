@@ -1501,6 +1501,9 @@ security = [
     { name = "cryptography" },
     { name = "pyjwt", extra = ["crypto"] },
 ]
+shell = [
+    { name = "click" },
+]
 testing = [
     { name = "jsonpath-ng" },
 ]
@@ -1522,6 +1525,7 @@ requires-dist = [
     { name = "bcrypt", marker = "extra == 'security'", specifier = ">=4.0" },
     { name = "beanie", marker = "extra == 'data-document'", specifier = ">=1.25" },
     { name = "click", marker = "extra == 'cli'", specifier = ">=8.1" },
+    { name = "click", marker = "extra == 'shell'", specifier = ">=8.1" },
     { name = "coverage", extras = ["toml"], marker = "extra == 'dev'", specifier = ">=7.0" },
     { name = "croniter", marker = "extra == 'scheduling'", specifier = ">=2.0" },
     { name = "cryptography", marker = "extra == 'security'", specifier = ">=42.0" },
@@ -1536,7 +1540,7 @@ requires-dist = [
     { name = "prometheus-client", marker = "extra == 'observability'", specifier = ">=0.20" },
     { name = "pydantic", specifier = ">=2.0" },
     { name = "pyfly", extras = ["full"], marker = "extra == 'dev'" },
-    { name = "pyfly", extras = ["web", "data-relational", "data-document", "postgresql", "eda", "cqrs", "cache", "client", "observability", "security", "scheduling", "cli", "kafka", "rabbitmq", "redis", "testing"], marker = "extra == 'full'" },
+    { name = "pyfly", extras = ["web", "data-relational", "data-document", "postgresql", "eda", "cqrs", "cache", "client", "observability", "security", "scheduling", "cli", "shell", "kafka", "rabbitmq", "redis", "testing"], marker = "extra == 'full'" },
     { name = "pyjwt", extras = ["crypto"], marker = "extra == 'security'", specifier = ">=2.8" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.23" },
@@ -1553,7 +1557,7 @@ requires-dist = [
     { name = "structlog", marker = "extra == 'observability'", specifier = ">=24.0" },
     { name = "uvicorn", extras = ["standard"], marker = "extra == 'web'", specifier = ">=0.30" },
 ]
-provides-extras = ["web", "data-relational", "data-document", "postgresql", "eda", "kafka", "rabbitmq", "redis", "cqrs", "cache", "client", "observability", "scheduling", "security", "testing", "cli", "full", "dev"]
+provides-extras = ["web", "data-relational", "data-document", "postgresql", "eda", "kafka", "rabbitmq", "redis", "cqrs", "cache", "client", "observability", "scheduling", "security", "testing", "cli", "shell", "full", "dev"]
 
 [[package]]
 name = "pygments"

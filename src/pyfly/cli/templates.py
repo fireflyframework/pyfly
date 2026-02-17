@@ -126,7 +126,7 @@ FEATURE_DETAILS: dict[str, dict[str, str]] = {
     },
     "cqrs": {
         "short": "Command/Query Responsibility Segregation",
-        "adds": "Mediator, CommandHandler, QueryHandler, middleware pipeline",
+        "adds": "CommandBus, QueryBus, CommandHandler, QueryHandler, HandlerRegistry",
     },
     "shell": {
         "short": "Spring Shell-inspired CLI commands with DI",
@@ -167,7 +167,7 @@ FEATURE_TIPS: dict[str, list[str]] = {
         "Metrics endpoint: GET /actuator/prometheus (when actuator enabled)",
     ],
     "cqrs": [
-        "Register handlers via @component — Mediator auto-discovers them",
+        "Register handlers via @command_handler/@query_handler — HandlerRegistry auto-discovers them",
     ],
     "shell": [
         "Add commands with @shell_method in any @shell_component class",
