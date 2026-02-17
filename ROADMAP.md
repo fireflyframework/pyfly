@@ -17,7 +17,7 @@ PyFly ships with **25 modules** covering the foundation, application, infrastruc
 | **Event Sourcing** | Event store, aggregate roots, snapshots, projections, outbox pattern | [`fireflyframework-eventsourcing`](https://github.com/fireflyframework/fireflyframework-eventsourcing) |
 | **Saga / Transactions** | Distributed Saga and TCC transaction orchestration with compensation and recovery | [`fireflyframework-transactional-engine`](https://github.com/fireflyframework/fireflyframework-transactional-engine) |
 | **Workflow** | Workflow orchestration engine with state persistence, scheduling, and DLQ | [`fireflyframework-workflow`](https://github.com/fireflyframework/fireflyframework-workflow) |
-| **Domain** | DDD building blocks — base entities, value objects, aggregate roots, domain events | [`fireflyframework-domain`](https://github.com/fireflyframework/fireflyframework-domain) |
+| **Domain** | DDD building blocks — base entities, value objects, aggregate roots, domain events | [`fireflyframework-starter-domain`](https://github.com/fireflyframework/fireflyframework-starter-domain) |
 
 ---
 

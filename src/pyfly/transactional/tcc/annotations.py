@@ -15,15 +15,15 @@
 
 Class-level decorators:
     @tcc              — marks a class as a TCC transaction definition
-    @tcc_participant  — marks a class as a participant in a TCC transaction
+    @tcc_participant  — marks a (nested) class as a TCC participant
 
 Method-level decorators:
-    @try_method       — marks a method as the Try phase of a TCC participant
-    @confirm_method   — marks a method as the Confirm phase of a TCC participant
-    @cancel_method    — marks a method as the Cancel phase of a TCC participant
+    @try_method       — marks a method as the Try phase
+    @confirm_method   — marks a method as the Confirm phase
+    @cancel_method    — marks a method as the Cancel phase
 
 Parameter injection markers (for use with ``typing.Annotated``):
-    FromTry           — inject the result of the try method into confirm/cancel methods
+    FromTry           — inject the try method's result into confirm/cancel methods
 """
 
 from __future__ import annotations
@@ -55,15 +55,15 @@ def tcc(
 
     * ``name``          — TCC transaction name
     * ``timeout_ms``    — global timeout in milliseconds (0 = no timeout)
-    * ``retry_enabled`` — whether retries are enabled globally
-    * ``max_retries``   — maximum number of retries
+    * ``retry_enabled`` — whether retries are enabled
+    * ``max_retries``   — maximum number of retry attempts
     * ``backoff_ms``    — base backoff duration in milliseconds
 
     Args:
         name: Unique TCC transaction name.
         timeout_ms: Global timeout in milliseconds. Defaults to 0 (no timeout).
         retry_enabled: Whether retries are enabled. Defaults to False.
-        max_retries: Maximum number of retries. Defaults to 0.
+        max_retries: Maximum retry attempts. Defaults to 0.
         backoff_ms: Base backoff duration in milliseconds. Defaults to 0.
     """
 
@@ -91,15 +91,15 @@ def tcc_participant(
     Sets ``__pyfly_tcc_participant__`` on the class with the following keys:
 
     * ``id``         — unique participant identifier
-    * ``order``      — execution order (lower = earlier)
+    * ``order``      — execution order (lower runs first)
     * ``timeout_ms`` — participant-level timeout in milliseconds (0 = no timeout)
-    * ``optional``   — whether this participant is optional
+    * ``optional``   — whether the participant is optional
 
     Args:
         id: Unique participant identifier.
-        order: Execution order (lower = earlier). Defaults to 0.
-        timeout_ms: Participant timeout in milliseconds. Defaults to 0 (no timeout).
-        optional: Whether this participant is optional. Defaults to False.
+        order: Execution order (lower values execute first). Defaults to 0.
+        timeout_ms: Participant-level timeout in milliseconds. Defaults to 0 (no timeout).
+        optional: Whether the participant is optional. Defaults to False.
     """
 
     def decorator(cls: T) -> T:
@@ -130,7 +130,7 @@ def try_method(
     ``__pyfly_try_method__`` on the wrapper.
 
     Args:
-        timeout_ms: Try phase timeout in milliseconds. Defaults to 0 (no timeout).
+        timeout_ms: Execution timeout in milliseconds. Defaults to 0 (no timeout).
         retry: Number of retry attempts on failure. Defaults to 0.
         backoff_ms: Base backoff duration in milliseconds. Defaults to 0.
     """
@@ -161,7 +161,7 @@ def confirm_method(
     ``__pyfly_confirm_method__`` on the wrapper.
 
     Args:
-        timeout_ms: Confirm phase timeout in milliseconds. Defaults to 0 (no timeout).
+        timeout_ms: Execution timeout in milliseconds. Defaults to 0 (no timeout).
         retry: Number of retry attempts on failure. Defaults to 0.
         backoff_ms: Base backoff duration in milliseconds. Defaults to 0.
     """
@@ -192,7 +192,7 @@ def cancel_method(
     ``__pyfly_cancel_method__`` on the wrapper.
 
     Args:
-        timeout_ms: Cancel phase timeout in milliseconds. Defaults to 0 (no timeout).
+        timeout_ms: Execution timeout in milliseconds. Defaults to 0 (no timeout).
         retry: Number of retry attempts on failure. Defaults to 0.
         backoff_ms: Base backoff duration in milliseconds. Defaults to 0.
     """
@@ -221,6 +221,13 @@ def cancel_method(
 class FromTry:
     """Inject the result of the try method into confirm/cancel methods.
 
-    Used as ``Annotated[T, FromTry]`` to inject the try method's result.
-    This is a marker class with no fields.
+    Used with ``typing.Annotated`` to declare that a parameter should receive
+    the value returned by the participant's try method::
+
+        async def confirm(
+            self,
+            reservation_id: Annotated[str, FromTry()],
+            ctx: TccContext,
+        ) -> None:
+            ...
     """

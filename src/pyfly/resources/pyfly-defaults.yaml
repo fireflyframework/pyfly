@@ -39,3 +39,30 @@ pyfly:
     circuit-breaker:
       failure-threshold: 5
       recovery-timeout: 30
+  transactional:
+    enabled: true
+    saga:
+      compensation_policy: STRICT_SEQUENTIAL
+      default_timeout_ms: 300000
+      max_concurrent_sagas: 100
+      layer_concurrency: 0
+      persistence_enabled: true
+      metrics_enabled: true
+      recovery_enabled: true
+      recovery_interval_seconds: 60
+      stale_threshold_seconds: 600
+      cleanup_older_than_hours: 24
+    tcc:
+      default_timeout_ms: 30000
+      retry_enabled: true
+      max_retries: 3
+      backoff_ms: 1000
+      persistence_enabled: true
+      metrics_enabled: true
+    backpressure:
+      strategy: adaptive
+      concurrency: 10
+      batch_size: 5
+      failure_threshold: 50
+      success_threshold: 2
+      wait_duration_ms: 60000
