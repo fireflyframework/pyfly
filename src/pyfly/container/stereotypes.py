@@ -20,6 +20,7 @@ Each stereotype is an alias for container registration with semantic meaning:
 - @controller: web controller (template responses)
 - @rest_controller: REST controller (JSON responses)
 - @configuration: config class containing @bean methods
+- @shell_component: shell command provider
 """
 
 from __future__ import annotations
@@ -81,3 +82,4 @@ repository = _make_stereotype("repository")
 controller = _make_stereotype("controller")
 rest_controller = _make_stereotype("rest_controller")
 configuration = _make_stereotype("configuration")
+shell_component = _make_stereotype("shell_component")
