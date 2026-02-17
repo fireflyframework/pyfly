@@ -16,7 +16,10 @@
 from unittest.mock import AsyncMock, MagicMock
 
 from pyfly.admin.providers.beans_provider import BeansProvider
+from pyfly.admin.providers.config_provider import ConfigProvider
+from pyfly.admin.providers.env_provider import EnvProvider
 from pyfly.admin.providers.health_provider import HealthProvider
+from pyfly.admin.providers.loggers_provider import LoggersProvider
 from pyfly.admin.providers.overview_provider import OverviewProvider
 from pyfly.container.types import Scope
 
@@ -103,3 +106,43 @@ class TestOverviewProvider:
         assert result["health"]["status"] == "UP"
         assert result["beans"]["total"] == 5
         assert "stereotypes" in result["beans"]
+
+
+class TestEnvProvider:
+    async def test_get_env(self):
+        ctx = _make_mock_context()
+        ctx.config._data = {"pyfly": {"web": {"port": 8080}, "cache": {"enabled": True}}}
+        ctx.config.loaded_sources = ["pyfly-defaults.yaml", "pyfly.yaml"]
+        provider = EnvProvider(ctx)
+        result = await provider.get_env()
+        assert "active_profiles" in result
+        assert "properties" in result
+        assert "sources" in result
+
+
+class TestLoggersProvider:
+    async def test_get_loggers(self):
+        provider = LoggersProvider()
+        result = await provider.get_loggers()
+        assert "loggers" in result
+        assert "levels" in result
+        assert "ROOT" in result["loggers"]
+
+    async def test_set_logger_level(self):
+        provider = LoggersProvider()
+        result = await provider.set_level("pyfly.admin.test_logger", "DEBUG")
+        assert result["configuredLevel"] == "DEBUG"
+
+
+class TestConfigProvider:
+    async def test_get_config_grouped(self):
+        ctx = _make_mock_context()
+        ctx.config._data = {
+            "pyfly": {
+                "web": {"port": 8080, "adapter": "auto"},
+                "cache": {"enabled": False, "provider": "memory"},
+            }
+        }
+        provider = ConfigProvider(ctx)
+        result = await provider.get_config()
+        assert "groups" in result
