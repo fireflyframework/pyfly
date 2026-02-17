@@ -10,7 +10,7 @@
   <a href="https://github.com/fireflyframework"><img src="https://img.shields.io/badge/Firefly_Framework-official-ff6600?logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0id2hpdGUiIGQ9Ik0xMiAyQzYuNDggMiAyIDYuNDggMiAxMnM0LjQ4IDEwIDEwIDEwIDEwLTQuNDggMTAtMTBTMTcuNTIgMiAxMiAyeiIvPjwvc3ZnPg==" alt="Firefly Framework"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.12%2B-blue?logo=python&logoColor=white" alt="Python 3.12+"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-green" alt="License: Apache 2.0"></a>
-  <a href="#"><img src="https://img.shields.io/badge/version-0.1.0--alpha.4-yellow" alt="Version: 0.1.0-alpha"></a>
+  <a href="#"><img src="https://img.shields.io/badge/version-0.1.0--alpha.4-yellow" alt="Version: 0.1.0-alpha.4"></a>
   <a href="#"><img src="https://img.shields.io/badge/type--checked-mypy%20strict-blue?logo=python&logoColor=white" alt="Type Checked: mypy strict"></a>
   <a href="#"><img src="https://img.shields.io/badge/code%20style-ruff-purple?logo=ruff&logoColor=white" alt="Code Style: Ruff"></a>
   <a href="#"><img src="https://img.shields.io/badge/async-first-brightgreen" alt="Async First"></a>
@@ -349,6 +349,7 @@ The `pyfly` CLI generates production-ready project structures with DI stereotype
 | `pyfly new my-api --archetype web-api` | REST API with controllers, services, repositories |
 | `pyfly new my-svc --archetype hexagonal` | Hexagonal architecture with ports & adapters |
 | `pyfly new my-lib --archetype library` | Reusable library with `py.typed` marker |
+| `pyfly new my-tool --archetype cli` | CLI application with interactive shell and DI |
 
 ### Feature Selection
 
@@ -377,6 +378,7 @@ $ pyfly new
     2) web-api      Full REST API with layered architecture
     3) hexagonal    Hexagonal architecture (ports & adapters)
     4) library      Reusable library package
+    5) cli          Command-line application with interactive shell
   Select archetype [1]: 2
   Features (comma-separated, enter for defaults) [web]: web,data-relational
 ```

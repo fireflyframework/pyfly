@@ -170,8 +170,8 @@ FEATURE_TIPS: dict[str, list[str]] = {
         "Register handlers via @component — Mediator auto-discovers them",
     ],
     "shell": [
-        "Run your CLI with: python -m {{ package_name }}.main",
         "Add commands with @shell_method in any @shell_component class",
+        "Shell auto-configuration activates when pyfly.shell.enabled=true",
     ],
 }
 

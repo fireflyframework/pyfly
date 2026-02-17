@@ -66,7 +66,8 @@ src/pyfly/cli/
     ├── dockerfile.j2
     ├── readme.md.j2
     ├── ...
-    └── hex/         # Hexagonal archetype templates
+    ├── hex/         # Hexagonal archetype templates
+    └── cli/         # CLI archetype templates
 ```
 
 ### Rich Console Theme
@@ -98,7 +99,7 @@ The `--version` flag reads the version from the `pyfly` package metadata.
 
 ## pyfly new
 
-Create a new PyFly project with a complete directory structure, configuration files, and starter code. Supports four archetypes, selective feature inclusion, and an interactive mode.
+Create a new PyFly project with a complete directory structure, configuration files, and starter code. Supports five archetypes, selective feature inclusion, and an interactive mode.
 
 ### Usage
 
@@ -131,6 +132,7 @@ The project name is converted to a valid Python package name: `my-service` becom
 | `web-api` | Full REST API with layered architecture | `web` |
 | `hexagonal` | Hexagonal architecture (ports & adapters) | `web` |
 | `library` | Reusable library package | *(none)* |
+| `cli` | Command-line application with interactive shell | `shell` |
 
 ### Available Features
 
@@ -148,6 +150,7 @@ Features control which PyFly extras are included as dependencies and which confi
 | `scheduling` | Cron-based scheduling |
 | `observability` | Prometheus, OpenTelemetry |
 | `cqrs` | CQRS pattern support |
+| `shell` | Spring Shell-inspired CLI commands with DI |
 
 ### Core Archetype
 
@@ -259,6 +262,40 @@ my-library/
     └── conftest.py
 ```
 
+### CLI Archetype
+
+The `cli` archetype creates a command-line application with interactive shell, DI-powered commands, and service layer:
+
+```
+my-tool/
+├── pyproject.toml
+├── pyfly.yaml
+├── Dockerfile
+├── README.md
+├── .gitignore
+├── .env.example
+├── src/
+│   └── my_tool/
+│       ├── __init__.py
+│       ├── app.py
+│       ├── main.py                    # CLI entry point (asyncio.run)
+│       ├── commands/
+│       │   └── hello_command.py       # @shell_component — example commands
+│       └── services/
+│           └── greeting_service.py    # @service — business logic
+└── tests/
+    ├── __init__.py
+    ├── conftest.py
+    └── test_hello_command.py
+```
+
+The CLI archetype differs from other archetypes in several ways:
+- **No ASGI entry point** — uses `asyncio.run(pyfly.run())` instead of uvicorn/Starlette
+- **No web section** in `pyfly.yaml` — no port, no adapter config
+- **No `module:` field** in config — no ASGI app to reference
+- **Shell enabled** — `pyfly.shell.enabled: true` is set automatically
+- **Dockerfile** uses `CMD ["python", "-m", "my_tool.main"]` instead of uvicorn, no `EXPOSE`
+
 ### Interactive Mode
 
 When `pyfly new` is run without a `NAME` argument, it enters interactive mode with a full-featured TUI experience powered by [questionary](https://questionary.readthedocs.io/):
@@ -277,6 +314,7 @@ $ pyfly new
       web-api       Full REST API with layered architecture
       hexagonal     Hexagonal architecture (ports & adapters)
       library       Reusable library package
+      cli           Command-line application with interactive shell
 
   ? Select features: (space to toggle, enter to confirm)
     ❯ [x] web          HTTP routing, controllers, OpenAPI
@@ -289,6 +327,7 @@ $ pyfly new
       [ ] scheduling   Cron-based scheduling
       [ ] observability  Prometheus, OpenTelemetry
       [ ] cqrs         CQRS pattern support
+      [ ] shell        Spring Shell-inspired CLI commands
 
   ╭─ Project Summary ───────────────╮
   │   Name:      my-service         │
@@ -323,6 +362,9 @@ pyfly new order-api --archetype web-api
 
 # Create a hexagonal project with data and cache
 pyfly new order-svc --archetype hexagonal --features web,data-relational,cache
+
+# Create a CLI tool with interactive shell
+pyfly new admin-tool --archetype cli
 
 # Create a shared library
 pyfly new common-utils --archetype library
