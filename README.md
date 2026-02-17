@@ -150,6 +150,7 @@ class OrderService:
 | `@service` | Business logic | Service |
 | `@repository` | Data access | Data |
 | `@rest_controller` | REST endpoints (JSON) | Web |
+| `@shell_component` | CLI commands | Shell |
 | `@configuration` + `@bean` | Bean factory methods | Infrastructure |
 
 All stereotypes default to **singleton scope** (one instance per application). You can override with `@service(scope=Scope.TRANSIENT)` for a new instance on every injection, or `Scope.REQUEST` for one instance per HTTP request.
@@ -186,6 +187,7 @@ This separation is not conceptual — it is enforced by package structure:
 │  pyfly.eda            EventPublisher                     │
 │  pyfly.client         HttpClientPort                     │
 │  pyfly.scheduling     TaskExecutorPort                   │
+│  pyfly.shell          ShellRunnerPort                    │
 │  pyfly.web            WebServerPort                      │
 │                                                          │
 └────────────────────────────┬─────────────────────────────┘
@@ -201,6 +203,7 @@ This separation is not conceptual — it is enforced by package structure:
 │  pyfly.eda.adapters.memory                               │
 │  pyfly.client.adapters.httpx_adapter                     │
 │  pyfly.scheduling.adapters.asyncio_executor              │
+│  pyfly.shell.adapters.click_adapter                      │
 │  pyfly.web.adapters.starlette                            │
 │                                                          │
 └──────────────────────────────────────────────────────────┘
@@ -258,6 +261,7 @@ This bean is created only when (1) no user-provided `CacheAdapter` exists and (2
 | `messaging` | `MessagingAutoConfiguration` | `aiokafka` / `aio-pika` | `KafkaAdapter` / `RabbitMQAdapter` | `InMemoryMessageBroker` |
 | `cache` | `CacheAutoConfiguration` | `redis.asyncio` | `RedisCacheAdapter` | `InMemoryCache` |
 | `client` | `ClientAutoConfiguration` | `httpx` | `HttpxClientAdapter` | none |
+| `shell` | `ShellAutoConfiguration` | `click` | `ClickShellAdapter` | none |
 
 Third-party packages can register their own auto-configurations by adding entries to the same entry-point group — the same extensibility model as Spring Boot's `META-INF/spring.factories`:
 
@@ -355,7 +359,7 @@ Choose which PyFly extras to include with `--features`:
 pyfly new order-service --archetype web-api --features web,data-relational,cache
 ```
 
-Available features: `web`, `data-relational`, `data-document`, `eda`, `cache`, `client`, `security`, `scheduling`, `observability`, `cqrs`
+Available features: `web`, `data-relational`, `data-document`, `eda`, `cache`, `client`, `security`, `scheduling`, `observability`, `cqrs`, `shell`
 
 ### Interactive Mode
 
@@ -418,7 +422,7 @@ See the full [CLI Reference](docs/cli.md) for details.
 
 ## Modules
 
-PyFly currently implements **23 modules** organized into four layers:
+PyFly currently implements **24 modules** organized into four layers:
 
 ### Foundation Layer
 
@@ -453,6 +457,7 @@ PyFly currently implements **23 modules** organized into four layers:
 | **Client** | HTTP client, circuit breaker, retry | `fireflyframework-client` |
 | **Scheduling** | Cron jobs, fixed-rate tasks | Spring Scheduling |
 | **Resilience** | Rate limiter, bulkhead, timeout, fallback | Resilience4j (in `fireflyframework-client`) |
+| **Shell** | CLI commands, interactive REPL, runners | Spring Shell |
 
 ### Cross-Cutting Layer
 
@@ -493,7 +498,7 @@ Browse all guides in the [Module Guides Index](docs/modules/README.md):
 
 Browse the [Adapter Catalog](docs/adapters/README.md) for setup and configuration of each concrete backend:
 
-- [SQLAlchemy](docs/adapters/sqlalchemy.md) · [MongoDB](docs/adapters/mongodb.md) · [Starlette](docs/adapters/starlette.md) · [Kafka](docs/adapters/kafka.md) · [RabbitMQ](docs/adapters/rabbitmq.md) · [Redis](docs/adapters/redis.md) · [HTTPX](docs/adapters/httpx.md)
+- [SQLAlchemy](docs/adapters/sqlalchemy.md) · [MongoDB](docs/adapters/mongodb.md) · [Starlette](docs/adapters/starlette.md) · [Kafka](docs/adapters/kafka.md) · [RabbitMQ](docs/adapters/rabbitmq.md) · [Redis](docs/adapters/redis.md) · [HTTPX](docs/adapters/httpx.md) · [Click](docs/adapters/click.md)
 
 Browse the full list in the [Documentation Table of Contents](docs/README.md).
 

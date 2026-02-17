@@ -76,6 +76,12 @@ All module guides are organized in the [`modules/`](modules/README.md) directory
 | [HTTP Client](modules/client.md) | Service client builder, circuit breaker, retry, declarative clients |
 | [Caching](modules/caching.md) | Cache decorators, Redis adapter, in-memory cache, cache management |
 
+### CLI & Shell
+
+| Guide | Description |
+|-------|-------------|
+| [Shell](modules/shell.md) | `@shell_component`, `@shell_method`, `CommandLineRunner`, `ApplicationRunner`, Click adapter |
+
 ### Operations
 
 | Guide | Description |
@@ -107,6 +113,7 @@ Browse the full [Adapter Catalog](adapters/README.md), or jump directly:
 | [RabbitMQ](adapters/rabbitmq.md) | RabbitMQ (aio-pika) | Messaging |
 | [Redis](adapters/redis.md) | Redis (async) | Caching |
 | [HTTPX](adapters/httpx.md) | HTTPX | Client |
+| [Click](adapters/click.md) | Click 8.1+ | Shell |
 
 ---
 
@@ -129,4 +136,5 @@ Browse the full [Adapter Catalog](adapters/README.md), or jump directly:
 - **Setting up MongoDB?** See the [Data Document Guide](modules/data-document.md) and [MongoDB Adapter](adapters/mongodb.md)
 - **Need messaging?** See [Messaging](modules/messaging.md), [Kafka](adapters/kafka.md), and [RabbitMQ](adapters/rabbitmq.md)
 - **Browse all modules:** See the [Module Guides Index](modules/README.md)
+- **Building a CLI app?** See the [Shell Guide](modules/shell.md) and [Click Adapter](adapters/click.md)
 - **Browse all adapters:** See the [Adapter Catalog](adapters/README.md)

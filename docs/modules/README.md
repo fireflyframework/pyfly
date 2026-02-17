@@ -97,6 +97,16 @@ Make your services resilient with circuit breakers, rate limiters, and intellige
 
 ---
 
+## CLI & Shell
+
+Build CLI applications with DI-integrated commands, interactive REPLs, and post-startup runners.
+
+| Guide | What You'll Learn |
+|-------|-------------------|
+| [Shell](shell.md) | `@shell_component`, `@shell_method`, `@shell_option`, `@shell_argument`, `ShellRunnerPort`, `CommandLineRunner`, `ApplicationRunner`, `ApplicationArguments`, parameter inference from type hints, Click adapter |
+
+---
+
 ## Operations
 
 Monitor, schedule, and observe your applications in production.
@@ -148,6 +158,7 @@ pyfly/
 ├── aop/             Aspect-oriented programming
 ├── observability/   Metrics, tracing, health checks
 ├── actuator/        Monitoring endpoints, extensible registry
+├── shell/           CLI commands, runners, Click adapter
 ├── testing/         Test fixtures and assertions
 └── cli/             Project scaffolding and tooling
 ```

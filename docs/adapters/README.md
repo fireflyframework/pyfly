@@ -39,6 +39,12 @@ For the shared port APIs (`RepositoryPort`, `Page`, `Pageable`, `QueryMethodPars
 |---------|--------|---------|-------|
 | [HTTPX](httpx.md) | Client | HTTPX | [Module Guide](../modules/client.md) |
 
+## Shell Adapter
+
+| Adapter | Module | Backend | Guide |
+|---------|--------|---------|-------|
+| [Click](click.md) | Shell | Click 8.1+ | [Module Guide](../modules/shell.md) |
+
 ---
 
 <p align="center">
