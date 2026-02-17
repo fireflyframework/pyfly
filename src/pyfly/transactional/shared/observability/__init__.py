@@ -11,4 +11,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""Observability adapters for the transactional engine."""
 
+from pyfly.transactional.shared.observability.events import (
+    CompositeEventsAdapter,
+    LoggerEventsAdapter,
+)
+
+__all__ = [
+    "CompositeEventsAdapter",
+    "LoggerEventsAdapter",
+]
