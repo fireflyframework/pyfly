@@ -39,6 +39,7 @@ if TYPE_CHECKING:
     from pyfly.admin.providers.scheduled_provider import ScheduledProvider
     from pyfly.admin.providers.traces_provider import TracesProvider
     from pyfly.admin.registry import AdminViewRegistry
+    from pyfly.admin.server.instance_registry import InstanceRegistry
 
 
 class AdminRouteBuilder:
@@ -62,6 +63,7 @@ class AdminRouteBuilder:
         traces: TracesProvider,
         view_registry: AdminViewRegistry,
         trace_collector: TraceCollectorFilter | None = None,
+        instance_registry: InstanceRegistry | None = None,
     ) -> None:
         self._props = properties
         self._overview = overview
@@ -78,6 +80,7 @@ class AdminRouteBuilder:
         self._traces = traces
         self._view_registry = view_registry
         self._trace_collector = trace_collector
+        self._instance_registry = instance_registry
 
     def build_routes(self) -> list[Route | Mount]:
         """Build all admin routes."""
@@ -114,6 +117,14 @@ class AdminRouteBuilder:
             Route(f"{api}/sse/metrics", self._handle_sse_metrics, methods=["GET"]),
             Route(f"{api}/sse/traces", self._handle_sse_traces, methods=["GET"]),
         ])
+
+        # --- Instance registry routes (server mode) ---
+        if self._instance_registry is not None:
+            routes.extend([
+                Route(f"{api}/instances", self._handle_instances_list, methods=["GET"]),
+                Route(f"{api}/instances", self._handle_instances_register, methods=["POST"]),
+                Route(f"{api}/instances/{{name}}", self._handle_instances_deregister, methods=["DELETE"]),
+            ])
 
         # --- Static files ---
         routes.append(
@@ -215,8 +226,33 @@ class AdminRouteBuilder:
             "title": self._props.title,
             "theme": self._props.theme,
             "refreshInterval": self._props.refresh_interval,
-            "serverMode": False,
+            "serverMode": self._instance_registry is not None,
         })
+
+    # --- Instance Registry Handlers ---
+
+    async def _handle_instances_list(self, request: Request) -> JSONResponse:
+        return JSONResponse(self._instance_registry.to_dict())
+
+    async def _handle_instances_register(self, request: Request) -> JSONResponse:
+        body = await request.body()
+        payload = json.loads(body) if body else {}
+        name = payload.get("name", "")
+        url = payload.get("url", "")
+        if not name or not url:
+            return JSONResponse(
+                {"error": "Both 'name' and 'url' are required"}, status_code=400
+            )
+        metadata = payload.get("metadata") or {}
+        info = self._instance_registry.register(name, url, metadata)
+        return JSONResponse(info.to_dict(), status_code=201)
+
+    async def _handle_instances_deregister(self, request: Request) -> JSONResponse:
+        name = request.path_params["name"]
+        removed = self._instance_registry.deregister(name)
+        if not removed:
+            return JSONResponse({"error": "Instance not found"}, status_code=404)
+        return JSONResponse({"removed": name})
 
     # --- SSE Handlers ---
 
