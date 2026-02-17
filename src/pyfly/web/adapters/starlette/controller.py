@@ -69,7 +69,7 @@ async def _maybe_await(result: Any) -> Any:
 
 
 class ControllerRegistrar:
-    """Discovers @rest_controller beans and builds Starlette routes.
+    """Discovers ``@rest_controller`` and ``@controller`` beans and builds Starlette routes.
 
     For each controller:
     1. Reads @request_mapping base path from the class
@@ -79,8 +79,10 @@ class ControllerRegistrar:
     5. Creates Starlette Route objects that dispatch requests
     """
 
+    _CONTROLLER_STEREOTYPES = ("rest_controller", "controller")
+
     def collect_routes(self, ctx: Any) -> list[Route]:
-        """Collect all routes from @rest_controller beans in the ApplicationContext.
+        """Collect all routes from ``@rest_controller`` and ``@controller`` beans.
 
         Bean resolution is deferred until the first HTTP request hits each
         controller, avoiding eager resolution of the full dependency tree
@@ -89,7 +91,7 @@ class ControllerRegistrar:
         routes: list[Route] = []
 
         for cls, _reg in ctx.container._registrations.items():
-            if getattr(cls, "__pyfly_stereotype__", "") != "rest_controller":
+            if getattr(cls, "__pyfly_stereotype__", "") not in self._CONTROLLER_STEREOTYPES:
                 continue
 
             base_path = getattr(cls, "__pyfly_request_mapping__", "")
@@ -113,7 +115,7 @@ class ControllerRegistrar:
         return routes
 
     def collect_route_metadata(self, ctx: Any) -> list[RouteMetadata]:
-        """Collect route metadata from all @rest_controller classes for OpenAPI generation.
+        """Collect route metadata from ``@rest_controller`` and ``@controller`` classes.
 
         All OpenAPI metadata (type hints, mappings, docstrings) lives on the
         class — no bean resolution needed.
@@ -121,7 +123,7 @@ class ControllerRegistrar:
         metadata: list[RouteMetadata] = []
 
         for cls, _reg in ctx.container._registrations.items():
-            if getattr(cls, "__pyfly_stereotype__", "") != "rest_controller":
+            if getattr(cls, "__pyfly_stereotype__", "") not in self._CONTROLLER_STEREOTYPES:
                 continue
 
             base_path = getattr(cls, "__pyfly_request_mapping__", "")

@@ -1,0 +1,133 @@
+"""Todo business logic."""
+{% if not has_data and not has_mongodb %}
+
+import uuid
+{% endif %}
+
+from pyfly.container import service
+
+from {{ package_name }}.models.todo import TodoCreate, TodoResponse
+{% if has_data %}
+from {{ package_name }}.models.todo import TodoEntity
+from {{ package_name }}.repositories.todo_repository import TodoRepository
+{% elif has_mongodb %}
+from {{ package_name }}.models.todo import TodoDocument
+from {{ package_name }}.repositories.todo_repository import TodoDocumentRepository
+{% else %}
+from {{ package_name }}.repositories.todo_repository import TodoRepository
+{% endif %}
+
+
+@service
+class TodoService:
+{% if has_data %}
+
+    def __init__(self, repository: TodoRepository) -> None:
+        self._repository = repository
+
+    async def create(self, data: TodoCreate) -> TodoResponse:
+        entity = TodoEntity(title=data.title, description=data.description)
+        saved = await self._repository.save(entity)
+        return TodoResponse(
+            id=saved.id, title=saved.title,
+            description=saved.description, completed=saved.completed,
+        )
+
+    async def get(self, todo_id: int) -> TodoResponse:
+        entity = await self._repository.find_by_id(todo_id)
+        return TodoResponse(
+            id=entity.id, title=entity.title,
+            description=entity.description, completed=entity.completed,
+        )
+
+    async def list_all(self) -> list[TodoResponse]:
+        entities = await self._repository.find_all()
+        return [
+            TodoResponse(
+                id=e.id, title=e.title,
+                description=e.description, completed=e.completed,
+            )
+            for e in entities
+        ]
+
+    async def toggle_complete(self, todo_id: int) -> TodoResponse:
+        entity = await self._repository.find_by_id(todo_id)
+        entity.completed = not entity.completed
+        saved = await self._repository.save(entity)
+        return TodoResponse(
+            id=saved.id, title=saved.title,
+            description=saved.description, completed=saved.completed,
+        )
+
+    async def delete(self, todo_id: int) -> None:
+        await self._repository.delete(todo_id)
+{% elif has_mongodb %}
+
+    def __init__(self, repository: TodoDocumentRepository) -> None:
+        self._repository = repository
+
+    async def create(self, data: TodoCreate) -> TodoResponse:
+        doc = TodoDocument(title=data.title, description=data.description)
+        saved = await self._repository.save(doc)
+        return TodoResponse(
+            id=str(saved.id), title=saved.title,
+            description=saved.description, completed=saved.completed,
+        )
+
+    async def get(self, todo_id: str) -> TodoResponse:
+        doc = await self._repository.find_by_id(todo_id)
+        return TodoResponse(
+            id=str(doc.id), title=doc.title,
+            description=doc.description, completed=doc.completed,
+        )
+
+    async def list_all(self) -> list[TodoResponse]:
+        docs = await self._repository.find_all()
+        return [
+            TodoResponse(
+                id=str(d.id), title=d.title,
+                description=d.description, completed=d.completed,
+            )
+            for d in docs
+        ]
+
+    async def toggle_complete(self, todo_id: str) -> TodoResponse:
+        doc = await self._repository.find_by_id(todo_id)
+        doc.completed = not doc.completed
+        saved = await self._repository.save(doc)
+        return TodoResponse(
+            id=str(saved.id), title=saved.title,
+            description=saved.description, completed=saved.completed,
+        )
+
+    async def delete(self, todo_id: str) -> None:
+        await self._repository.delete(todo_id)
+{% else %}
+
+    def __init__(self, repository: TodoRepository) -> None:
+        self._repository = repository
+
+    def create(self, data: TodoCreate) -> TodoResponse:
+        todo_id = str(uuid.uuid4())
+        todo = TodoResponse(
+            id=todo_id, title=data.title,
+            description=data.description, completed=False,
+        )
+        self._repository.save(todo_id, todo)
+        return todo
+
+    def get(self, todo_id: str) -> TodoResponse:
+        return self._repository.find_by_id(todo_id)
+
+    def list_all(self) -> list[TodoResponse]:
+        return self._repository.find_all()
+
+    def toggle_complete(self, todo_id: str) -> TodoResponse:
+        todo = self._repository.find_by_id(todo_id)
+        updated = todo.model_copy(update={"completed": not todo.completed})
+        self._repository.save(todo_id, updated)
+        return updated
+
+    def delete(self, todo_id: str) -> None:
+        self._repository.delete(todo_id)
+{% endif %}

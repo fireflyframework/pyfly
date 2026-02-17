@@ -1,9 +1,6 @@
-"""Domain entities."""
+"""Todo request/response models."""
 
-from __future__ import annotations
-
-import uuid
-from dataclasses import dataclass, field
+from pydantic import BaseModel, Field
 {% if has_data %}
 
 from sqlalchemy import Boolean, String
@@ -17,20 +14,21 @@ from pyfly.data.document.mongodb import BaseDocument
 {% endif %}
 
 
-@dataclass
-class Todo:
-    """Core domain entity."""
+class TodoCreate(BaseModel):
+    title: str = Field(min_length=1, max_length=200)
+    description: str = Field(default="", max_length=1000)
 
-    id: str = field(default_factory=lambda: str(uuid.uuid4()))
-    title: str = ""
+
+class TodoResponse(BaseModel):
+    id: {% if has_data %}int{% else %}str{% endif %}
+
+    title: str
     description: str = ""
     completed: bool = False
 {% if has_data %}
 
 
 class TodoEntity(Base):
-    """SQLAlchemy entity for relational persistence."""
-
     __tablename__ = "todos"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
@@ -42,8 +40,6 @@ class TodoEntity(Base):
 
 
 class TodoDocument(BaseDocument):
-    """Beanie document for MongoDB persistence."""
-
     title: str
     description: str = ""
     completed: bool = False

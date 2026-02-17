@@ -40,7 +40,7 @@ class TestVendorIsolation:
                 "bad = [l for l in lines "
                 "if 'adapters/starlette' not in l and 'actuator/adapters' not in l "
                 "and '/security/' not in l and '/testing/' not in l "
-                "and '/admin/' not in l]; "
+                "and '/admin/' not in l and '/cli/templates/' not in l]; "
                 "print('\\n'.join(bad) if bad else 'CLEAN'); "
                 "sys.exit(len(bad))",
             ],

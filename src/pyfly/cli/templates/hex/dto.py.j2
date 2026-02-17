@@ -3,13 +3,14 @@
 from pydantic import BaseModel, Field
 
 
-class ItemCreateRequest(BaseModel):
-    name: str = Field(min_length=1, max_length=100)
-    description: str = Field(default="", max_length=500)
+class TodoCreateRequest(BaseModel):
+    title: str = Field(min_length=1, max_length=200)
+    description: str = Field(default="", max_length=1000)
 
 
-class ItemResponseDTO(BaseModel):
+class TodoResponseDTO(BaseModel):
     id: {% if has_data %}int{% else %}str{% endif %}
 
-    name: str
+    title: str
     description: str = ""
+    completed: bool = False

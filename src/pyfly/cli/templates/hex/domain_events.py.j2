@@ -6,11 +6,11 @@ from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
-class ItemCreated:
-    item_id: str
-    name: str
+class TodoCreated:
+    todo_id: str
+    title: str
 
 
 @dataclass(frozen=True)
-class ItemDeleted:
-    item_id: str
+class TodoDeleted:
+    todo_id: str

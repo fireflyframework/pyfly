@@ -9,6 +9,8 @@ version = "0.1.0"
 description = "{{ name }} — PyFly library"
 {% elif archetype == "cli" %}
 description = "{{ name }} — PyFly CLI application"
+{% elif archetype == "web" %}
+description = "{{ name }} — PyFly web application"
 {% else %}
 description = "{{ name }} — built with PyFly"
 {% endif %}
@@ -18,6 +20,9 @@ dependencies = [
     "pyfly[{{ features | join(',') }}]",
 {% else %}
     "pyfly",
+{% endif %}
+{% if archetype == "web" %}
+    "jinja2>=3.1",
 {% endif %}
 ]
 

@@ -1,18 +1,16 @@
 {% if has_data or has_mongodb %}
-"""Persistence adapter — database-backed repository."""
-
-from __future__ import annotations
+"""Todo repository — database-backed."""
 
 from pyfly.container import repository
 {% if has_data %}
 from pyfly.data.relational.sqlalchemy import Repository
 
-from {{ package_name }}.domain.models import TodoEntity
+from {{ package_name }}.models.todo import TodoEntity
 {% endif %}
 {% if has_mongodb %}
 from pyfly.data.document.mongodb import MongoRepository
 
-from {{ package_name }}.domain.models import TodoDocument
+from {{ package_name }}.models.todo import TodoDocument
 {% endif %}
 {% if has_data %}
 
@@ -29,29 +27,27 @@ class TodoDocumentRepository(MongoRepository[TodoDocument, str]):
     """Document repository — inherits full CRUD. Add custom queries by defining stub methods."""
 {% endif %}
 {% else %}
-"""Persistence adapter — implements outbound repository port."""
-
-from __future__ import annotations
+"""Todo repository with in-memory storage."""
 
 from pyfly.container import repository
 
-from {{ package_name }}.domain.models import Todo
+from {{ package_name }}.models.todo import TodoResponse
 
 
 @repository
-class InMemoryTodoRepository:
-    """In-memory implementation. Replace with a database-backed adapter."""
+class TodoRepository:
+    """In-memory todo store. Replace with a database-backed implementation."""
 
     def __init__(self) -> None:
-        self._store: dict[str, Todo] = {}
+        self._store: dict[str, TodoResponse] = {}
 
-    def save(self, todo: Todo) -> None:
-        self._store[todo.id] = todo
+    def save(self, todo_id: str, todo: TodoResponse) -> None:
+        self._store[todo_id] = todo
 
-    def find_by_id(self, todo_id: str) -> Todo:
+    def find_by_id(self, todo_id: str) -> TodoResponse:
         return self._store[todo_id]
 
-    def find_all(self) -> list[Todo]:
+    def find_all(self) -> list[TodoResponse]:
         return list(self._store.values())
 
     def delete(self, todo_id: str) -> None:

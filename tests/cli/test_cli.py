@@ -106,13 +106,13 @@ class TestNewWebApi:
         # Layered package structure
         assert (pkg / "app.py").exists()
         assert (pkg / "controllers" / "health_controller.py").exists()
-        assert (pkg / "controllers" / "item_controller.py").exists()
-        assert (pkg / "services" / "item_service.py").exists()
-        assert (pkg / "models" / "item.py").exists()
-        assert (pkg / "repositories" / "item_repository.py").exists()
+        assert (pkg / "controllers" / "todo_controller.py").exists()
+        assert (pkg / "services" / "todo_service.py").exists()
+        assert (pkg / "models" / "todo.py").exists()
+        assert (pkg / "repositories" / "todo_repository.py").exists()
 
         # Test file
-        assert (p / "tests" / "test_item_controller.py").exists()
+        assert (p / "tests" / "test_todo_service.py").exists()
 
     def test_web_api_controller_uses_stereotypes(self, tmp_path: Path):
         runner = CliRunner()
@@ -121,7 +121,7 @@ class TestNewWebApi:
         ])
         assert result.exit_code == 0, result.output
 
-        controller = (tmp_path / "my-api" / "src" / "my_api" / "controllers" / "item_controller.py").read_text()
+        controller = (tmp_path / "my-api" / "src" / "my_api" / "controllers" / "todo_controller.py").read_text()
         assert "@rest_controller" in controller
         assert "@request_mapping" in controller
         assert "@get_mapping" in controller
@@ -135,7 +135,7 @@ class TestNewWebApi:
         ])
         assert result.exit_code == 0, result.output
 
-        service = (tmp_path / "my-api" / "src" / "my_api" / "services" / "item_service.py").read_text()
+        service = (tmp_path / "my-api" / "src" / "my_api" / "services" / "todo_service.py").read_text()
         assert "@service" in service
         assert "from pyfly.container import service" in service
 
@@ -146,7 +146,7 @@ class TestNewWebApi:
         ])
         assert result.exit_code == 0, result.output
 
-        repo = (tmp_path / "my-api" / "src" / "my_api" / "repositories" / "item_repository.py").read_text()
+        repo = (tmp_path / "my-api" / "src" / "my_api" / "repositories" / "todo_repository.py").read_text()
         assert "@repository" in repo
         assert "from pyfly.container import repository" in repo
 
@@ -216,7 +216,7 @@ class TestNewHexagonal:
 
         inbound = (tmp_path / "my-hex" / "src" / "my_hex" / "domain" / "ports" / "inbound.py").read_text()
         assert "Protocol" in inbound
-        assert "class CreateItemUseCase" in inbound
+        assert "class CreateTodoUseCase" in inbound
 
     def test_hexagonal_app_scan_packages(self, tmp_path: Path):
         runner = CliRunner()
@@ -229,6 +229,175 @@ class TestNewHexagonal:
         assert "my_hex.api" in app
         assert "my_hex.application" in app
         assert "my_hex.infrastructure" in app
+
+
+class TestNewWeb:
+    """Tests for the web (SSR) archetype."""
+
+    def test_web_creates_full_structure(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-site", "--archetype", "web", "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+
+        p = tmp_path / "my-site"
+        pkg = p / "src" / "my_site"
+
+        # Core files
+        assert (p / "pyproject.toml").exists()
+        assert (p / "pyfly.yaml").exists()
+        assert (p / "Dockerfile").exists()
+        assert (p / "README.md").exists()
+        assert (p / ".gitignore").exists()
+        assert (p / ".env.example").exists()
+
+        # Controllers
+        assert (pkg / "controllers" / "health_controller.py").exists()
+        assert (pkg / "controllers" / "home_controller.py").exists()
+
+        # Services
+        assert (pkg / "services" / "page_service.py").exists()
+
+        # Templates & Static
+        assert (pkg / "templates" / "base.html").exists()
+        assert (pkg / "templates" / "home.html").exists()
+        assert (pkg / "templates" / "about.html").exists()
+        assert (pkg / "static" / "css" / "style.css").exists()
+
+        # Test file
+        assert (p / "tests" / "test_home_controller.py").exists()
+
+    def test_web_controller_uses_controller_stereotype(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-site", "--archetype", "web", "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+
+        controller = (tmp_path / "my-site" / "src" / "my_site" / "controllers" / "home_controller.py").read_text()
+        assert "@controller" in controller
+        assert "from pyfly.container import controller" in controller
+
+    def test_web_has_template_response(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-site", "--archetype", "web", "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+
+        controller = (tmp_path / "my-site" / "src" / "my_site" / "controllers" / "home_controller.py").read_text()
+        assert "TemplateResponse" in controller
+
+    def test_web_has_html_templates(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-site", "--archetype", "web", "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+
+        pkg = tmp_path / "my-site" / "src" / "my_site"
+        base = (pkg / "templates" / "base.html").read_text()
+        assert "<!DOCTYPE html>" in base
+
+        home = (pkg / "templates" / "home.html").read_text()
+        assert "extends" in home
+
+        about = (pkg / "templates" / "about.html").read_text()
+        assert "extends" in about
+
+    def test_web_has_static_css(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-site", "--archetype", "web", "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+
+        css = (tmp_path / "my-site" / "src" / "my_site" / "static" / "css" / "style.css").read_text()
+        assert "body" in css
+
+    def test_web_service_uses_stereotype(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-site", "--archetype", "web", "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+
+        service = (tmp_path / "my-site" / "src" / "my_site" / "services" / "page_service.py").read_text()
+        assert "@service" in service
+        assert "from pyfly.container import service" in service
+
+    def test_web_app_scan_packages(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-site", "--archetype", "web", "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+
+        app = (tmp_path / "my-site" / "src" / "my_site" / "app.py").read_text()
+        assert "my_site.controllers" in app
+        assert "my_site.services" in app
+
+    def test_web_default_features_web(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-site", "--archetype", "web", "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+
+        pyproject = (tmp_path / "my-site" / "pyproject.toml").read_text()
+        assert "pyfly[web]" in pyproject
+
+    def test_web_has_jinja2_dependency(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-site", "--archetype", "web", "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+
+        pyproject = (tmp_path / "my-site" / "pyproject.toml").read_text()
+        assert "jinja2" in pyproject
+
+    def test_web_main_mounts_static(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-site", "--archetype", "web", "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+
+        main = (tmp_path / "my-site" / "src" / "my_site" / "main.py").read_text()
+        assert "StaticFiles" in main
+        assert "/static" in main
+
+    def test_web_readme_mentions_html(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-site", "--archetype", "web", "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+
+        readme = (tmp_path / "my-site" / "README.md").read_text()
+        assert "HTML" in readme or "template" in readme.lower()
+
+    def test_web_pyproject_description(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-site", "--archetype", "web", "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+
+        pyproject = (tmp_path / "my-site" / "pyproject.toml").read_text()
+        assert "web application" in pyproject
+
+    def test_web_config_has_web_section(self, tmp_path: Path):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "new", "my-site", "--archetype", "web", "--directory", str(tmp_path),
+        ])
+        assert result.exit_code == 0, result.output
+
+        config = (tmp_path / "my-site" / "pyfly.yaml").read_text()
+        assert "port: 8080" in config
 
 
 class TestNewFeatures:
@@ -481,7 +650,26 @@ class TestNewInteractive:
         assert result.exit_code == 0, result.output
 
         p = tmp_path / "my-api"
-        assert (p / "src" / "my_api" / "controllers" / "item_controller.py").exists()
+        assert (p / "src" / "my_api" / "controllers" / "todo_controller.py").exists()
+
+    @patch("pyfly.cli.new.questionary")
+    def test_interactive_web(self, mock_q, tmp_path: Path):
+        mock_q.text.return_value.unsafe_ask.side_effect = ["my-site", "my_site"]
+        mock_q.select.return_value.unsafe_ask.return_value = "web"
+        mock_q.checkbox.return_value.unsafe_ask.return_value = ["web"]
+        mock_q.confirm.return_value.unsafe_ask.return_value = True
+
+        runner = CliRunner()
+        result = runner.invoke(
+            cli,
+            ["new", "--directory", str(tmp_path)],
+        )
+        assert result.exit_code == 0, result.output
+
+        p = tmp_path / "my-site"
+        assert (p / "src" / "my_site" / "controllers" / "home_controller.py").exists()
+        assert (p / "src" / "my_site" / "templates" / "base.html").exists()
+        assert (p / "src" / "my_site" / "static" / "css" / "style.css").exists()
 
     @patch("pyfly.cli.new.questionary")
     def test_interactive_cancel(self, mock_q, tmp_path: Path):
@@ -667,9 +855,9 @@ class TestTemplateContent:
             "new", "my-api", "--archetype", "web-api", "--directory", str(tmp_path),
         ])
         assert result.exit_code == 0, result.output
-        controller = (tmp_path / "my-api" / "src" / "my_api" / "controllers" / "item_controller.py").read_text()
-        assert "Valid[ItemCreate]" in controller
-        assert "Body[ItemCreate]" not in controller
+        controller = (tmp_path / "my-api" / "src" / "my_api" / "controllers" / "todo_controller.py").read_text()
+        assert "Valid[TodoCreate]" in controller
+        assert "Body[TodoCreate]" not in controller
 
     def test_model_uses_field_constraints(self, tmp_path: Path):
         runner = CliRunner()
@@ -677,7 +865,7 @@ class TestTemplateContent:
             "new", "my-api", "--archetype", "web-api", "--directory", str(tmp_path),
         ])
         assert result.exit_code == 0, result.output
-        model = (tmp_path / "my-api" / "src" / "my_api" / "models" / "item.py").read_text()
+        model = (tmp_path / "my-api" / "src" / "my_api" / "models" / "todo.py").read_text()
         assert "Field(min_length=" in model
         assert "from pydantic import BaseModel, Field" in model
 
@@ -707,8 +895,8 @@ class TestTemplateContent:
             "--directory", str(tmp_path),
         ])
         assert result.exit_code == 0, result.output
-        repo = (tmp_path / "my-api" / "src" / "my_api" / "repositories" / "item_repository.py").read_text()
-        assert "Repository[ItemEntity, int]" in repo
+        repo = (tmp_path / "my-api" / "src" / "my_api" / "repositories" / "todo_repository.py").read_text()
+        assert "Repository[TodoEntity, int]" in repo
         assert "from pyfly.data.relational.sqlalchemy import Repository" in repo
 
     def test_no_data_feature_generates_in_memory_repo(self, tmp_path: Path):
@@ -718,9 +906,9 @@ class TestTemplateContent:
             "--directory", str(tmp_path),
         ])
         assert result.exit_code == 0, result.output
-        repo = (tmp_path / "my-api" / "src" / "my_api" / "repositories" / "item_repository.py").read_text()
-        assert "dict[str, ItemResponse]" in repo
-        assert "Repository[ItemEntity" not in repo
+        repo = (tmp_path / "my-api" / "src" / "my_api" / "repositories" / "todo_repository.py").read_text()
+        assert "dict[str, TodoResponse]" in repo
+        assert "Repository[TodoEntity" not in repo
 
     def test_data_feature_generates_entity_in_model(self, tmp_path: Path):
         runner = CliRunner()
@@ -729,8 +917,8 @@ class TestTemplateContent:
             "--directory", str(tmp_path),
         ])
         assert result.exit_code == 0, result.output
-        model = (tmp_path / "my-api" / "src" / "my_api" / "models" / "item.py").read_text()
-        assert "class ItemEntity(Base):" in model
+        model = (tmp_path / "my-api" / "src" / "my_api" / "models" / "todo.py").read_text()
+        assert "class TodoEntity(Base):" in model
         assert "id: Mapped[int]" in model
 
     def test_no_data_feature_no_entity(self, tmp_path: Path):
@@ -740,8 +928,8 @@ class TestTemplateContent:
             "--directory", str(tmp_path),
         ])
         assert result.exit_code == 0, result.output
-        model = (tmp_path / "my-api" / "src" / "my_api" / "models" / "item.py").read_text()
-        assert "class ItemEntity" not in model
+        model = (tmp_path / "my-api" / "src" / "my_api" / "models" / "todo.py").read_text()
+        assert "class TodoEntity" not in model
         assert "id: str" in model
 
     def test_data_feature_controller_uses_int_path_var(self, tmp_path: Path):
@@ -751,7 +939,7 @@ class TestTemplateContent:
             "--directory", str(tmp_path),
         ])
         assert result.exit_code == 0, result.output
-        controller = (tmp_path / "my-api" / "src" / "my_api" / "controllers" / "item_controller.py").read_text()
+        controller = (tmp_path / "my-api" / "src" / "my_api" / "controllers" / "todo_controller.py").read_text()
         assert "PathVar[int]" in controller
 
     def test_hexagonal_controller_uses_valid(self, tmp_path: Path):
@@ -761,8 +949,8 @@ class TestTemplateContent:
         ])
         assert result.exit_code == 0, result.output
         controller = (tmp_path / "my-hex" / "src" / "my_hex" / "api" / "controllers.py").read_text()
-        assert "Valid[ItemCreateRequest]" in controller
-        assert "Body[ItemCreateRequest]" not in controller
+        assert "Valid[TodoCreateRequest]" in controller
+        assert "Body[TodoCreateRequest]" not in controller
 
     def test_hexagonal_dto_uses_field(self, tmp_path: Path):
         runner = CliRunner()
@@ -784,8 +972,8 @@ class TestMongoDBFeature:
             "--directory", str(tmp_path),
         ])
         assert result.exit_code == 0, result.output
-        model = (tmp_path / "my-api" / "src" / "my_api" / "models" / "item.py").read_text()
-        assert "class ItemDocument(BaseDocument):" in model
+        model = (tmp_path / "my-api" / "src" / "my_api" / "models" / "todo.py").read_text()
+        assert "class TodoDocument(BaseDocument):" in model
         assert "from pyfly.data.document.mongodb import BaseDocument" in model
 
     def test_mongodb_feature_generates_mongo_repo(self, tmp_path: Path):
@@ -795,8 +983,8 @@ class TestMongoDBFeature:
             "--directory", str(tmp_path),
         ])
         assert result.exit_code == 0, result.output
-        repo = (tmp_path / "my-api" / "src" / "my_api" / "repositories" / "item_repository.py").read_text()
-        assert "MongoRepository[ItemDocument, str]" in repo
+        repo = (tmp_path / "my-api" / "src" / "my_api" / "repositories" / "todo_repository.py").read_text()
+        assert "MongoRepository[TodoDocument, str]" in repo
         assert "from pyfly.data.document.mongodb import MongoRepository" in repo
 
     def test_mongodb_config_in_yaml(self, tmp_path: Path):
@@ -844,7 +1032,7 @@ class TestMongoDBFeature:
         ])
         assert result.exit_code == 0, result.output
         persistence = (tmp_path / "my-hex" / "src" / "my_hex" / "infrastructure" / "adapters" / "persistence.py").read_text()
-        assert "MongoRepository[ItemDocument, str]" in persistence
+        assert "MongoRepository[TodoDocument, str]" in persistence
 
     def test_hexagonal_mongodb_domain_model(self, tmp_path: Path):
         runner = CliRunner()
@@ -854,7 +1042,7 @@ class TestMongoDBFeature:
         ])
         assert result.exit_code == 0, result.output
         models = (tmp_path / "my-hex" / "src" / "my_hex" / "domain" / "models.py").read_text()
-        assert "class ItemDocument(BaseDocument):" in models
+        assert "class TodoDocument(BaseDocument):" in models
 
     def test_mongodb_controller_uses_str_path_var(self, tmp_path: Path):
         runner = CliRunner()
@@ -863,7 +1051,7 @@ class TestMongoDBFeature:
             "--directory", str(tmp_path),
         ])
         assert result.exit_code == 0, result.output
-        controller = (tmp_path / "my-api" / "src" / "my_api" / "controllers" / "item_controller.py").read_text()
+        controller = (tmp_path / "my-api" / "src" / "my_api" / "controllers" / "todo_controller.py").read_text()
         assert "PathVar[str]" in controller
 
     def test_mongodb_service_is_async(self, tmp_path: Path):
@@ -873,7 +1061,7 @@ class TestMongoDBFeature:
             "--directory", str(tmp_path),
         ])
         assert result.exit_code == 0, result.output
-        service = (tmp_path / "my-api" / "src" / "my_api" / "services" / "item_service.py").read_text()
+        service = (tmp_path / "my-api" / "src" / "my_api" / "services" / "todo_service.py").read_text()
         assert "async def create" in service
         assert "await self._repository" in service
 
@@ -885,13 +1073,13 @@ class TestMongoDBFeature:
             "--directory", str(tmp_path),
         ])
         assert result.exit_code == 0, result.output
-        model = (tmp_path / "my-api" / "src" / "my_api" / "models" / "item.py").read_text()
-        assert "class ItemEntity(Base):" in model
-        assert "class ItemDocument(BaseDocument):" in model
+        model = (tmp_path / "my-api" / "src" / "my_api" / "models" / "todo.py").read_text()
+        assert "class TodoEntity(Base):" in model
+        assert "class TodoDocument(BaseDocument):" in model
 
-        repo = (tmp_path / "my-api" / "src" / "my_api" / "repositories" / "item_repository.py").read_text()
-        assert "Repository[ItemEntity, int]" in repo
-        assert "MongoRepository[ItemDocument, str]" in repo
+        repo = (tmp_path / "my-api" / "src" / "my_api" / "repositories" / "todo_repository.py").read_text()
+        assert "Repository[TodoEntity, int]" in repo
+        assert "MongoRepository[TodoDocument, str]" in repo
 
 
 class TestLicenseCommand:

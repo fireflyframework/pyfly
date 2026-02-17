@@ -1,0 +1,26 @@
+"""Tests for page service."""
+
+from {{ package_name }}.services.page_service import PageService
+
+
+class TestPageService:
+    def setup_method(self) -> None:
+        self.service = PageService()
+
+    def test_home_context_has_title(self) -> None:
+        context = self.service.get_home_context()
+        assert context["title"] == "Home"
+
+    def test_home_context_has_features(self) -> None:
+        context = self.service.get_home_context()
+        assert isinstance(context["features"], list)
+        assert len(context["features"]) > 0
+
+    def test_about_context_has_title(self) -> None:
+        context = self.service.get_about_context()
+        assert context["title"] == "About"
+
+    def test_about_context_has_description(self) -> None:
+        context = self.service.get_about_context()
+        assert "description" in context
+        assert len(context["description"]) > 0

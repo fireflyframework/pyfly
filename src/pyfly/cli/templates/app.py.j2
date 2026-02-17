@@ -11,11 +11,13 @@ from pyfly.core import pyfly_application
         "{{ package_name }}.application",
         "{{ package_name }}.infrastructure",
     ],
-{% elif archetype == "web-api" %}
+{% elif archetype in ("web-api", "web") %}
     scan_packages=[
         "{{ package_name }}.controllers",
         "{{ package_name }}.services",
+{% if archetype == "web-api" %}
         "{{ package_name }}.repositories",
+{% endif %}
     ],
 {% elif archetype == "cli" %}
     scan_packages=[

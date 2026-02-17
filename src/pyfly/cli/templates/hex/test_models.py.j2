@@ -1,16 +1,17 @@
 """Tests for domain models."""
 
-from {{ package_name }}.domain.models import Item
+from {{ package_name }}.domain.models import Todo
 
 
-class TestItem:
-    def test_create_item(self) -> None:
-        item = Item(name="Widget", description="A widget")
-        assert item.name == "Widget"
-        assert item.id  # auto-generated UUID
+class TestTodo:
+    def test_create_todo(self) -> None:
+        todo = Todo(title="Buy groceries", description="Milk and eggs")
+        assert todo.title == "Buy groceries"
+        assert todo.id  # auto-generated UUID
 
     def test_default_values(self) -> None:
-        item = Item()
-        assert item.name == ""
-        assert item.description == ""
-        assert item.id
+        todo = Todo()
+        assert todo.title == ""
+        assert todo.description == ""
+        assert todo.completed is False
+        assert todo.id

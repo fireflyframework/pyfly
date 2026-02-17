@@ -29,6 +29,7 @@ AVAILABLE_FEATURES: list[str] = [
 DEFAULT_FEATURES: dict[str, list[str]] = {
     "core": [],
     "web-api": ["web"],
+    "web": ["web"],
     "hexagonal": ["web"],
     "library": [],
     "cli": ["shell"],
@@ -38,6 +39,7 @@ DEFAULT_FEATURES: dict[str, list[str]] = {
 ARCHETYPE_DESCRIPTIONS: dict[str, str] = {
     "core": "Minimal microservice",
     "web-api": "Full REST API with layered architecture",
+    "web": "Server-rendered web application with HTML templates",
     "hexagonal": "Hexagonal architecture (ports & adapters)",
     "library": "Reusable library package",
     "cli": "Command-line application with interactive shell",
@@ -56,6 +58,12 @@ ARCHETYPE_DETAILS: dict[str, dict[str, str | list[str]]] = {
         "tagline": "Full REST API with controller/service/repository layers",
         "layers": ["Controllers", "Services", "Models", "Repositories"],
         "good_for": "CRUD APIs, backend services, microservices",
+    },
+    "web": {
+        "title": "Web Application (SSR)",
+        "tagline": "Server-rendered HTML with Jinja2 templates and static assets",
+        "layers": ["Controllers", "Services", "Templates", "Static"],
+        "good_for": "Websites, dashboards, admin panels, multi-page applications",
     },
     "hexagonal": {
         "title": "Hexagonal (Ports & Adapters)",
@@ -217,18 +225,18 @@ _ARCHETYPE_FILES: dict[str, list[tuple[str, str]]] = {
         # Controllers
         ("init_empty.j2", "src/{package_name}/controllers/__init__.py"),
         ("health_controller.py.j2", "src/{package_name}/controllers/health_controller.py"),
-        ("item_controller.py.j2", "src/{package_name}/controllers/item_controller.py"),
+        ("todo_controller.py.j2", "src/{package_name}/controllers/todo_controller.py"),
         # Services
         ("init_empty.j2", "src/{package_name}/services/__init__.py"),
-        ("item_service.py.j2", "src/{package_name}/services/item_service.py"),
+        ("todo_service.py.j2", "src/{package_name}/services/todo_service.py"),
         # Models
         ("init_empty.j2", "src/{package_name}/models/__init__.py"),
-        ("item_model.py.j2", "src/{package_name}/models/item.py"),
+        ("todo_model.py.j2", "src/{package_name}/models/todo.py"),
         # Repositories
         ("init_empty.j2", "src/{package_name}/repositories/__init__.py"),
-        ("item_repository.py.j2", "src/{package_name}/repositories/item_repository.py"),
+        ("todo_repository.py.j2", "src/{package_name}/repositories/todo_repository.py"),
         # Tests
-        ("test_item_controller.py.j2", "tests/test_item_controller.py"),
+        ("test_todo_service.py.j2", "tests/test_todo_service.py"),
     ],
     "hexagonal": [
         ("pyproject.toml.j2", "pyproject.toml"),
@@ -266,6 +274,35 @@ _ARCHETYPE_FILES: dict[str, list[tuple[str, str]]] = {
         ("hex/test_models.py.j2", "tests/domain/test_models.py"),
         ("init_empty.j2", "tests/application/__init__.py"),
         ("hex/test_services.py.j2", "tests/application/test_services.py"),
+    ],
+    "web": [
+        # Shared
+        ("pyproject.toml.j2", "pyproject.toml"),
+        ("app.py.j2", "src/{package_name}/app.py"),
+        ("web/main.py.j2", "src/{package_name}/main.py"),
+        ("init.py.j2", "src/{package_name}/__init__.py"),
+        ("pyfly.yaml.j2", "pyfly.yaml"),
+        ("conftest.py.j2", "tests/conftest.py"),
+        ("init_empty.j2", "tests/__init__.py"),
+        ("gitignore.j2", ".gitignore"),
+        ("readme.md.j2", "README.md"),
+        ("dockerfile.j2", "Dockerfile"),
+        ("env.example.j2", ".env.example"),
+        # Controllers
+        ("init_empty.j2", "src/{package_name}/controllers/__init__.py"),
+        ("health_controller.py.j2", "src/{package_name}/controllers/health_controller.py"),
+        ("web/home_controller.py.j2", "src/{package_name}/controllers/home_controller.py"),
+        # Services
+        ("init_empty.j2", "src/{package_name}/services/__init__.py"),
+        ("web/page_service.py.j2", "src/{package_name}/services/page_service.py"),
+        # Templates (runtime Jinja2 HTML)
+        ("web/base.html.j2", "src/{package_name}/templates/base.html"),
+        ("web/home.html.j2", "src/{package_name}/templates/home.html"),
+        ("web/about.html.j2", "src/{package_name}/templates/about.html"),
+        # Static assets
+        ("web/style.css.j2", "src/{package_name}/static/css/style.css"),
+        # Tests
+        ("web/test_home_controller.py.j2", "tests/test_home_controller.py"),
     ],
     "library": [
         ("pyproject.toml.j2", "pyproject.toml"),
@@ -350,7 +387,7 @@ def generate_project(name: str, project_dir: Path, archetype: str, features: lis
     Args:
         name: Project name (e.g. ``"my-service"``).
         project_dir: Target directory to create.
-        archetype: One of ``core``, ``web-api``, ``hexagonal``, ``library``, ``cli``.
+        archetype: One of ``core``, ``web-api``, ``web``, ``hexagonal``, ``library``, ``cli``.
         features: Selected PyFly extras (e.g. ``["web", "data-relational"]``).
     """
     env = _get_env()

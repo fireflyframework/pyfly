@@ -4,77 +4,95 @@ from __future__ import annotations
 
 from pyfly.container import service
 
-from {{ package_name }}.domain.models import Item
+from {{ package_name }}.domain.models import Todo
 {% if has_data %}
-from {{ package_name }}.domain.models import ItemEntity
-from {{ package_name }}.infrastructure.adapters.persistence import ItemRepository
+from {{ package_name }}.domain.models import TodoEntity
+from {{ package_name }}.infrastructure.adapters.persistence import TodoRepository
 {% elif has_mongodb %}
-from {{ package_name }}.domain.models import ItemDocument
-from {{ package_name }}.infrastructure.adapters.persistence import ItemDocumentRepository
+from {{ package_name }}.domain.models import TodoDocument
+from {{ package_name }}.infrastructure.adapters.persistence import TodoDocumentRepository
 {% else %}
-from {{ package_name }}.infrastructure.adapters.persistence import InMemoryItemRepository
+from {{ package_name }}.infrastructure.adapters.persistence import InMemoryTodoRepository
 {% endif %}
 
 
 @service
-class ItemService:
-    """Implements the inbound ports for item management."""
+class TodoService:
+    """Implements the inbound ports for todo management."""
 {% if has_data %}
 
-    def __init__(self, repository: ItemRepository) -> None:
+    def __init__(self, repository: TodoRepository) -> None:
         self._repository = repository
 
-    async def create(self, name: str, description: str) -> Item:
-        entity = ItemEntity(name=name, description=description)
+    async def create(self, title: str, description: str) -> Todo:
+        entity = TodoEntity(title=title, description=description)
         saved = await self._repository.save(entity)
-        return Item(id=str(saved.id), name=saved.name, description=saved.description)
+        return Todo(id=str(saved.id), title=saved.title, description=saved.description, completed=saved.completed)
 
-    async def get(self, item_id: int) -> Item:
-        entity = await self._repository.find_by_id(item_id)
-        return Item(id=str(entity.id), name=entity.name, description=entity.description)
+    async def get(self, todo_id: int) -> Todo:
+        entity = await self._repository.find_by_id(todo_id)
+        return Todo(id=str(entity.id), title=entity.title, description=entity.description, completed=entity.completed)
 
-    async def list_all(self) -> list[Item]:
+    async def list_all(self) -> list[Todo]:
         entities = await self._repository.find_all()
-        return [Item(id=str(e.id), name=e.name, description=e.description) for e in entities]
+        return [Todo(id=str(e.id), title=e.title, description=e.description, completed=e.completed) for e in entities]
 
-    async def delete(self, item_id: int) -> None:
-        await self._repository.delete(item_id)
+    async def toggle_complete(self, todo_id: int) -> Todo:
+        entity = await self._repository.find_by_id(todo_id)
+        entity.completed = not entity.completed
+        saved = await self._repository.save(entity)
+        return Todo(id=str(saved.id), title=saved.title, description=saved.description, completed=saved.completed)
+
+    async def delete(self, todo_id: int) -> None:
+        await self._repository.delete(todo_id)
 {% elif has_mongodb %}
 
-    def __init__(self, repository: ItemDocumentRepository) -> None:
+    def __init__(self, repository: TodoDocumentRepository) -> None:
         self._repository = repository
 
-    async def create(self, name: str, description: str) -> Item:
-        doc = ItemDocument(name=name, description=description)
+    async def create(self, title: str, description: str) -> Todo:
+        doc = TodoDocument(title=title, description=description)
         saved = await self._repository.save(doc)
-        return Item(id=str(saved.id), name=saved.name, description=saved.description)
+        return Todo(id=str(saved.id), title=saved.title, description=saved.description, completed=saved.completed)
 
-    async def get(self, item_id: str) -> Item:
-        doc = await self._repository.find_by_id(item_id)
-        return Item(id=str(doc.id), name=doc.name, description=doc.description)
+    async def get(self, todo_id: str) -> Todo:
+        doc = await self._repository.find_by_id(todo_id)
+        return Todo(id=str(doc.id), title=doc.title, description=doc.description, completed=doc.completed)
 
-    async def list_all(self) -> list[Item]:
+    async def list_all(self) -> list[Todo]:
         docs = await self._repository.find_all()
-        return [Item(id=str(d.id), name=d.name, description=d.description) for d in docs]
+        return [Todo(id=str(d.id), title=d.title, description=d.description, completed=d.completed) for d in docs]
 
-    async def delete(self, item_id: str) -> None:
-        await self._repository.delete(item_id)
+    async def toggle_complete(self, todo_id: str) -> Todo:
+        doc = await self._repository.find_by_id(todo_id)
+        doc.completed = not doc.completed
+        saved = await self._repository.save(doc)
+        return Todo(id=str(saved.id), title=saved.title, description=saved.description, completed=saved.completed)
+
+    async def delete(self, todo_id: str) -> None:
+        await self._repository.delete(todo_id)
 {% else %}
 
-    def __init__(self, repository: InMemoryItemRepository) -> None:
+    def __init__(self, repository: InMemoryTodoRepository) -> None:
         self._repository = repository
 
-    def create(self, name: str, description: str) -> Item:
-        item = Item(name=name, description=description)
-        self._repository.save(item)
-        return item
+    def create(self, title: str, description: str) -> Todo:
+        todo = Todo(title=title, description=description)
+        self._repository.save(todo)
+        return todo
 
-    def get(self, item_id: str) -> Item:
-        return self._repository.find_by_id(item_id)
+    def get(self, todo_id: str) -> Todo:
+        return self._repository.find_by_id(todo_id)
 
-    def list_all(self) -> list[Item]:
+    def list_all(self) -> list[Todo]:
         return self._repository.find_all()
 
-    def delete(self, item_id: str) -> None:
-        self._repository.delete(item_id)
+    def toggle_complete(self, todo_id: str) -> Todo:
+        todo = self._repository.find_by_id(todo_id)
+        todo.completed = not todo.completed
+        self._repository.save(todo)
+        return todo
+
+    def delete(self, todo_id: str) -> None:
+        self._repository.delete(todo_id)
 {% endif %}

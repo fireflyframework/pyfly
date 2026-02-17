@@ -351,6 +351,7 @@ The `pyfly` CLI generates production-ready project structures with DI stereotype
 |---------|-------------|
 | `pyfly new my-app` | Minimal microservice (`core` archetype) |
 | `pyfly new my-api --archetype web-api` | REST API with controllers, services, repositories |
+| `pyfly new my-site --archetype web` | Server-rendered HTML with Jinja2 templates |
 | `pyfly new my-svc --archetype hexagonal` | Hexagonal architecture with ports & adapters |
 | `pyfly new my-lib --archetype library` | Reusable library with `py.typed` marker |
 | `pyfly new my-tool --archetype cli` | CLI application with interactive shell and DI |
@@ -385,6 +386,7 @@ $ pyfly new
   ? Select archetype: (use arrow keys)
     ❯ core          Minimal microservice with DI container and config
       web-api       Full REST API with controller/service/repository layers
+      web           Server-rendered HTML with Jinja2 templates and static assets
       hexagonal     Clean architecture with domain isolation
       library       Reusable library with py.typed and packaging best practices
       cli           Command-line application with interactive shell and DI
@@ -416,20 +418,20 @@ order-service/
 │   ├── controllers/
 │   │   ├── __init__.py
 │   │   ├── health_controller.py   # @rest_controller — /health
-│   │   └── item_controller.py     # @rest_controller — CRUD /items
+│   │   └── todo_controller.py     # @rest_controller — CRUD /todos
 │   ├── services/
 │   │   ├── __init__.py
-│   │   └── item_service.py        # @service — business logic
+│   │   └── todo_service.py        # @service — business logic
 │   ├── models/
 │   │   ├── __init__.py
-│   │   └── item.py                # Pydantic DTOs
+│   │   └── todo.py                # Pydantic DTOs
 │   └── repositories/
 │       ├── __init__.py
-│       └── item_repository.py     # @repository — data access
+│       └── todo_repository.py     # @repository — data access
 └── tests/
     ├── __init__.py
     ├── conftest.py
-    └── test_item_controller.py
+    └── test_todo_service.py
 ```
 
 ### Other CLI Commands
@@ -554,7 +556,7 @@ See **[ROADMAP.md](ROADMAP.md)** for the full roadmap toward feature parity with
 
 See **[CHANGELOG.md](CHANGELOG.md)** for detailed release notes.
 
-**Current:** v0.1.0-alpha.5 (2026-02-17) — Transactional engine module (`@saga`, `@saga_step`, `@tcc`, `@tcc_participant`), SAGA and TCC distributed transaction patterns with compensation, recovery, and composition. Admin dashboard with 15 built-in views, SSE streams, server mode fleet monitoring, and custom view extensibility.
+**Current:** v0.1.0-alpha.6 (2026-02-18) — New `web` archetype for server-rendered HTML applications with Jinja2 templates, static assets, and `@controller` stereotype. `@controller` runtime support (route discovery + `Request` injection). Web API and hexagonal archetypes now scaffold a Todo CRUD example instead of generic Items.
 
 ---
 

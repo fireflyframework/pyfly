@@ -4,20 +4,20 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from {{ package_name }}.domain.models import Item
+from {{ package_name }}.domain.models import Todo
 
 
-class CreateItemUseCase(Protocol):
-    def create(self, name: str, description: str) -> Item: ...
+class CreateTodoUseCase(Protocol):
+    def create(self, title: str, description: str) -> Todo: ...
 
 
-class GetItemUseCase(Protocol):
-    def get(self, item_id: str) -> Item: ...
+class GetTodoUseCase(Protocol):
+    def get(self, todo_id: str) -> Todo: ...
 
 
-class ListItemsUseCase(Protocol):
-    def list_all(self) -> list[Item]: ...
+class ListTodosUseCase(Protocol):
+    def list_all(self) -> list[Todo]: ...
 
 
-class DeleteItemUseCase(Protocol):
-    def delete(self, item_id: str) -> None: ...
+class DeleteTodoUseCase(Protocol):
+    def delete(self, todo_id: str) -> None: ...

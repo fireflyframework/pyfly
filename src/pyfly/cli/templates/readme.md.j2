@@ -6,6 +6,8 @@ A reusable PyFly library.
 A PyFly application using hexagonal architecture (ports & adapters).
 {% elif archetype == "web-api" %}
 A PyFly REST API with layered architecture.
+{% elif archetype == "web" %}
+A PyFly server-rendered web application with HTML templates.
 {% elif archetype == "cli" %}
 A PyFly command-line application with interactive shell.
 {% else %}
@@ -65,13 +67,28 @@ pytest
     main.py                         # ASGI entry point (uvicorn target)
     controllers/                    # REST controllers
       health_controller.py          # Health check endpoint
-      item_controller.py            # Example CRUD controller
+      todo_controller.py            # Todo CRUD controller
     services/                       # Business logic
-      item_service.py               # Example service
+      todo_service.py               # Todo service
     models/                         # Pydantic models
-      item.py                       # Request/response DTOs
+      todo.py                       # Request/response DTOs
     repositories/                   # Data access
-      item_repository.py            # Example repository
+      todo_repository.py            # Todo repository
+{% elif archetype == "web" %}
+  src/{{ package_name }}/
+    app.py                          # Application definition
+    main.py                         # ASGI entry point with static files
+    controllers/                    # Web controllers
+      health_controller.py          # Health check endpoint
+      home_controller.py            # HTML page controllers
+    services/                       # Business logic
+      page_service.py               # Page content service
+    templates/                      # Jinja2 HTML templates
+      base.html                     # Base layout template
+      home.html                     # Home page
+      about.html                    # About page
+    static/                         # Static assets
+      css/style.css                 # Stylesheet
 {% elif archetype == "cli" %}
   src/{{ package_name }}/
     app.py                          # Application definition
@@ -103,6 +120,14 @@ python -m {{ package_name }}.main
 #   goodbye [--name NAME]  Say goodbye
 #   help                   Show available commands
 ```
+{% elif archetype == "web" %}
+
+## Pages
+
+Once running, visit:
+- **Home:** http://localhost:8080/
+- **About:** http://localhost:8080/about
+- **Health:** http://localhost:8080/health
 {% else %}
 
 ## API Documentation

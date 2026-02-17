@@ -1,0 +1,26 @@
+"""Page content service."""
+
+from pyfly.container import service
+
+
+@service
+class PageService:
+
+    def get_home_context(self) -> dict:
+        return {
+            "title": "Home",
+            "heading": "Welcome to {{ name }}",
+            "features": [
+                "Server-rendered HTML with Jinja2 templates",
+                "Dependency injection with PyFly container",
+                "Static file serving (CSS, JS, images)",
+                "Health check endpoint at /health",
+            ],
+        }
+
+    def get_about_context(self) -> dict:
+        return {
+            "title": "About",
+            "heading": "About {{ name }}",
+            "description": "Built with PyFly — the Python framework for enterprise applications.",
+        }

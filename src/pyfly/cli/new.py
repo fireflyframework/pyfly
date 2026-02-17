@@ -262,6 +262,10 @@ def new_command(name: str | None, archetype: str | None, features_str: str | Non
         console.print(f"    python -m {name.replace('-', '_').replace(' ', '_').lower()}.main")
     elif archetype != "library":
         console.print("    pyfly run --reload")
+    if archetype == "web":
+        console.print("\n  [info]Pages:[/info]")
+        console.print("    http://localhost:8080/")
+        console.print("    http://localhost:8080/about")
     console.print()
     print_post_generation_tips(features)
     console.print()

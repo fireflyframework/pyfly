@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## v0.1.0-alpha.6 (2026-02-18)
+
+### Added
+
+- **`web` archetype** (`pyfly new --archetype web`) — New scaffolding archetype for server-rendered HTML applications. Generates `@controller` endpoints with Jinja2 `TemplateResponse`, `@service` page data providers, HTML templates (`base.html`, `home.html`, `about.html`), static CSS assets, and `StaticFiles` mounting in `main.py`. Includes `jinja2>=3.1` dependency. Default feature: `web`
+- **`@controller` runtime support** — `ControllerRegistrar` now discovers both `@rest_controller` and `@controller` stereotypes for route registration. Controllers returning Starlette `Response` objects (e.g., `TemplateResponse`) are passed through unchanged
+- **`Request` parameter injection** — `ParameterResolver` now supports injecting the raw Starlette `Request` object into controller method parameters via type hint (`request: Request`). Required for `TemplateResponse` rendering
+
+### Changed
+
+- **Web API archetype** — Replaced generic "Item" CRUD example with a "Todo" CRUD example (`title`, `completed`, `description` fields). Files renamed: `item_controller.py` → `todo_controller.py`, `item_service.py` → `todo_service.py`, `item.py` → `todo.py`, `item_repository.py` → `todo_repository.py`, `test_item_controller.py` → `test_todo_service.py`. Added `PUT /todos/{todo_id}` for toggling completion
+- **Hexagonal archetype** — All hex templates updated from "Item" to "Todo" naming with `completed` field, `toggle_complete()` methods, and `PUT` mapping in controllers
+- **Vendor isolation tests** — Updated to exclude `/cli/templates/` from starlette import leak detection (scaffolding templates legitimately contain starlette imports)
+
+---
+
 ## v0.1.0-alpha.5 (2026-02-17)
 
 ### Added

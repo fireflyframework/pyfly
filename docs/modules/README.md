@@ -59,7 +59,7 @@ PyFly Data follows the **Spring Data architecture**: a shared commons layer (`py
 | [Data Relational — SQLAlchemy Adapter](data-relational.md) | `Repository[T, ID]`, `BaseEntity`, `Specification` pattern, `@query` (JPQL/native SQL), `reactive_transactional`, `FilterOperator`/`FilterUtils`, `RepositoryBeanPostProcessor`, Alembic migrations |
 | [Data Document — MongoDB Adapter](data-document.md) | `MongoRepository[T, ID]`, `BaseDocument`, `MongoQueryMethodCompiler`, `mongo_transactional`, `MongoRepositoryBeanPostProcessor`, Beanie ODM setup |
 
-> **Multi-backend projects:** You can use SQL and MongoDB simultaneously. The CLI supports selecting both `data-relational` (SQL) and `data-document` features together — templates generate both `ItemEntity` + `ItemDocument` and both repository types.
+> **Multi-backend projects:** You can use SQL and MongoDB simultaneously. The CLI supports selecting both `data-relational` (SQL) and `data-document` features together — templates generate both `TodoEntity` + `TodoDocument` and both repository types.
 
 ---
 

@@ -1,36 +1,38 @@
-"""Tests for application services."""
+"""Tests for todo service."""
 
-from {{ package_name }}.application.services import TodoService
-from {{ package_name }}.infrastructure.adapters.persistence import InMemoryTodoRepository
+from {{ package_name }}.models.todo import TodoCreate
+from {{ package_name }}.services.todo_service import TodoService
+from {{ package_name }}.repositories.todo_repository import TodoRepository
 
 
 class TestTodoService:
     def setup_method(self) -> None:
-        self.repository = InMemoryTodoRepository()
+        self.repository = TodoRepository()
         self.service = TodoService(self.repository)
 
     def test_create_todo(self) -> None:
-        todo = self.service.create("Buy groceries", "Milk and eggs")
+        todo = self.service.create(TodoCreate(title="Buy groceries", description="Milk and eggs"))
         assert todo.title == "Buy groceries"
+        assert todo.completed is False
         assert todo.id
 
     def test_list_todos(self) -> None:
-        self.service.create("Task A", "")
-        self.service.create("Task B", "")
+        self.service.create(TodoCreate(title="Task A"))
+        self.service.create(TodoCreate(title="Task B"))
         assert len(self.service.list_all()) == 2
 
     def test_get_todo(self) -> None:
-        created = self.service.create("Buy groceries", "")
+        created = self.service.create(TodoCreate(title="Buy groceries"))
         found = self.service.get(created.id)
         assert found.title == "Buy groceries"
 
     def test_toggle_complete(self) -> None:
-        created = self.service.create("Buy groceries", "")
+        created = self.service.create(TodoCreate(title="Buy groceries"))
         assert created.completed is False
         toggled = self.service.toggle_complete(created.id)
         assert toggled.completed is True
 
     def test_delete_todo(self) -> None:
-        created = self.service.create("Buy groceries", "")
+        created = self.service.create(TodoCreate(title="Buy groceries"))
         self.service.delete(created.id)
         assert len(self.service.list_all()) == 0

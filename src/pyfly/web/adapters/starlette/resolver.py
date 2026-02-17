@@ -63,6 +63,11 @@ class ParameterResolver:
             if hint is None:
                 continue
 
+            # Support injecting the raw Starlette Request
+            if hint is Request:
+                params.append(ResolvedParam(name=name, binding_type=Request, inner_type=Request))
+                continue
+
             origin = get_origin(hint)
             validate = False
 
@@ -114,6 +119,8 @@ class ParameterResolver:
         return kwargs
 
     async def _resolve_one(self, request: Request, param: ResolvedParam) -> Any:
+        if param.binding_type is Request:
+            return request
         if param.binding_type is PathVar:
             return self._resolve_path_var(request, param)
         if param.binding_type is QueryParam:

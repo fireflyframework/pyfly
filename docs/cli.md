@@ -73,6 +73,7 @@ src/pyfly/cli/
     ├── readme.md.j2
     ├── ...
     ├── hex/         # Hexagonal archetype templates
+    ├── web/         # Web (SSR) archetype templates
     └── cli/         # CLI archetype templates
 ```
 
@@ -106,7 +107,7 @@ The `--version` flag reads the version from the `pyfly` package metadata.
 
 ## pyfly new
 
-Create a new PyFly project with a complete directory structure, configuration files, and starter code. Supports five archetypes, selective feature inclusion, and an interactive mode.
+Create a new PyFly project with a complete directory structure, configuration files, and starter code. Supports six archetypes, selective feature inclusion, and an interactive mode.
 
 ### Usage
 
@@ -137,6 +138,7 @@ The project name is converted to a valid Python package name: `my-service` becom
 |-----------|-------------|-----------------|
 | `core` | Minimal microservice | *(none)* |
 | `web-api` | Full REST API with layered architecture | `web` |
+| `web` | Server-rendered web application with HTML templates | `web` |
 | `hexagonal` | Hexagonal architecture (ports & adapters) | `web` |
 | `library` | Reusable library package | *(none)* |
 | `cli` | Command-line application with interactive shell | `shell` |
@@ -183,7 +185,7 @@ my-service/
 
 ### Web API Archetype
 
-The `web-api` archetype creates a full REST API with layered controllers, services, models, and repositories — all using PyFly stereotypes:
+The `web-api` archetype creates a full REST API with layered controllers, services, models, and repositories — all using PyFly stereotypes. The example uses a Todo CRUD API with `title`, `completed`, and `description` fields:
 
 ```
 my-api/
@@ -201,21 +203,60 @@ my-api/
 │       ├── controllers/
 │       │   ├── __init__.py
 │       │   ├── health_controller.py    # @rest_controller — /health
-│       │   └── item_controller.py      # @rest_controller — CRUD /items
+│       │   └── todo_controller.py      # @rest_controller — CRUD /todos
 │       ├── services/
 │       │   ├── __init__.py
-│       │   └── item_service.py         # @service — business logic
+│       │   └── todo_service.py         # @service — business logic
 │       ├── models/
 │       │   ├── __init__.py
-│       │   └── item.py                 # Pydantic request/response DTOs
+│       │   └── todo.py                 # Pydantic request/response DTOs
 │       └── repositories/
 │           ├── __init__.py
-│           └── item_repository.py      # @repository — in-memory store
+│           └── todo_repository.py      # @repository — in-memory store
 └── tests/
     ├── __init__.py
     ├── conftest.py
-    └── test_item_controller.py
+    └── test_todo_service.py
 ```
+
+### Web Archetype
+
+The `web` archetype creates a server-rendered HTML application with Jinja2 templates, static assets, and the `@controller` stereotype:
+
+```
+my-site/
+├── pyproject.toml
+├── pyfly.yaml
+├── Dockerfile
+├── README.md
+├── .gitignore
+├── .env.example
+├── src/
+│   └── my_site/
+│       ├── __init__.py
+│       ├── app.py
+│       ├── main.py                     # ASGI entry with StaticFiles mount
+│       ├── controllers/
+│       │   ├── __init__.py
+│       │   ├── health_controller.py    # @rest_controller — /health
+│       │   └── home_controller.py      # @controller — / and /about
+│       ├── services/
+│       │   ├── __init__.py
+│       │   └── page_service.py         # @service — page context data
+│       ├── templates/
+│       │   ├── base.html               # Base layout with nav and footer
+│       │   ├── home.html               # Home page
+│       │   └── about.html              # About page
+│       └── static/
+│           └── css/
+│               └── style.css           # Minimal stylesheet
+└── tests/
+    ├── __init__.py
+    ├── conftest.py
+    └── test_home_controller.py
+```
+
+The `web` archetype uses `@controller` (instead of `@rest_controller`) for endpoints that return `TemplateResponse` objects. The `main.py` mounts a `/static` route for serving CSS, JavaScript, and images via Starlette's `StaticFiles`.
 
 ### Hexagonal Archetype
 
@@ -336,6 +377,7 @@ $ pyfly new
   ? Select archetype: (use arrow keys)
     ❯ core          Minimal microservice with DI container and config
       web-api       Full REST API with controller/service/repository layers
+      web           Server-rendered HTML with Jinja2 templates and static assets
       hexagonal     Clean architecture with domain isolation
       library       Reusable library with py.typed and packaging best practices
       cli           Command-line application with interactive shell and DI
@@ -381,8 +423,11 @@ If the target directory already exists, the command exits with an error. If an u
 # Create a microservice (core archetype, no features)
 pyfly new order-service
 
-# Create a REST API (includes health controller, CRUD example)
+# Create a REST API (includes health controller, Todo CRUD example)
 pyfly new order-api --archetype web-api
+
+# Create a server-rendered web application with HTML templates
+pyfly new my-site --archetype web
 
 # Create a hexagonal project with data and cache
 pyfly new order-svc --archetype hexagonal --features web,data-relational,cache

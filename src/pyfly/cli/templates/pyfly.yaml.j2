@@ -5,7 +5,7 @@ pyfly:
     module: {{ package_name }}.main:app
 {% endif %}
 
-{% if has_web or archetype in ("web-api", "hexagonal", "core") %}
+{% if has_web or archetype in ("web-api", "web", "hexagonal", "core") %}
   web:
     port: 8080
     adapter: auto
@@ -22,7 +22,7 @@ pyfly:
       enabled: true
 {% endif %}
 
-{% if has_web or archetype in ("web-api", "hexagonal") %}
+{% if has_web or archetype in ("web-api", "web", "hexagonal") %}
   admin:
     enabled: true
     # title: "{{ name }} Admin"

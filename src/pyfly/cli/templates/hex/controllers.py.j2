@@ -1,10 +1,10 @@
 """REST controllers — API layer."""
 
 from pyfly.container import rest_controller
-from pyfly.web import PathVar, Valid, delete_mapping, get_mapping, post_mapping, request_mapping
+from pyfly.web import PathVar, Valid, delete_mapping, get_mapping, post_mapping, put_mapping, request_mapping
 
-from {{ package_name }}.api.dto import ItemCreateRequest, ItemResponseDTO
-from {{ package_name }}.application.services import ItemService
+from {{ package_name }}.api.dto import TodoCreateRequest, TodoResponseDTO
+from {{ package_name }}.application.services import TodoService
 
 
 @rest_controller
@@ -17,43 +17,52 @@ class HealthController:
 
 
 @rest_controller
-@request_mapping("/items")
-class ItemController:
+@request_mapping("/todos")
+class TodoController:
 
-    def __init__(self, item_service: ItemService) -> None:
-        self._service = item_service
+    def __init__(self, todo_service: TodoService) -> None:
+        self._service = todo_service
 
     @get_mapping("/")
-    async def list_items(self) -> list[ItemResponseDTO]:
+    async def list_todos(self) -> list[TodoResponseDTO]:
 {% if has_data or has_mongodb %}
-        items = await self._service.list_all()
+        todos = await self._service.list_all()
 {% else %}
-        items = self._service.list_all()
+        todos = self._service.list_all()
 {% endif %}
-        return [ItemResponseDTO(id=i.id, name=i.name, description=i.description) for i in items]
+        return [TodoResponseDTO(id=t.id, title=t.title, description=t.description, completed=t.completed) for t in todos]
 
-    @get_mapping("/{item_id}")
-    async def get_item(self, item_id: PathVar[{% if has_data %}int{% else %}str{% endif %}]) -> ItemResponseDTO:
+    @get_mapping("/{todo_id}")
+    async def get_todo(self, todo_id: PathVar[{% if has_data %}int{% else %}str{% endif %}]) -> TodoResponseDTO:
 {% if has_data or has_mongodb %}
-        item = await self._service.get(item_id)
+        todo = await self._service.get(todo_id)
 {% else %}
-        item = self._service.get(item_id)
+        todo = self._service.get(todo_id)
 {% endif %}
-        return ItemResponseDTO(id=item.id, name=item.name, description=item.description)
+        return TodoResponseDTO(id=todo.id, title=todo.title, description=todo.description, completed=todo.completed)
 
     @post_mapping("/", status_code=201)
-    async def create_item(self, body: Valid[ItemCreateRequest]) -> ItemResponseDTO:
+    async def create_todo(self, body: Valid[TodoCreateRequest]) -> TodoResponseDTO:
 {% if has_data or has_mongodb %}
-        item = await self._service.create(name=body.name, description=body.description)
+        todo = await self._service.create(title=body.title, description=body.description)
 {% else %}
-        item = self._service.create(name=body.name, description=body.description)
+        todo = self._service.create(title=body.title, description=body.description)
 {% endif %}
-        return ItemResponseDTO(id=item.id, name=item.name, description=item.description)
+        return TodoResponseDTO(id=todo.id, title=todo.title, description=todo.description, completed=todo.completed)
 
-    @delete_mapping("/{item_id}", status_code=204)
-    async def delete_item(self, item_id: PathVar[{% if has_data %}int{% else %}str{% endif %}]) -> None:
+    @put_mapping("/{todo_id}")
+    async def update_todo(self, todo_id: PathVar[{% if has_data %}int{% else %}str{% endif %}]) -> TodoResponseDTO:
 {% if has_data or has_mongodb %}
-        await self._service.delete(item_id)
+        todo = await self._service.toggle_complete(todo_id)
 {% else %}
-        self._service.delete(item_id)
+        todo = self._service.toggle_complete(todo_id)
+{% endif %}
+        return TodoResponseDTO(id=todo.id, title=todo.title, description=todo.description, completed=todo.completed)
+
+    @delete_mapping("/{todo_id}", status_code=204)
+    async def delete_todo(self, todo_id: PathVar[{% if has_data %}int{% else %}str{% endif %}]) -> None:
+{% if has_data or has_mongodb %}
+        await self._service.delete(todo_id)
+{% else %}
+        self._service.delete(todo_id)
 {% endif %}

@@ -1,0 +1,63 @@
+"""Todo REST controller."""
+
+from pyfly.container import rest_controller
+from pyfly.web import (
+    PathVar,
+    Valid,
+    delete_mapping,
+    get_mapping,
+    post_mapping,
+    put_mapping,
+    request_mapping,
+)
+
+from {{ package_name }}.models.todo import TodoCreate, TodoResponse
+from {{ package_name }}.services.todo_service import TodoService
+
+
+@rest_controller
+@request_mapping("/todos")
+class TodoController:
+
+    def __init__(self, todo_service: TodoService) -> None:
+        self._service = todo_service
+
+    @get_mapping("/")
+    async def list_todos(self) -> list[TodoResponse]:
+{% if has_data or has_mongodb %}
+        return await self._service.list_all()
+{% else %}
+        return self._service.list_all()
+{% endif %}
+
+    @get_mapping("/{todo_id}")
+    async def get_todo(self, todo_id: PathVar[{% if has_data %}int{% else %}str{% endif %}]) -> TodoResponse:
+{% if has_data or has_mongodb %}
+        return await self._service.get(todo_id)
+{% else %}
+        return self._service.get(todo_id)
+{% endif %}
+
+    @post_mapping("/", status_code=201)
+    async def create_todo(self, body: Valid[TodoCreate]) -> TodoResponse:
+{% if has_data or has_mongodb %}
+        return await self._service.create(body)
+{% else %}
+        return self._service.create(body)
+{% endif %}
+
+    @put_mapping("/{todo_id}")
+    async def update_todo(self, todo_id: PathVar[{% if has_data %}int{% else %}str{% endif %}]) -> TodoResponse:
+{% if has_data or has_mongodb %}
+        return await self._service.toggle_complete(todo_id)
+{% else %}
+        return self._service.toggle_complete(todo_id)
+{% endif %}
+
+    @delete_mapping("/{todo_id}", status_code=204)
+    async def delete_todo(self, todo_id: PathVar[{% if has_data %}int{% else %}str{% endif %}]) -> None:
+{% if has_data or has_mongodb %}
+        await self._service.delete(todo_id)
+{% else %}
+        self._service.delete(todo_id)
+{% endif %}
