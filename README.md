@@ -521,7 +521,7 @@ See **[ROADMAP.md](ROADMAP.md)** for the full roadmap toward feature parity with
 
 See **[CHANGELOG.md](CHANGELOG.md)** for detailed release notes.
 
-**Current:** v0.1.0-alpha.3 (2026-02-15) — MongoDB support via Beanie ODM, WebFilter chain, `Valid[T]` validation, extensible actuator, config-driven web adapter.
+**Current:** v0.1.0-alpha.4 (2026-02-17) — Shell subsystem (`@shell_component`, `@shell_method`, `CommandLineRunner`, Click adapter), decentralized auto-configuration via entry points.
 
 ---
 
