@@ -215,10 +215,12 @@ class ApplicationContext:
         self._wire_cqrs_handlers()
         self._wire_scheduled()
         self._wire_async_methods()
+        self._wire_shell_commands()
 
         # 7. Publish lifecycle events
         await self._event_bus.publish(ContextRefreshedEvent())
         await self._event_bus.publish(ApplicationReadyEvent())
+        await self._invoke_runners()
         self._started = True
 
     async def stop(self) -> None:
@@ -561,6 +563,90 @@ class ApplicationContext:
         self._wiring_counts["async_methods"] = count
         if count:
             logger.debug("Wired %d @async_method(s)", count)
+
+    def _wire_shell_commands(self) -> None:
+        """Scan @shell_component beans for @shell_method methods and register with ShellRunnerPort."""
+        count = 0
+        runner: Any | None = None
+        for cls, reg in self._container._registrations.items():
+            if getattr(cls, "__pyfly_stereotype__", "") != "shell_component":
+                continue
+            if reg.instance is None:
+                continue
+            # Lazy-resolve runner on first hit
+            if runner is None:
+                try:
+                    from pyfly.shell.ports.outbound import ShellRunnerPort
+
+                    runner = self._container.resolve(ShellRunnerPort)
+                except KeyError:
+                    logger.debug("No ShellRunnerPort registered; skipping @shell_method wiring")
+                    self._wiring_counts["shell_commands"] = 0
+                    return
+            for attr_name in dir(reg.instance):
+                if attr_name.startswith("_"):
+                    continue
+                try:
+                    method = getattr(reg.instance, attr_name)
+                except Exception:
+                    continue
+                if not getattr(method, "__pyfly_shell_method__", False):
+                    continue
+
+                from pyfly.shell.param_inference import infer_params
+
+                key = getattr(method, "__pyfly_shell_key__", attr_name)
+                help_text = getattr(method, "__pyfly_shell_help__", "")
+                group = getattr(method, "__pyfly_shell_group__", "")
+                params = infer_params(method)
+                runner.register_command(key, method, help_text=help_text, group=group, params=params)
+                count += 1
+        self._wiring_counts["shell_commands"] = count
+        if count:
+            logger.debug("Wired %d @shell_method command(s)", count)
+
+    async def _invoke_runners(self) -> None:
+        """Invoke CommandLineRunner and ApplicationRunner beans after startup."""
+        import sys
+
+        args = sys.argv[1:]
+        runners: list[tuple[int, Any]] = []
+        for cls, reg in self._container._registrations.items():
+            if reg.instance is None:
+                continue
+            if self._is_runner(reg.instance):
+                runners.append((get_order(cls), reg.instance))
+
+        runners.sort(key=lambda pair: pair[0])
+        for _, runner in runners:
+            hints = typing.get_type_hints(runner.run)
+            hints.pop("return", None)
+            first_param_type = next(iter(hints.values()), None)
+
+            from pyfly.shell.runner import ApplicationArguments
+
+            if first_param_type is ApplicationArguments:
+                result = runner.run(ApplicationArguments.from_args(args))
+            else:
+                result = runner.run(args)
+
+            if inspect.isawaitable(result):
+                await result
+
+    @staticmethod
+    def _is_runner(instance: object) -> bool:
+        """Check if an instance conforms to CommandLineRunner or ApplicationRunner."""
+        try:
+            from pyfly.shell.ports.outbound import ShellRunnerPort
+            from pyfly.shell.runner import ApplicationRunner, CommandLineRunner
+
+            # Exclude ShellRunnerPort adapters — they satisfy CommandLineRunner
+            # structurally (both have async run()) but are not lifecycle runners.
+            if isinstance(instance, ShellRunnerPort):
+                return False
+            return isinstance(instance, (CommandLineRunner, ApplicationRunner))
+        except ImportError:
+            return False
 
     # ------------------------------------------------------------------
     # Registry stats (for startup logging)
