@@ -1,0 +1,74 @@
+/* PyFly Admin Dashboard — Theme Definitions */
+
+:root,
+[data-theme="dark"] {
+    --admin-bg: #0c1222;
+    --admin-bg-subtle: #111a2e;
+    --admin-surface: #162032;
+    --admin-surface-hover: #1c2a42;
+    --admin-surface-active: #243352;
+    --admin-text: #e2e8f0;
+    --admin-text-secondary: #94a3b8;
+    --admin-text-muted: #64748b;
+    --admin-primary: #3b82f6;
+    --admin-primary-hover: #60a5fa;
+    --admin-primary-dim: rgba(59, 130, 246, 0.15);
+    --admin-success: #10b981;
+    --admin-success-dim: rgba(16, 185, 129, 0.15);
+    --admin-danger: #f43f5e;
+    --admin-danger-dim: rgba(244, 63, 94, 0.15);
+    --admin-warning: #f59e0b;
+    --admin-warning-dim: rgba(245, 158, 11, 0.15);
+    --admin-info: #06b6d4;
+    --admin-info-dim: rgba(6, 182, 212, 0.15);
+    --admin-border: #1e293b;
+    --admin-border-subtle: #162032;
+    --admin-sidebar-bg: #070d1a;
+    --admin-sidebar-text: #94a3b8;
+    --admin-sidebar-text-active: #e2e8f0;
+    --admin-sidebar-hover: #0f1729;
+    --admin-sidebar-active: #162032;
+    --admin-sidebar-accent: #3b82f6;
+    --admin-sidebar-width: 260px;
+    --admin-navbar-height: 56px;
+    --admin-radius: 8px;
+    --admin-radius-sm: 4px;
+    --admin-radius-lg: 12px;
+    --admin-shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+    --admin-shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.4);
+    --admin-font-sans: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    --admin-font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+    --admin-transition: 150ms ease;
+}
+
+[data-theme="light"] {
+    --admin-bg: #f1f5f9;
+    --admin-bg-subtle: #e8edf4;
+    --admin-surface: #ffffff;
+    --admin-surface-hover: #f8fafc;
+    --admin-surface-active: #f1f5f9;
+    --admin-text: #0f172a;
+    --admin-text-secondary: #475569;
+    --admin-text-muted: #94a3b8;
+    --admin-primary: #2563eb;
+    --admin-primary-hover: #3b82f6;
+    --admin-primary-dim: rgba(37, 99, 235, 0.1);
+    --admin-success: #059669;
+    --admin-success-dim: rgba(5, 150, 105, 0.1);
+    --admin-danger: #e11d48;
+    --admin-danger-dim: rgba(225, 29, 72, 0.1);
+    --admin-warning: #d97706;
+    --admin-warning-dim: rgba(217, 119, 6, 0.1);
+    --admin-info: #0891b2;
+    --admin-info-dim: rgba(8, 145, 178, 0.1);
+    --admin-border: #e2e8f0;
+    --admin-border-subtle: #f1f5f9;
+    --admin-sidebar-bg: #0f172a;
+    --admin-sidebar-text: #94a3b8;
+    --admin-sidebar-text-active: #f1f5f9;
+    --admin-sidebar-hover: #1e293b;
+    --admin-sidebar-active: #1e293b;
+    --admin-sidebar-accent: #3b82f6;
+    --admin-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+    --admin-shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.1);
+}

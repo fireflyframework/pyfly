@@ -1,2 +1,25 @@
 <!DOCTYPE html>
-<html><head><title>PyFly Admin</title></head><body><div id="app">Loading...</div></body></html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PyFly Admin</title>
+    <link rel="stylesheet" href="static/css/themes.css">
+    <link rel="stylesheet" href="static/css/admin.css">
+</head>
+<body>
+    <div class="admin-layout">
+        <aside class="admin-sidebar" id="sidebar"></aside>
+        <div class="admin-main">
+            <nav class="admin-navbar" id="navbar">
+                <!-- Populated by app.js -->
+            </nav>
+            <main class="admin-content" id="content">
+                <div class="loading-spinner"></div>
+            </main>
+        </div>
+    </div>
+    <div id="toast-container"></div>
+    <script type="module" src="static/js/app.js"></script>
+</body>
+</html>
