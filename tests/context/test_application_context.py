@@ -16,6 +16,7 @@
 import pytest
 
 from pyfly.container.bean import bean
+from pyfly.container.exceptions import NoSuchBeanError
 from pyfly.container.stereotypes import configuration, repository, service
 from pyfly.context.application_context import ApplicationContext
 from pyfly.context.conditions import (
@@ -216,7 +217,7 @@ class TestProfileBasedBeanFiltering:
 
         ctx_with_profiles.register_bean(ProdService)
         await ctx_with_profiles.start()
-        with pytest.raises(KeyError):
+        with pytest.raises(NoSuchBeanError):
             ctx_with_profiles.get_bean(ProdService)
 
     async def test_bean_without_profile_is_always_initialized(self, ctx_with_profiles):
@@ -410,7 +411,7 @@ class TestConditionalOnPropertyIntegration:
 
         ctx.register_bean(CacheService)
         await ctx.start()
-        with pytest.raises(KeyError):
+        with pytest.raises(NoSuchBeanError):
             ctx.get_bean(CacheService)
 
     @pytest.mark.asyncio
@@ -439,7 +440,7 @@ class TestConditionalOnPropertyIntegration:
 
         ctx.register_bean(FeatureService)
         await ctx.start()
-        with pytest.raises(KeyError):
+        with pytest.raises(NoSuchBeanError):
             ctx.get_bean(FeatureService)
 
 
@@ -468,7 +469,7 @@ class TestConditionalOnClassIntegration:
 
         ctx.register_bean(MissingDepService)
         await ctx.start()
-        with pytest.raises(KeyError):
+        with pytest.raises(NoSuchBeanError):
             ctx.get_bean(MissingDepService)
 
 
@@ -510,7 +511,7 @@ class TestConditionalOnMissingBeanIntegration:
         await ctx.start()
         # RedisCache should survive, FallbackCache should be removed
         assert ctx.get_bean(RedisCache) is not None
-        with pytest.raises(KeyError):
+        with pytest.raises(NoSuchBeanError):
             ctx.get_bean(FallbackCache)
 
 
@@ -550,7 +551,7 @@ class TestConditionalOnBeanIntegration:
 
         ctx.register_bean(TransactionManager)
         await ctx.start()
-        with pytest.raises(KeyError):
+        with pytest.raises(NoSuchBeanError):
             ctx.get_bean(TransactionManager)
 
 
@@ -608,7 +609,7 @@ class TestAutoConfigurationIntegration:
         # User bean should survive
         assert ctx.get_bean(UserCache) is not None
         # Auto-config should have been removed
-        with pytest.raises(KeyError):
+        with pytest.raises(NoSuchBeanError):
             ctx.get_bean(AutoCacheConfig)
 
 
@@ -641,7 +642,7 @@ class TestStackedConditionsIntegration:
 
         ctx.register_bean(FeatureService)
         await ctx.start()
-        with pytest.raises(KeyError):
+        with pytest.raises(NoSuchBeanError):
             ctx.get_bean(FeatureService)
 
 
@@ -668,5 +669,5 @@ class TestSingularConditionIntegration:
 
         ctx.register_bean(NeverService)
         await ctx.start()
-        with pytest.raises(KeyError):
+        with pytest.raises(NoSuchBeanError):
             ctx.get_bean(NeverService)

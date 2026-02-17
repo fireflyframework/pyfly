@@ -17,7 +17,7 @@ from typing import Optional
 
 import pytest
 
-from pyfly.container import CircularDependencyError, Container, Scope
+from pyfly.container import BeanCurrentlyInCreationError, Container, NoSuchBeanError, Scope
 
 
 class Greeter:
@@ -117,7 +117,7 @@ class TestContainerBasics:
 
     def test_resolve_unregistered_raises(self):
         container = Container()
-        with pytest.raises(KeyError):
+        with pytest.raises(NoSuchBeanError):
             container.resolve(Greeter)
 
     def test_bind_interface_to_implementation(self):
@@ -161,10 +161,10 @@ class TestParameterDefaults:
         assert isinstance(svc.greeter, Greeter)
 
     def test_type_param_raises(self):
-        """type[T] parameters that can't be resolved raise KeyError."""
+        """type[T] parameters that can't be resolved raise NoSuchBeanError."""
         container = Container()
         container.register(TypeParamService)
-        with pytest.raises(KeyError, match="type\\[T\\]"):
+        with pytest.raises(NoSuchBeanError):
             container.resolve(TypeParamService)
 
 
@@ -233,11 +233,11 @@ class TestListInjection:
 
 class TestCircularDependencyDetection:
     def test_circular_dependency_raises(self):
-        """Circular constructor dependencies raise CircularDependencyError."""
+        """Circular constructor dependencies raise BeanCurrentlyInCreationError."""
         container = Container()
         container.register(CircularA)
         container.register(CircularB)
-        with pytest.raises(CircularDependencyError, match="Circular dependency"):
+        with pytest.raises(BeanCurrentlyInCreationError, match="Circular dependency"):
             container.resolve(CircularA)
 
     def test_non_circular_deep_chain_works(self):

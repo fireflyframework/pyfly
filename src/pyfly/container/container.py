@@ -15,6 +15,7 @@
 
 from __future__ import annotations
 
+import difflib
 import inspect
 import types
 import typing
@@ -22,15 +23,15 @@ from typing import Annotated, Any, TypeVar, Union, get_args, get_origin
 
 from pyfly.container.autowired import Autowired
 from pyfly.container.bean import Qualifier
+from pyfly.container.exceptions import (
+    BeanCurrentlyInCreationError,
+    NoSuchBeanError,
+    NoUniqueBeanError,
+)
 from pyfly.container.registry import Registration
 from pyfly.container.types import Scope
-from pyfly.kernel.exceptions import InfrastructureException
 
 T = TypeVar("T")
-
-
-class CircularDependencyError(InfrastructureException):
-    """Raised when beans form a circular dependency chain."""
 
 
 class Container:
@@ -47,7 +48,7 @@ class Container:
         self._registrations: dict[type, Registration] = {}
         self._named: dict[str, Registration] = {}
         self._bindings: dict[type, list[type]] = {}
-        self._resolving: set[type] = set()
+        self._resolving: dict[type, None] = {}  # insertion-ordered, O(1) lookup
 
     def register(
         self,
@@ -85,7 +86,12 @@ class Container:
         # Follow binding(s)
         impls = self._bindings.get(cls, [])
         if not impls:
-            raise KeyError(f"No registration found for {getattr(cls, '__name__', repr(cls))}")
+            raise NoSuchBeanError(
+                bean_type=cls,
+                suggestions=self._get_similar_type_names(
+                    getattr(cls, "__name__", ""),
+                ),
+            )
 
         if len(impls) == 1:
             return self._resolve_registration(self._registrations[impls[0]])
@@ -95,15 +101,15 @@ class Container:
             if getattr(impl, "__pyfly_primary__", False):
                 return self._resolve_registration(self._registrations[impl])
 
-        raise KeyError(
-            f"Multiple implementations for {getattr(cls, '__name__', repr(cls))} but none marked @primary: "
-            f"{[getattr(i, '__name__', repr(i)) for i in impls]}"
-        )
+        raise NoUniqueBeanError(bean_type=cls, candidates=impls)
 
     def resolve_by_name(self, name: str) -> Any:
         """Resolve a bean by its registered name."""
         if name not in self._named:
-            raise KeyError(f"No bean named '{name}'")
+            raise NoSuchBeanError(
+                bean_name=name,
+                suggestions=list(self._named.keys()),
+            )
         return self._resolve_registration(self._named[name])
 
     def resolve_all(self, cls: type[T]) -> list[T]:
@@ -154,11 +160,9 @@ class Container:
     def _create_instance(self, reg: Registration) -> Any:
         """Create an instance, resolving constructor and field dependencies."""
         if reg.impl_type in self._resolving:
-            chain = " -> ".join(t.__name__ for t in self._resolving)
-            raise CircularDependencyError(
-                f"Circular dependency: {chain} -> {reg.impl_type.__name__}"
-            )
-        self._resolving.add(reg.impl_type)
+            chain = list(self._resolving.keys())
+            raise BeanCurrentlyInCreationError(chain=chain, current=reg.impl_type)
+        self._resolving[reg.impl_type] = None
         try:
             init = reg.impl_type.__init__
             if init is object.__init__:
@@ -177,17 +181,24 @@ class Container:
                     )
                     try:
                         kwargs[param_name] = self._resolve_param(param_type)
-                    except KeyError:
+                    except (NoSuchBeanError, NoUniqueBeanError):
                         if has_default:
-                            continue  # omit → Python uses declared default
-                        raise
+                            continue
+                        raise NoSuchBeanError(
+                            bean_type=param_type if isinstance(param_type, type) else None,
+                            required_by=f"{reg.impl_type.__qualname__}.__init__()",
+                            parameter=f"{param_name}: {getattr(param_type, '__name__', repr(param_type))}",
+                            suggestions=self._get_similar_type_names(
+                                getattr(param_type, "__name__", ""),
+                            ),
+                        ) from None
 
                 instance = reg.impl_type(**kwargs)
 
             self._inject_autowired_fields(instance)
             return instance
         finally:
-            self._resolving.discard(reg.impl_type)
+            self._resolving.pop(reg.impl_type, None)
 
     def _resolve_param(self, param_type: type) -> Any:
         """Resolve a single parameter, handling Annotated, Optional, and list."""
@@ -207,7 +218,7 @@ class Container:
             if len(non_none) == 1:
                 try:
                     return self.resolve(non_none[0])
-                except KeyError:
+                except (NoSuchBeanError, NoUniqueBeanError):
                     return None
 
         # Handle list[T]
@@ -218,9 +229,8 @@ class Container:
 
         # Handle type[T] or bare `type` — class references cannot be auto-resolved
         if param_type is type or get_origin(param_type) is type:
-            raise KeyError(
-                f"Cannot resolve type[T] parameter from container. "
-                f"Use Repository[Entity, ID] subclass to auto-extract entity type."
+            raise NoSuchBeanError(
+                bean_type=param_type if isinstance(param_type, type) else None,
             )
 
         return self.resolve(param_type)
@@ -244,10 +254,24 @@ class Container:
             else:
                 try:
                     value = self.resolve(attr_type)
-                except KeyError:
+                except (NoSuchBeanError, NoUniqueBeanError):
                     if not default.required:
                         value = None
                     else:
-                        raise
+                        raise NoSuchBeanError(
+                            bean_type=attr_type if isinstance(attr_type, type) else None,
+                            required_by=f"{type(instance).__qualname__}.{attr_name}",
+                            parameter=f"{attr_name}: {getattr(attr_type, '__name__', repr(attr_type))} = Autowired()",
+                        ) from None
 
             setattr(instance, attr_name, value)
+
+    def _get_similar_type_names(self, name: str) -> list[str]:
+        """Return registered type names similar to *name* using fuzzy matching."""
+        if not name:
+            return []
+        registered_names = [
+            getattr(cls, "__name__", repr(cls))
+            for cls in self._registrations
+        ]
+        return difflib.get_close_matches(name, registered_names, n=5, cutoff=0.4)

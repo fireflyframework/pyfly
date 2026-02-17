@@ -17,7 +17,7 @@ from typing import Annotated, Protocol, runtime_checkable
 
 import pytest
 
-from pyfly.container import Autowired, Container, Qualifier, service
+from pyfly.container import Autowired, Container, NoSuchBeanError, Qualifier, service
 
 
 class Greeter:
@@ -104,10 +104,10 @@ class TestAutowiredBasic:
         assert isinstance(svc.greeter, Greeter)
 
     def test_required_field_raises_when_missing(self):
-        """Autowired() (required=True) raises KeyError when type is not registered."""
+        """Autowired() (required=True) raises NoSuchBeanError when type is not registered."""
         container = Container()
         container.register(RequiredFieldService)
-        with pytest.raises(KeyError):
+        with pytest.raises(NoSuchBeanError):
             container.resolve(RequiredFieldService)
 
 

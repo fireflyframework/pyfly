@@ -34,7 +34,7 @@ class Autowired:
     Args:
         qualifier: If set, resolve by bean name instead of type.
         required: If ``False``, unresolvable dependencies are set to ``None``
-            instead of raising ``KeyError``. Defaults to ``True``.
+            instead of raising ``NoSuchBeanError``. Defaults to ``True``.
     """
 
     __slots__ = ("qualifier", "required")

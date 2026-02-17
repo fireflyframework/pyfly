@@ -15,8 +15,13 @@
 
 from pyfly.container.autowired import Autowired
 from pyfly.container.bean import Qualifier, bean, primary
-from pyfly.container.container import CircularDependencyError, Container
-from pyfly.container.exceptions import BeanCreationException
+from pyfly.container.container import Container
+from pyfly.container.exceptions import (
+    BeanCreationException,
+    BeanCurrentlyInCreationError,
+    NoSuchBeanError,
+    NoUniqueBeanError,
+)
 from pyfly.container.ordering import HIGHEST_PRECEDENCE, LOWEST_PRECEDENCE, order
 from pyfly.container.stereotypes import (
     component,
@@ -31,10 +36,12 @@ from pyfly.container.types import Scope
 __all__ = [
     "Autowired",
     "BeanCreationException",
-    "CircularDependencyError",
+    "BeanCurrentlyInCreationError",
     "Container",
     "HIGHEST_PRECEDENCE",
     "LOWEST_PRECEDENCE",
+    "NoSuchBeanError",
+    "NoUniqueBeanError",
     "Qualifier",
     "Scope",
     "bean",

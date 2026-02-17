@@ -18,7 +18,7 @@ from typing import Protocol, runtime_checkable
 
 import pytest
 
-from pyfly.container import Container, primary, service
+from pyfly.container import Container, NoUniqueBeanError, primary, service
 from pyfly.container.scanner import _auto_bind_interfaces
 
 
@@ -112,7 +112,7 @@ class TestAutoBindMultipleImpls:
         assert sources == {"A", "B"}
 
     def test_multiple_impls_without_primary_raises(self):
-        """Without @primary, resolving with multiple impls raises KeyError."""
+        """Without @primary, resolving with multiple impls raises NoUniqueBeanError."""
 
         class ImplX(AbstractRepo):
             def find(self, id: int) -> dict:
@@ -128,5 +128,5 @@ class TestAutoBindMultipleImpls:
         container.register(ImplY)
         _auto_bind_interfaces(ImplY, container)
 
-        with pytest.raises(KeyError, match="@primary"):
+        with pytest.raises(NoUniqueBeanError, match="@primary"):
             container.resolve(AbstractRepo)

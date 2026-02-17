@@ -16,7 +16,6 @@
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import functools
 import inspect
 import logging
@@ -24,7 +23,11 @@ import typing
 from typing import Any, TypeVar
 
 from pyfly.container.container import Container
-from pyfly.container.exceptions import BeanCreationException
+from pyfly.container.exceptions import (
+    BeanCreationException,
+    NoSuchBeanError,
+    NoUniqueBeanError,
+)
 from pyfly.container.ordering import get_order
 from pyfly.container.types import Scope
 from pyfly.context.condition_evaluator import ConditionEvaluator
@@ -149,11 +152,11 @@ class ApplicationContext:
         try:
             await self._do_start()
         except BeanCreationException:
-            raise  # Already a clear error, propagate as-is
+            raise
         except Exception as exc:
             raise BeanCreationException(
                 subsystem="startup",
-                provider="unknown",
+                provider=type(exc).__qualname__,
                 reason=str(exc),
             ) from exc
 
@@ -189,8 +192,10 @@ class ApplicationContext:
         )
         for cls, reg in sorted_entries:
             if reg.scope == Scope.SINGLETON and reg.instance is None:
-                with contextlib.suppress(KeyError):
+                try:
                     self._container.resolve(cls)
+                except BeanCreationException as exc:
+                    logger.debug("deferred_bean_resolution", extra={"bean": cls.__name__, "reason": str(exc)})
 
         # 5. Run post-processors and lifecycle hooks
         sorted_pps = sorted(self._post_processors, key=lambda pp: get_order(type(pp)))
@@ -227,14 +232,18 @@ class ApplicationContext:
         """Stop the context: call @pre_destroy, publish ContextClosedEvent."""
         # Stop task scheduler
         if self._task_scheduler is not None:
-            with contextlib.suppress(Exception):
+            try:
                 await self._task_scheduler.stop()
+            except Exception:
+                logger.debug("task_scheduler_stop_failed", exc_info=True)
 
         # Stop infrastructure adapters (reverse order)
         for adapter in reversed(self._infrastructure_adapters):
             if hasattr(adapter, 'stop'):
-                with contextlib.suppress(Exception):
+                try:
                     await adapter.stop()
+                except Exception:
+                    logger.debug("adapter_stop_failed", extra={"adapter": type(adapter).__qualname__}, exc_info=True)
 
         # Call @pre_destroy on all resolved beans (reverse order)
         for reg in reversed(list(self._container._registrations.values())):
@@ -411,10 +420,14 @@ class ApplicationContext:
             )
             try:
                 kwargs[param_name] = self._container._resolve_param(param_type)
-            except KeyError:
+            except (NoSuchBeanError, NoUniqueBeanError):
                 if has_default:
                     continue
-                raise
+                raise NoSuchBeanError(
+                    bean_type=param_type if isinstance(param_type, type) else None,
+                    required_by=f"{type(config_instance).__qualname__}.{method.__name__}()",
+                    parameter=f"{param_name}: {getattr(param_type, '__name__', repr(param_type))}",
+                ) from None
 
         return method(**kwargs)
 
@@ -462,8 +475,15 @@ class ApplicationContext:
                     if in_degree[name] == 0:
                         queue.append(name)
 
-        # If cycle detected, fall back to original order
         if len(ordered) != len(methods):
+            cycle_methods = [m for m in methods if m[0] not in ordered]
+            logger.warning(
+                "bean_method_cycle",
+                extra={
+                    "config": methods[0][0] if methods else "unknown",
+                    "methods": [m[0] for m in cycle_methods],
+                },
+            )
             return methods
 
         name_to_entry = {attr_name: (attr_name, method) for attr_name, method in methods}
@@ -481,11 +501,14 @@ class ApplicationContext:
                 self._post_processors.append(reg.instance)
                 count += 1
             elif reg.instance is None and isinstance(cls, type) and issubclass(cls, BeanPostProcessor):
-                with contextlib.suppress(KeyError):
+                try:
                     instance = self._container.resolve(cls)
-                    if instance not in self._post_processors:
-                        self._post_processors.append(instance)
-                        count += 1
+                except BeanCreationException as exc:
+                    logger.debug("deferred_post_processor", extra={"bean": cls.__name__, "reason": str(exc)})
+                    continue
+                if instance not in self._post_processors:
+                    self._post_processors.append(instance)
+                    count += 1
         self._wiring_counts["post_processors"] = count
         if count:
             logger.debug("Discovered %d BeanPostProcessor(s)", count)
@@ -542,7 +565,7 @@ class ApplicationContext:
                         from pyfly.messaging.ports.outbound import MessageBrokerPort
 
                         broker = self._container.resolve(MessageBrokerPort)
-                    except KeyError:
+                    except BeanCreationException:
                         logger.debug("No MessageBrokerPort registered; skipping @message_listener wiring")
                         self._wiring_counts["message_listeners"] = 0
                         return
@@ -569,7 +592,7 @@ class ApplicationContext:
                     from pyfly.cqrs.command.registry import HandlerRegistry
 
                     registry = self._container.resolve(HandlerRegistry)
-                except KeyError:
+                except BeanCreationException:
                     logger.debug("No HandlerRegistry registered; skipping CQRS handler wiring")
                     self._wiring_counts["cqrs_handlers"] = 0
                     return
@@ -654,7 +677,7 @@ class ApplicationContext:
                     from pyfly.shell.ports.outbound import ShellRunnerPort
 
                     runner = self._container.resolve(ShellRunnerPort)
-                except KeyError:
+                except BeanCreationException:
                     logger.debug("No ShellRunnerPort registered; skipping @shell_method wiring")
                     self._wiring_counts["shell_commands"] = 0
                     return
@@ -745,15 +768,32 @@ class ApplicationContext:
         for attr_name in dir(instance):
             method = getattr(instance, attr_name, None)
             if method is not None and getattr(method, "__pyfly_post_construct__", False):
-                result = method()
-                if inspect.isawaitable(result):
-                    await result
+                try:
+                    result = method()
+                    if inspect.isawaitable(result):
+                        await result
+                except Exception as exc:
+                    raise BeanCreationException(
+                        subsystem="lifecycle",
+                        provider=type(instance).__qualname__,
+                        reason=f"@post_construct method '{attr_name}' failed: {exc}",
+                    ) from exc
 
     async def _call_pre_destroy(self, instance: Any) -> None:
         """Call all @pre_destroy methods on an instance."""
         for attr_name in dir(instance):
             method = getattr(instance, attr_name, None)
             if method is not None and getattr(method, "__pyfly_pre_destroy__", False):
-                result = method()
-                if inspect.isawaitable(result):
-                    await result
+                try:
+                    result = method()
+                    if inspect.isawaitable(result):
+                        await result
+                except Exception as exc:
+                    logger.warning(
+                        "pre_destroy_failed",
+                        extra={
+                            "bean": type(instance).__qualname__,
+                            "method": attr_name,
+                            "error": str(exc),
+                        },
+                    )

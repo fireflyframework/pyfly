@@ -15,12 +15,14 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from pyfly.container.container import Container
     from pyfly.core.config import Config
 
+logger = logging.getLogger(__name__)
 
 # Condition types that depend on the bean registry (must be evaluated in pass 2).
 _BEAN_DEPENDENT_TYPES = frozenset({"on_bean", "on_missing_bean"})
@@ -86,14 +88,30 @@ class ConditionEvaluator:
     def _evaluate(self, cond: dict, *, declaring_cls: type | None = None) -> bool:
         cond_type = cond["type"]
         if cond_type == "on_property":
-            return self._eval_on_property(cond)
-        if cond_type == "on_class":
-            return cond["check"]()
-        if cond_type == "on_missing_bean":
-            return self._eval_on_missing_bean(cond, declaring_cls)
-        if cond_type == "on_bean":
-            return self._eval_on_bean(cond, declaring_cls)
-        return True  # Unknown condition type — pass
+            result = self._eval_on_property(cond)
+        elif cond_type == "on_class":
+            result = cond["check"]()
+        elif cond_type == "on_missing_bean":
+            result = self._eval_on_missing_bean(cond, declaring_cls)
+        elif cond_type == "on_bean":
+            result = self._eval_on_bean(cond, declaring_cls)
+        else:
+            logger.warning(
+                "unknown_condition_type",
+                extra={"condition_type": cond_type, "bean": getattr(declaring_cls, "__name__", None)},
+            )
+            return True
+
+        if not result and declaring_cls:
+            logger.debug(
+                "bean_excluded_by_condition",
+                extra={
+                    "bean": declaring_cls.__name__,
+                    "condition_type": cond_type,
+                    "condition": {k: v for k, v in cond.items() if k != "check"},
+                },
+            )
+        return result
 
     def _eval_on_property(self, cond: dict) -> bool:
         value = self._config.get(cond["key"])

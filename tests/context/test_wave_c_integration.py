@@ -15,6 +15,7 @@
 
 import pytest
 
+from pyfly.container.exceptions import NoSuchBeanError
 from pyfly.container.ordering import HIGHEST_PRECEDENCE, LOWEST_PRECEDENCE, order
 from pyfly.container.stereotypes import service
 from pyfly.context.application_context import ApplicationContext
@@ -55,7 +56,7 @@ class TestWaveCFullLifecycle:
         await ctx.start()
 
         assert init_order == ["db", "cache"]
-        with pytest.raises(KeyError):
+        with pytest.raises(NoSuchBeanError):
             ctx.get_bean(ProdMonitorService)
 
         await ctx.stop()

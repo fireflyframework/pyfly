@@ -25,7 +25,7 @@ import pytest
 
 from pyfly.container import (
     Autowired,
-    CircularDependencyError,
+    BeanCurrentlyInCreationError,
     Container,
     Scope,
     component,
@@ -592,7 +592,7 @@ class TestCircularDetectionWithStereotypes:
         c = Container()
         c.register(CircularServiceA)
         c.register(CircularServiceB)
-        with pytest.raises(CircularDependencyError, match="Circular dependency"):
+        with pytest.raises(BeanCurrentlyInCreationError, match="Circular dependency"):
             c.resolve(CircularServiceA)
 
 

@@ -19,6 +19,7 @@ import pytest
 
 from pyfly.container.bean import Qualifier, primary
 from pyfly.container.container import Container
+from pyfly.container.exceptions import NoSuchBeanError
 from pyfly.container.stereotypes import component, service
 
 
@@ -49,7 +50,7 @@ class TestNamedBeans:
 
     def test_resolve_by_name_not_found(self):
         c = Container()
-        with pytest.raises(KeyError, match="No bean named"):
+        with pytest.raises(NoSuchBeanError, match="No bean named"):
             c.resolve_by_name("nonexistent")
 
     def test_resolve_all_of_type(self):

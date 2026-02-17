@@ -18,7 +18,7 @@ from __future__ import annotations
 import pytest
 
 from pyfly.config.auto import AutoConfiguration, discover_auto_configurations
-from pyfly.container.exceptions import BeanCreationException
+from pyfly.container.exceptions import BeanCreationException, NoSuchBeanError
 from pyfly.core.config import Config
 from pyfly.kernel.exceptions import InfrastructureException
 
@@ -320,7 +320,7 @@ class TestAutoConfigurationIntegration:
         ctx = ApplicationContext(config)
         await ctx.start()
         try:
-            with pytest.raises(KeyError):
+            with pytest.raises(NoSuchBeanError):
                 ctx.get_bean(CacheAdapter)
         finally:
             await ctx.stop()

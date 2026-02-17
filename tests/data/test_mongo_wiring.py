@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import pytest
 
+from pyfly.container.exceptions import NoSuchBeanError
 from pyfly.core.config import Config
 
 
@@ -115,7 +116,7 @@ class TestDocumentAutoConfiguration:
         ctx = ApplicationContext(config)
         await ctx.start()
         try:
-            with pytest.raises(KeyError):
+            with pytest.raises(NoSuchBeanError):
                 ctx.get_bean(AsyncIOMotorClient)
         finally:
             await ctx.stop()
