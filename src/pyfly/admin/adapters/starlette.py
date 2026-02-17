@@ -19,7 +19,7 @@ import json
 from typing import TYPE_CHECKING, Any
 
 from starlette.requests import Request
-from starlette.responses import JSONResponse, Response
+from starlette.responses import JSONResponse, Response, StreamingResponse
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
@@ -106,6 +106,13 @@ class AdminRouteBuilder:
             Route(f"{api}/traces", self._handle_traces, methods=["GET"]),
             Route(f"{api}/views", self._handle_views, methods=["GET"]),
             Route(f"{api}/settings", self._handle_settings, methods=["GET"]),
+        ])
+
+        # --- SSE routes ---
+        routes.extend([
+            Route(f"{api}/sse/health", self._handle_sse_health, methods=["GET"]),
+            Route(f"{api}/sse/metrics", self._handle_sse_metrics, methods=["GET"]),
+            Route(f"{api}/sse/traces", self._handle_sse_traces, methods=["GET"]),
         ])
 
         # --- Static files ---
@@ -210,6 +217,22 @@ class AdminRouteBuilder:
             "refreshInterval": self._props.refresh_interval,
             "serverMode": False,
         })
+
+    # --- SSE Handlers ---
+
+    async def _handle_sse_health(self, request: Request) -> StreamingResponse:
+        from pyfly.admin.api.sse import health_stream, make_sse_response
+        interval = self._props.refresh_interval / 1000
+        return make_sse_response(health_stream(self._health, interval))
+
+    async def _handle_sse_metrics(self, request: Request) -> StreamingResponse:
+        from pyfly.admin.api.sse import metrics_stream, make_sse_response
+        interval = self._props.refresh_interval / 1000
+        return make_sse_response(metrics_stream(self._metrics, interval))
+
+    async def _handle_sse_traces(self, request: Request) -> StreamingResponse:
+        from pyfly.admin.api.sse import traces_stream, make_sse_response
+        return make_sse_response(traces_stream(self._trace_collector))
 
     async def _handle_spa(self, request: Request) -> Response:
         """Serve index.html for SPA client-side routing."""
