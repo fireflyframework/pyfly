@@ -105,7 +105,7 @@ export function renderSidebar(container, currentRoute, options = {}) {
     brand.appendChild(logo);
 
     const brandText = document.createElement('span');
-    brandText.textContent = 'PyFly Admin';
+    brandText.textContent = 'Admin';
     brand.appendChild(brandText);
 
     container.appendChild(brand);

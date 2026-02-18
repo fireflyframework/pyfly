@@ -171,7 +171,6 @@ def create_app(
     if admin_enabled and context is not None:
         from pyfly.admin.adapters.starlette import AdminRouteBuilder
         from pyfly.admin.config import AdminProperties
-        from pyfly.admin.log_handler import AdminLogHandler
         from pyfly.admin.middleware.trace_collector import TraceCollectorFilter
         from pyfly.admin.providers.beans_provider import BeansProvider
         from pyfly.admin.providers.cache_provider import CacheProvider
@@ -200,13 +199,6 @@ def create_app(
         for _cls, reg in context.container._registrations.items():
             if reg.instance is not None and isinstance(reg.instance, TraceCollectorFilter):
                 trace_collector = reg.instance
-                break
-
-        # Find log handler from context (registered by auto-config)
-        log_handler = None
-        for _cls, reg in context.container._registrations.items():
-            if reg.instance is not None and isinstance(reg.instance, AdminLogHandler):
-                log_handler = reg.instance
                 break
 
         # Find view registry from context
@@ -245,8 +237,7 @@ def create_app(
             traces=TracesProvider(trace_collector),
             view_registry=view_registry,
             trace_collector=trace_collector,
-            logfile=LogfileProvider(log_handler) if log_handler else None,
-            log_handler=log_handler,
+            logfile=LogfileProvider(context),
         )
         routes.extend(admin_builder.build_routes())
 

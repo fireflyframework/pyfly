@@ -52,6 +52,20 @@ def admin_client(log_handler):
     ctx = _make_mock_context()
     ctx.config._data = {"pyfly": {"app": {"name": "test"}, "web": {"port": 8080}}}
     ctx.config.loaded_sources = []
+
+    # Register the log handler in the mock context so LogfileProvider can find it
+    from enum import Enum
+    from unittest.mock import MagicMock
+
+    class _Scope(Enum):
+        SINGLETON = "SINGLETON"
+
+    handler_reg = MagicMock()
+    handler_reg.instance = log_handler
+    handler_reg.name = "adminLogHandler"
+    handler_reg.scope = _Scope.SINGLETON
+    ctx.container._registrations[AdminLogHandler] = handler_reg
+
     props = AdminProperties()
 
     builder = AdminRouteBuilder(
@@ -70,8 +84,7 @@ def admin_client(log_handler):
         transactions=TransactionsProvider(ctx),
         traces=TracesProvider(None),
         view_registry=AdminViewRegistry(),
-        logfile=LogfileProvider(log_handler),
-        log_handler=log_handler,
+        logfile=LogfileProvider(ctx),
     )
     routes = builder.build_routes()
     app = Starlette(routes=routes)

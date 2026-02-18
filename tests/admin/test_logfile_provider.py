@@ -14,9 +14,19 @@
 """Tests for LogfileProvider."""
 
 import logging
+from unittest.mock import MagicMock
 
 from pyfly.admin.log_handler import AdminLogHandler
 from pyfly.admin.providers.logfile_provider import LogfileProvider
+
+
+def _make_context_with_handler(handler):
+    """Create a mock ApplicationContext with the given handler registered."""
+    ctx = MagicMock()
+    reg = MagicMock()
+    reg.instance = handler
+    ctx.container._registrations = {AdminLogHandler: reg}
+    return ctx
 
 
 class TestLogfileProvider:
@@ -30,7 +40,8 @@ class TestLogfileProvider:
         try:
             logger.info("provider test")
 
-            provider = LogfileProvider(handler)
+            ctx = _make_context_with_handler(handler)
+            provider = LogfileProvider(ctx)
             result = await provider.get_logfile()
 
             assert result["available"] is True
@@ -42,7 +53,8 @@ class TestLogfileProvider:
 
     async def test_logfile_available(self):
         handler = AdminLogHandler()
-        provider = LogfileProvider(handler)
+        ctx = _make_context_with_handler(handler)
+        provider = LogfileProvider(ctx)
         result = await provider.get_logfile()
 
         assert result["available"] is True
@@ -59,7 +71,8 @@ class TestLogfileProvider:
         try:
             logger.info("will be cleared")
 
-            provider = LogfileProvider(handler)
+            ctx = _make_context_with_handler(handler)
+            provider = LogfileProvider(ctx)
             result = await provider.clear_logfile()
             assert result["cleared"] is True
 
@@ -67,3 +80,20 @@ class TestLogfileProvider:
             assert result["total"] == 0
         finally:
             logger.removeHandler(handler)
+
+    async def test_no_handler_returns_unavailable(self):
+        ctx = MagicMock()
+        ctx.container._registrations = {}
+        provider = LogfileProvider(ctx)
+        result = await provider.get_logfile()
+
+        assert result["available"] is False
+        assert result["total"] == 0
+        assert result["records"] == []
+
+    async def test_handler_property_exposes_resolved(self):
+        handler = AdminLogHandler()
+        ctx = _make_context_with_handler(handler)
+        provider = LogfileProvider(ctx)
+
+        assert provider.handler is handler

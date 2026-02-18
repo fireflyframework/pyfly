@@ -25,7 +25,6 @@ from starlette.staticfiles import StaticFiles
 
 if TYPE_CHECKING:
     from pyfly.admin.config import AdminProperties
-    from pyfly.admin.log_handler import AdminLogHandler
     from pyfly.admin.middleware.trace_collector import TraceCollectorFilter
     from pyfly.admin.providers.beans_provider import BeansProvider
     from pyfly.admin.providers.cache_provider import CacheProvider
@@ -68,7 +67,6 @@ class AdminRouteBuilder:
         view_registry: AdminViewRegistry,
         trace_collector: TraceCollectorFilter | None = None,
         logfile: LogfileProvider | None = None,
-        log_handler: AdminLogHandler | None = None,
         instance_registry: InstanceRegistry | None = None,
     ) -> None:
         self._props = properties
@@ -88,7 +86,6 @@ class AdminRouteBuilder:
         self._view_registry = view_registry
         self._trace_collector = trace_collector
         self._logfile = logfile
-        self._log_handler = log_handler
         self._instance_registry = instance_registry
 
     def build_routes(self) -> list[Route | Mount]:
@@ -242,7 +239,10 @@ class AdminRouteBuilder:
     async def _handle_logfile_clear(self, request: Request) -> JSONResponse:
         if self._logfile is None:
             return JSONResponse({"error": "Log handler not available"}, status_code=400)
-        return JSONResponse(await self._logfile.clear_logfile())
+        result = await self._logfile.clear_logfile()
+        if "error" in result:
+            return JSONResponse(result, status_code=400)
+        return JSONResponse(result)
 
     async def _handle_views(self, request: Request) -> JSONResponse:
         extensions = self._view_registry.get_extensions()
@@ -303,7 +303,8 @@ class AdminRouteBuilder:
 
     async def _handle_sse_logfile(self, request: Request) -> StreamingResponse:
         from pyfly.admin.api.sse import logfile_stream, make_sse_response
-        return make_sse_response(logfile_stream(self._log_handler))
+        handler = self._logfile.handler if self._logfile is not None else None
+        return make_sse_response(logfile_stream(handler))
 
     async def _handle_spa(self, request: Request) -> Response:
         """Serve index.html for SPA client-side routing."""

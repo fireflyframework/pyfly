@@ -19,16 +19,45 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from pyfly.admin.log_handler import AdminLogHandler
+    from pyfly.context.application_context import ApplicationContext
 
 
 class LogfileProvider:
-    """Provides log records from the in-memory AdminLogHandler."""
+    """Provides log records from the in-memory AdminLogHandler.
 
-    def __init__(self, log_handler: AdminLogHandler) -> None:
-        self._handler = log_handler
+    Uses lazy resolution from the ApplicationContext, following the same
+    pattern as ``CacheProvider``.  This is necessary because ``create_app``
+    runs at module-load time *before* ``ApplicationContext.start()``
+    instantiates auto-configuration beans.
+    """
+
+    def __init__(self, context: ApplicationContext) -> None:
+        self._context = context
+        self._handler: AdminLogHandler | None = None
+
+    def _resolve_handler(self) -> AdminLogHandler | None:
+        if self._handler is not None:
+            return self._handler
+        try:
+            from pyfly.admin.log_handler import AdminLogHandler
+            for _cls, reg in self._context.container._registrations.items():
+                if reg.instance is not None and isinstance(reg.instance, AdminLogHandler):
+                    self._handler = reg.instance
+                    return self._handler
+        except ImportError:
+            pass
+        return None
+
+    @property
+    def handler(self) -> AdminLogHandler | None:
+        """Expose the resolved handler (used by SSE streams)."""
+        return self._resolve_handler()
 
     async def get_logfile(self) -> dict[str, Any]:
-        records = self._handler.get_all()
+        handler = self._resolve_handler()
+        if handler is None:
+            return {"available": False, "records": [], "total": 0}
+        records = handler.get_all()
         return {
             "available": True,
             "records": records,
@@ -36,5 +65,8 @@ class LogfileProvider:
         }
 
     async def clear_logfile(self) -> dict[str, Any]:
-        self._handler.clear()
+        handler = self._resolve_handler()
+        if handler is None:
+            return {"error": "Log handler not available"}
+        handler.clear()
         return {"cleared": True}
