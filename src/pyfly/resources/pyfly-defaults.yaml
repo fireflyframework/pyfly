@@ -20,6 +20,18 @@ pyfly:
       enabled: true
     actuator:
       enabled: false
+  server:
+    type: "auto"
+    event-loop: "auto"
+    workers: 0
+    backlog: 1024
+    graceful-timeout: 30
+    http: "auto"
+    keep-alive-timeout: 5
+    granian:
+      runtime-threads: 1
+      runtime-mode: "auto"
+      respawn-failed-workers: true
   data:
     enabled: false
     url: "sqlite+aiosqlite:///pyfly.db"

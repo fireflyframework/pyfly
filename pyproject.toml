@@ -55,6 +55,15 @@ eda = [
     "aiokafka>=0.10",
     "aio-pika>=9.0",
 ]
+fastapi = [
+    "fastapi>=0.115",
+]
+granian = [
+    "granian>=2.6",
+]
+hypercorn = [
+    "hypercorn>=0.17",
+]
 kafka = [
     "aiokafka>=0.10",
 ]
@@ -99,7 +108,7 @@ shell = [
     "click>=8.1",
 ]
 full = [
-    "pyfly[web,data-relational,data-document,postgresql,eda,cqrs,cache,client,observability,security,scheduling,cli,shell,kafka,rabbitmq,redis,testing]",
+    "pyfly[web,data-relational,data-document,postgresql,eda,cqrs,cache,client,observability,security,scheduling,cli,shell,kafka,rabbitmq,redis,testing,granian]",
 ]
 dev = [
     "pyfly[full]",
@@ -122,6 +131,8 @@ shell = "pyfly.shell.auto_configuration:ShellAutoConfiguration"
 cqrs = "pyfly.cqrs.config.auto_configuration:CqrsAutoConfiguration"
 admin = "pyfly.admin.auto_configuration:AdminAutoConfiguration"
 transactional = "pyfly.transactional.auto_configuration:TransactionalEngineAutoConfiguration"
+server = "pyfly.server.auto_configuration:ServerAutoConfiguration"
+event-loop = "pyfly.server.auto_configuration:EventLoopAutoConfiguration"
 
 [project.scripts]
 pyfly = "pyfly.cli.main:cli"
