@@ -30,6 +30,8 @@ const routes = {
     'logfile':    () => import('./views/logfile.js'),
     'instances':  () => import('./views/instances.js'),
     'bean-graph': () => import('./views/bean-graph.js'),
+    'runtime':    () => import('./views/runtime.js'),
+    'wallboard':  () => import('./views/wallboard.js'),
 };
 
 /* ── Application State ────────────────────────────────────────── */
