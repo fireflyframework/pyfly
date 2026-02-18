@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""'pyfly run' — Start a PyFly application with uvicorn."""
+"""'pyfly run' — Start a PyFly application with swappable server adapters."""
 
 from __future__ import annotations
 
@@ -41,7 +41,16 @@ def _ensure_src_on_path() -> None:
 @click.option("--port", default=None, type=int, help="Port number (default: from pyfly.yaml or 8080).")
 @click.option("--reload", "use_reload", is_flag=True, help="Enable auto-reload for development.")
 @click.option("--app", "app_path", default=None, help="Application import path (e.g. 'myapp.main:app').")
-def run_command(host: str, port: int | None, use_reload: bool, app_path: str | None) -> None:
+@click.option("--server", "server_type", default=None, help="Server type: granian|uvicorn|hypercorn.")
+@click.option("--workers", "workers", default=None, type=int, help="Number of worker processes.")
+def run_command(
+    host: str,
+    port: int | None,
+    use_reload: bool,
+    app_path: str | None,
+    server_type: str | None,
+    workers: int | None,
+) -> None:
     """Start the PyFly application server."""
     _ensure_src_on_path()
 
@@ -55,14 +64,147 @@ def run_command(host: str, port: int | None, use_reload: bool, app_path: str | N
     if port is None:
         port = _read_port_from_config() or 8080
 
+    # --reload falls back to uvicorn (only server with a built-in file watcher)
+    if use_reload:
+        _run_with_uvicorn_reload(app_path, host, port)
+        return
+
+    # Resolve server and event loop
+    server_adapter, event_loop_adapter, config = _resolve_server_adapter(
+        server_type, host, port, workers,
+    )
+
+    if event_loop_adapter is not None:
+        event_loop_adapter.install()
+
+    # Attach host/port to config
+    config.host = host
+    config.port = port
+
+    server_adapter.serve(app_path, config)
+
+
+# ---------------------------------------------------------------------------
+# Helper functions for server resolution
+# ---------------------------------------------------------------------------
+
+
+def _resolve_server_adapter(
+    server_type: str | None,
+    host: str,
+    port: int,
+    workers: int | None,
+) -> tuple:
+    """Build a (server_adapter, event_loop_adapter, config) triple."""
+    from pyfly.config.properties.server import ServerProperties  # noqa: F811
+
+    config = _load_server_properties()
+    if server_type:
+        config.type = server_type
+    if workers is not None:
+        config.workers = workers
+    server_adapter = _create_server_adapter(config.type)
+    event_loop_adapter = _create_event_loop_adapter(config.event_loop)
+    return server_adapter, event_loop_adapter, config
+
+
+def _create_server_adapter(server_type: str):  # noqa: ANN201
+    """Create server adapter by type or auto-detect best available."""
+    if server_type in ("granian", "auto"):
+        try:
+            from pyfly.server.adapters.granian.adapter import GranianServerAdapter
+
+            return GranianServerAdapter()
+        except ImportError:
+            if server_type == "granian":
+                console.print("[error]granian is not installed.[/error]")
+                raise SystemExit(1) from None
+
+    if server_type in ("uvicorn", "auto"):
+        try:
+            from pyfly.server.adapters.uvicorn.adapter import UvicornServerAdapter
+
+            return UvicornServerAdapter()
+        except ImportError:
+            if server_type == "uvicorn":
+                console.print("[error]uvicorn is not installed.[/error]")
+                raise SystemExit(1) from None
+
+    if server_type in ("hypercorn", "auto"):
+        try:
+            from pyfly.server.adapters.hypercorn.adapter import HypercornServerAdapter
+
+            return HypercornServerAdapter()
+        except ImportError:
+            if server_type == "hypercorn":
+                console.print("[error]hypercorn is not installed.[/error]")
+                raise SystemExit(1) from None
+
+    console.print("[error]No ASGI server available.[/error]")
+    raise SystemExit(1)
+
+
+def _create_event_loop_adapter(event_loop: str):  # noqa: ANN201
+    """Create event loop adapter by name or auto-detect."""
+    if event_loop in ("uvloop", "auto"):
+        try:
+            from pyfly.server.adapters.event_loop.uvloop_adapter import UvloopEventLoopAdapter
+
+            return UvloopEventLoopAdapter()
+        except ImportError:
+            if event_loop == "uvloop":
+                return None
+
+    if event_loop in ("winloop", "auto"):
+        try:
+            from pyfly.server.adapters.event_loop.winloop_adapter import WinloopEventLoopAdapter
+
+            return WinloopEventLoopAdapter()
+        except ImportError:
+            if event_loop == "winloop":
+                return None
+
+    from pyfly.server.adapters.event_loop.asyncio_adapter import AsyncioEventLoopAdapter
+
+    return AsyncioEventLoopAdapter()
+
+
+def _load_server_properties():  # noqa: ANN201
+    """Load ServerProperties from pyfly.yaml, falling back to defaults."""
+    from pyfly.config.properties.server import ServerProperties
+
+    try:
+        import yaml
+
+        config_path = Path("pyfly.yaml")
+        if config_path.exists():
+            with open(config_path) as f:
+                data = yaml.safe_load(f) or {}
+            server_data = (data.get("pyfly", {}) or {}).get("server", {}) or {}
+            return ServerProperties(**{
+                k.replace("-", "_"): v
+                for k, v in server_data.items()
+                if k.replace("-", "_") in ServerProperties.__dataclass_fields__
+                and not isinstance(v, dict)
+            })
+    except Exception:
+        pass
+    return ServerProperties()
+
+
+def _run_with_uvicorn_reload(app_path: str, host: str, port: int) -> None:
+    """Run with uvicorn in reload mode (development only)."""
     try:
         import uvicorn
     except ImportError:
-        console.print("[error]uvicorn is not installed.[/error]")
-        console.print("[dim]Install it with: pip install 'pyfly[web]'[/dim]")
+        console.print("[error]uvicorn is required for --reload mode.[/error]")
         raise SystemExit(1) from None
+    uvicorn.run(app_path, host=host, port=port, reload=True, log_level="warning")
 
-    uvicorn.run(app_path, host=host, port=port, reload=use_reload, log_level="warning")
+
+# ---------------------------------------------------------------------------
+# Existing helper functions (unchanged)
+# ---------------------------------------------------------------------------
 
 
 def _read_port_from_config() -> int | None:
