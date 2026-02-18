@@ -61,6 +61,7 @@ def _make_mock_context():
     reg2.condition = None
 
     ctx.container._registrations = {FakeService: reg1, FakeRepo: reg2}
+    ctx.container.get_bean_metrics = MagicMock(return_value=None)
     return ctx
 
 
