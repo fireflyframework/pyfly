@@ -38,8 +38,8 @@ class HypercornServerAdapter:
 
     async def serve_async(self, app: str | Any, config: Any) -> None:
         """Start Hypercorn (async)."""
-        from hypercorn.asyncio import serve  # type: ignore[import-not-found]
-        from hypercorn.config import Config as HypercornConfig  # type: ignore[import-not-found]
+        from hypercorn.asyncio import serve  # type: ignore[import-not-found,unused-ignore]
+        from hypercorn.config import Config as HypercornConfig  # type: ignore[import-not-found,unused-ignore]
 
         workers = config.workers if config.workers > 0 else 1
         host = getattr(config, "host", None) or "0.0.0.0"
@@ -74,7 +74,7 @@ class HypercornServerAdapter:
             port=port,
         )
 
-        await serve(app, hc_config, shutdown_trigger=self._shutdown_event.wait)
+        await serve(app, hc_config, shutdown_trigger=self._shutdown_event.wait)  # type: ignore[arg-type,unused-ignore]
 
     def shutdown(self) -> None:
         """Request graceful shutdown."""
