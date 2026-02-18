@@ -1,0 +1,125 @@
+# Copyright 2026 Firefly Software Solutions Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+"""Granian ASGI server adapter — Rust/tokio-based, highest performance."""
+from __future__ import annotations
+
+import os
+from typing import Any
+
+from pyfly.server.types import ServerInfo
+
+
+class GranianServerAdapter:
+    """ApplicationServerPort implementation backed by Granian.
+
+    Granian uses Rust's Hyper + Tokio for network I/O, achieving
+    ~3x the throughput of Uvicorn with significantly lower tail latency.
+    """
+
+    def __init__(self) -> None:
+        self._server: Any = None
+        self._info: ServerInfo | None = None
+
+    def serve(self, app: str | Any, config: Any) -> None:
+        """Start Granian (blocking)."""
+        from granian import Granian
+        from granian.constants import HTTPModes, Interfaces
+
+        workers = config.workers if config.workers > 0 else (os.cpu_count() or 1)
+        event_loop = config.event_loop if config.event_loop != "auto" else "auto"
+        http_mode = self._resolve_http_mode(config.http)
+
+        granian_props = getattr(config, "granian", None)
+        runtime_threads = getattr(granian_props, "runtime_threads", 1) if granian_props else 1
+        runtime_mode = getattr(granian_props, "runtime_mode", "auto") if granian_props else "auto"
+        backpressure = getattr(granian_props, "backpressure", None) if granian_props else None
+        respawn = getattr(granian_props, "respawn_failed_workers", True) if granian_props else True
+
+        host = getattr(config, "host", None) or "0.0.0.0"
+        port = getattr(config, "port", None) or 8000
+
+        kwargs: dict[str, Any] = {
+            "target": app if isinstance(app, str) else app,
+            "address": host,
+            "port": port,
+            "interface": Interfaces.ASGI,
+            "http": http_mode,
+            "workers": workers,
+            "loop": event_loop,
+            "runtime_threads": runtime_threads,
+            "runtime_mode": runtime_mode,
+            "backlog": config.backlog,
+            "respawn_failed_workers": respawn,
+            "workers_kill_timeout": config.graceful_timeout,
+        }
+        if backpressure is not None:
+            kwargs["backpressure"] = backpressure
+        if config.ssl_certfile:
+            kwargs["ssl_certfile"] = config.ssl_certfile
+        if config.ssl_keyfile:
+            kwargs["ssl_keyfile"] = config.ssl_keyfile
+
+        server = Granian(**kwargs)
+        self._server = server
+        self._info = ServerInfo(
+            name="granian",
+            version=self._get_version(),
+            workers=workers,
+            event_loop=event_loop,
+            http_protocol=config.http,
+            host=host,
+            port=port,
+        )
+        server.serve()
+
+    async def serve_async(self, app: str | Any, config: Any) -> None:
+        """Start Granian (async wrapper)."""
+        import asyncio
+
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, self.serve, app, config)
+
+    def shutdown(self) -> None:
+        """Request graceful shutdown."""
+        self._server = None
+
+    @property
+    def server_info(self) -> ServerInfo:
+        if self._info is not None:
+            return self._info
+        return ServerInfo(
+            name="granian",
+            version=self._get_version(),
+            workers=0,
+            event_loop="unknown",
+            http_protocol="unknown",
+            host="0.0.0.0",
+            port=0,
+        )
+
+    @staticmethod
+    def _get_version() -> str:
+        try:
+            from importlib.metadata import version
+
+            return version("granian")
+        except Exception:
+            return "unknown"
+
+    @staticmethod
+    def _resolve_http_mode(http: str) -> Any:
+        from granian.constants import HTTPModes
+
+        mapping = {"auto": HTTPModes.auto, "1": HTTPModes.http1, "2": HTTPModes.http2}
+        return mapping.get(http, HTTPModes.auto)
