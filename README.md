@@ -282,9 +282,22 @@ my-addon = "my_package.auto_configuration:MyAutoConfiguration"
 
 ## Installation
 
-> **Note:** PyFly is distributed exclusively via GitHub. It is **not** published to PyPI.
+> **Note:** PyFly is distributed exclusively via [GitHub Releases](https://github.com/fireflyframework/pyfly/releases). It is **not** published to PyPI.
 
-### One-Line Install (Recommended)
+### Install from GitHub Release (Recommended)
+
+```bash
+# Install the latest release
+pip install "pyfly @ https://github.com/fireflyframework/pyfly/releases/latest/download/pyfly-0.1.0a6-py3-none-any.whl"
+
+# Install with specific extras
+pip install "pyfly[web,data-relational,cache] @ https://github.com/fireflyframework/pyfly/releases/latest/download/pyfly-0.1.0a6-py3-none-any.whl"
+
+# Or with uv
+uv pip install "pyfly @ https://github.com/fireflyframework/pyfly/releases/latest/download/pyfly-0.1.0a6-py3-none-any.whl"
+```
+
+### One-Line Install (CLI + Framework)
 
 ```bash
 # Via get.pyfly.io
@@ -304,7 +317,7 @@ PYFLY_HOME=/opt/pyfly curl -fsSL https://get.pyfly.io/ | bash
 PYFLY_EXTRAS=web,data-relational,security curl -fsSL https://get.pyfly.io/ | bash
 ```
 
-### Local Install (from source)
+### Install from Source
 
 ```bash
 # Clone the repository
