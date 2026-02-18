@@ -1,0 +1,50 @@
+# Copyright 2026 Firefly Software Solutions Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+"""Tests for UvicornServerAdapter."""
+from __future__ import annotations
+
+from unittest.mock import patch
+
+import pytest
+
+from pyfly.server.adapters.uvicorn.adapter import UvicornServerAdapter
+from pyfly.server.ports.outbound import ApplicationServerPort
+from pyfly.server.types import ServerInfo
+from pyfly.config.properties.server import ServerProperties
+
+
+class TestUvicornServerAdapter:
+    def test_is_application_server_port(self):
+        adapter = UvicornServerAdapter()
+        assert isinstance(adapter, ApplicationServerPort)
+
+    def test_server_info(self):
+        adapter = UvicornServerAdapter()
+        info = adapter.server_info
+        assert isinstance(info, ServerInfo)
+        assert info.name == "uvicorn"
+
+    @patch("pyfly.server.adapters.uvicorn.adapter.uvicorn")
+    def test_serve_calls_uvicorn_run(self, mock_uvicorn):
+        adapter = UvicornServerAdapter()
+        config = ServerProperties(type="uvicorn", workers=2)
+        config.host = "0.0.0.0"
+        config.port = 8000
+        adapter.serve("myapp:app", config)
+
+        mock_uvicorn.run.assert_called_once()
+
+    def test_shutdown_does_not_raise(self):
+        adapter = UvicornServerAdapter()
+        adapter.shutdown()
