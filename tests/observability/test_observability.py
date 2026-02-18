@@ -13,7 +13,6 @@
 # limitations under the License.
 """Tests for observability module: metrics, tracing, and health aggregator."""
 
-
 import pytest
 
 from pyfly.actuator.health import HealthAggregator, HealthStatus

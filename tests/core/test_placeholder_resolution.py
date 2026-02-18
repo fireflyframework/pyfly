@@ -13,8 +13,6 @@
 # limitations under the License.
 """Tests for property placeholder resolution in Config values."""
 
-import os
-
 import pytest
 
 from pyfly.core.config import Config
@@ -29,10 +27,12 @@ class TestPlaceholderResolution:
         assert config.get("db.password") == "s3cret"
 
     def test_resolve_config_reference(self):
-        config = Config({
-            "app": {"name": "MyApp"},
-            "greeting": "Hello from ${app.name}",
-        })
+        config = Config(
+            {
+                "app": {"name": "MyApp"},
+                "greeting": "Hello from ${app.name}",
+            }
+        )
         assert config.get("greeting") == "Hello from MyApp"
 
     def test_resolve_with_default(self):
@@ -41,11 +41,13 @@ class TestPlaceholderResolution:
 
     def test_resolve_nested(self):
         """Recursive resolution: placeholder value itself contains a placeholder."""
-        config = Config({
-            "base": "localhost",
-            "host": "${base}",
-            "url": "http://${host}:8080",
-        })
+        config = Config(
+            {
+                "base": "localhost",
+                "host": "${base}",
+                "url": "http://${host}:8080",
+            }
+        )
         assert config.get("url") == "http://localhost:8080"
 
     def test_no_placeholder_passthrough(self):

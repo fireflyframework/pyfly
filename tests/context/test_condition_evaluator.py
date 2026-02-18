@@ -34,6 +34,7 @@ def _make_evaluator(data: dict | None = None) -> tuple[ConditionEvaluator, Conta
 # on_property
 # ------------------------------------------------------------------
 
+
 class TestOnProperty:
     def test_matching_value_passes(self):
         evaluator, _ = _make_evaluator({"cache": {"enabled": "true"}})
@@ -85,6 +86,7 @@ class TestOnProperty:
 # on_class
 # ------------------------------------------------------------------
 
+
 class TestOnClass:
     def test_available_module_passes(self):
         evaluator, _ = _make_evaluator()
@@ -108,6 +110,7 @@ class TestOnClass:
 # ------------------------------------------------------------------
 # on_missing_bean
 # ------------------------------------------------------------------
+
 
 class TestOnMissingBean:
     def test_passes_when_no_bean_registered(self):
@@ -144,6 +147,7 @@ class TestOnMissingBean:
 # on_bean
 # ------------------------------------------------------------------
 
+
 class TestOnBean:
     def test_passes_when_bean_registered(self):
         evaluator, container = _make_evaluator()
@@ -179,6 +183,7 @@ class TestOnBean:
 # Stacked conditions (AND semantics)
 # ------------------------------------------------------------------
 
+
 class TestStackedConditions:
     def test_all_pass(self):
         evaluator, _ = _make_evaluator({"cache": {"enabled": "true"}})
@@ -204,6 +209,7 @@ class TestStackedConditions:
 # ------------------------------------------------------------------
 # __pyfly_condition__ (singular callable from stereotype)
 # ------------------------------------------------------------------
+
 
 class TestSingularCondition:
     def test_callable_returning_true(self):
@@ -234,6 +240,7 @@ class TestSingularCondition:
 # ------------------------------------------------------------------
 # No conditions at all
 # ------------------------------------------------------------------
+
 
 class TestNoConditions:
     def test_plain_class_always_included(self):

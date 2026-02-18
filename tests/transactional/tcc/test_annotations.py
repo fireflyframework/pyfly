@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import dataclasses
 
 from pyfly.transactional.tcc.annotations import (
@@ -27,7 +28,6 @@ from pyfly.transactional.tcc.annotations import (
     try_method,
 )
 
-
 # ---------------------------------------------------------------------------
 # Decorated fixtures
 # ---------------------------------------------------------------------------
@@ -35,10 +35,8 @@ from pyfly.transactional.tcc.annotations import (
 
 @tcc(name="order-payment", timeout_ms=30000, retry_enabled=True, max_retries=3, backoff_ms=1000)
 class OrderPaymentTcc:
-
     @tcc_participant(id="payment-service", order=1, timeout_ms=5000, optional=False)
     class PaymentParticipant:
-
         @try_method(timeout_ms=5000, retry=2, backoff_ms=100)
         async def try_reserve(self, request: str, ctx: object) -> str:
             return "reserved"
@@ -63,6 +61,7 @@ class DefaultParticipant:
 
 
 # Standalone sync functions for method decorator tests
+
 
 @try_method()
 def plain_try(self) -> str:
@@ -207,9 +206,7 @@ class TestTryMethodDecorator:
 
     def test_works_with_async_function(self) -> None:
         participant = OrderPaymentTcc.PaymentParticipant()
-        result = asyncio.get_event_loop().run_until_complete(
-            participant.try_reserve("req", object())
-        )
+        result = asyncio.run(participant.try_reserve("req", object()))
         assert result == "reserved"
 
     def test_defaults(self) -> None:
@@ -250,9 +247,7 @@ class TestConfirmMethodDecorator:
 
     def test_works_with_async_function(self) -> None:
         participant = OrderPaymentTcc.PaymentParticipant()
-        result = asyncio.get_event_loop().run_until_complete(
-            participant.confirm("res-123", object())
-        )
+        result = asyncio.run(participant.confirm("res-123", object()))
         assert result is None
 
     def test_defaults(self) -> None:
@@ -290,9 +285,7 @@ class TestCancelMethodDecorator:
 
     def test_works_with_async_function(self) -> None:
         participant = OrderPaymentTcc.PaymentParticipant()
-        result = asyncio.get_event_loop().run_until_complete(
-            participant.cancel("res-123")
-        )
+        result = asyncio.run(participant.cancel("res-123"))
         assert result is None
 
     def test_defaults(self) -> None:
@@ -311,15 +304,11 @@ class TestFromTryMarker:
     def test_is_frozen_dataclass(self) -> None:
         assert dataclasses.is_dataclass(FromTry)
         marker = FromTry()
-        try:
+        with contextlib.suppress(Exception):
             marker.__dict__["x"] = 1  # type: ignore[index]
-        except Exception:
-            pass
         # Frozen dataclass — attribute assignment should raise
-        try:
+        with contextlib.suppress(dataclasses.FrozenInstanceError):
             object.__setattr__(marker, "x", 1)
-        except dataclasses.FrozenInstanceError:
-            pass
 
     def test_no_fields(self) -> None:
         fields = dataclasses.fields(FromTry)
@@ -361,7 +350,5 @@ class TestFullIntegration:
 
     def test_async_try_returns_result(self) -> None:
         participant = OrderPaymentTcc.PaymentParticipant()
-        result = asyncio.get_event_loop().run_until_complete(
-            participant.try_reserve("req", object())
-        )
+        result = asyncio.run(participant.try_reserve("req", object()))
         assert result == "reserved"

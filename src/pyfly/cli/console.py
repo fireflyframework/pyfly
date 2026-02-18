@@ -19,14 +19,16 @@ from rich.console import Console
 from rich.table import Table
 from rich.theme import Theme
 
-PYFLY_THEME = Theme({
-    "info": "cyan",
-    "success": "bold green",
-    "warning": "bold yellow",
-    "error": "bold red",
-    "pyfly": "bold magenta",
-    "dim": "dim",
-})
+PYFLY_THEME = Theme(
+    {
+        "info": "cyan",
+        "success": "bold green",
+        "warning": "bold yellow",
+        "error": "bold red",
+        "pyfly": "bold magenta",
+        "dim": "dim",
+    }
+)
 
 console = Console(theme=PYFLY_THEME)
 
@@ -37,12 +39,18 @@ def print_banner() -> None:
 
     banner = (
         "[pyfly]"
-        r"                _____.__" "\n"
-        r"______ ___.__._/ ____\  | ___.__." "\n"
-        r"\____ <   |  |\   __\|  |<   |  |" "\n"
-        r"|  |_> >___  | |  |  |  |_\___  |" "\n"
-        r"|   __// ____| |__|  |____/ ____|" "\n"
-        r"|__|   \/                 \/" "[/pyfly]"
+        r"                _____.__"
+        "\n"
+        r"______ ___.__._/ ____\  | ___.__."
+        "\n"
+        r"\____ <   |  |\   __\|  |<   |  |"
+        "\n"
+        r"|  |_> >___  | |  |  |  |_\___  |"
+        "\n"
+        r"|   __// ____| |__|  |____/ ____|"
+        "\n"
+        r"|__|   \/                 \/"
+        "[/pyfly]"
     )
     console.print(banner)
     console.print()

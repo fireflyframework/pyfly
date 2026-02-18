@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """End-to-end declarative HTTP client integration test."""
+
 from __future__ import annotations
 
 import json
@@ -30,9 +31,9 @@ class FakeHttpClient:
         self.calls: list[dict] = []
         self.responses: dict[str, bytes] = {}
 
-    async def request(self, method: str, url: str, **kwargs) -> "FakeResponse":
+    async def request(self, method: str, url: str, **kwargs) -> FakeResponse:
         self.calls.append({"method": method, "url": url, **kwargs})
-        body = self.responses.get(f"{method}:{url}", b'{}')
+        body = self.responses.get(f"{method}:{url}", b"{}")
         return FakeResponse(body)
 
     async def start(self) -> None:
@@ -68,9 +69,7 @@ class TestDeclarativeClientIntegration:
 
         ctx = ApplicationContext(Config())
         ctx.register_bean(UserClient)
-        ctx.register_post_processor(
-            HttpClientBeanPostProcessor(http_client_factory=lambda base_url: fake)
-        )
+        ctx.register_post_processor(HttpClientBeanPostProcessor(http_client_factory=lambda base_url: fake))
         await ctx.start()
 
         client = ctx.get_bean(UserClient)
@@ -96,9 +95,7 @@ class TestDeclarativeClientIntegration:
 
         ctx = ApplicationContext(Config())
         ctx.register_bean(ItemClient)
-        ctx.register_post_processor(
-            HttpClientBeanPostProcessor(http_client_factory=lambda base_url: fake)
-        )
+        ctx.register_post_processor(HttpClientBeanPostProcessor(http_client_factory=lambda base_url: fake))
         await ctx.start()
 
         client = ctx.get_bean(ItemClient)

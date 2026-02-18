@@ -78,6 +78,7 @@ class TestCircuitBreaker:
         assert cb.state == CircuitState.OPEN
 
         import asyncio
+
         await asyncio.sleep(0.1)
         assert cb.state == CircuitState.HALF_OPEN
 

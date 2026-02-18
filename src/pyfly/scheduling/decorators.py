@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Decorators for scheduled task execution and async method offloading."""
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -37,9 +38,7 @@ def scheduled(
     """
     triggers = sum(x is not None for x in (cron, fixed_rate, fixed_delay))
     if triggers != 1:
-        raise ValueError(
-            "Exactly one of cron, fixed_rate, or fixed_delay must be specified"
-        )
+        raise ValueError("Exactly one of cron, fixed_rate, or fixed_delay must be specified")
 
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         func.__pyfly_scheduled__ = True  # type: ignore[attr-defined]

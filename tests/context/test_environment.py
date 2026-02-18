@@ -13,8 +13,6 @@
 # limitations under the License.
 """Tests for Environment with profile support."""
 
-
-
 from pyfly.context.environment import Environment
 from pyfly.core.config import Config
 

@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 from pyfly.core.config import config_properties
 
@@ -29,5 +30,5 @@ class WebProperties:
     port: int = 8000
     host: str = "0.0.0.0"
     debug: bool = False
-    docs: dict = field(default_factory=lambda: {"enabled": True})
-    actuator: dict = field(default_factory=lambda: {"enabled": False})
+    docs: dict[str, Any] = field(default_factory=lambda: {"enabled": True})
+    actuator: dict[str, Any] = field(default_factory=lambda: {"enabled": False})

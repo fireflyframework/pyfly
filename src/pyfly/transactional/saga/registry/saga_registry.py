@@ -15,7 +15,6 @@
 
 from __future__ import annotations
 
-import inspect
 from collections import deque
 from collections.abc import Callable
 from typing import Any
@@ -170,16 +169,13 @@ class SagaRegistry:
         for step_id, step_def in definition.steps.items():
             for dep in step_def.depends_on:
                 if dep not in step_ids:
-                    msg = (
-                        f"Step '{step_id}' in saga '{definition.name}' depends on "
-                        f"'{dep}' which is nonexistent"
-                    )
+                    msg = f"Step '{step_id}' in saga '{definition.name}' depends on '{dep}' which is nonexistent"
                     raise SagaValidationError(msg)
 
         # 2. Kahn's algorithm for topological sort / cycle detection.
         in_degree: dict[str, int] = {sid: 0 for sid in step_ids}
         for step_def in definition.steps.values():
-            for dep in step_def.depends_on:
+            for _dep in step_def.depends_on:
                 in_degree[step_def.id] += 1
 
         queue: deque[str] = deque()
@@ -200,8 +196,5 @@ class SagaRegistry:
                         queue.append(step_def.id)
 
         if processed != len(step_ids):
-            msg = (
-                f"Saga '{definition.name}' contains a dependency cycle "
-                f"(processed {processed}/{len(step_ids)} steps)"
-            )
+            msg = f"Saga '{definition.name}' contains a dependency cycle (processed {processed}/{len(step_ids)} steps)"
             raise SagaValidationError(msg)

@@ -53,80 +53,62 @@ class FilterOperator:
     @staticmethod
     def eq(field: str, value: Any) -> Specification[Any]:
         """Equal to."""
-        return Specification(lambda root, q, _f=field, _v=value: q.where(getattr(root, _f) == _v))
+        return Specification(lambda root, q, _f=field, _v=value: q.where(getattr(root, _f) == _v))  # type: ignore[misc]
 
     @staticmethod
     def neq(field: str, value: Any) -> Specification[Any]:
         """Not equal to."""
-        return Specification(lambda root, q, _f=field, _v=value: q.where(getattr(root, _f) != _v))
+        return Specification(lambda root, q, _f=field, _v=value: q.where(getattr(root, _f) != _v))  # type: ignore[misc]
 
     @staticmethod
     def gt(field: str, value: Any) -> Specification[Any]:
         """Greater than."""
-        return Specification(lambda root, q, _f=field, _v=value: q.where(getattr(root, _f) > _v))
+        return Specification(lambda root, q, _f=field, _v=value: q.where(getattr(root, _f) > _v))  # type: ignore[misc]
 
     @staticmethod
     def gte(field: str, value: Any) -> Specification[Any]:
         """Greater than or equal."""
-        return Specification(
-            lambda root, q, _f=field, _v=value: q.where(getattr(root, _f) >= _v)
-        )
+        return Specification(lambda root, q, _f=field, _v=value: q.where(getattr(root, _f) >= _v))  # type: ignore[misc]
 
     @staticmethod
     def lt(field: str, value: Any) -> Specification[Any]:
         """Less than."""
-        return Specification(lambda root, q, _f=field, _v=value: q.where(getattr(root, _f) < _v))
+        return Specification(lambda root, q, _f=field, _v=value: q.where(getattr(root, _f) < _v))  # type: ignore[misc]
 
     @staticmethod
     def lte(field: str, value: Any) -> Specification[Any]:
         """Less than or equal."""
-        return Specification(
-            lambda root, q, _f=field, _v=value: q.where(getattr(root, _f) <= _v)
-        )
+        return Specification(lambda root, q, _f=field, _v=value: q.where(getattr(root, _f) <= _v))  # type: ignore[misc]
 
     @staticmethod
     def like(field: str, pattern: str) -> Specification[Any]:
         """SQL LIKE pattern match."""
-        return Specification(
-            lambda root, q, _f=field, _p=pattern: q.where(getattr(root, _f).like(_p))
-        )
+        return Specification(lambda root, q, _f=field, _p=pattern: q.where(getattr(root, _f).like(_p)))  # type: ignore[misc]
 
     @staticmethod
     def contains(field: str, value: str) -> Specification[Any]:
         """String contains (wraps in ``%value%``)."""
-        return Specification(
-            lambda root, q, _f=field, _v=value: q.where(getattr(root, _f).contains(_v))
-        )
+        return Specification(lambda root, q, _f=field, _v=value: q.where(getattr(root, _f).contains(_v)))  # type: ignore[misc]
 
     @staticmethod
     def in_list(field: str, values: list[Any]) -> Specification[Any]:
         """Value is in list."""
-        return Specification(
-            lambda root, q, _f=field, _v=values: q.where(getattr(root, _f).in_(_v))
-        )
+        return Specification(lambda root, q, _f=field, _v=values: q.where(getattr(root, _f).in_(_v)))  # type: ignore[misc]
 
     @staticmethod
     def is_null(field: str) -> Specification[Any]:
         """Value is NULL."""
-        return Specification(
-            lambda root, q, _f=field: q.where(getattr(root, _f).is_(None))
-        )
+        return Specification(lambda root, q, _f=field: q.where(getattr(root, _f).is_(None)))  # type: ignore[misc]
 
     @staticmethod
     def is_not_null(field: str) -> Specification[Any]:
         """Value is NOT NULL."""
-        return Specification(
-            lambda root, q, _f=field: q.where(getattr(root, _f).isnot(None))
-        )
+        return Specification(lambda root, q, _f=field: q.where(getattr(root, _f).isnot(None)))  # type: ignore[misc]
 
     @staticmethod
     def between(field: str, low: Any, high: Any) -> Specification[Any]:
         """Value is between *low* and *high* (inclusive)."""
-        return Specification(
-            lambda root, q, _f=field, _lo=low, _hi=high: q.where(
-                getattr(root, _f).between(_lo, _hi)
-            )
-        )
+        return Specification(lambda root, q, _f=field, _lo=low, _hi=high: q.where(getattr(root, _f).between(_lo, _hi)))  # type: ignore[misc]
 
 
 class FilterUtils(BaseFilterUtils):

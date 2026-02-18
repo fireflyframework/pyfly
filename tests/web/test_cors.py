@@ -25,10 +25,10 @@ from starlette.testclient import TestClient
 from pyfly.web.adapters.starlette.app import create_app
 from pyfly.web.cors import CORSConfig
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 async def hello(request):
     return JSONResponse({"msg": "hello"})

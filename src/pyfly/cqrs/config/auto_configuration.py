@@ -19,8 +19,10 @@ Mirrors Java's ``CqrsAutoConfiguration``.
 from __future__ import annotations
 
 import logging
-from typing import Any
 
+from pyfly.container.bean import bean
+from pyfly.context.conditions import auto_configuration, conditional_on_property
+from pyfly.core.config import Config
 from pyfly.cqrs.authorization.service import AuthorizationService
 from pyfly.cqrs.cache.adapter import QueryCacheAdapter
 from pyfly.cqrs.command.bus import DefaultCommandBus
@@ -32,9 +34,6 @@ from pyfly.cqrs.event.publisher import NoOpEventPublisher
 from pyfly.cqrs.query.bus import DefaultQueryBus
 from pyfly.cqrs.tracing.correlation import CorrelationContext
 from pyfly.cqrs.validation.processor import AutoValidationProcessor
-from pyfly.container.bean import bean
-from pyfly.context.conditions import auto_configuration, conditional_on_property
-from pyfly.core.config import Config
 
 _logger = logging.getLogger(__name__)
 

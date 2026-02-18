@@ -37,15 +37,14 @@ def span(name: str) -> Callable[[F], F]:
 
     def decorator(func: F) -> F:
         if asyncio.iscoroutinefunction(func):
+
             @functools.wraps(func)
             async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
                 with _tracer.start_as_current_span(name) as current_span:
                     try:
                         return await func(*args, **kwargs)
                     except Exception as exc:
-                        current_span.set_status(
-                            trace.Status(trace.StatusCode.ERROR, str(exc))
-                        )
+                        current_span.set_status(trace.Status(trace.StatusCode.ERROR, str(exc)))
                         current_span.record_exception(exc)
                         raise
 
@@ -57,9 +56,7 @@ def span(name: str) -> Callable[[F], F]:
                 try:
                     return func(*args, **kwargs)
                 except Exception as exc:
-                    current_span.set_status(
-                        trace.Status(trace.StatusCode.ERROR, str(exc))
-                    )
+                    current_span.set_status(trace.Status(trace.StatusCode.ERROR, str(exc)))
                     current_span.record_exception(exc)
                     raise
 

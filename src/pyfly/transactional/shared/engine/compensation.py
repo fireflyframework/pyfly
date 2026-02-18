@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any
+from typing import Any, cast
 
 from pyfly.transactional.shared.ports.outbound import CompensationErrorHandlerPort
 
@@ -37,18 +37,14 @@ logger = logging.getLogger(__name__)
 class FailFastErrorHandler:
     """Re-raises the compensation error immediately, stopping further compensations."""
 
-    async def handle(
-        self, saga_name: str, step_id: str, error: Exception, ctx: Any
-    ) -> None:
+    async def handle(self, saga_name: str, step_id: str, error: Exception, ctx: Any) -> None:
         raise error
 
 
 class LogAndContinueErrorHandler:
     """Logs the compensation error and continues with the next compensation."""
 
-    async def handle(
-        self, saga_name: str, step_id: str, error: Exception, ctx: Any
-    ) -> None:
+    async def handle(self, saga_name: str, step_id: str, error: Exception, ctx: Any) -> None:
         logger.error(
             "Compensation failed for saga '%s', step '%s': %s",
             saga_name,
@@ -81,12 +77,8 @@ class RetryWithBackoffErrorHandler:
         self.backoff_ms = backoff_ms
         self.backoff_multiplier = backoff_multiplier
 
-    async def handle(
-        self, saga_name: str, step_id: str, error: Exception, ctx: Any
-    ) -> None:
-        compensation_fn = (
-            ctx.get("compensation_fn") if isinstance(ctx, dict) else None
-        )
+    async def handle(self, saga_name: str, step_id: str, error: Exception, ctx: Any) -> None:
+        compensation_fn = ctx.get("compensation_fn") if isinstance(ctx, dict) else None
 
         delay_s = self.backoff_ms / 1000.0
 
@@ -124,9 +116,7 @@ class CompositeCompensationErrorHandler:
         self._primary = primary
         self._fallback = fallback
 
-    async def handle(
-        self, saga_name: str, step_id: str, error: Exception, ctx: Any
-    ) -> None:
+    async def handle(self, saga_name: str, step_id: str, error: Exception, ctx: Any) -> None:
         try:
             await self._primary.handle(saga_name, step_id, error, ctx)
         except Exception:  # noqa: BLE001
@@ -164,4 +154,4 @@ class CompensationErrorHandlerFactory:
                 f"Available types: {', '.join(sorted(handlers))}"
             )
 
-        return handler_cls(**kwargs)
+        return cast(CompensationErrorHandlerPort, handler_cls(**kwargs))

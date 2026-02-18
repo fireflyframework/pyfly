@@ -15,6 +15,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
+from typing import Any
+
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse
 
@@ -89,7 +92,7 @@ REDOC_HTML = """<!DOCTYPE html>
 </html>"""
 
 
-def make_openapi_endpoint(spec_dict: dict):
+def make_openapi_endpoint(spec_dict: dict[str, Any]) -> Callable[[Request], Awaitable[JSONResponse]]:
     """Create the /openapi.json endpoint handler."""
 
     async def openapi_json(request: Request) -> JSONResponse:
@@ -98,7 +101,10 @@ def make_openapi_endpoint(spec_dict: dict):
     return openapi_json
 
 
-def make_swagger_ui_endpoint(title: str, openapi_url: str = "/openapi.json"):
+def make_swagger_ui_endpoint(
+    title: str,
+    openapi_url: str = "/openapi.json",
+) -> Callable[[Request], Awaitable[HTMLResponse]]:
     """Create the /docs endpoint handler."""
 
     async def swagger_ui(request: Request) -> HTMLResponse:
@@ -108,7 +114,10 @@ def make_swagger_ui_endpoint(title: str, openapi_url: str = "/openapi.json"):
     return swagger_ui
 
 
-def make_redoc_endpoint(title: str, openapi_url: str = "/openapi.json"):
+def make_redoc_endpoint(
+    title: str,
+    openapi_url: str = "/openapi.json",
+) -> Callable[[Request], Awaitable[HTMLResponse]]:
     """Create the /redoc endpoint handler."""
 
     async def redoc(request: Request) -> HTMLResponse:

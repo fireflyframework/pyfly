@@ -16,11 +16,11 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import TypeVar, overload
+from typing import Any, TypeVar, overload
 
 from pyfly.container.types import Scope
 
-F = TypeVar("F", bound=Callable)
+F = TypeVar("F", bound=Callable[..., Any])
 T = TypeVar("T", bound=type)
 
 

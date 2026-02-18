@@ -169,6 +169,7 @@ class TestRouteAndDocsLogging:
 
     async def test_log_routes_and_docs_with_no_metadata(self, tmp_path):
         """When no route metadata is set, _log_routes_and_docs should not crash."""
+
         @pyfly_application(name="NoRoutes", version="0.1.0", scan_packages=[])
         class App:
             pass
@@ -220,6 +221,7 @@ class TestRouteAndDocsLogging:
 
     async def test_docs_urls_not_logged_when_disabled(self, tmp_path):
         """When docs_enabled is False, no docs URLs should be logged."""
+
         @pyfly_application(name="NoDocs", version="0.1.0", scan_packages=[])
         class App:
             pass
@@ -238,6 +240,7 @@ class TestFailFastStartup:
 
     async def test_startup_wraps_adapter_failure(self, tmp_path):
         """When an adapter's start() fails, startup raises BeanCreationException."""
+
         @pyfly_application(name="FailApp", version="0.1.0", scan_packages=[])
         class App:
             pass
@@ -265,6 +268,7 @@ class TestFailFastStartup:
 
     async def test_startup_wraps_general_errors(self, tmp_path):
         """Any exception during startup is wrapped in BeanCreationException."""
+
         @pyfly_application(name="ErrorApp", version="0.1.0", scan_packages=[])
         class App:
             pass
@@ -275,25 +279,21 @@ class TestFailFastStartup:
         app = PyFlyApplication(App, config_path=config_file)
 
         # Mock context._do_start() to raise a generic error
-        with patch.object(
-            app._context, '_do_start', side_effect=RuntimeError("Something broke")
+        with (
+            patch.object(app._context, "_do_start", side_effect=RuntimeError("Something broke")),
+            pytest.raises(BeanCreationException, match="startup"),
         ):
-            with pytest.raises(BeanCreationException, match="startup"):
-                await app.startup()
+            await app.startup()
 
     async def test_startup_succeeds_with_memory_providers(self, tmp_path):
         """Memory providers start without errors."""
+
         @pyfly_application(name="MemoryApp", version="0.1.0", scan_packages=[])
         class App:
             pass
 
         config_file = tmp_path / "pyfly.yaml"
-        config_file.write_text(
-            "pyfly:\n"
-            "  banner:\n    mode: 'OFF'\n"
-            "  messaging:\n"
-            "    provider: 'memory'\n"
-        )
+        config_file.write_text("pyfly:\n  banner:\n    mode: 'OFF'\n  messaging:\n    provider: 'memory'\n")
 
         app = PyFlyApplication(App, config_path=config_file)
         await app.startup()
@@ -302,6 +302,7 @@ class TestFailFastStartup:
 
     async def test_startup_wraps_redis_adapter_failure(self, tmp_path):
         """When a Redis adapter's start() fails, startup raises BeanCreationException."""
+
         @pyfly_application(name="RedisFailApp", version="0.1.0", scan_packages=[])
         class App:
             pass
@@ -330,6 +331,7 @@ class TestFailFastStartup:
 
     async def test_bean_creation_exception_preserves_cause(self, tmp_path):
         """The original exception should be chained as __cause__."""
+
         @pyfly_application(name="CauseApp", version="0.1.0", scan_packages=[])
         class App:
             pass

@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Tests for MongoDB auto-configuration wiring."""
+
 from __future__ import annotations
 
 import pytest
@@ -177,12 +178,8 @@ class TestBeanieInitializer:
         from mongomock_motor import AsyncMongoMockClient
 
         client = AsyncMongoMockClient()
-        config = Config(
-            {"pyfly": {"data": {"document": {"database": "testdb"}}}}
-        )
-        initializer = BeanieInitializer(
-            motor_client=client, config=config, container=container
-        )
+        config = Config({"pyfly": {"data": {"document": {"database": "testdb"}}}})
+        initializer = BeanieInitializer(motor_client=client, config=config, container=container)
 
         with patch("beanie.init_beanie", new_callable=AsyncMock) as mock_init:
             await initializer.start()

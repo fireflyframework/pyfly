@@ -91,10 +91,7 @@ class SagaCompositor:
         )
 
         # Build dependency map and compute execution layers.
-        deps: dict[str, list[str]] = {
-            name: list(entry.depends_on)
-            for name, entry in composition.entries.items()
-        }
+        deps: dict[str, list[str]] = {name: list(entry.depends_on) for name, entry in composition.entries.items()}
         layers = SagaTopology.compute_layers(deps)
         completed_sagas: list[str] = []
 
@@ -130,17 +127,13 @@ class SagaCompositor:
                     completed_sagas.append(saga_name)
 
                     if not result.success:
-                        msg = (
-                            f"Saga '{saga_name}' failed in composition "
-                            f"'{composition.name}'"
-                        )
+                        msg = f"Saga '{saga_name}' failed in composition '{composition.name}'"
                         raise RuntimeError(msg)
 
         except Exception as exc:
             ctx.error = exc
             logger.warning(
-                "Composition '%s' (correlation_id=%s) failed: %s. "
-                "Compensating %d completed saga(s).",
+                "Composition '%s' (correlation_id=%s) failed: %s. Compensating %d completed saga(s).",
                 composition.name,
                 ctx.correlation_id,
                 exc,

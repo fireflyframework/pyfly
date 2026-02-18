@@ -71,19 +71,13 @@ class InMemoryCache:
     def get_stats(self) -> dict[str, Any]:
         """Return cache statistics, excluding expired entries."""
         now = time.monotonic()
-        active = sum(
-            1 for _, (_, exp) in self._store.items()
-            if exp is None or exp > now
-        )
+        active = sum(1 for _, (_, exp) in self._store.items() if exp is None or exp > now)
         return {"size": active, "type": "memory", "max_size": None}
 
     def get_keys(self) -> list[str]:
         """Return keys of non-expired entries."""
         now = time.monotonic()
-        return [
-            k for k, (_, exp) in self._store.items()
-            if exp is None or exp > now
-        ]
+        return [k for k, (_, exp) in self._store.items() if exp is None or exp > now]
 
     async def clear(self) -> None:
         """Remove all entries."""

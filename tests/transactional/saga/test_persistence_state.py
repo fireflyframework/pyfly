@@ -15,7 +15,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -25,12 +25,11 @@ from pyfly.transactional.saga.persistence.state import (
     StepExecutionState,
 )
 
-
 # ── helpers ───────────────────────────────────────────────────
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _make_step_state(
@@ -269,7 +268,7 @@ class TestSagaExecutionStateFrozen:
 
 class TestSagaExecutionStateToDict:
     def test_minimal_to_dict(self) -> None:
-        started = datetime(2026, 1, 15, 10, 30, 0, tzinfo=timezone.utc)
+        started = datetime(2026, 1, 15, 10, 30, 0, tzinfo=UTC)
         state = SagaExecutionState(
             correlation_id="corr-1",
             saga_name="order-saga",
@@ -287,8 +286,8 @@ class TestSagaExecutionStateToDict:
         assert d["error_message"] is None
 
     def test_completed_saga_to_dict(self) -> None:
-        started = datetime(2026, 1, 15, 10, 30, 0, tzinfo=timezone.utc)
-        completed = datetime(2026, 1, 15, 10, 30, 5, tzinfo=timezone.utc)
+        started = datetime(2026, 1, 15, 10, 30, 0, tzinfo=UTC)
+        completed = datetime(2026, 1, 15, 10, 30, 5, tzinfo=UTC)
         state = SagaExecutionState(
             correlation_id="corr-2",
             saga_name="order-saga",
@@ -303,9 +302,9 @@ class TestSagaExecutionStateToDict:
         assert d["headers"] == {"x-tenant": "acme"}
 
     def test_steps_serialized_in_to_dict(self) -> None:
-        started = datetime(2026, 1, 15, 10, 30, 0, tzinfo=timezone.utc)
-        step_started = datetime(2026, 1, 15, 10, 30, 1, tzinfo=timezone.utc)
-        step_completed = datetime(2026, 1, 15, 10, 30, 2, tzinfo=timezone.utc)
+        started = datetime(2026, 1, 15, 10, 30, 0, tzinfo=UTC)
+        step_started = datetime(2026, 1, 15, 10, 30, 1, tzinfo=UTC)
+        step_completed = datetime(2026, 1, 15, 10, 30, 2, tzinfo=UTC)
         step = StepExecutionState(
             step_id="step-pay",
             status="DONE",
@@ -367,7 +366,7 @@ class TestSagaExecutionStateToDict:
 
 class TestSagaExecutionStateFromDict:
     def test_round_trip_minimal(self) -> None:
-        started = datetime(2026, 1, 15, 10, 30, 0, tzinfo=timezone.utc)
+        started = datetime(2026, 1, 15, 10, 30, 0, tzinfo=UTC)
         original = SagaExecutionState(
             correlation_id="corr-rt",
             saga_name="order-saga",
@@ -385,9 +384,9 @@ class TestSagaExecutionStateFromDict:
         assert reconstructed.error_message is None
 
     def test_round_trip_with_steps(self) -> None:
-        started = datetime(2026, 1, 15, 10, 30, 0, tzinfo=timezone.utc)
-        step_started = datetime(2026, 1, 15, 10, 30, 1, tzinfo=timezone.utc)
-        step_completed = datetime(2026, 1, 15, 10, 30, 2, tzinfo=timezone.utc)
+        started = datetime(2026, 1, 15, 10, 30, 0, tzinfo=UTC)
+        step_started = datetime(2026, 1, 15, 10, 30, 1, tzinfo=UTC)
+        step_completed = datetime(2026, 1, 15, 10, 30, 2, tzinfo=UTC)
         step = StepExecutionState(
             step_id="step-pay",
             status="DONE",
@@ -403,7 +402,7 @@ class TestSagaExecutionStateFromDict:
             saga_name="order-saga",
             status=SagaExecutionStatus.COMPLETED,
             started_at=started,
-            completed_at=datetime(2026, 1, 15, 10, 31, 0, tzinfo=timezone.utc),
+            completed_at=datetime(2026, 1, 15, 10, 31, 0, tzinfo=UTC),
             headers={"x-tenant": "acme"},
             steps={"step-pay": step},
             error_message=None,
@@ -425,7 +424,7 @@ class TestSagaExecutionStateFromDict:
         assert rs.compensated is False
 
     def test_round_trip_with_error(self) -> None:
-        started = datetime(2026, 1, 15, 10, 30, 0, tzinfo=timezone.utc)
+        started = datetime(2026, 1, 15, 10, 30, 0, tzinfo=UTC)
         original = SagaExecutionState(
             correlation_id="corr-err",
             saga_name="payment-saga",

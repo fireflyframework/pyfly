@@ -42,9 +42,7 @@ class Bulkhead:
     async def acquire(self) -> None:
         """Try to acquire a slot. Raises BulkheadException if at capacity."""
         if self._semaphore.locked():
-            raise BulkheadException(
-                f"Bulkhead at capacity ({self._max_concurrent} concurrent calls)"
-            )
+            raise BulkheadException(f"Bulkhead at capacity ({self._max_concurrent} concurrent calls)")
         await self._semaphore.acquire()
         self._active += 1
 

@@ -21,11 +21,8 @@ from pyfly.container import (
     Container,
     NoSuchBeanError,
     NoUniqueBeanError,
-    primary,
-    Scope,
 )
 from pyfly.container.autowired import Autowired
-
 
 # -- Fixtures --
 

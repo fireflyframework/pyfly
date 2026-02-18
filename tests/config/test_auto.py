@@ -86,7 +86,6 @@ class TestAutoConfigurationClasses:
 
     def test_web_auto_config_produces_web_adapter(self):
         from pyfly.web.auto_configuration import WebAutoConfiguration
-        from pyfly.web.ports.outbound import WebServerPort
 
         instance = WebAutoConfiguration()
         adapter = instance.web_adapter()
@@ -96,7 +95,6 @@ class TestAutoConfigurationClasses:
 
     def test_cache_auto_config_produces_memory_cache(self):
         from pyfly.cache.auto_configuration import CacheAutoConfiguration
-        from pyfly.cache.ports.outbound import CacheAdapter
 
         config = Config({"pyfly": {"cache": {"enabled": True, "provider": "memory"}}})
         instance = CacheAutoConfiguration()
@@ -107,7 +105,6 @@ class TestAutoConfigurationClasses:
 
     def test_messaging_auto_config_produces_memory_broker(self):
         from pyfly.messaging.auto_configuration import MessagingAutoConfiguration
-        from pyfly.messaging.ports.outbound import MessageBrokerPort
 
         config = Config({"pyfly": {"messaging": {"provider": "memory"}}})
         instance = MessagingAutoConfiguration()
@@ -156,7 +153,6 @@ class TestAutoConfigurationClasses:
 
     def test_client_auto_config_produces_httpx_adapter(self):
         from pyfly.client.auto_configuration import ClientAutoConfiguration
-        from pyfly.client.ports.outbound import HttpClientPort
 
         config = Config({"pyfly": {"client": {"timeout": 10}}})
         instance = ClientAutoConfiguration()
@@ -229,7 +225,7 @@ class TestAutoConfigurationClasses:
         assert isinstance(engine, AsyncEngine)
 
     def test_relational_auto_config_produces_session(self):
-        from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
+        from sqlalchemy.ext.asyncio import AsyncSession
 
         from pyfly.data.relational.auto_configuration import (
             RelationalAutoConfiguration,

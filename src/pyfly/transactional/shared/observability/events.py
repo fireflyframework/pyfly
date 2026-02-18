@@ -93,13 +93,9 @@ class LoggerEventsAdapter:
         if error is None:
             _logger.info("Step '%s' compensated [saga=%s]", step_id, name)
         else:
-            _logger.warning(
-                "Step '%s' compensated [saga=%s]: %s", step_id, name, error
-            )
+            _logger.warning("Step '%s' compensated [saga=%s]: %s", step_id, name, error)
 
-    async def on_completed(
-        self, name: str, correlation_id: str, success: bool
-    ) -> None:
+    async def on_completed(self, name: str, correlation_id: str, success: bool) -> None:
         _logger.info(
             "Saga '%s' completed [correlation_id=%s, success=%s]",
             name,
@@ -189,11 +185,7 @@ class CompositeEventsAdapter:
         step_id: str,
         error: Exception | None,
     ) -> None:
-        await self._broadcast(
-            "on_compensated", name, correlation_id, step_id, error=error
-        )
+        await self._broadcast("on_compensated", name, correlation_id, step_id, error=error)
 
-    async def on_completed(
-        self, name: str, correlation_id: str, success: bool
-    ) -> None:
+    async def on_completed(self, name: str, correlation_id: str, success: bool) -> None:
         await self._broadcast("on_completed", name, correlation_id, success=success)

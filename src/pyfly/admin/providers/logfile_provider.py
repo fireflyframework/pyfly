@@ -40,6 +40,7 @@ class LogfileProvider:
             return self._handler
         try:
             from pyfly.admin.log_handler import AdminLogHandler
+
             for _cls, reg in self._context.container._registrations.items():
                 if reg.instance is not None and isinstance(reg.instance, AdminLogHandler):
                     self._handler = reg.instance

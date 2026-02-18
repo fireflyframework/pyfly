@@ -28,22 +28,23 @@ def _make_mock_context():
     """Create a mock ApplicationContext with sample beans."""
     ctx = MagicMock()
     ctx.config = MagicMock()
-    ctx.config.get = MagicMock(side_effect=lambda key, default=None: {
-        "pyfly.app.name": "test-app",
-        "pyfly.app.version": "1.0.0",
-        "pyfly.app.description": "Test Application",
-    }.get(key, default))
+    ctx.config.get = MagicMock(
+        side_effect=lambda key, default=None: {
+            "pyfly.app.name": "test-app",
+            "pyfly.app.version": "1.0.0",
+            "pyfly.app.description": "Test Application",
+        }.get(key, default)
+    )
     ctx.environment = MagicMock()
     ctx.environment.active_profiles = ["dev"]
     ctx.bean_count = 5
     ctx.wiring_counts = {"event_listeners": 2, "scheduled": 1}
-    ctx.get_bean_counts_by_stereotype.return_value = {
-        "service": 3, "repository": 2, "rest_controller": 1
-    }
+    ctx.get_bean_counts_by_stereotype.return_value = {"service": 3, "repository": 2, "rest_controller": 1}
 
     # Mock container registrations
     class FakeService:
         __pyfly_stereotype__ = "service"
+
     class FakeRepo:
         __pyfly_stereotype__ = "repository"
 
@@ -80,13 +81,12 @@ class TestBeansProvider:
 class TestHealthProvider:
     async def test_get_health(self):
         aggregator = MagicMock()
-        aggregator.check = AsyncMock(return_value=MagicMock(
-            status="UP",
-            to_dict=MagicMock(return_value={
-                "status": "UP",
-                "components": {"db": {"status": "UP", "details": {}}}
-            })
-        ))
+        aggregator.check = AsyncMock(
+            return_value=MagicMock(
+                status="UP",
+                to_dict=MagicMock(return_value={"status": "UP", "components": {"db": {"status": "UP", "details": {}}}}),
+            )
+        )
         provider = HealthProvider(aggregator)
         result = await provider.get_health()
         assert result["status"] == "UP"
@@ -96,10 +96,9 @@ class TestOverviewProvider:
     async def test_get_overview(self):
         ctx = _make_mock_context()
         aggregator = MagicMock()
-        aggregator.check = AsyncMock(return_value=MagicMock(
-            status="UP",
-            to_dict=MagicMock(return_value={"status": "UP", "components": {}})
-        ))
+        aggregator.check = AsyncMock(
+            return_value=MagicMock(status="UP", to_dict=MagicMock(return_value={"status": "UP", "components": {}}))
+        )
         provider = OverviewProvider(ctx, aggregator)
         result = await provider.get_overview()
         assert result["app"]["name"] == "test-app"
@@ -138,6 +137,7 @@ class TestLoggersProvider:
 class TestTransactionsProvider:
     async def test_get_transactions_empty(self):
         from pyfly.admin.providers.transactions_provider import TransactionsProvider
+
         ctx = _make_mock_context()
         provider = TransactionsProvider(ctx)
         result = await provider.get_transactions()
@@ -150,9 +150,10 @@ class TestTransactionsProvider:
 
     async def test_get_transactions_with_saga_registry(self):
         from unittest.mock import MagicMock
+
         from pyfly.admin.providers.transactions_provider import TransactionsProvider
-        from pyfly.transactional.saga.registry.saga_registry import SagaRegistry
         from pyfly.transactional.saga.registry.saga_definition import SagaDefinition
+        from pyfly.transactional.saga.registry.saga_registry import SagaRegistry
         from pyfly.transactional.saga.registry.step_definition import StepDefinition
 
         ctx = _make_mock_context()
@@ -161,10 +162,13 @@ class TestTransactionsProvider:
         registry = SagaRegistry()
         saga_def = SagaDefinition(name="order-saga", bean=object(), layer_concurrency=3)
         saga_def.steps["reserve"] = StepDefinition(
-            id="reserve", retry=2, timeout_ms=5000,
+            id="reserve",
+            retry=2,
+            timeout_ms=5000,
         )
         saga_def.steps["charge"] = StepDefinition(
-            id="charge", depends_on=["reserve"],
+            id="charge",
+            depends_on=["reserve"],
         )
         registry._sagas["order-saga"] = saga_def
 
@@ -183,22 +187,29 @@ class TestTransactionsProvider:
 
     async def test_get_transactions_with_tcc_registry(self):
         from unittest.mock import MagicMock
+
         from pyfly.admin.providers.transactions_provider import TransactionsProvider
-        from pyfly.transactional.tcc.registry.tcc_registry import TccRegistry
-        from pyfly.transactional.tcc.registry.tcc_definition import TccDefinition
         from pyfly.transactional.tcc.registry.participant_definition import ParticipantDefinition
+        from pyfly.transactional.tcc.registry.tcc_definition import TccDefinition
+        from pyfly.transactional.tcc.registry.tcc_registry import TccRegistry
 
         ctx = _make_mock_context()
 
         # Create a mock TCC registry with one definition
         registry = TccRegistry()
         tcc_def = TccDefinition(
-            name="payment-tcc", bean=object(),
-            timeout_ms=30000, retry_enabled=True, max_retries=3,
+            name="payment-tcc",
+            bean=object(),
+            timeout_ms=30000,
+            retry_enabled=True,
+            max_retries=3,
         )
         tcc_def.participants["debit"] = ParticipantDefinition(
-            id="debit", order=0, try_method=lambda: None,
-            confirm_method=lambda: None, cancel_method=lambda: None,
+            id="debit",
+            order=0,
+            try_method=lambda: None,
+            confirm_method=lambda: None,
+            cancel_method=lambda: None,
         )
         registry._tccs["payment-tcc"] = tcc_def
 
@@ -220,6 +231,7 @@ class TestTransactionsProvider:
 class TestCacheProvider:
     async def test_cache_provider_no_adapter(self):
         from pyfly.admin.providers.cache_provider import CacheProvider
+
         ctx = _make_mock_context()
         provider = CacheProvider(ctx)
         result = await provider.get_caches()

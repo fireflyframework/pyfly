@@ -102,20 +102,14 @@ class TaskScheduler:
         self._running = True
         for entry in self._entries:
             if entry.cron is not None:
-                task = asyncio.create_task(
-                    self._run_cron_loop(entry.bean, entry.method, entry.cron)
-                )
+                task = asyncio.create_task(self._run_cron_loop(entry.bean, entry.method, entry.cron))
             elif entry.fixed_rate is not None:
                 task = asyncio.create_task(
-                    self._run_fixed_rate_loop(
-                        entry.bean, entry.method, entry.fixed_rate, entry.initial_delay
-                    )
+                    self._run_fixed_rate_loop(entry.bean, entry.method, entry.fixed_rate, entry.initial_delay)
                 )
             elif entry.fixed_delay is not None:
                 task = asyncio.create_task(
-                    self._run_fixed_delay_loop(
-                        entry.bean, entry.method, entry.fixed_delay, entry.initial_delay
-                    )
+                    self._run_fixed_delay_loop(entry.bean, entry.method, entry.fixed_delay, entry.initial_delay)
                 )
             else:
                 logger.warning(
@@ -151,9 +145,7 @@ class TaskScheduler:
     # Private loop methods
     # ------------------------------------------------------------------
 
-    async def _run_cron_loop(
-        self, bean: Any, method: Callable[..., Any], cron_expr: str
-    ) -> None:
+    async def _run_cron_loop(self, bean: Any, method: Callable[..., Any], cron_expr: str) -> None:
         """Loop: sleep until next cron fire time, execute method, repeat."""
         cron = CronExpression(cron_expr)
         while self._running:

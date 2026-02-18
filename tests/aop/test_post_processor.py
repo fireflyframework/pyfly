@@ -23,7 +23,6 @@ from pyfly.container.stereotypes import service
 from pyfly.context.application_context import ApplicationContext
 from pyfly.core.config import Config
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------

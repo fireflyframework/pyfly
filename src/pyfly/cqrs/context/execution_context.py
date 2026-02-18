@@ -21,7 +21,7 @@ default implementation.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, Protocol, runtime_checkable
 
 
@@ -86,7 +86,7 @@ class DefaultExecutionContext:
     source: str | None = None
     client_ip: str | None = None
     user_agent: str | None = None
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     properties: dict[str, Any] = field(default_factory=dict)
     feature_flags: dict[str, bool] = field(default_factory=dict)
 
@@ -171,7 +171,7 @@ class ExecutionContextBuilder:
             source=self._source,
             client_ip=self._client_ip,
             user_agent=self._user_agent,
-            created_at=self._created_at or datetime.now(timezone.utc),
+            created_at=self._created_at or datetime.now(UTC),
             properties=dict(self._properties),
             feature_flags=dict(self._feature_flags),
         )

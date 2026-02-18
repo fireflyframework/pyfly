@@ -23,7 +23,6 @@ from pyfly.data.document.mongodb.document import BaseDocument
 from pyfly.data.document.mongodb.post_processor import MongoRepositoryBeanPostProcessor
 from pyfly.data.document.mongodb.repository import MongoRepository
 
-
 # ---------------------------------------------------------------------------
 # Test document
 # ---------------------------------------------------------------------------
@@ -107,7 +106,6 @@ async def _seed() -> list[PPItem]:
 
 
 class TestNonRepositoryPassThrough:
-
     def test_plain_object_passes_through(self, processor: MongoRepositoryBeanPostProcessor):
         class PlainBean:
             value = 42
@@ -132,7 +130,6 @@ class TestNonRepositoryPassThrough:
 
 
 class TestDerivedQueryMethods:
-
     @pytest.mark.asyncio
     async def test_find_by_name(self, processor: MongoRepositoryBeanPostProcessor):
         await _seed()
@@ -169,7 +166,6 @@ class TestDerivedQueryMethods:
 
 
 class TestAllDerivedQueryTypes:
-
     @pytest.mark.asyncio
     async def test_count_by(self, processor: MongoRepositoryBeanPostProcessor):
         await _seed()
@@ -215,7 +211,6 @@ class TestAllDerivedQueryTypes:
 
 
 class TestBaseMethodsPreserved:
-
     @pytest.mark.asyncio
     async def test_save_still_works(self, processor: MongoRepositoryBeanPostProcessor):
         repo = DerivedQueryRepo(PPItem)
@@ -253,7 +248,6 @@ class TestBaseMethodsPreserved:
 
 
 class TestConcreteMethodsPreserved:
-
     @pytest.mark.asyncio
     async def test_concrete_find_by_not_replaced(self, processor: MongoRepositoryBeanPostProcessor):
         await _seed()

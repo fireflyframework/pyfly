@@ -18,8 +18,8 @@ import json
 import pytest
 from pydantic import BaseModel
 
-from pyfly.web.params import Body, Cookie, Header, PathVar, QueryParam
 from pyfly.web.adapters.starlette.resolver import ParameterResolver
+from pyfly.web.params import Body, Cookie, Header, PathVar, QueryParam
 
 
 class CreateItem(BaseModel):

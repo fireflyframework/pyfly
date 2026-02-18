@@ -16,7 +16,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+from typing import Any
 
 
 @dataclass
@@ -27,17 +28,15 @@ class InstanceInfo:
     url: str
     status: str = "UNKNOWN"
     last_checked: datetime | None = None
-    metadata: dict = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to a plain dictionary."""
         return {
             "name": self.name,
             "url": self.url,
             "status": self.status,
-            "last_checked": (
-                self.last_checked.isoformat() if self.last_checked else None
-            ),
+            "last_checked": (self.last_checked.isoformat() if self.last_checked else None),
             "metadata": self.metadata,
         }
 
@@ -48,9 +47,7 @@ class InstanceRegistry:
     def __init__(self) -> None:
         self._instances: dict[str, InstanceInfo] = {}
 
-    def register(
-        self, name: str, url: str, metadata: dict | None = None
-    ) -> InstanceInfo:
+    def register(self, name: str, url: str, metadata: dict[str, Any] | None = None) -> InstanceInfo:
         """Register a new instance (or overwrite an existing one)."""
         info = InstanceInfo(
             name=name,
@@ -77,9 +74,9 @@ class InstanceRegistry:
         inst = self._instances.get(name)
         if inst is not None:
             inst.status = status
-            inst.last_checked = datetime.now(timezone.utc)
+            inst.last_checked = datetime.now(UTC)
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize the full registry."""
         return {
             "instances": [inst.to_dict() for inst in self._instances.values()],

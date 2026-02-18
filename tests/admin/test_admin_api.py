@@ -14,8 +14,8 @@
 """Integration tests for admin REST API."""
 
 import pytest
-from starlette.testclient import TestClient
 from starlette.applications import Starlette
+from starlette.testclient import TestClient
 
 from pyfly.admin.adapters.starlette import AdminRouteBuilder
 from pyfly.admin.config import AdminProperties

@@ -22,7 +22,7 @@ from __future__ import annotations
 import re
 from collections.abc import Callable, Coroutine, Sequence
 from types import SimpleNamespace
-from typing import Any, TypeVar, get_args, get_origin
+from typing import Any, TypeVar, cast, get_args, get_origin
 
 import pymongo
 
@@ -55,7 +55,7 @@ class MongoQueryMethodCompiler:
         return_type: type | None = None,
     ) -> Callable[..., Coroutine[Any, Any, Any]]:
         """Dispatch to the correct compile method based on prefix."""
-        dispatch = {
+        dispatch: dict[str, Any] = {
             "find_by": self._compile_find,
             "count_by": self._compile_count,
             "exists_by": self._compile_exists,
@@ -64,9 +64,10 @@ class MongoQueryMethodCompiler:
         builder = dispatch.get(parsed.prefix)
         if builder is None:
             raise ValueError(f"Unknown prefix: {parsed.prefix}")
+        result_type = Callable[..., Coroutine[Any, Any, Any]]
         if parsed.prefix == "find_by":
-            return builder(parsed, entity, return_type=return_type)
-        return builder(parsed, entity)
+            return cast(result_type, builder(parsed, entity, return_type=return_type))
+        return cast(result_type, builder(parsed, entity))
 
     # ------------------------------------------------------------------
     # find_by
@@ -90,7 +91,7 @@ class MongoQueryMethodCompiler:
 
         async def _execute(model: type[T], *args: Any) -> list[T]:
             filter_doc = self._build_filter(parsed, args)
-            query = model.find(filter_doc)  # type: ignore[union-attr]
+            query = model.find(filter_doc)  # type: ignore[attr-defined]
             sort_spec = self._build_sort(parsed)
             if sort_spec:
                 query = query.sort(sort_spec)
@@ -98,15 +99,12 @@ class MongoQueryMethodCompiler:
             if proj_type is not None:
                 fields = projection_fields(proj_type)
                 return [
-                    SimpleNamespace(
-                        **{
-                            f: getattr(doc, f, doc.get(f) if isinstance(doc, dict) else None)
-                            for f in fields
-                        }
+                    SimpleNamespace(  # type: ignore[misc]
+                        **{f: getattr(doc, f, doc.get(f) if isinstance(doc, dict) else None) for f in fields}
                     )
                     for doc in docs
                 ]
-            return docs
+            return cast(list[T], docs)
 
         return _execute
 
@@ -121,7 +119,7 @@ class MongoQueryMethodCompiler:
     ) -> Callable[..., Coroutine[Any, Any, int]]:
         async def _execute(model: type[T], *args: Any) -> int:
             filter_doc = self._build_filter(parsed, args)
-            return await model.find(filter_doc).count()  # type: ignore[union-attr]
+            return cast(int, await model.find(filter_doc).count())  # type: ignore[attr-defined]
 
         return _execute
 
@@ -136,8 +134,8 @@ class MongoQueryMethodCompiler:
     ) -> Callable[..., Coroutine[Any, Any, bool]]:
         async def _execute(model: type[T], *args: Any) -> bool:
             filter_doc = self._build_filter(parsed, args)
-            count = await model.find(filter_doc).count()  # type: ignore[union-attr]
-            return count > 0
+            count = await model.find(filter_doc).count()  # type: ignore[attr-defined]
+            return cast(bool, count > 0)
 
         return _execute
 
@@ -152,9 +150,9 @@ class MongoQueryMethodCompiler:
     ) -> Callable[..., Coroutine[Any, Any, int]]:
         async def _execute(model: type[T], *args: Any) -> int:
             filter_doc = self._build_filter(parsed, args)
-            docs = await model.find(filter_doc).to_list()  # type: ignore[union-attr]
+            docs = await model.find(filter_doc).to_list()  # type: ignore[attr-defined]
             for doc in docs:
-                await doc.delete()  # type: ignore[union-attr]
+                await doc.delete()
             return len(docs)
 
         return _execute
@@ -165,7 +163,10 @@ class MongoQueryMethodCompiler:
 
     @staticmethod
     def _build_clause(
-        field_name: str, predicate: FieldPredicate, args: Sequence[Any], arg_idx: int,
+        field_name: str,
+        predicate: FieldPredicate,
+        args: Sequence[Any],
+        arg_idx: int,
     ) -> tuple[dict[str, Any], int]:
         """Build a single MongoDB filter clause from a predicate.
 
@@ -212,7 +213,10 @@ class MongoQueryMethodCompiler:
         arg_idx = 0
         for predicate in parsed.predicates:
             clause, arg_idx = self._build_clause(
-                predicate.field_name, predicate, args, arg_idx,
+                predicate.field_name,
+                predicate,
+                args,
+                arg_idx,
             )
             clauses.append(clause)
 

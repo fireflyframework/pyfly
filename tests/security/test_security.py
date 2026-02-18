@@ -130,11 +130,13 @@ class TestJWTService:
 
     def test_to_security_context(self):
         jwt_service = JWTService(secret="test-secret-key-minimum-32-chars!")
-        token = jwt_service.encode({
-            "sub": "user-1",
-            "roles": ["ADMIN", "USER"],
-            "permissions": ["order:read"],
-        })
+        token = jwt_service.encode(
+            {
+                "sub": "user-1",
+                "roles": ["ADMIN", "USER"],
+                "permissions": ["order:read"],
+            }
+        )
         ctx = jwt_service.to_security_context(token)
         assert ctx.user_id == "user-1"
         assert ctx.has_role("ADMIN")

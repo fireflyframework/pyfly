@@ -78,6 +78,7 @@ def timed(registry: MetricsRegistry, name: str, description: str) -> Callable[[F
         histogram = registry.histogram(name, description)
 
         if asyncio.iscoroutinefunction(func):
+
             @functools.wraps(func)
             async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
                 start = time.perf_counter()
@@ -113,6 +114,7 @@ def counted(registry: MetricsRegistry, name: str, description: str) -> Callable[
         counter = registry.counter(name, description)
 
         if asyncio.iscoroutinefunction(func):
+
             @functools.wraps(func)
             async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
                 counter.inc()

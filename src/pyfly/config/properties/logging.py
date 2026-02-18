@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 from pyfly.core.config import config_properties
 
@@ -25,5 +26,5 @@ from pyfly.core.config import config_properties
 class LoggingProperties:
     """Configuration for the logging subsystem (pyfly.logging.*)."""
 
-    level: dict = field(default_factory=lambda: {"root": "INFO"})
+    level: dict[str, Any] = field(default_factory=lambda: {"root": "INFO"})
     format: str = "console"

@@ -15,9 +15,6 @@
 
 from __future__ import annotations
 
-import importlib.metadata
-
-
 # ---------------------------------------------------------------------------
 # enable_transactional_engine decorator
 # ---------------------------------------------------------------------------
@@ -113,16 +110,10 @@ class TestTransactionalEngineAutoConfiguration:
             TransactionalEngineAutoConfiguration,
         )
 
-        conditions = getattr(
-            TransactionalEngineAutoConfiguration, "__pyfly_conditions__", []
-        )
-        property_conditions = [
-            c for c in conditions if c.get("type") == "on_property"
-        ]
+        conditions = getattr(TransactionalEngineAutoConfiguration, "__pyfly_conditions__", [])
+        property_conditions = [c for c in conditions if c.get("type") == "on_property"]
         assert len(property_conditions) >= 1
-        assert any(
-            c["key"] == "pyfly.transactional.enabled" for c in property_conditions
-        )
+        assert any(c["key"] == "pyfly.transactional.enabled" for c in property_conditions)
 
 
 # ---------------------------------------------------------------------------
@@ -156,9 +147,7 @@ class TestBeanMethods:
         )
 
         for method_name in self.EXPECTED_BEAN_METHODS:
-            assert hasattr(TransactionalEngineAutoConfiguration, method_name), (
-                f"Missing bean method: {method_name}"
-            )
+            assert hasattr(TransactionalEngineAutoConfiguration, method_name), f"Missing bean method: {method_name}"
 
     def test_bean_methods_are_marked(self) -> None:
         from pyfly.transactional.auto_configuration import (
@@ -280,7 +269,4 @@ class TestEntryPoint:
         pyproject_path = Path(__file__).resolve().parents[2] / "pyproject.toml"
         content = pyproject_path.read_text()
         assert "transactional" in content
-        assert (
-            "pyfly.transactional.auto_configuration:TransactionalEngineAutoConfiguration"
-            in content
-        )
+        assert "pyfly.transactional.auto_configuration:TransactionalEngineAutoConfiguration" in content

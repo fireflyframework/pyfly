@@ -60,6 +60,7 @@ from pyfly.web.params import Body, PathVar
 
 # --- Domain models ---
 
+
 class CreateOrderRequest(BaseModel):
     product: str
     quantity: int
@@ -79,6 +80,7 @@ class GetOrderQuery(Query[dict]):
 
 
 # --- Handlers ---
+
 
 @command_handler
 class CreateOrderHandler(CommandHandler[CreateOrderCommand, dict]):
@@ -105,9 +107,11 @@ class GetOrderHandler(QueryHandler[GetOrderQuery, dict]):
 
 # --- Controller integration models ---
 
+
 class ItemRequest(BaseModel):
     name: str
     price: float
+
 
 @service
 class IntegrationItemService:
@@ -119,6 +123,7 @@ class IntegrationItemService:
 
 
 # --- Integration test ---
+
 
 class TestEndToEndOrderService:
     @pytest.mark.asyncio
@@ -195,6 +200,7 @@ class TestEndToEndOrderService:
     @pytest.mark.asyncio
     async def test_security_blocks_unauthorized(self):
         """Verify that the @secure decorator blocks unauthorized access."""
+
         @secure(roles=["ADMIN"])
         async def admin_endpoint(security_context: SecurityContext) -> str:
             return "admin data"
@@ -236,6 +242,7 @@ class TestOpenAPIIntegration:
     @pytest.mark.asyncio
     async def test_controller_with_error_handling(self):
         """Verify controllers work alongside error handling."""
+
         @rest_controller
         @request_mapping("/api/items")
         class IntegrationItemCtrl:

@@ -83,8 +83,8 @@ class ApplicationContext:
 
     def register_bean(self, cls: type, **kwargs: Any) -> None:
         """Register a bean class with the context."""
-        name = kwargs.get("name", "") or getattr(cls, "__pyfly_bean_name__", "")
-        scope = kwargs.get("scope") or getattr(cls, "__pyfly_scope__", Scope.SINGLETON)
+        name: str = kwargs.get("name", "") or getattr(cls, "__pyfly_bean_name__", "")
+        scope: Scope = kwargs.get("scope") or getattr(cls, "__pyfly_scope__", Scope.SINGLETON)  # type: ignore[assignment]
         self._container.register(cls, scope=scope, name=name)
 
     def register_post_processor(self, processor: BeanPostProcessor) -> None:
@@ -139,9 +139,7 @@ class ApplicationContext:
     @property
     def bean_count(self) -> int:
         """Number of beans eagerly initialized during start()."""
-        return sum(
-            1 for reg in self._container._registrations.values() if reg.instance is not None
-        )
+        return sum(1 for reg in self._container._registrations.values() if reg.instance is not None)
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -239,7 +237,7 @@ class ApplicationContext:
 
         # Stop infrastructure adapters (reverse order)
         for adapter in reversed(self._infrastructure_adapters):
-            if hasattr(adapter, 'stop'):
+            if hasattr(adapter, "stop"):
                 try:
                     await adapter.stop()
                 except Exception:
@@ -287,10 +285,7 @@ class ApplicationContext:
     def _has_lifecycle_methods(instance: object) -> bool:
         """Check if start/stop are defined on the class (not via __getattr__ magic)."""
         cls = type(instance)
-        return all(
-            any(attr in vars(c) for c in cls.__mro__)
-            for attr in ("start", "stop")
-        )
+        return all(any(attr in vars(c) for c in cls.__mro__) for attr in ("start", "stop"))
 
     @staticmethod
     def _infer_subsystem(adapter: object) -> str:
@@ -359,7 +354,7 @@ class ApplicationContext:
                 continue
 
             # Resolve the configuration class itself
-            config_instance = self._container.resolve(cls)
+            config_instance: Any = self._container.resolve(cls)
 
             # Collect @bean methods and sort by dependency order so that
             # beans whose parameters depend on other beans from the same
@@ -414,10 +409,7 @@ class ApplicationContext:
         kwargs: dict[str, Any] = {}
         for param_name, param_type in hints.items():
             param = sig.parameters.get(param_name)
-            has_default = (
-                param is not None
-                and param.default is not inspect.Parameter.empty
-            )
+            has_default = param is not None and param.default is not inspect.Parameter.empty
             try:
                 kwargs[param_name] = self._container._resolve_param(param_type)
             except (NoSuchBeanError, NoUniqueBeanError):
@@ -564,7 +556,7 @@ class ApplicationContext:
                     try:
                         from pyfly.messaging.ports.outbound import MessageBrokerPort
 
-                        broker = self._container.resolve(MessageBrokerPort)
+                        broker = self._container.resolve(MessageBrokerPort)  # type: ignore[type-abstract]
                     except BeanCreationException:
                         logger.debug("No MessageBrokerPort registered; skipping @message_listener wiring")
                         self._wiring_counts["message_listeners"] = 0
@@ -602,11 +594,7 @@ class ApplicationContext:
             self._wiring_counts["cqrs_handlers"] = 0
             return
 
-        beans = [
-            reg.instance
-            for reg in self._container._registrations.values()
-            if reg.instance is not None
-        ]
+        beans = [reg.instance for reg in self._container._registrations.values() if reg.instance is not None]
         registry.discover_from_beans(beans)
         count = registry.command_handler_count + registry.query_handler_count
         self._wiring_counts["cqrs_handlers"] = count
@@ -615,11 +603,7 @@ class ApplicationContext:
 
     def _wire_scheduled(self) -> None:
         """Discover @scheduled methods and start the TaskScheduler."""
-        beans = [
-            reg.instance
-            for reg in self._container._registrations.values()
-            if reg.instance is not None
-        ]
+        beans = [reg.instance for reg in self._container._registrations.values() if reg.instance is not None]
         from pyfly.scheduling.task_scheduler import TaskScheduler
 
         scheduler = TaskScheduler()
@@ -676,7 +660,7 @@ class ApplicationContext:
                 try:
                     from pyfly.shell.ports.outbound import ShellRunnerPort
 
-                    runner = self._container.resolve(ShellRunnerPort)
+                    runner = self._container.resolve(ShellRunnerPort)  # type: ignore[type-abstract]
                 except BeanCreationException:
                     logger.debug("No ShellRunnerPort registered; skipping @shell_method wiring")
                     self._wiring_counts["shell_commands"] = 0

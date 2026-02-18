@@ -14,7 +14,7 @@
 """Tests for ExecutionContext and CorrelationContext."""
 
 from dataclasses import FrozenInstanceError
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -76,7 +76,7 @@ class TestDefaultExecutionContext:
     def test_created_at_is_utc(self) -> None:
         ctx = DefaultExecutionContext()
         assert ctx.created_at.tzinfo is not None
-        assert ctx.created_at.tzinfo == timezone.utc
+        assert ctx.created_at.tzinfo == UTC
 
 
 class TestExecutionContextBuilder:
@@ -113,28 +113,18 @@ class TestExecutionContextBuilder:
             ctx.user_id = "u2"  # type: ignore[misc]
 
     def test_builder_default_created_at(self) -> None:
-        before = datetime.now(timezone.utc)
+        before = datetime.now(UTC)
         ctx = ExecutionContextBuilder().build()
-        after = datetime.now(timezone.utc)
+        after = datetime.now(UTC)
         assert before <= ctx.created_at <= after
 
     def test_builder_multiple_properties(self) -> None:
-        ctx = (
-            ExecutionContextBuilder()
-            .with_property("a", 1)
-            .with_property("b", "two")
-            .build()
-        )
+        ctx = ExecutionContextBuilder().with_property("a", 1).with_property("b", "two").build()
         assert ctx.get_property("a") == 1
         assert ctx.get_property("b") == "two"
 
     def test_builder_multiple_feature_flags(self) -> None:
-        ctx = (
-            ExecutionContextBuilder()
-            .with_feature_flag("flag_a", True)
-            .with_feature_flag("flag_b", False)
-            .build()
-        )
+        ctx = ExecutionContextBuilder().with_feature_flag("flag_a", True).with_feature_flag("flag_b", False).build()
         assert ctx.get_feature_flag("flag_a") is True
         assert ctx.get_feature_flag("flag_b") is False
 

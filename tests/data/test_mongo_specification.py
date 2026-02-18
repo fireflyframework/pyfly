@@ -236,7 +236,8 @@ class TestFindAllBySpecPaged:
     async def test_paged_with_sort(self, seeded_repo):
         active_spec = MongoSpecification(lambda root, q: {"active": True})
         pageable = Pageable(
-            page=1, size=10,
+            page=1,
+            size=10,
             sort=Sort(orders=[Order(property="name", direction="asc")]),
         )
         page = await seeded_repo.find_all_by_spec_paged(active_spec, pageable)
@@ -247,7 +248,8 @@ class TestFindAllBySpecPaged:
     async def test_paged_second_page(self, seeded_repo):
         noop = MongoSpecification(lambda root, q: {})
         pageable = Pageable(
-            page=2, size=2,
+            page=2,
+            size=2,
             sort=Sort(orders=[Order(property="name", direction="asc")]),
         )
         page = await seeded_repo.find_all_by_spec_paged(noop, pageable)

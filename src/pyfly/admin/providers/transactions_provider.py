@@ -51,23 +51,27 @@ class TransactionsProvider:
                     for saga_def in reg.instance.get_all():
                         steps = []
                         for step_id, step_def in saga_def.steps.items():
-                            steps.append({
-                                "id": step_id,
-                                "depends_on": list(step_def.depends_on),
-                                "has_compensation": step_def.compensate_method is not None,
-                                "retry": step_def.retry,
-                                "backoff_ms": step_def.backoff_ms,
-                                "timeout_ms": step_def.timeout_ms,
-                                "cpu_bound": step_def.cpu_bound,
-                                "idempotency_key": step_def.idempotency_key,
-                            })
-                        sagas.append({
-                            "name": saga_def.name,
-                            "type": f"{type(saga_def.bean).__module__}.{type(saga_def.bean).__qualname__}",
-                            "layer_concurrency": saga_def.layer_concurrency,
-                            "step_count": len(saga_def.steps),
-                            "steps": steps,
-                        })
+                            steps.append(
+                                {
+                                    "id": step_id,
+                                    "depends_on": list(step_def.depends_on),
+                                    "has_compensation": step_def.compensate_method is not None,
+                                    "retry": step_def.retry,
+                                    "backoff_ms": step_def.backoff_ms,
+                                    "timeout_ms": step_def.timeout_ms,
+                                    "cpu_bound": step_def.cpu_bound,
+                                    "idempotency_key": step_def.idempotency_key,
+                                }
+                            )
+                        sagas.append(
+                            {
+                                "name": saga_def.name,
+                                "type": f"{type(saga_def.bean).__module__}.{type(saga_def.bean).__qualname__}",
+                                "layer_concurrency": saga_def.layer_concurrency,
+                                "step_count": len(saga_def.steps),
+                                "steps": steps,
+                            }
+                        )
         except ImportError:
             pass
         return sagas
@@ -82,25 +86,29 @@ class TransactionsProvider:
                     for tcc_def in reg.instance.get_all():
                         participants = []
                         for pid, pdef in tcc_def.participants.items():
-                            participants.append({
-                                "id": pid,
-                                "order": pdef.order,
-                                "optional": pdef.optional,
-                                "timeout_ms": pdef.timeout_ms,
-                                "has_try": pdef.try_method is not None,
-                                "has_confirm": pdef.confirm_method is not None,
-                                "has_cancel": pdef.cancel_method is not None,
-                            })
-                        tccs.append({
-                            "name": tcc_def.name,
-                            "type": f"{type(tcc_def.bean).__module__}.{type(tcc_def.bean).__qualname__}",
-                            "timeout_ms": tcc_def.timeout_ms,
-                            "retry_enabled": tcc_def.retry_enabled,
-                            "max_retries": tcc_def.max_retries,
-                            "backoff_ms": tcc_def.backoff_ms,
-                            "participant_count": len(tcc_def.participants),
-                            "participants": participants,
-                        })
+                            participants.append(
+                                {
+                                    "id": pid,
+                                    "order": pdef.order,
+                                    "optional": pdef.optional,
+                                    "timeout_ms": pdef.timeout_ms,
+                                    "has_try": pdef.try_method is not None,
+                                    "has_confirm": pdef.confirm_method is not None,
+                                    "has_cancel": pdef.cancel_method is not None,
+                                }
+                            )
+                        tccs.append(
+                            {
+                                "name": tcc_def.name,
+                                "type": f"{type(tcc_def.bean).__module__}.{type(tcc_def.bean).__qualname__}",
+                                "timeout_ms": tcc_def.timeout_ms,
+                                "retry_enabled": tcc_def.retry_enabled,
+                                "max_retries": tcc_def.max_retries,
+                                "backoff_ms": tcc_def.backoff_ms,
+                                "participant_count": len(tcc_def.participants),
+                                "participants": participants,
+                            }
+                        )
         except ImportError:
             pass
         return tccs
@@ -112,9 +120,7 @@ class TransactionsProvider:
             )
 
             for _cls, reg in self._context.container._registrations.items():
-                if reg.instance is not None and isinstance(
-                    reg.instance, InMemoryPersistenceAdapter
-                ):
+                if reg.instance is not None and isinstance(reg.instance, InMemoryPersistenceAdapter):
                     in_flight = await reg.instance.get_in_flight()
                     return len(in_flight)
         except ImportError:

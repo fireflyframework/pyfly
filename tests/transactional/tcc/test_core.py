@@ -16,7 +16,7 @@
 from __future__ import annotations
 
 import dataclasses
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -26,7 +26,6 @@ from pyfly.transactional.tcc.core import (
     TccPhase,
     TccResult,
 )
-
 
 # ---------------------------------------------------------------------------
 # TccPhase
@@ -192,7 +191,7 @@ class TestTccResult:
         )
 
     def _make_result(self, **overrides) -> TccResult:  # noqa: ANN003
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         pr = self._make_participant()
         defaults = {
             "correlation_id": "corr-1",

@@ -15,7 +15,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from motor.motor_asyncio import AsyncIOMotorClient
@@ -33,9 +33,9 @@ class BeanieInitializer:
 
     def __init__(
         self,
-        motor_client: "AsyncIOMotorClient",
-        config: "Config",
-        container: "Container",
+        motor_client: AsyncIOMotorClient[Any],
+        config: Config,
+        container: Container,
     ) -> None:
         self._motor_client = motor_client
         self._config = config
@@ -51,11 +51,7 @@ class BeanieInitializer:
 
         # Primary: discover from MongoRepository._entity_type (set by __init_subclass__)
         for cls in self._container._registrations:
-            if (
-                isinstance(cls, type)
-                and issubclass(cls, MongoRepository)
-                and cls is not MongoRepository
-            ):
+            if isinstance(cls, type) and issubclass(cls, MongoRepository) and cls is not MongoRepository:
                 entity_type = getattr(cls, "_entity_type", None)
                 if (
                     entity_type is not None
@@ -79,7 +75,7 @@ class BeanieInitializer:
             from beanie import init_beanie
 
             await init_beanie(
-                database=self._motor_client[db_name],
+                database=self._motor_client[db_name],  # type: ignore[arg-type]
                 document_models=document_models,
             )
 

@@ -18,10 +18,12 @@ from pyfly.web.adapters.starlette.filters.request_context_filter import (
 async def context_endpoint(request: Request) -> JSONResponse:
     """Test endpoint that reads the RequestContext."""
     ctx = RequestContext.current()
-    return JSONResponse({
-        "has_context": ctx is not None,
-        "request_id": ctx.request_id if ctx else None,
-    })
+    return JSONResponse(
+        {
+            "has_context": ctx is not None,
+            "request_id": ctx.request_id if ctx else None,
+        }
+    )
 
 
 @pytest.fixture

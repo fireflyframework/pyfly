@@ -15,7 +15,6 @@
 
 from __future__ import annotations
 
-import pytest
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.requests import Request
@@ -32,10 +31,10 @@ from pyfly.web.adapters.starlette.filters import (
 )
 from pyfly.web.security_headers import SecurityHeadersConfig
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 async def _ok_handler(request: Request) -> PlainTextResponse:
     return PlainTextResponse("OK")
@@ -63,6 +62,7 @@ def _make_app(*filters, routes=None) -> Starlette:
 # ---------------------------------------------------------------------------
 # TransactionIdFilter
 # ---------------------------------------------------------------------------
+
 
 class TestTransactionIdFilter:
     def test_generates_transaction_id(self):
@@ -97,6 +97,7 @@ class TestTransactionIdFilter:
 # RequestLoggingFilter
 # ---------------------------------------------------------------------------
 
+
 class TestRequestLoggingFilter:
     def test_passes_through(self):
         app = _make_app(RequestLoggingFilter())
@@ -121,6 +122,7 @@ class TestRequestLoggingFilter:
 # ---------------------------------------------------------------------------
 # SecurityHeadersFilter
 # ---------------------------------------------------------------------------
+
 
 class TestSecurityHeadersFilter:
     def test_adds_default_security_headers(self):
@@ -150,6 +152,7 @@ class TestSecurityHeadersFilter:
 # ---------------------------------------------------------------------------
 # Ordering between built-in filters
 # ---------------------------------------------------------------------------
+
 
 class TestBuiltInFilterOrdering:
     def test_transaction_id_before_logging_before_security_headers(self):

@@ -20,12 +20,12 @@ from __future__ import annotations
 
 import logging
 import sys
-from typing import Any, Generic, TypeVar, get_args
+from typing import Generic, TypeVar, get_args
 
 if sys.version_info >= (3, 13):
     from types import get_original_bases as get_orig_bases
 else:
-    from typing import get_orig_bases
+    from typing import get_orig_bases  # type: ignore[attr-defined]
 
 from pyfly.cqrs.context.execution_context import ExecutionContext
 
@@ -59,8 +59,7 @@ class QueryHandler(Generic[Q, R]):
         for base in get_orig_bases(type(self)):
             origin = getattr(base, "__origin__", None)
             if origin is not None and (
-                origin is QueryHandler
-                or (isinstance(origin, type) and issubclass(origin, QueryHandler))
+                origin is QueryHandler or (isinstance(origin, type) and issubclass(origin, QueryHandler))
             ):
                 args = get_args(base)
                 if args:
@@ -138,10 +137,9 @@ class QueryHandler(Generic[Q, R]):
 class ContextAwareQueryHandler(QueryHandler[Q, R]):
     """Base class for handlers that **require** an :class:`ExecutionContext`."""
 
-    async def do_handle(self, query: Q) -> R:  # type: ignore[override]
+    async def do_handle(self, query: Q) -> R:
         raise RuntimeError(
-            f"{type(self).__name__} requires an ExecutionContext. "
-            "Use handle_with_context() instead of handle()."
+            f"{type(self).__name__} requires an ExecutionContext. Use handle_with_context() instead of handle()."
         )
 
     async def do_handle_with_context(self, query: Q, context: ExecutionContext) -> R:

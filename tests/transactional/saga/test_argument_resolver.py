@@ -71,9 +71,7 @@ def bean() -> _FakeBean:
 
 
 class TestInputResolution:
-    def test_entire_input(
-        self, resolver: ArgumentResolver, ctx: SagaContext, bean: _FakeBean
-    ) -> None:
+    def test_entire_input(self, resolver: ArgumentResolver, ctx: SagaContext, bean: _FakeBean) -> None:
         """Annotated[T, Input()] injects the whole step_input object."""
 
         def step(self: Any, data: Annotated[OrderInput, Input()]) -> None: ...
@@ -81,28 +79,20 @@ class TestInputResolution:
         resolved = resolver.resolve(step, bean, ctx, step_input=OrderInput("o1", 9.99))
         assert resolved["data"] == OrderInput("o1", 9.99)
 
-    def test_input_with_key_dict(
-        self, resolver: ArgumentResolver, ctx: SagaContext, bean: _FakeBean
-    ) -> None:
+    def test_input_with_key_dict(self, resolver: ArgumentResolver, ctx: SagaContext, bean: _FakeBean) -> None:
         """Annotated[T, Input('key')] extracts a key from a dict input."""
 
         def step(self: Any, oid: Annotated[str, Input("order_id")]) -> None: ...
 
-        resolved = resolver.resolve(
-            step, bean, ctx, step_input={"order_id": "o1", "amount": 9.99}
-        )
+        resolved = resolver.resolve(step, bean, ctx, step_input={"order_id": "o1", "amount": 9.99})
         assert resolved["oid"] == "o1"
 
-    def test_input_with_key_attr(
-        self, resolver: ArgumentResolver, ctx: SagaContext, bean: _FakeBean
-    ) -> None:
+    def test_input_with_key_attr(self, resolver: ArgumentResolver, ctx: SagaContext, bean: _FakeBean) -> None:
         """Annotated[T, Input('key')] extracts an attribute from a dataclass input."""
 
         def step(self: Any, amt: Annotated[float, Input("amount")]) -> None: ...
 
-        resolved = resolver.resolve(
-            step, bean, ctx, step_input=OrderInput("o1", 9.99)
-        )
+        resolved = resolver.resolve(step, bean, ctx, step_input=OrderInput("o1", 9.99))
         assert resolved["amt"] == 9.99
 
 
@@ -110,14 +100,10 @@ class TestInputResolution:
 
 
 class TestFromStepResolution:
-    def test_from_step(
-        self, resolver: ArgumentResolver, ctx: SagaContext, bean: _FakeBean
-    ) -> None:
+    def test_from_step(self, resolver: ArgumentResolver, ctx: SagaContext, bean: _FakeBean) -> None:
         """Annotated[T, FromStep('id')] pulls from ctx.step_results."""
 
-        def step(
-            self: Any, result: Annotated[dict, FromStep("validate")]
-        ) -> None: ...
+        def step(self: Any, result: Annotated[dict, FromStep("validate")]) -> None: ...
 
         resolved = resolver.resolve(step, bean, ctx)
         assert resolved["result"] == {"valid": True}
@@ -127,21 +113,15 @@ class TestFromStepResolution:
 
 
 class TestHeaderResolution:
-    def test_single_header(
-        self, resolver: ArgumentResolver, ctx: SagaContext, bean: _FakeBean
-    ) -> None:
+    def test_single_header(self, resolver: ArgumentResolver, ctx: SagaContext, bean: _FakeBean) -> None:
         """Annotated[str, Header('name')] injects a single header."""
 
-        def step(
-            self: Any, req_id: Annotated[str, Header("x-request-id")]
-        ) -> None: ...
+        def step(self: Any, req_id: Annotated[str, Header("x-request-id")]) -> None: ...
 
         resolved = resolver.resolve(step, bean, ctx)
         assert resolved["req_id"] == "req-1"
 
-    def test_all_headers(
-        self, resolver: ArgumentResolver, ctx: SagaContext, bean: _FakeBean
-    ) -> None:
+    def test_all_headers(self, resolver: ArgumentResolver, ctx: SagaContext, bean: _FakeBean) -> None:
         """Annotated[dict, Headers] injects the full headers dict."""
 
         def step(self: Any, hdrs: Annotated[dict, Headers]) -> None: ...
@@ -154,21 +134,15 @@ class TestHeaderResolution:
 
 
 class TestVariableResolution:
-    def test_single_variable(
-        self, resolver: ArgumentResolver, ctx: SagaContext, bean: _FakeBean
-    ) -> None:
+    def test_single_variable(self, resolver: ArgumentResolver, ctx: SagaContext, bean: _FakeBean) -> None:
         """Annotated[T, Variable('name')] injects a single variable."""
 
-        def step(
-            self: Any, retries: Annotated[int, Variable("retry_count")]
-        ) -> None: ...
+        def step(self: Any, retries: Annotated[int, Variable("retry_count")]) -> None: ...
 
         resolved = resolver.resolve(step, bean, ctx)
         assert resolved["retries"] == 3
 
-    def test_all_variables(
-        self, resolver: ArgumentResolver, ctx: SagaContext, bean: _FakeBean
-    ) -> None:
+    def test_all_variables(self, resolver: ArgumentResolver, ctx: SagaContext, bean: _FakeBean) -> None:
         """Annotated[dict, Variables] injects the full variables dict."""
 
         def step(self: Any, vs: Annotated[dict, Variables]) -> None: ...
@@ -181,9 +155,7 @@ class TestVariableResolution:
 
 
 class TestSagaContextResolution:
-    def test_saga_context_by_type(
-        self, resolver: ArgumentResolver, ctx: SagaContext, bean: _FakeBean
-    ) -> None:
+    def test_saga_context_by_type(self, resolver: ArgumentResolver, ctx: SagaContext, bean: _FakeBean) -> None:
         """A parameter typed as SagaContext is injected directly."""
 
         def step(self: Any, context: SagaContext) -> None: ...
@@ -196,14 +168,10 @@ class TestSagaContextResolution:
 
 
 class TestSetVariableResolution:
-    def test_set_variable_returns_none(
-        self, resolver: ArgumentResolver, ctx: SagaContext, bean: _FakeBean
-    ) -> None:
+    def test_set_variable_returns_none(self, resolver: ArgumentResolver, ctx: SagaContext, bean: _FakeBean) -> None:
         """Annotated[T, SetVariable('name')] resolves to None (post-execution)."""
 
-        def step(
-            self: Any, out: Annotated[str, SetVariable("output_key")]
-        ) -> None: ...
+        def step(self: Any, out: Annotated[str, SetVariable("output_key")]) -> None: ...
 
         resolved = resolver.resolve(step, bean, ctx)
         assert resolved["out"] is None
@@ -213,14 +181,10 @@ class TestSetVariableResolution:
 
 
 class TestFromCompensationResultResolution:
-    def test_from_compensation_result(
-        self, resolver: ArgumentResolver, ctx: SagaContext, bean: _FakeBean
-    ) -> None:
+    def test_from_compensation_result(self, resolver: ArgumentResolver, ctx: SagaContext, bean: _FakeBean) -> None:
         """Annotated[T, FromCompensationResult('id')] pulls from compensation_results."""
 
-        def step(
-            self: Any, cr: Annotated[str, FromCompensationResult("reserve")]
-        ) -> None: ...
+        def step(self: Any, cr: Annotated[str, FromCompensationResult("reserve")]) -> None: ...
 
         resolved = resolver.resolve(step, bean, ctx)
         assert resolved["cr"] == "refunded"
@@ -230,28 +194,20 @@ class TestFromCompensationResultResolution:
 
 
 class TestCompensationErrorResolution:
-    def test_compensation_error(
-        self, resolver: ArgumentResolver, ctx: SagaContext, bean: _FakeBean
-    ) -> None:
+    def test_compensation_error(self, resolver: ArgumentResolver, ctx: SagaContext, bean: _FakeBean) -> None:
         """Annotated[Exception, CompensationError] injects first compensation error."""
 
-        def step(
-            self: Any, err: Annotated[Exception, CompensationError]
-        ) -> None: ...
+        def step(self: Any, err: Annotated[Exception, CompensationError]) -> None: ...
 
         resolved = resolver.resolve(step, bean, ctx)
         assert isinstance(resolved["err"], RuntimeError)
         assert str(resolved["err"]) == "boom"
 
-    def test_compensation_error_none_when_absent(
-        self, resolver: ArgumentResolver, bean: _FakeBean
-    ) -> None:
+    def test_compensation_error_none_when_absent(self, resolver: ArgumentResolver, bean: _FakeBean) -> None:
         """CompensationError resolves to None when no errors present."""
         empty_ctx = SagaContext(saga_name="test")
 
-        def step(
-            self: Any, err: Annotated[Exception | None, CompensationError]
-        ) -> None: ...
+        def step(self: Any, err: Annotated[Exception | None, CompensationError]) -> None: ...
 
         resolved = resolver.resolve(step, bean, empty_ctx)
         assert resolved["err"] is None
@@ -261,9 +217,7 @@ class TestCompensationErrorResolution:
 
 
 class TestSelfSkipping:
-    def test_skip_self(
-        self, resolver: ArgumentResolver, ctx: SagaContext, bean: _FakeBean
-    ) -> None:
+    def test_skip_self(self, resolver: ArgumentResolver, ctx: SagaContext, bean: _FakeBean) -> None:
         """The ``self`` parameter is never included in the resolved dict."""
 
         def step(self: Any, context: SagaContext) -> None: ...
@@ -276,9 +230,7 @@ class TestSelfSkipping:
 
 
 class TestUnknownParameter:
-    def test_unknown_raises(
-        self, resolver: ArgumentResolver, ctx: SagaContext, bean: _FakeBean
-    ) -> None:
+    def test_unknown_raises(self, resolver: ArgumentResolver, ctx: SagaContext, bean: _FakeBean) -> None:
         """An unannotated, unrecognised parameter raises TypeError."""
 
         def step(self: Any, mystery: str) -> None: ...
@@ -291,9 +243,7 @@ class TestUnknownParameter:
 
 
 class TestCombinedResolution:
-    def test_multiple_markers(
-        self, resolver: ArgumentResolver, ctx: SagaContext, bean: _FakeBean
-    ) -> None:
+    def test_multiple_markers(self, resolver: ArgumentResolver, ctx: SagaContext, bean: _FakeBean) -> None:
         """Multiple parameters with different markers resolve correctly."""
 
         def step(

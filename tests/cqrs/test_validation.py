@@ -24,7 +24,6 @@ from pyfly.cqrs.validation.exceptions import CqrsValidationException
 from pyfly.cqrs.validation.processor import AutoValidationProcessor
 from pyfly.cqrs.validation.types import ValidationError, ValidationResult, ValidationSeverity
 
-
 # ── ValidationSeverity enum tests ─────────────────────────────
 
 

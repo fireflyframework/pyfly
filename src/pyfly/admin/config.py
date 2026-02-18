@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 from pyfly.core.config import config_properties
 
@@ -43,7 +44,7 @@ class AdminServerProperties:
     poll_interval: int = 10000
     connect_timeout: int = 2000
     read_timeout: int = 5000
-    instances: list[dict] = field(default_factory=list)
+    instances: list[dict[str, Any]] = field(default_factory=list)
 
 
 @config_properties(prefix="pyfly.admin.client")

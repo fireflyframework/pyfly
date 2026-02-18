@@ -39,27 +39,32 @@ class CqrsProvider:
         }
         try:
             from pyfly.cqrs import HandlerRegistry
+
             for _cls, reg in self._context.container._registrations.items():
                 if reg.instance is not None and isinstance(reg.instance, HandlerRegistry):
                     registry = reg.instance
                     for cmd_type in registry.get_registered_command_types():
                         handler = registry.find_command_handler(cmd_type)
-                        handlers.append({
-                            "message_type": f"{cmd_type.__module__}.{cmd_type.__qualname__}",
-                            "message_name": cmd_type.__name__,
-                            "handler_type": f"{type(handler).__module__}.{type(handler).__qualname__}",
-                            "handler_name": type(handler).__name__,
-                            "kind": "command",
-                        })
+                        handlers.append(
+                            {
+                                "message_type": f"{cmd_type.__module__}.{cmd_type.__qualname__}",
+                                "message_name": cmd_type.__name__,
+                                "handler_type": f"{type(handler).__module__}.{type(handler).__qualname__}",
+                                "handler_name": type(handler).__name__,
+                                "kind": "command",
+                            }
+                        )
                     for query_type in registry.get_registered_query_types():
                         handler = registry.find_query_handler(query_type)
-                        handlers.append({
-                            "message_type": f"{query_type.__module__}.{query_type.__qualname__}",
-                            "message_name": query_type.__name__,
-                            "handler_type": f"{type(handler).__module__}.{type(handler).__qualname__}",
-                            "handler_name": type(handler).__name__,
-                            "kind": "query",
-                        })
+                        handlers.append(
+                            {
+                                "message_type": f"{query_type.__module__}.{query_type.__qualname__}",
+                                "message_name": query_type.__name__,
+                                "handler_type": f"{type(handler).__module__}.{type(handler).__qualname__}",
+                                "handler_name": type(handler).__name__,
+                                "kind": "query",
+                            }
+                        )
 
             # Detect bus pipeline features
             pipeline.update(self._detect_pipeline())

@@ -16,10 +16,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 
 
-class AuthorizationSeverity(str, Enum):
+class AuthorizationSeverity(StrEnum):
     """Severity level for an authorization error."""
 
     WARNING = "WARNING"

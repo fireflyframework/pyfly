@@ -16,7 +16,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     from pyfly.container.container import Container
@@ -58,7 +58,7 @@ class ConditionEvaluator:
                 return False
 
         # Check __pyfly_conditions__ (list of dicts from conditional decorators)
-        conditions: list[dict] = getattr(cls, "__pyfly_conditions__", [])
+        conditions: list[dict[str, Any]] = getattr(cls, "__pyfly_conditions__", [])
         for cond in conditions:
             is_bean_dep = cond["type"] in _BEAN_DEPENDENT_TYPES
             if is_bean_dep != bean_pass:
@@ -75,17 +75,14 @@ class ConditionEvaluator:
         decorators applied directly to ``@bean`` methods within
         ``@configuration`` classes.
         """
-        conditions: list[dict] = getattr(method, "__pyfly_conditions__", [])
-        for cond in conditions:
-            if not self._evaluate(cond):
-                return False
-        return True
+        conditions: list[dict[str, Any]] = getattr(method, "__pyfly_conditions__", [])
+        return all(self._evaluate(cond) for cond in conditions)
 
     # ------------------------------------------------------------------
     # Individual condition evaluators
     # ------------------------------------------------------------------
 
-    def _evaluate(self, cond: dict, *, declaring_cls: type | None = None) -> bool:
+    def _evaluate(self, cond: dict[str, Any], *, declaring_cls: type | None = None) -> bool:
         cond_type = cond["type"]
         if cond_type == "on_property":
             result = self._eval_on_property(cond)
@@ -113,18 +110,18 @@ class ConditionEvaluator:
             )
         return result
 
-    def _eval_on_property(self, cond: dict) -> bool:
+    def _eval_on_property(self, cond: dict[str, Any]) -> bool:
         value = self._config.get(cond["key"])
         if value is None:
             return False
         if cond["having_value"]:
-            return str(value).lower() == cond["having_value"].lower()
+            return cast(bool, str(value).lower() == cond["having_value"].lower())
         return True  # Key exists, no specific value required
 
-    def _eval_on_missing_bean(self, cond: dict, declaring_cls: type | None = None) -> bool:
+    def _eval_on_missing_bean(self, cond: dict[str, Any], declaring_cls: type | None = None) -> bool:
         return not self._has_bean_of_type(cond["bean_type"], exclude=declaring_cls)
 
-    def _eval_on_bean(self, cond: dict, declaring_cls: type | None = None) -> bool:
+    def _eval_on_bean(self, cond: dict[str, Any], declaring_cls: type | None = None) -> bool:
         return self._has_bean_of_type(cond["bean_type"], exclude=declaring_cls)
 
     def _has_bean_of_type(self, bean_type: type, *, exclude: type | None = None) -> bool:

@@ -78,14 +78,13 @@ class CompensationManager:
                     saga_result = ctx.saga_results.get(saga_name)
                     completed_step_ids = [
                         step_id
-                        for step_id, outcome in (
-                            saga_result.steps.items() if saga_result else []
-                        )
+                        for step_id, outcome in (saga_result.steps.items() if saga_result else [])
                         if outcome.status == StepStatus.DONE
                     ]
                     if completed_step_ids:
                         saga_ctx = self._build_saga_context(
-                            saga_name, saga_result,
+                            saga_name,
+                            saga_result,
                         )
                         await saga_engine._compensator.compensate(
                             policy=composition.compensation_policy,
@@ -98,13 +97,16 @@ class CompensationManager:
                 ctx.compensated_sagas.append(saga_name)
             except Exception as exc:
                 logger.error(
-                    "Compensation failed for saga '%s': %s", saga_name, exc,
+                    "Compensation failed for saga '%s': %s",
+                    saga_name,
+                    exc,
                 )
                 ctx.compensated_sagas.append(saga_name)
 
     @staticmethod
     def _build_saga_context(
-        saga_name: str, saga_result: SagaResult | None,
+        saga_name: str,
+        saga_result: SagaResult | None,
     ) -> SagaContext:
         """Reconstruct a minimal SagaContext from a completed SagaResult.
 
@@ -115,14 +117,9 @@ class CompensationManager:
         if saga_result is None:
             return SagaContext(saga_name=saga_name)
 
-        step_statuses = {
-            step_id: outcome.status
-            for step_id, outcome in saga_result.steps.items()
-        }
+        step_statuses = {step_id: outcome.status for step_id, outcome in saga_result.steps.items()}
         step_results = {
-            step_id: outcome.result
-            for step_id, outcome in saga_result.steps.items()
-            if outcome.result is not None
+            step_id: outcome.result for step_id, outcome in saga_result.steps.items() if outcome.result is not None
         }
         return SagaContext(
             correlation_id=saga_result.correlation_id,

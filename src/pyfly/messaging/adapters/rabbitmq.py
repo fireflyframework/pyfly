@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """RabbitMQ message broker adapter — wraps aio-pika."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -49,7 +50,7 @@ class RabbitMQAdapter:
     ) -> None:
         import aio_pika
 
-        message = aio_pika.Message(body=value, headers=headers or {})
+        message = aio_pika.Message(body=value, headers=headers or {})  # type: ignore[arg-type]
         await self._exchange.publish(message, routing_key=topic)
 
     async def subscribe(
@@ -83,10 +84,7 @@ class RabbitMQAdapter:
                     msg = Message(
                         topic=_topic,
                         value=message.body,
-                        headers={
-                            k: str(v)
-                            for k, v in (message.headers or {}).items()
-                        },
+                        headers={k: str(v) for k, v in (message.headers or {}).items()},
                     )
                     await _handler(msg)
 

@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """BeanPostProcessor that wires declarative @http_client / @service_client beans."""
+
 from __future__ import annotations
 
 import inspect
@@ -88,7 +89,7 @@ class HttpClientBeanPostProcessor:
             impl = self._wrap_with_resilience(impl, cb, retry)
             setattr(bean, attr_name, impl.__get__(bean, cls))
 
-        bean.__pyfly_http_wired__ = True  # type: ignore[attr-defined]
+        bean.__pyfly_http_wired__ = True
         return bean
 
     # ------------------------------------------------------------------
@@ -99,12 +100,10 @@ class HttpClientBeanPostProcessor:
         if not resilience.get("circuit_breaker", False):
             return None
         threshold = (
-            resilience.get("circuit_breaker_failure_threshold")
-            or self._default_circuit_breaker["failure-threshold"]
+            resilience.get("circuit_breaker_failure_threshold") or self._default_circuit_breaker["failure-threshold"]
         )
         timeout = (
-            resilience.get("circuit_breaker_recovery_timeout")
-            or self._default_circuit_breaker["recovery-timeout"]
+            resilience.get("circuit_breaker_recovery_timeout") or self._default_circuit_breaker["recovery-timeout"]
         )
         return CircuitBreaker(
             failure_threshold=int(threshold),
@@ -119,9 +118,7 @@ class HttpClientBeanPostProcessor:
             max_attempts = retry_val
         else:
             max_attempts = int(self._default_retry["max-attempts"])
-        base_delay = float(
-            resilience.get("retry_base_delay") or self._default_retry["base-delay"]
-        )
+        base_delay = float(resilience.get("retry_base_delay") or self._default_retry["base-delay"])
         return RetryPolicy(
             max_attempts=max_attempts,
             base_delay=timedelta(seconds=base_delay),
@@ -156,9 +153,7 @@ class HttpClientBeanPostProcessor:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _make_method_impl(
-        client: Any, http_method: str, path_template: str, original: Any
-    ) -> Any:
+    def _make_method_impl(client: Any, http_method: str, path_template: str, original: Any) -> Any:
         sig = inspect.signature(original)
 
         async def implementation(self_arg: Any, *args: Any, **kwargs: Any) -> Any:

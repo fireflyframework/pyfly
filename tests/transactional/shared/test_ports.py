@@ -18,8 +18,6 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import Any
 
-import pytest
-
 from pyfly.transactional.shared.ports.outbound import (
     BackpressureStrategyPort,
     CompensationErrorHandlerPort,
@@ -87,9 +85,7 @@ class TestTransactionalPersistencePortContract:
 
             async def get_state(self, correlation_id: str) -> dict[str, Any] | None: ...
 
-            async def update_step_status(
-                self, correlation_id: str, step_id: str, status: str
-            ) -> None: ...
+            async def update_step_status(self, correlation_id: str, step_id: str, status: str) -> None: ...
 
             async def mark_completed(self, correlation_id: str, successful: bool) -> None: ...
 
@@ -108,6 +104,7 @@ class TestTransactionalPersistencePortContract:
 
         class _IncompletePersistence:
             async def persist_state(self, state: dict[str, Any]) -> None: ...
+
             # missing all other methods
 
         assert not isinstance(_IncompletePersistence(), TransactionalPersistencePort)
@@ -165,9 +162,7 @@ class TestTransactionalEventsPortContract:
                 error: Exception | None,
             ) -> None: ...
 
-            async def on_completed(
-                self, name: str, correlation_id: str, success: bool
-            ) -> None: ...
+            async def on_completed(self, name: str, correlation_id: str, success: bool) -> None: ...
 
         assert isinstance(_MockEvents(), TransactionalEventsPort)
 
@@ -217,9 +212,7 @@ class TestCompensationErrorHandlerPortContract:
 
     def test_mock_satisfies_isinstance(self) -> None:
         class _MockCompensationHandler:
-            async def handle(
-                self, saga_name: str, step_id: str, error: Exception, ctx: Any
-            ) -> None: ...
+            async def handle(self, saga_name: str, step_id: str, error: Exception, ctx: Any) -> None: ...
 
         assert isinstance(_MockCompensationHandler(), CompensationErrorHandlerPort)
 

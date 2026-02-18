@@ -15,6 +15,8 @@
 
 from __future__ import annotations
 
+import contextlib
+
 import pytest
 from prometheus_client import REGISTRY, Counter
 
@@ -27,10 +29,8 @@ def _clean_test_metrics():
     yield
     for name in list(REGISTRY._names_to_collectors.keys()):
         if name.startswith("test_me_"):
-            try:
+            with contextlib.suppress(Exception):
                 REGISTRY.unregister(REGISTRY._names_to_collectors[name])
-            except Exception:
-                pass
 
 
 class TestMetricsEndpoint:

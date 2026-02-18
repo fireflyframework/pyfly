@@ -47,9 +47,7 @@ class StepInvoker:
         """
         method = step_def.step_method
         if method is None:
-            raise ValueError(
-                f"Step '{step_def.id}' has no step method defined."
-            )
+            raise ValueError(f"Step '{step_def.id}' has no step method defined.")
 
         kwargs = self._argument_resolver.resolve(method, bean, ctx, step_input)
         result = await self._call(method, bean, kwargs, cpu_bound=step_def.cpu_bound)
@@ -73,9 +71,7 @@ class StepInvoker:
         """
         method = step_def.compensate_method
         if method is None:
-            raise ValueError(
-                f"Step '{step_def.id}' has no compensation method defined."
-            )
+            raise ValueError(f"Step '{step_def.id}' has no compensation method defined.")
 
         kwargs = self._argument_resolver.resolve(method, bean, ctx, step_input)
         return await self._call(method, bean, kwargs, cpu_bound=False)

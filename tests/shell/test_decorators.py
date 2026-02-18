@@ -17,7 +17,6 @@ from pyfly.container.stereotypes import shell_component
 from pyfly.container.types import Scope
 from pyfly.shell.decorators import shell_argument, shell_method, shell_option
 
-
 # ---------------------------------------------------------------------------
 # @shell_component stereotype
 # ---------------------------------------------------------------------------

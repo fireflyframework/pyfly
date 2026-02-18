@@ -87,9 +87,17 @@ class TestNewWebApi:
 
     def test_web_api_creates_full_structure(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "item-api", "--archetype", "web-api", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "item-api",
+                "--archetype",
+                "web-api",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
 
         p = tmp_path / "item-api"
@@ -116,9 +124,17 @@ class TestNewWebApi:
 
     def test_web_api_controller_uses_stereotypes(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-api", "--archetype", "web-api", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-api",
+                "--archetype",
+                "web-api",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
 
         controller = (tmp_path / "my-api" / "src" / "my_api" / "controllers" / "todo_controller.py").read_text()
@@ -130,9 +146,17 @@ class TestNewWebApi:
 
     def test_web_api_service_uses_stereotype(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-api", "--archetype", "web-api", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-api",
+                "--archetype",
+                "web-api",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
 
         service = (tmp_path / "my-api" / "src" / "my_api" / "services" / "todo_service.py").read_text()
@@ -141,9 +165,17 @@ class TestNewWebApi:
 
     def test_web_api_repository_uses_stereotype(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-api", "--archetype", "web-api", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-api",
+                "--archetype",
+                "web-api",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
 
         repo = (tmp_path / "my-api" / "src" / "my_api" / "repositories" / "todo_repository.py").read_text()
@@ -152,9 +184,17 @@ class TestNewWebApi:
 
     def test_web_api_app_scan_packages(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-api", "--archetype", "web-api", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-api",
+                "--archetype",
+                "web-api",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
 
         app = (tmp_path / "my-api" / "src" / "my_api" / "app.py").read_text()
@@ -164,9 +204,17 @@ class TestNewWebApi:
 
     def test_web_api_default_features_web(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-api", "--archetype", "web-api", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-api",
+                "--archetype",
+                "web-api",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
 
         pyproject = (tmp_path / "my-api" / "pyproject.toml").read_text()
@@ -178,9 +226,17 @@ class TestNewHexagonal:
 
     def test_hexagonal_creates_full_structure(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "order-svc", "--archetype", "hexagonal", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "order-svc",
+                "--archetype",
+                "hexagonal",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
 
         p = tmp_path / "order-svc"
@@ -209,9 +265,17 @@ class TestNewHexagonal:
 
     def test_hexagonal_uses_protocol_ports(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-hex", "--archetype", "hexagonal", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-hex",
+                "--archetype",
+                "hexagonal",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
 
         inbound = (tmp_path / "my-hex" / "src" / "my_hex" / "domain" / "ports" / "inbound.py").read_text()
@@ -220,9 +284,17 @@ class TestNewHexagonal:
 
     def test_hexagonal_app_scan_packages(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-hex", "--archetype", "hexagonal", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-hex",
+                "--archetype",
+                "hexagonal",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
 
         app = (tmp_path / "my-hex" / "src" / "my_hex" / "app.py").read_text()
@@ -236,9 +308,17 @@ class TestNewWeb:
 
     def test_web_creates_full_structure(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-site", "--archetype", "web", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-site",
+                "--archetype",
+                "web",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
 
         p = tmp_path / "my-site"
@@ -270,9 +350,17 @@ class TestNewWeb:
 
     def test_web_controller_uses_controller_stereotype(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-site", "--archetype", "web", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-site",
+                "--archetype",
+                "web",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
 
         controller = (tmp_path / "my-site" / "src" / "my_site" / "controllers" / "home_controller.py").read_text()
@@ -281,9 +369,17 @@ class TestNewWeb:
 
     def test_web_has_template_response(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-site", "--archetype", "web", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-site",
+                "--archetype",
+                "web",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
 
         controller = (tmp_path / "my-site" / "src" / "my_site" / "controllers" / "home_controller.py").read_text()
@@ -291,9 +387,17 @@ class TestNewWeb:
 
     def test_web_has_html_templates(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-site", "--archetype", "web", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-site",
+                "--archetype",
+                "web",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
 
         pkg = tmp_path / "my-site" / "src" / "my_site"
@@ -308,9 +412,17 @@ class TestNewWeb:
 
     def test_web_has_static_css(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-site", "--archetype", "web", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-site",
+                "--archetype",
+                "web",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
 
         css = (tmp_path / "my-site" / "src" / "my_site" / "static" / "css" / "style.css").read_text()
@@ -318,9 +430,17 @@ class TestNewWeb:
 
     def test_web_service_uses_stereotype(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-site", "--archetype", "web", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-site",
+                "--archetype",
+                "web",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
 
         service = (tmp_path / "my-site" / "src" / "my_site" / "services" / "page_service.py").read_text()
@@ -329,9 +449,17 @@ class TestNewWeb:
 
     def test_web_app_scan_packages(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-site", "--archetype", "web", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-site",
+                "--archetype",
+                "web",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
 
         app = (tmp_path / "my-site" / "src" / "my_site" / "app.py").read_text()
@@ -340,9 +468,17 @@ class TestNewWeb:
 
     def test_web_default_features_web(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-site", "--archetype", "web", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-site",
+                "--archetype",
+                "web",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
 
         pyproject = (tmp_path / "my-site" / "pyproject.toml").read_text()
@@ -350,9 +486,17 @@ class TestNewWeb:
 
     def test_web_has_jinja2_dependency(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-site", "--archetype", "web", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-site",
+                "--archetype",
+                "web",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
 
         pyproject = (tmp_path / "my-site" / "pyproject.toml").read_text()
@@ -360,9 +504,17 @@ class TestNewWeb:
 
     def test_web_main_mounts_static(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-site", "--archetype", "web", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-site",
+                "--archetype",
+                "web",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
 
         main = (tmp_path / "my-site" / "src" / "my_site" / "main.py").read_text()
@@ -371,9 +523,17 @@ class TestNewWeb:
 
     def test_web_readme_mentions_html(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-site", "--archetype", "web", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-site",
+                "--archetype",
+                "web",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
 
         readme = (tmp_path / "my-site" / "README.md").read_text()
@@ -381,9 +541,17 @@ class TestNewWeb:
 
     def test_web_pyproject_description(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-site", "--archetype", "web", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-site",
+                "--archetype",
+                "web",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
 
         pyproject = (tmp_path / "my-site" / "pyproject.toml").read_text()
@@ -391,9 +559,17 @@ class TestNewWeb:
 
     def test_web_config_has_web_section(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-site", "--archetype", "web", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-site",
+                "--archetype",
+                "web",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
 
         config = (tmp_path / "my-site" / "pyfly.yaml").read_text()
@@ -405,9 +581,17 @@ class TestNewFeatures:
 
     def test_features_flag_sets_dependencies(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-svc", "--features", "web,data-relational,cache", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-svc",
+                "--features",
+                "web,data-relational,cache",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
 
         pyproject = (tmp_path / "my-svc" / "pyproject.toml").read_text()
@@ -415,9 +599,17 @@ class TestNewFeatures:
 
     def test_features_affect_config(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-svc", "--features", "web,data-relational", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-svc",
+                "--features",
+                "web,data-relational",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
 
         config = (tmp_path / "my-svc" / "pyfly.yaml").read_text()
@@ -428,9 +620,17 @@ class TestNewFeatures:
 
     def test_features_data_adds_database_url_to_env(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-svc", "--features", "data-relational", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-svc",
+                "--features",
+                "data-relational",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
 
         env = (tmp_path / "my-svc" / ".env.example").read_text()
@@ -439,9 +639,17 @@ class TestNewFeatures:
 
     def test_features_eda_defaults_to_memory(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-svc", "--features", "eda", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-svc",
+                "--features",
+                "eda",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
 
         config = (tmp_path / "my-svc" / "pyfly.yaml").read_text()
@@ -450,9 +658,17 @@ class TestNewFeatures:
 
     def test_features_cache_defaults_to_memory(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-svc", "--features", "cache", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-svc",
+                "--features",
+                "cache",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
 
         config = (tmp_path / "my-svc" / "pyfly.yaml").read_text()
@@ -462,16 +678,32 @@ class TestNewFeatures:
 
     def test_invalid_feature_fails(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-svc", "--features", "web,nosuchfeature", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-svc",
+                "--features",
+                "web,nosuchfeature",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code != 0
 
     def test_shell_feature_adds_dependency(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-svc", "--features", "shell", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-svc",
+                "--features",
+                "shell",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
 
         pyproject = (tmp_path / "my-svc" / "pyproject.toml").read_text()
@@ -479,9 +711,17 @@ class TestNewFeatures:
 
     def test_shell_feature_adds_config(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-svc", "--features", "shell", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-svc",
+                "--features",
+                "shell",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
 
         config = (tmp_path / "my-svc" / "pyfly.yaml").read_text()
@@ -490,9 +730,17 @@ class TestNewFeatures:
 
     def test_no_features_for_library(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-lib", "--archetype", "library", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-lib",
+                "--archetype",
+                "library",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
 
         pyproject = (tmp_path / "my-lib" / "pyproject.toml").read_text()
@@ -505,9 +753,17 @@ class TestConfigKeyAlignment:
 
     def test_eda_uses_messaging_provider_key(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-svc", "--features", "eda", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-svc",
+                "--features",
+                "eda",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
         config = (tmp_path / "my-svc" / "pyfly.yaml").read_text()
         assert "messaging:" in config
@@ -516,9 +772,17 @@ class TestConfigKeyAlignment:
 
     def test_cache_uses_enabled_and_provider_keys(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-svc", "--features", "cache", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-svc",
+                "--features",
+                "cache",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
         config = (tmp_path / "my-svc" / "pyfly.yaml").read_text()
         assert "cache:" in config
@@ -527,9 +791,17 @@ class TestConfigKeyAlignment:
 
     def test_env_example_uses_messaging_key(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-svc", "--features", "eda", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-svc",
+                "--features",
+                "eda",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
         env = (tmp_path / "my-svc" / ".env.example").read_text()
         assert "PYFLY_MESSAGING_PROVIDER" in env
@@ -540,33 +812,57 @@ class TestNewEnhancedCore:
 
     def test_core_has_dockerfile(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-svc", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-svc",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
         assert (tmp_path / "my-svc" / "Dockerfile").exists()
 
     def test_core_has_readme(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-svc", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-svc",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
         assert (tmp_path / "my-svc" / "README.md").exists()
 
     def test_core_has_env_example(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-svc", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-svc",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
         assert (tmp_path / "my-svc" / ".env.example").exists()
 
     def test_core_dockerfile_multi_stage(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-svc", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-svc",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
 
         dockerfile = (tmp_path / "my-svc" / "Dockerfile").read_text()
@@ -580,17 +876,33 @@ class TestNewEnhancedLibrary:
 
     def test_library_has_py_typed(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-lib", "--archetype", "library", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-lib",
+                "--archetype",
+                "library",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
         assert (tmp_path / "my-lib" / "src" / "my_lib" / "py.typed").exists()
 
     def test_library_has_readme(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-lib", "--archetype", "library", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-lib",
+                "--archetype",
+                "library",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
 
         readme = (tmp_path / "my-lib" / "README.md").read_text()
@@ -599,18 +911,34 @@ class TestNewEnhancedLibrary:
 
     def test_library_no_dockerfile(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-lib", "--archetype", "library", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-lib",
+                "--archetype",
+                "library",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
         # Libraries don't need a Dockerfile
         assert not (tmp_path / "my-lib" / "Dockerfile").exists()
 
     def test_library_no_pyfly_yaml(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-lib", "--archetype", "library", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-lib",
+                "--archetype",
+                "library",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
         assert not (tmp_path / "my-lib" / "pyfly.yaml").exists()
 
@@ -679,7 +1007,7 @@ class TestNewInteractive:
         mock_q.confirm.return_value.unsafe_ask.return_value = False
 
         runner = CliRunner()
-        result = runner.invoke(
+        _result = runner.invoke(
             cli,
             ["new", "--directory", str(tmp_path)],
         )
@@ -691,7 +1019,7 @@ class TestNewInteractive:
         mock_q.text.return_value.unsafe_ask.side_effect = KeyboardInterrupt()
 
         runner = CliRunner()
-        result = runner.invoke(
+        _result = runner.invoke(
             cli,
             ["new", "--directory", str(tmp_path)],
         )
@@ -769,9 +1097,17 @@ class TestNameValidation:
 
     def test_postgresql_not_a_valid_feature(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-svc", "--features", "web,postgresql", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-svc",
+                "--features",
+                "web,postgresql",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code != 0
         assert "Unknown features" in result.output
 
@@ -823,25 +1159,49 @@ class TestPostGenerationGuidance:
 
     def test_data_feature_shows_tips(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-svc", "--features", "data-relational", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-svc",
+                "--features",
+                "data-relational",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
         assert "pyfly db init" in result.output
 
     def test_web_feature_shows_swagger_tip(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-svc", "--features", "web", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-svc",
+                "--features",
+                "web",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
         assert "Swagger UI" in result.output
 
     def test_security_feature_shows_jwt_tip(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-svc", "--features", "security", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-svc",
+                "--features",
+                "security",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
         assert "JWT secret" in result.output
 
@@ -851,9 +1211,17 @@ class TestTemplateContent:
 
     def test_web_api_controller_uses_valid(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-api", "--archetype", "web-api", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-api",
+                "--archetype",
+                "web-api",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
         controller = (tmp_path / "my-api" / "src" / "my_api" / "controllers" / "todo_controller.py").read_text()
         assert "Valid[TodoCreate]" in controller
@@ -861,9 +1229,17 @@ class TestTemplateContent:
 
     def test_model_uses_field_constraints(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-api", "--archetype", "web-api", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-api",
+                "--archetype",
+                "web-api",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
         model = (tmp_path / "my-api" / "src" / "my_api" / "models" / "todo.py").read_text()
         assert "Field(min_length=" in model
@@ -871,18 +1247,34 @@ class TestTemplateContent:
 
     def test_config_has_adapter_auto(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-api", "--archetype", "web-api", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-api",
+                "--archetype",
+                "web-api",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
         config = (tmp_path / "my-api" / "pyfly.yaml").read_text()
         assert "adapter: auto" in config
 
     def test_config_has_actuator_enabled(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-api", "--archetype", "web-api", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-api",
+                "--archetype",
+                "web-api",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
         config = (tmp_path / "my-api" / "pyfly.yaml").read_text()
         assert "actuator:" in config
@@ -890,10 +1282,19 @@ class TestTemplateContent:
 
     def test_data_feature_generates_sqlalchemy_repo(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-api", "--archetype", "web-api", "--features", "web,data-relational",
-            "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-api",
+                "--archetype",
+                "web-api",
+                "--features",
+                "web,data-relational",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
         repo = (tmp_path / "my-api" / "src" / "my_api" / "repositories" / "todo_repository.py").read_text()
         assert "Repository[TodoEntity, int]" in repo
@@ -901,10 +1302,19 @@ class TestTemplateContent:
 
     def test_no_data_feature_generates_in_memory_repo(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-api", "--archetype", "web-api", "--features", "web",
-            "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-api",
+                "--archetype",
+                "web-api",
+                "--features",
+                "web",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
         repo = (tmp_path / "my-api" / "src" / "my_api" / "repositories" / "todo_repository.py").read_text()
         assert "dict[str, TodoResponse]" in repo
@@ -912,10 +1322,19 @@ class TestTemplateContent:
 
     def test_data_feature_generates_entity_in_model(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-api", "--archetype", "web-api", "--features", "web,data-relational",
-            "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-api",
+                "--archetype",
+                "web-api",
+                "--features",
+                "web,data-relational",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
         model = (tmp_path / "my-api" / "src" / "my_api" / "models" / "todo.py").read_text()
         assert "class TodoEntity(Base):" in model
@@ -923,10 +1342,19 @@ class TestTemplateContent:
 
     def test_no_data_feature_no_entity(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-api", "--archetype", "web-api", "--features", "web",
-            "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-api",
+                "--archetype",
+                "web-api",
+                "--features",
+                "web",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
         model = (tmp_path / "my-api" / "src" / "my_api" / "models" / "todo.py").read_text()
         assert "class TodoEntity" not in model
@@ -934,19 +1362,36 @@ class TestTemplateContent:
 
     def test_data_feature_controller_uses_int_path_var(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-api", "--archetype", "web-api", "--features", "web,data-relational",
-            "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-api",
+                "--archetype",
+                "web-api",
+                "--features",
+                "web,data-relational",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
         controller = (tmp_path / "my-api" / "src" / "my_api" / "controllers" / "todo_controller.py").read_text()
         assert "PathVar[int]" in controller
 
     def test_hexagonal_controller_uses_valid(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-hex", "--archetype", "hexagonal", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-hex",
+                "--archetype",
+                "hexagonal",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
         controller = (tmp_path / "my-hex" / "src" / "my_hex" / "api" / "controllers.py").read_text()
         assert "Valid[TodoCreateRequest]" in controller
@@ -954,9 +1399,17 @@ class TestTemplateContent:
 
     def test_hexagonal_dto_uses_field(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-hex", "--archetype", "hexagonal", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-hex",
+                "--archetype",
+                "hexagonal",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
         dto = (tmp_path / "my-hex" / "src" / "my_hex" / "api" / "dto.py").read_text()
         assert "Field(min_length=" in dto
@@ -967,10 +1420,19 @@ class TestMongoDBFeature:
 
     def test_mongodb_feature_generates_document_model(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-api", "--archetype", "web-api", "--features", "web,data-document",
-            "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-api",
+                "--archetype",
+                "web-api",
+                "--features",
+                "web,data-document",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
         model = (tmp_path / "my-api" / "src" / "my_api" / "models" / "todo.py").read_text()
         assert "class TodoDocument(BaseDocument):" in model
@@ -978,10 +1440,19 @@ class TestMongoDBFeature:
 
     def test_mongodb_feature_generates_mongo_repo(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-api", "--archetype", "web-api", "--features", "web,data-document",
-            "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-api",
+                "--archetype",
+                "web-api",
+                "--features",
+                "web,data-document",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
         repo = (tmp_path / "my-api" / "src" / "my_api" / "repositories" / "todo_repository.py").read_text()
         assert "MongoRepository[TodoDocument, str]" in repo
@@ -989,9 +1460,17 @@ class TestMongoDBFeature:
 
     def test_mongodb_config_in_yaml(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-api", "--features", "data-document", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-api",
+                "--features",
+                "data-document",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
         config = (tmp_path / "my-api" / "pyfly.yaml").read_text()
         assert "document:" in config
@@ -1000,66 +1479,128 @@ class TestMongoDBFeature:
 
     def test_mongodb_env_example(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-api", "--features", "data-document", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-api",
+                "--features",
+                "data-document",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
         env = (tmp_path / "my-api" / ".env.example").read_text()
         assert "PYFLY_DATA_DOCUMENT_URI" in env
 
     def test_mongodb_feature_sets_dependencies(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-svc", "--features", "web,data-document", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-svc",
+                "--features",
+                "web,data-document",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
         pyproject = (tmp_path / "my-svc" / "pyproject.toml").read_text()
         assert "pyfly[web,data-document]" in pyproject
 
     def test_mongodb_shows_tips(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-svc", "--features", "data-document", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-svc",
+                "--features",
+                "data-document",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
         assert "Beanie ODM" in result.output
 
     def test_hexagonal_mongodb_persistence(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-hex", "--archetype", "hexagonal", "--features", "web,data-document",
-            "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-hex",
+                "--archetype",
+                "hexagonal",
+                "--features",
+                "web,data-document",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
-        persistence = (tmp_path / "my-hex" / "src" / "my_hex" / "infrastructure" / "adapters" / "persistence.py").read_text()
+        persistence = (
+            tmp_path / "my-hex" / "src" / "my_hex" / "infrastructure" / "adapters" / "persistence.py"
+        ).read_text()
         assert "MongoRepository[TodoDocument, str]" in persistence
 
     def test_hexagonal_mongodb_domain_model(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-hex", "--archetype", "hexagonal", "--features", "web,data-document",
-            "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-hex",
+                "--archetype",
+                "hexagonal",
+                "--features",
+                "web,data-document",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
         models = (tmp_path / "my-hex" / "src" / "my_hex" / "domain" / "models.py").read_text()
         assert "class TodoDocument(BaseDocument):" in models
 
     def test_mongodb_controller_uses_str_path_var(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-api", "--archetype", "web-api", "--features", "web,data-document",
-            "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-api",
+                "--archetype",
+                "web-api",
+                "--features",
+                "web,data-document",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
         controller = (tmp_path / "my-api" / "src" / "my_api" / "controllers" / "todo_controller.py").read_text()
         assert "PathVar[str]" in controller
 
     def test_mongodb_service_is_async(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-api", "--archetype", "web-api", "--features", "web,data-document",
-            "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-api",
+                "--archetype",
+                "web-api",
+                "--features",
+                "web,data-document",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
         service = (tmp_path / "my-api" / "src" / "my_api" / "services" / "todo_service.py").read_text()
         assert "async def create" in service
@@ -1068,10 +1609,19 @@ class TestMongoDBFeature:
     def test_both_data_and_mongodb_generates_both(self, tmp_path: Path):
         """When both data-relational and data-document features are selected, both backends are scaffolded."""
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-api", "--archetype", "web-api", "--features", "web,data-relational,data-document",
-            "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-api",
+                "--archetype",
+                "web-api",
+                "--features",
+                "web,data-relational,data-document",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
         model = (tmp_path / "my-api" / "src" / "my_api" / "models" / "todo.py").read_text()
         assert "class TodoEntity(Base):" in model
@@ -1176,9 +1726,7 @@ class TestRunCommand:
         """pyfly run should discover the module from pyfly.yaml."""
         monkeypatch.chdir(tmp_path)
 
-        (tmp_path / "pyfly.yaml").write_text(
-            "pyfly:\n  app:\n    name: my-test\n    module: my_test.main:app\n"
-        )
+        (tmp_path / "pyfly.yaml").write_text("pyfly:\n  app:\n    name: my-test\n    module: my_test.main:app\n")
 
         from pyfly.cli.run import _discover_app
 
@@ -1208,25 +1756,49 @@ class TestMainPyGeneration:
 
     def test_web_api_generates_main_py(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-api", "--archetype", "web-api", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-api",
+                "--archetype",
+                "web-api",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
         assert (tmp_path / "my-api" / "src" / "my_api" / "main.py").exists()
 
     def test_hexagonal_generates_main_py(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-hex", "--archetype", "hexagonal", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-hex",
+                "--archetype",
+                "hexagonal",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
         assert (tmp_path / "my-hex" / "src" / "my_hex" / "main.py").exists()
 
     def test_library_does_not_generate_main_py(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-lib", "--archetype", "library", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-lib",
+                "--archetype",
+                "library",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
         assert not (tmp_path / "my-lib" / "src" / "my_lib" / "main.py").exists()
 
@@ -1260,9 +1832,17 @@ class TestMainPyGeneration:
 
     def test_library_yaml_has_no_module_field(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-lib", "--archetype", "library", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-lib",
+                "--archetype",
+                "library",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
         # Libraries don't have pyfly.yaml at all
         assert not (tmp_path / "my-lib" / "pyfly.yaml").exists()
@@ -1294,9 +1874,17 @@ class TestNewCli:
 
     def test_cli_creates_full_structure(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-tool", "--archetype", "cli", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-tool",
+                "--archetype",
+                "cli",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
 
         p = tmp_path / "my-tool"
@@ -1323,9 +1911,17 @@ class TestNewCli:
 
     def test_cli_has_shell_component(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-tool", "--archetype", "cli", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-tool",
+                "--archetype",
+                "cli",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
 
         command = (tmp_path / "my-tool" / "src" / "my_tool" / "commands" / "hello_command.py").read_text()
@@ -1333,9 +1929,17 @@ class TestNewCli:
 
     def test_cli_has_shell_method(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-tool", "--archetype", "cli", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-tool",
+                "--archetype",
+                "cli",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
 
         command = (tmp_path / "my-tool" / "src" / "my_tool" / "commands" / "hello_command.py").read_text()
@@ -1343,9 +1947,17 @@ class TestNewCli:
 
     def test_cli_service_uses_stereotype(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-tool", "--archetype", "cli", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-tool",
+                "--archetype",
+                "cli",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
 
         service = (tmp_path / "my-tool" / "src" / "my_tool" / "services" / "greeting_service.py").read_text()
@@ -1354,9 +1966,17 @@ class TestNewCli:
 
     def test_cli_app_scan_packages(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-tool", "--archetype", "cli", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-tool",
+                "--archetype",
+                "cli",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
 
         app = (tmp_path / "my-tool" / "src" / "my_tool" / "app.py").read_text()
@@ -1365,9 +1985,17 @@ class TestNewCli:
 
     def test_cli_default_features_shell(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-tool", "--archetype", "cli", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-tool",
+                "--archetype",
+                "cli",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
 
         pyproject = (tmp_path / "my-tool" / "pyproject.toml").read_text()
@@ -1375,9 +2003,17 @@ class TestNewCli:
 
     def test_cli_config_has_shell_enabled(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-tool", "--archetype", "cli", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-tool",
+                "--archetype",
+                "cli",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
 
         config = (tmp_path / "my-tool" / "pyfly.yaml").read_text()
@@ -1386,9 +2022,17 @@ class TestNewCli:
 
     def test_cli_main_is_not_asgi(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-tool", "--archetype", "cli", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-tool",
+                "--archetype",
+                "cli",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
 
         main = (tmp_path / "my-tool" / "src" / "my_tool" / "main.py").read_text()
@@ -1398,9 +2042,17 @@ class TestNewCli:
 
     def test_cli_dockerfile_no_expose(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-tool", "--archetype", "cli", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-tool",
+                "--archetype",
+                "cli",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
 
         dockerfile = (tmp_path / "my-tool" / "Dockerfile").read_text()
@@ -1409,9 +2061,17 @@ class TestNewCli:
 
     def test_cli_readme_mentions_cli(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-tool", "--archetype", "cli", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-tool",
+                "--archetype",
+                "cli",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
 
         readme = (tmp_path / "my-tool" / "README.md").read_text()
@@ -1419,9 +2079,17 @@ class TestNewCli:
 
     def test_cli_config_no_module_field(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-tool", "--archetype", "cli", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-tool",
+                "--archetype",
+                "cli",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
 
         config = (tmp_path / "my-tool" / "pyfly.yaml").read_text()
@@ -1429,9 +2097,17 @@ class TestNewCli:
 
     def test_cli_config_no_web_section(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-tool", "--archetype", "cli", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-tool",
+                "--archetype",
+                "cli",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
 
         config = (tmp_path / "my-tool" / "pyfly.yaml").read_text()
@@ -1440,9 +2116,17 @@ class TestNewCli:
 
     def test_cli_pyproject_description(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-tool", "--archetype", "cli", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-tool",
+                "--archetype",
+                "cli",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
 
         pyproject = (tmp_path / "my-tool" / "pyproject.toml").read_text()
@@ -1450,9 +2134,17 @@ class TestNewCli:
 
     def test_cli_next_steps_show_python_m(self, tmp_path: Path):
         runner = CliRunner()
-        result = runner.invoke(cli, [
-            "new", "my-tool", "--archetype", "cli", "--directory", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                "my-tool",
+                "--archetype",
+                "cli",
+                "--directory",
+                str(tmp_path),
+            ],
+        )
         assert result.exit_code == 0, result.output
         assert "python -m my_tool.main" in result.output
         assert "pyfly run" not in result.output

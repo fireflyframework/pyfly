@@ -16,10 +16,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 
 
-class StepStatus(str, Enum):
+class StepStatus(StrEnum):
     """Lifecycle status of a single transactional step."""
 
     PENDING = "PENDING"
@@ -29,7 +29,7 @@ class StepStatus(str, Enum):
     COMPENSATED = "COMPENSATED"
 
 
-class CompensationPolicy(str, Enum):
+class CompensationPolicy(StrEnum):
     """Strategy used to execute compensating transactions on failure."""
 
     STRICT_SEQUENTIAL = "STRICT_SEQUENTIAL"

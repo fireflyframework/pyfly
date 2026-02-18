@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import time
 
-import pytest
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.requests import Request
@@ -36,12 +35,14 @@ def _make_whoami_endpoint():
 
     async def whoami(request: Request) -> JSONResponse:
         ctx = request.state.security_context
-        return JSONResponse({
-            "authenticated": ctx.is_authenticated,
-            "user_id": ctx.user_id,
-            "roles": ctx.roles,
-            "permissions": ctx.permissions,
-        })
+        return JSONResponse(
+            {
+                "authenticated": ctx.is_authenticated,
+                "user_id": ctx.user_id,
+                "roles": ctx.roles,
+                "permissions": ctx.permissions,
+            }
+        )
 
     return whoami
 
@@ -72,11 +73,13 @@ class TestSecurityMiddleware:
         app = _create_test_app(jwt_service=jwt_service)
         client = TestClient(app)
 
-        token = jwt_service.encode({
-            "sub": "user-42",
-            "roles": ["ADMIN", "USER"],
-            "permissions": ["order:read", "order:write"],
-        })
+        token = jwt_service.encode(
+            {
+                "sub": "user-42",
+                "roles": ["ADMIN", "USER"],
+                "permissions": ["order:read", "order:write"],
+            }
+        )
 
         response = client.get("/whoami", headers={"Authorization": f"Bearer {token}"})
         assert response.status_code == 200
@@ -119,11 +122,13 @@ class TestSecurityMiddleware:
         client = TestClient(app)
 
         # Create a token that expired 1 hour ago
-        token = jwt_service.encode({
-            "sub": "user-expired",
-            "roles": ["USER"],
-            "exp": int(time.time()) - 3600,
-        })
+        token = jwt_service.encode(
+            {
+                "sub": "user-expired",
+                "roles": ["USER"],
+                "exp": int(time.time()) - 3600,
+            }
+        )
 
         response = client.get("/whoami", headers={"Authorization": f"Bearer {token}"})
         assert response.status_code == 200
@@ -150,10 +155,12 @@ class TestSecurityMiddleware:
         app = _create_test_app(jwt_service=jwt_service, exclude_paths=("/health",))
         client = TestClient(app)
 
-        token = jwt_service.encode({
-            "sub": "user-42",
-            "roles": ["ADMIN"],
-        })
+        token = jwt_service.encode(
+            {
+                "sub": "user-42",
+                "roles": ["ADMIN"],
+            }
+        )
 
         # The /health path is excluded — should be anonymous even with valid token
         response = client.get("/health", headers={"Authorization": f"Bearer {token}"})

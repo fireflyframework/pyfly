@@ -23,15 +23,14 @@ from starlette.responses import JSONResponse, PlainTextResponse
 from starlette.routing import Route
 from starlette.testclient import TestClient
 
-from pyfly.container.ordering import HIGHEST_PRECEDENCE, order
-from pyfly.container.ordering import get_order
+from pyfly.container.ordering import HIGHEST_PRECEDENCE, get_order, order
 from pyfly.web.adapters.starlette.filter_chain import WebFilterChainMiddleware
 from pyfly.web.filters import OncePerRequestFilter
-
 
 # ---------------------------------------------------------------------------
 # Test filters
 # ---------------------------------------------------------------------------
+
 
 @order(HIGHEST_PRECEDENCE + 10)
 class HeaderFilter(OncePerRequestFilter):
@@ -77,6 +76,7 @@ class ShortCircuitFilter(OncePerRequestFilter):
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 async def _ok_handler(request: Request) -> PlainTextResponse:
     return PlainTextResponse("OK")
 
@@ -95,6 +95,7 @@ def _make_app(*filters) -> Starlette:
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 class TestFilterChainOrdering:
     def test_filters_applied_in_order(self):

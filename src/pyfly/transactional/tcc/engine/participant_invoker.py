@@ -48,12 +48,13 @@ class TccParticipantInvoker:
         """
         method = participant_def.try_method
         if method is None:
-            raise ValueError(
-                f"Participant '{participant_def.id}' has no try_method defined."
-            )
+            raise ValueError(f"Participant '{participant_def.id}' has no try_method defined.")
 
         kwargs = self._argument_resolver.resolve(
-            method, bean, ctx, input_data=input_data,
+            method,
+            bean,
+            ctx,
+            input_data=input_data,
             participant_id=participant_def.id,
         )
         return await self._call(method, bean, kwargs)
@@ -71,12 +72,13 @@ class TccParticipantInvoker:
         """
         method = participant_def.confirm_method
         if method is None:
-            raise ValueError(
-                f"Participant '{participant_def.id}' has no confirm_method defined."
-            )
+            raise ValueError(f"Participant '{participant_def.id}' has no confirm_method defined.")
 
         kwargs = self._argument_resolver.resolve(
-            method, bean, ctx, input_data=None,
+            method,
+            bean,
+            ctx,
+            input_data=None,
             participant_id=participant_def.id,
         )
         await self._call(method, bean, kwargs)
@@ -94,12 +96,13 @@ class TccParticipantInvoker:
         """
         method = participant_def.cancel_method
         if method is None:
-            raise ValueError(
-                f"Participant '{participant_def.id}' has no cancel_method defined."
-            )
+            raise ValueError(f"Participant '{participant_def.id}' has no cancel_method defined.")
 
         kwargs = self._argument_resolver.resolve(
-            method, bean, ctx, input_data=None,
+            method,
+            bean,
+            ctx,
+            input_data=None,
             participant_id=participant_def.id,
         )
         await self._call(method, bean, kwargs)

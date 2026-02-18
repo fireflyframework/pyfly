@@ -49,19 +49,13 @@ class MessagingAutoConfiguration:
         if provider == "kafka":
             from pyfly.messaging.adapters.kafka import KafkaAdapter
 
-            servers = str(
-                config.get("pyfly.messaging.kafka.bootstrap-servers", "localhost:9092")
-            )
+            servers = str(config.get("pyfly.messaging.kafka.bootstrap-servers", "localhost:9092"))
             return KafkaAdapter(bootstrap_servers=servers)
 
         if provider == "rabbitmq":
             from pyfly.messaging.adapters.rabbitmq import RabbitMQAdapter
 
-            url = str(
-                config.get(
-                    "pyfly.messaging.rabbitmq.url", "amqp://guest:guest@localhost/"
-                )
-            )
+            url = str(config.get("pyfly.messaging.rabbitmq.url", "amqp://guest:guest@localhost/"))
             return RabbitMQAdapter(url=url)
 
         from pyfly.messaging.adapters.memory import InMemoryMessageBroker

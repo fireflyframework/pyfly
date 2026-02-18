@@ -71,9 +71,7 @@ class TestClientCredentialsGrant:
     """Tests for the client_credentials grant type."""
 
     @pytest.mark.asyncio
-    async def test_client_credentials_grant(
-        self, auth_server: AuthorizationServer
-    ) -> None:
+    async def test_client_credentials_grant(self, auth_server: AuthorizationServer) -> None:
         """client_credentials grant issues access_token, refresh_token, and correct keys."""
         result = await auth_server.token(
             grant_type="client_credentials",
@@ -88,9 +86,7 @@ class TestClientCredentialsGrant:
         assert "scope" in result
 
     @pytest.mark.asyncio
-    async def test_client_credentials_decodes_valid_jwt(
-        self, auth_server: AuthorizationServer
-    ) -> None:
+    async def test_client_credentials_decodes_valid_jwt(self, auth_server: AuthorizationServer) -> None:
         """Access token decodes to valid JWT with correct sub, scope, and iss claims."""
         result = await auth_server.token(
             grant_type="client_credentials",
@@ -111,9 +107,7 @@ class TestClientCredentialsGrant:
         assert "exp" in payload
 
     @pytest.mark.asyncio
-    async def test_client_credentials_custom_scope(
-        self, auth_server: AuthorizationServer
-    ) -> None:
+    async def test_client_credentials_custom_scope(self, auth_server: AuthorizationServer) -> None:
         """Passing a custom scope overrides the registration's default scopes."""
         result = await auth_server.token(
             grant_type="client_credentials",
@@ -141,9 +135,7 @@ class TestRefreshTokenGrant:
     """Tests for the refresh_token grant type."""
 
     @pytest.mark.asyncio
-    async def test_refresh_token_grant(
-        self, auth_server: AuthorizationServer
-    ) -> None:
+    async def test_refresh_token_grant(self, auth_server: AuthorizationServer) -> None:
         """Refresh token from client_credentials can be exchanged for new tokens."""
         initial = await auth_server.token(
             grant_type="client_credentials",
@@ -212,9 +204,7 @@ class TestAuthorizationServerErrors:
     """Tests for error handling in the authorization server."""
 
     @pytest.mark.asyncio
-    async def test_invalid_client_id(
-        self, auth_server: AuthorizationServer
-    ) -> None:
+    async def test_invalid_client_id(self, auth_server: AuthorizationServer) -> None:
         """Unknown client_id raises SecurityException with INVALID_CLIENT."""
         with pytest.raises(SecurityException) as exc_info:
             await auth_server.token(
@@ -225,9 +215,7 @@ class TestAuthorizationServerErrors:
         assert exc_info.value.code == "INVALID_CLIENT"
 
     @pytest.mark.asyncio
-    async def test_invalid_client_secret(
-        self, auth_server: AuthorizationServer
-    ) -> None:
+    async def test_invalid_client_secret(self, auth_server: AuthorizationServer) -> None:
         """Wrong client_secret raises SecurityException with INVALID_CLIENT."""
         with pytest.raises(SecurityException) as exc_info:
             await auth_server.token(
@@ -238,9 +226,7 @@ class TestAuthorizationServerErrors:
         assert exc_info.value.code == "INVALID_CLIENT"
 
     @pytest.mark.asyncio
-    async def test_unsupported_grant_type(
-        self, auth_server: AuthorizationServer
-    ) -> None:
+    async def test_unsupported_grant_type(self, auth_server: AuthorizationServer) -> None:
         """Unsupported grant type raises SecurityException with UNSUPPORTED_GRANT_TYPE."""
         with pytest.raises(SecurityException) as exc_info:
             await auth_server.token(
@@ -251,9 +237,7 @@ class TestAuthorizationServerErrors:
         assert exc_info.value.code == "UNSUPPORTED_GRANT_TYPE"
 
     @pytest.mark.asyncio
-    async def test_invalid_refresh_token(
-        self, auth_server: AuthorizationServer
-    ) -> None:
+    async def test_invalid_refresh_token(self, auth_server: AuthorizationServer) -> None:
         """Unknown refresh token raises SecurityException with INVALID_GRANT."""
         with pytest.raises(SecurityException) as exc_info:
             await auth_server.token(
@@ -265,9 +249,7 @@ class TestAuthorizationServerErrors:
         assert exc_info.value.code == "INVALID_GRANT"
 
     @pytest.mark.asyncio
-    async def test_refresh_token_required(
-        self, auth_server: AuthorizationServer
-    ) -> None:
+    async def test_refresh_token_required(self, auth_server: AuthorizationServer) -> None:
         """refresh_token grant without a refresh token raises INVALID_REQUEST."""
         with pytest.raises(SecurityException) as exc_info:
             await auth_server.token(

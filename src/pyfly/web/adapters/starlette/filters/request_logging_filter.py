@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 import time
+from typing import cast
 
 import structlog
 from starlette.requests import Request
@@ -37,7 +38,7 @@ class RequestLoggingFilter(OncePerRequestFilter):
         tx_id = getattr(request.state, "transaction_id", None)
 
         try:
-            response = await call_next(request)
+            response = cast(Response, await call_next(request))
         except Exception as exc:
             duration_ms = (time.perf_counter() - start) * 1000
             logger.error(

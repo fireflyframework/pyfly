@@ -15,7 +15,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from pyfly.admin.server.instance_registry import InstanceRegistry
@@ -36,9 +36,7 @@ class StaticDiscovery:
             url: http://localhost:8081
     """
 
-    def __init__(
-        self, instances: list[dict], registry: InstanceRegistry
-    ) -> None:
+    def __init__(self, instances: list[dict[str, Any]], registry: InstanceRegistry) -> None:
         self._instances = instances
         self._registry = registry
 

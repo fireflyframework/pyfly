@@ -109,14 +109,10 @@ class SagaRecoveryService:
                 correlation_id,
             )
 
-            await self._persistence_port.mark_completed(
-                correlation_id, successful=False
-            )
+            await self._persistence_port.mark_completed(correlation_id, successful=False)
 
             if self._events_port is not None:
-                await self._events_port.on_completed(
-                    saga_name, correlation_id, success=False
-                )
+                await self._events_port.on_completed(saga_name, correlation_id, success=False)
 
             recovered += 1
 
@@ -136,6 +132,4 @@ class SagaRecoveryService:
         Returns:
             Number of states cleaned up.
         """
-        return await self._persistence_port.cleanup(
-            timedelta(hours=older_than_hours)
-        )
+        return await self._persistence_port.cleanup(timedelta(hours=older_than_hours))

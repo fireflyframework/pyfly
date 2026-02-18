@@ -15,10 +15,10 @@
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 
-class TccPhase(str, Enum):
+class TccPhase(StrEnum):
     """Phase of a TCC execution.
 
     A TCC transaction progresses through three phases:

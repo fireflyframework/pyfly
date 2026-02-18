@@ -25,9 +25,7 @@ from typing import Any
 
 from pyfly.security.context import SecurityContext
 
-_request_context_var: ContextVar[RequestContext | None] = ContextVar(
-    "pyfly_request_context", default=None
-)
+_request_context_var: ContextVar[RequestContext | None] = ContextVar("pyfly_request_context", default=None)
 
 
 class RequestContext:

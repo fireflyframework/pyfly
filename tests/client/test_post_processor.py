@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Tests for HttpClientBeanPostProcessor."""
+
 from __future__ import annotations
 
 import json
@@ -29,7 +30,7 @@ class FakeHttpClient:
         self.response_body: bytes = b"{}"
         self.response_status: int = 200
 
-    async def request(self, method: str, url: str, **kwargs) -> "FakeResponse":
+    async def request(self, method: str, url: str, **kwargs) -> FakeResponse:
         self.calls.append({"method": method, "url": url, **kwargs})
         return FakeResponse(self.response_body, self.response_status)
 

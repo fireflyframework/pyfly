@@ -24,9 +24,7 @@ from pyfly.cli.main import cli
 
 
 class TestDbInit:
-    def test_db_init_creates_alembic_directory(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_db_init_creates_alembic_directory(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.chdir(tmp_path)
         runner = CliRunner()
         result = runner.invoke(cli, ["db", "init"])
@@ -36,9 +34,7 @@ class TestDbInit:
         assert (tmp_path / "alembic.ini").is_file()
         assert (tmp_path / "alembic" / "env.py").is_file()
 
-    def test_db_init_env_py_imports_base(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_db_init_env_py_imports_base(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.chdir(tmp_path)
         runner = CliRunner()
         runner.invoke(cli, ["db", "init"])
@@ -46,9 +42,7 @@ class TestDbInit:
         env_py = (tmp_path / "alembic" / "env.py").read_text()
         assert "from pyfly.data.relational.sqlalchemy import Base" in env_py
 
-    def test_db_init_env_py_has_async_support(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_db_init_env_py_has_async_support(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.chdir(tmp_path)
         runner = CliRunner()
         runner.invoke(cli, ["db", "init"])
@@ -58,9 +52,7 @@ class TestDbInit:
 
 
 class TestDbMigrate:
-    def test_db_migrate_requires_init_first(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_db_migrate_requires_init_first(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.chdir(tmp_path)
         runner = CliRunner()
         result = runner.invoke(cli, ["db", "migrate", "-m", "initial"])
@@ -70,9 +62,7 @@ class TestDbMigrate:
 
 
 class TestDbUpgrade:
-    def test_db_upgrade_requires_init_first(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_db_upgrade_requires_init_first(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.chdir(tmp_path)
         runner = CliRunner()
         result = runner.invoke(cli, ["db", "upgrade"])
@@ -82,9 +72,7 @@ class TestDbUpgrade:
 
 
 class TestDbDowngrade:
-    def test_db_downgrade_requires_init_first(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_db_downgrade_requires_init_first(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.chdir(tmp_path)
         runner = CliRunner()
         result = runner.invoke(cli, ["db", "downgrade", "base"])

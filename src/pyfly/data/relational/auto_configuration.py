@@ -47,11 +47,7 @@ class RelationalAutoConfiguration:
 
     @bean
     def async_engine(self, config: Config) -> AsyncEngine:
-        url = str(
-            config.get(
-                "pyfly.data.relational.url", "sqlite+aiosqlite:///./app.db"
-            )
-        )
+        url = str(config.get("pyfly.data.relational.url", "sqlite+aiosqlite:///./app.db"))
         echo = bool(config.get("pyfly.data.relational.echo", False))
         return create_async_engine(url, echo=echo)
 

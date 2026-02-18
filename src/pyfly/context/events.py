@@ -16,11 +16,11 @@
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
-from typing import TypeVar
+from typing import Any, TypeVar
 
 from pyfly.container.ordering import get_order
 
-F = TypeVar("F", bound=Callable)
+F = TypeVar("F", bound=Callable[..., Any])
 
 
 class ApplicationEvent:
@@ -73,8 +73,6 @@ class ApplicationEventBus:
         """Publish an event to all matching listeners, sorted by @order."""
         for event_type, entries in self._listeners.items():
             if isinstance(event, event_type):
-                sorted_entries = sorted(
-                    entries, key=lambda e: get_order(e[1]) if e[1] else 0
-                )
+                sorted_entries = sorted(entries, key=lambda e: get_order(e[1]) if e[1] else 0)
                 for listener, _owner in sorted_entries:
                     await listener(event)

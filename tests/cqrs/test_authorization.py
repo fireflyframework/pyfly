@@ -29,7 +29,6 @@ from pyfly.cqrs.authorization.types import (
 from pyfly.cqrs.context.execution_context import DefaultExecutionContext
 from pyfly.cqrs.types import Command, Query
 
-
 # ── AuthorizationSeverity enum tests ──────────────────────────
 
 

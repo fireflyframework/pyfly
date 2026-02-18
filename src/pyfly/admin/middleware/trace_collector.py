@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import time
 from collections import deque
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from pyfly.web.filters import OncePerRequestFilter
@@ -41,13 +41,15 @@ class TraceCollectorFilter(OncePerRequestFilter):
         response = await call_next(request)
         duration_ms = round((time.monotonic() - start) * 1000, 2)
 
-        self._traces.append({
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "method": request.method,
-            "path": request.url.path,
-            "status": response.status_code,
-            "duration_ms": duration_ms,
-        })
+        self._traces.append(
+            {
+                "timestamp": datetime.now(UTC).isoformat(),
+                "method": request.method,
+                "path": request.url.path,
+                "status": response.status_code,
+                "duration_ms": duration_ms,
+            }
+        )
         return response
 
     def get_traces(self) -> list[dict[str, Any]]:

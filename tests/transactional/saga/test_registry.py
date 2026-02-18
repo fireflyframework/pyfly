@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Tests for saga registry — metadata discovery and DAG validation."""
+
 from __future__ import annotations
 
 import pytest
@@ -24,8 +25,8 @@ from pyfly.transactional.saga.registry.saga_registry import (
 )
 from pyfly.transactional.saga.registry.step_definition import StepDefinition
 
-
 # -- Test fixtures -----------------------------------------------------------
+
 
 @saga(name="order-saga")
 class OrderSaga:
@@ -68,6 +69,7 @@ class MissingDepSaga:
 
 # -- Tests -------------------------------------------------------------------
 
+
 class TestStepDefinition:
     def test_create_from_metadata(self) -> None:
         defn = StepDefinition(
@@ -81,6 +83,7 @@ class TestStepDefinition:
         assert defn.id == "step-1"
         assert defn.compensate_name == "undo"
         assert defn.depends_on == ["step-0"]
+
 
 class TestSagaDefinition:
     def test_create(self) -> None:

@@ -37,10 +37,7 @@ def sbom_command(*, as_json: bool) -> None:
             "name": "pyfly",
             "version": __version__,
             "license": "Apache-2.0",
-            "dependencies": [
-                {"name": name, "required": req, "installed": inst}
-                for name, req, inst in deps
-            ],
+            "dependencies": [{"name": name, "required": req, "installed": inst} for name, req, inst in deps],
         }
         console.print_json(json.dumps(payload))
         return
@@ -99,12 +96,12 @@ def _parse_version_spec(req: str) -> str:
     """Extract the version specifier from a requirement string."""
     base = req.split(";")[0].strip()
     name = _parse_package_name(req)
-    spec = base[len(name):].strip()
+    spec = base[len(name) :].strip()
     # Remove extras like [standard]
     if spec.startswith("["):
         bracket_end = spec.find("]")
         if bracket_end != -1:
-            spec = spec[bracket_end + 1:].strip()
+            spec = spec[bracket_end + 1 :].strip()
     return spec if spec else "*"
 
 

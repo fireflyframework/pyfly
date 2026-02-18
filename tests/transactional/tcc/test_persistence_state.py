@@ -16,7 +16,7 @@
 from __future__ import annotations
 
 import dataclasses
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -25,7 +25,6 @@ from pyfly.transactional.tcc.persistence.state import (
     TccExecutionState,
     TccExecutionStatus,
 )
-
 
 # ---------------------------------------------------------------------------
 # TccExecutionStatus
@@ -125,7 +124,7 @@ class TestTccExecutionState:
 
     @staticmethod
     def _make(**overrides) -> TccExecutionState:  # noqa: ANN003
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         defaults: dict = {
             "correlation_id": "corr-123",
             "tcc_name": "order-payment",
@@ -147,7 +146,7 @@ class TestTccExecutionState:
         assert state.failed_participant_id is None
 
     def test_creation_with_all_fields(self) -> None:
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         participant = ParticipantExecutionState(
             participant_id="payment",
             phase="CONFIRM",
@@ -188,7 +187,7 @@ class TestTccExecutionState:
     # -- to_dict / from_dict round-trip ------------------------------------
 
     def test_to_dict_minimal(self) -> None:
-        now = datetime(2026, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
+        now = datetime(2026, 1, 15, 12, 0, 0, tzinfo=UTC)
         state = TccExecutionState(
             correlation_id="corr-1",
             tcc_name="order-tcc",
@@ -207,7 +206,7 @@ class TestTccExecutionState:
         assert d["failed_participant_id"] is None
 
     def test_to_dict_with_participants(self) -> None:
-        now = datetime(2026, 2, 1, 10, 0, 0, tzinfo=timezone.utc)
+        now = datetime(2026, 2, 1, 10, 0, 0, tzinfo=UTC)
         participant = ParticipantExecutionState(
             participant_id="payment",
             phase="CONFIRM",
@@ -235,7 +234,7 @@ class TestTccExecutionState:
         assert p["error_message"] is None
 
     def test_to_dict_with_error(self) -> None:
-        now = datetime(2026, 3, 1, 8, 0, 0, tzinfo=timezone.utc)
+        now = datetime(2026, 3, 1, 8, 0, 0, tzinfo=UTC)
         state = TccExecutionState(
             correlation_id="corr-3",
             tcc_name="failing-tcc",
@@ -252,7 +251,7 @@ class TestTccExecutionState:
         assert d["failed_participant_id"] == "inventory"
 
     def test_from_dict_minimal(self) -> None:
-        now = datetime(2026, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
+        now = datetime(2026, 1, 15, 12, 0, 0, tzinfo=UTC)
         data = {
             "correlation_id": "corr-1",
             "tcc_name": "order-tcc",
@@ -275,7 +274,7 @@ class TestTccExecutionState:
         assert state.failed_participant_id is None
 
     def test_from_dict_with_participants(self) -> None:
-        now = datetime(2026, 2, 1, 10, 0, 0, tzinfo=timezone.utc)
+        now = datetime(2026, 2, 1, 10, 0, 0, tzinfo=UTC)
         data = {
             "correlation_id": "corr-2",
             "tcc_name": "booking",
@@ -308,7 +307,7 @@ class TestTccExecutionState:
 
     def test_round_trip(self) -> None:
         """to_dict -> from_dict should produce an equal object."""
-        now = datetime(2026, 4, 10, 14, 30, 0, tzinfo=timezone.utc)
+        now = datetime(2026, 4, 10, 14, 30, 0, tzinfo=UTC)
         participant = ParticipantExecutionState(
             participant_id="shipping",
             phase="CANCEL",
@@ -348,7 +347,7 @@ class TestTccExecutionState:
 
     def test_round_trip_no_participants(self) -> None:
         """Round-trip with no participants and no completed_at."""
-        now = datetime(2026, 5, 1, 9, 0, 0, tzinfo=timezone.utc)
+        now = datetime(2026, 5, 1, 9, 0, 0, tzinfo=UTC)
         original = TccExecutionState(
             correlation_id="corr-empty",
             tcc_name="empty-tcc",

@@ -22,10 +22,10 @@ import pytest
 from pyfly.web.filters import OncePerRequestFilter
 from pyfly.web.ports.filter import WebFilter
 
-
 # ---------------------------------------------------------------------------
 # WebFilter Protocol
 # ---------------------------------------------------------------------------
+
 
 class _DuckFilter:
     """Implements WebFilter via duck typing (no inheritance)."""
@@ -58,6 +58,7 @@ class TestWebFilterProtocol:
 # ---------------------------------------------------------------------------
 # OncePerRequestFilter — should_not_filter
 # ---------------------------------------------------------------------------
+
 
 def _make_request(path: str) -> MagicMock:
     """Create a mock request with the given URL path."""

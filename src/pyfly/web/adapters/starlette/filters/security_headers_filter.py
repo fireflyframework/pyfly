@@ -15,6 +15,8 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 from starlette.requests import Request
 from starlette.responses import Response
 
@@ -32,7 +34,7 @@ class SecurityHeadersFilter(OncePerRequestFilter):
         self._config = config or SecurityHeadersConfig()
 
     async def do_filter(self, request: Request, call_next: CallNext) -> Response:
-        response = await call_next(request)
+        response = cast(Response, await call_next(request))
         cfg = self._config
 
         response.headers["X-Content-Type-Options"] = cfg.x_content_type_options

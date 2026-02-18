@@ -62,10 +62,7 @@ class TestLoggerEventsAdapter:
         with caplog.at_level(logging.INFO, logger="pyfly.transactional.events"):
             await adapter.on_start("order-saga", "corr-abc")
 
-        assert (
-            "Saga 'order-saga' started [correlation_id=corr-abc]"
-            in caplog.records[0].message
-        )
+        assert "Saga 'order-saga' started [correlation_id=corr-abc]" in caplog.records[0].message
 
     # -- on_step_success ----------------------------------------------------
 
@@ -73,9 +70,7 @@ class TestLoggerEventsAdapter:
         self, adapter: LoggerEventsAdapter, caplog: pytest.LogCaptureFixture
     ) -> None:
         with caplog.at_level(logging.INFO, logger="pyfly.transactional.events"):
-            await adapter.on_step_success(
-                "order-saga", "corr-123", "reserve-stock", attempts=2, latency_ms=42.567
-            )
+            await adapter.on_step_success("order-saga", "corr-123", "reserve-stock", attempts=2, latency_ms=42.567)
 
         assert len(caplog.records) == 1
         record = caplog.records[0]
@@ -87,14 +82,9 @@ class TestLoggerEventsAdapter:
         self, adapter: LoggerEventsAdapter, caplog: pytest.LogCaptureFixture
     ) -> None:
         with caplog.at_level(logging.INFO, logger="pyfly.transactional.events"):
-            await adapter.on_step_success(
-                "order-saga", "corr-123", "reserve-stock", attempts=2, latency_ms=42.567
-            )
+            await adapter.on_step_success("order-saga", "corr-123", "reserve-stock", attempts=2, latency_ms=42.567)
 
-        expected = (
-            "Step 'reserve-stock' succeeded "
-            "[saga=order-saga, attempts=2, latency=42.6ms]"
-        )
+        expected = "Step 'reserve-stock' succeeded [saga=order-saga, attempts=2, latency=42.6ms]"
         assert expected in caplog.records[0].message
 
     # -- on_step_failed -----------------------------------------------------
@@ -106,8 +96,12 @@ class TestLoggerEventsAdapter:
 
         with caplog.at_level(logging.WARNING, logger="pyfly.transactional.events"):
             await adapter.on_step_failed(
-                "order-saga", "corr-123", "charge-payment",
-                error=error, attempts=3, latency_ms=1500.0,
+                "order-saga",
+                "corr-123",
+                "charge-payment",
+                error=error,
+                attempts=3,
+                latency_ms=1500.0,
             )
 
         assert len(caplog.records) == 1
@@ -123,14 +117,15 @@ class TestLoggerEventsAdapter:
 
         with caplog.at_level(logging.WARNING, logger="pyfly.transactional.events"):
             await adapter.on_step_failed(
-                "order-saga", "corr-456", "charge-payment",
-                error=error, attempts=1, latency_ms=99.99,
+                "order-saga",
+                "corr-456",
+                "charge-payment",
+                error=error,
+                attempts=1,
+                latency_ms=99.99,
             )
 
-        expected = (
-            "Step 'charge-payment' failed "
-            "[saga=order-saga, attempts=1, latency=100.0ms]: bad amount"
-        )
+        expected = "Step 'charge-payment' failed [saga=order-saga, attempts=1, latency=100.0ms]: bad amount"
         assert expected in caplog.records[0].message
 
     # -- on_compensated -----------------------------------------------------
@@ -139,9 +134,7 @@ class TestLoggerEventsAdapter:
         self, adapter: LoggerEventsAdapter, caplog: pytest.LogCaptureFixture
     ) -> None:
         with caplog.at_level(logging.INFO, logger="pyfly.transactional.events"):
-            await adapter.on_compensated(
-                "order-saga", "corr-123", "reserve-stock", error=None
-            )
+            await adapter.on_compensated("order-saga", "corr-123", "reserve-stock", error=None)
 
         assert len(caplog.records) == 1
         record = caplog.records[0]
@@ -153,9 +146,7 @@ class TestLoggerEventsAdapter:
         self, adapter: LoggerEventsAdapter, caplog: pytest.LogCaptureFixture
     ) -> None:
         with caplog.at_level(logging.INFO, logger="pyfly.transactional.events"):
-            await adapter.on_compensated(
-                "order-saga", "corr-123", "reserve-stock", error=None
-            )
+            await adapter.on_compensated("order-saga", "corr-123", "reserve-stock", error=None)
 
         expected = "Step 'reserve-stock' compensated [saga=order-saga]"
         assert expected in caplog.records[0].message
@@ -166,9 +157,7 @@ class TestLoggerEventsAdapter:
         error = RuntimeError("compensation failed")
 
         with caplog.at_level(logging.WARNING, logger="pyfly.transactional.events"):
-            await adapter.on_compensated(
-                "order-saga", "corr-123", "reserve-stock", error=error
-            )
+            await adapter.on_compensated("order-saga", "corr-123", "reserve-stock", error=error)
 
         assert len(caplog.records) == 1
         record = caplog.records[0]
@@ -182,13 +171,9 @@ class TestLoggerEventsAdapter:
         error = RuntimeError("compensation failed")
 
         with caplog.at_level(logging.WARNING, logger="pyfly.transactional.events"):
-            await adapter.on_compensated(
-                "order-saga", "corr-123", "reserve-stock", error=error
-            )
+            await adapter.on_compensated("order-saga", "corr-123", "reserve-stock", error=error)
 
-        expected = (
-            "Step 'reserve-stock' compensated [saga=order-saga]: compensation failed"
-        )
+        expected = "Step 'reserve-stock' compensated [saga=order-saga]: compensation failed"
         assert expected in caplog.records[0].message
 
     # -- on_completed -------------------------------------------------------
@@ -211,9 +196,7 @@ class TestLoggerEventsAdapter:
         with caplog.at_level(logging.INFO, logger="pyfly.transactional.events"):
             await adapter.on_completed("order-saga", "corr-789", success=False)
 
-        expected = (
-            "Saga 'order-saga' completed [correlation_id=corr-789, success=False]"
-        )
+        expected = "Saga 'order-saga' completed [correlation_id=corr-789, success=False]"
         assert expected in caplog.records[0].message
 
     # -- protocol compliance ------------------------------------------------
@@ -251,25 +234,17 @@ class TestCompositeEventsAdapter:
         a1, a2 = _mock_events_adapter(), _mock_events_adapter()
         composite = CompositeEventsAdapter(a1, a2)
 
-        await composite.on_step_success(
-            "order-saga", "corr-1", "step-1", attempts=1, latency_ms=10.0
-        )
+        await composite.on_step_success("order-saga", "corr-1", "step-1", attempts=1, latency_ms=10.0)
 
-        a1.on_step_success.assert_awaited_once_with(
-            "order-saga", "corr-1", "step-1", attempts=1, latency_ms=10.0
-        )
-        a2.on_step_success.assert_awaited_once_with(
-            "order-saga", "corr-1", "step-1", attempts=1, latency_ms=10.0
-        )
+        a1.on_step_success.assert_awaited_once_with("order-saga", "corr-1", "step-1", attempts=1, latency_ms=10.0)
+        a2.on_step_success.assert_awaited_once_with("order-saga", "corr-1", "step-1", attempts=1, latency_ms=10.0)
 
     async def test_broadcasts_on_step_failed_to_all_adapters(self) -> None:
         a1, a2 = _mock_events_adapter(), _mock_events_adapter()
         composite = CompositeEventsAdapter(a1, a2)
         error = RuntimeError("boom")
 
-        await composite.on_step_failed(
-            "order-saga", "corr-1", "step-1", error=error, attempts=2, latency_ms=5.0
-        )
+        await composite.on_step_failed("order-saga", "corr-1", "step-1", error=error, attempts=2, latency_ms=5.0)
 
         a1.on_step_failed.assert_awaited_once_with(
             "order-saga", "corr-1", "step-1", error=error, attempts=2, latency_ms=5.0
@@ -284,12 +259,8 @@ class TestCompositeEventsAdapter:
 
         await composite.on_compensated("order-saga", "corr-1", "step-1", error=None)
 
-        a1.on_compensated.assert_awaited_once_with(
-            "order-saga", "corr-1", "step-1", error=None
-        )
-        a2.on_compensated.assert_awaited_once_with(
-            "order-saga", "corr-1", "step-1", error=None
-        )
+        a1.on_compensated.assert_awaited_once_with("order-saga", "corr-1", "step-1", error=None)
+        a2.on_compensated.assert_awaited_once_with("order-saga", "corr-1", "step-1", error=None)
 
     async def test_broadcasts_on_completed_to_all_adapters(self) -> None:
         a1, a2 = _mock_events_adapter(), _mock_events_adapter()
@@ -313,9 +284,7 @@ class TestCompositeEventsAdapter:
         # a2 should still have been called despite a1 failure
         a2.on_start.assert_awaited_once_with("order-saga", "corr-1")
 
-    async def test_logs_adapter_failure(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    async def test_logs_adapter_failure(self, caplog: pytest.LogCaptureFixture) -> None:
         a1 = _mock_events_adapter()
         a1.on_start.side_effect = RuntimeError("adapter-1 exploded")
         a2 = _mock_events_adapter()

@@ -42,8 +42,7 @@ class HealthResult:
         result: dict[str, Any] = {"status": self.status}
         if self.components:
             result["components"] = {
-                name: {"status": hs.status, "details": hs.details}
-                for name, hs in self.components.items()
+                name: {"status": hs.status, "details": hs.details} for name, hs in self.components.items()
             }
         return result
 

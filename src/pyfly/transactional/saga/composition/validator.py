@@ -53,10 +53,7 @@ class CompositionValidator:
         for name, entry in composition.entries.items():
             for dep in entry.depends_on:
                 if dep not in entry_names:
-                    msg = (
-                        f"Entry '{name}' depends on '{dep}' which does not "
-                        f"exist in composition '{composition.name}'"
-                    )
+                    msg = f"Entry '{name}' depends on '{dep}' which does not exist in composition '{composition.name}'"
                     raise ValueError(msg)
 
         # -- 2. Check data_flow source_saga references -----------------------
@@ -71,8 +68,5 @@ class CompositionValidator:
                     raise ValueError(msg)
 
         # -- 3. Cycle detection via SagaTopology -----------------------------
-        deps: dict[str, list[str]] = {
-            name: list(entry.depends_on)
-            for name, entry in composition.entries.items()
-        }
+        deps: dict[str, list[str]] = {name: list(entry.depends_on) for name, entry in composition.entries.items()}
         SagaTopology.compute_layers(deps)  # raises ValueError on cycle

@@ -33,7 +33,10 @@ async def _hello(request):  # noqa: ANN001
 
 
 def _make_client(config: SecurityHeadersConfig | None = None) -> TestClient:
-    middleware = [Middleware(SecurityHeadersMiddleware, config=config)] if config else [Middleware(SecurityHeadersMiddleware)]
+    if config:
+        middleware = [Middleware(SecurityHeadersMiddleware, config=config)]
+    else:
+        middleware = [Middleware(SecurityHeadersMiddleware)]
     app = Starlette(
         routes=[Route("/hello", _hello)],
         middleware=middleware,

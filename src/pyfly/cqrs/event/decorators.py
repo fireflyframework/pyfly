@@ -18,7 +18,8 @@ Mirrors Java's ``@PublishDomainEvent`` annotation.
 
 from __future__ import annotations
 
-from typing import TypeVar
+from collections.abc import Callable
+from typing import Any, TypeVar
 
 T = TypeVar("T", bound=type)
 
@@ -27,7 +28,7 @@ def publish_domain_event(
     *,
     destination: str | None = None,
     message_format: str = "json",
-) -> callable:
+) -> Callable[..., Any]:
     """Mark a command handler to publish domain events after execution.
 
     The bus reads this metadata and publishes events returned by

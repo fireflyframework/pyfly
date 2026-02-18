@@ -24,7 +24,6 @@ from pyfly.cqrs.exceptions import CommandHandlerNotFoundException, QueryHandlerN
 from pyfly.cqrs.query.handler import QueryHandler
 from pyfly.cqrs.types import Command, Query
 
-
 # -- Test messages ----------------------------------------------------------
 
 

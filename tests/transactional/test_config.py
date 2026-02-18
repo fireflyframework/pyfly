@@ -23,7 +23,6 @@ from pyfly.transactional.saga.config.properties import (
 )
 from pyfly.transactional.tcc.config.properties import TccEngineProperties
 
-
 # ---------------------------------------------------------------------------
 # SagaEngineProperties
 # ---------------------------------------------------------------------------

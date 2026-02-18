@@ -38,8 +38,8 @@ from pyfly.kernel.exceptions import (
 )
 from pyfly.web.adapters.starlette.app import create_app
 
-
 # --- Handler functions for make_test_app ---
+
 
 async def not_found(request):
     raise ResourceNotFoundException("Order not found", code="ORDER_NOT_FOUND", context={"id": "123"})
@@ -66,11 +66,13 @@ def make_test_app():
 
 # --- Handler function for test_unhandled_returns_500 ---
 
+
 async def crash(request):
     raise RuntimeError("boom")
 
 
 # --- Handler functions for TestExpandedStatusMapping ---
+
 
 async def unauthorized(request):
     raise UnauthorizedException("not authenticated")

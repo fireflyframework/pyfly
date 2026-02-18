@@ -133,9 +133,7 @@ class AuthorizationServer:
                 code="UNSUPPORTED_GRANT_TYPE",
             )
 
-    async def _handle_client_credentials(
-        self, registration: ClientRegistration, scope: str
-    ) -> dict[str, Any]:
+    async def _handle_client_credentials(self, registration: ClientRegistration, scope: str) -> dict[str, Any]:
         now = int(time.time())
         scopes = scope.split() if scope else registration.scopes
 
@@ -167,9 +165,7 @@ class AuthorizationServer:
             "scope": " ".join(scopes),
         }
 
-    async def _handle_refresh_token(
-        self, registration: ClientRegistration, refresh_token: str
-    ) -> dict[str, Any]:
+    async def _handle_refresh_token(self, registration: ClientRegistration, refresh_token: str) -> dict[str, Any]:
         token_data = await self._token_store.find(refresh_token)
         if token_data is None:
             raise SecurityException("Invalid refresh token", code="INVALID_GRANT")

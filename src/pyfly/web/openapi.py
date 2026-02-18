@@ -16,7 +16,7 @@
 from __future__ import annotations
 
 import re
-from typing import TYPE_CHECKING, Any, get_args, get_origin
+from typing import TYPE_CHECKING, Any, cast, get_args, get_origin
 
 from pydantic import BaseModel
 
@@ -92,9 +92,7 @@ class OpenAPIGenerator:
         self._description = description
         self._schemas: dict[str, Any] = {}
 
-    def generate(
-        self, route_metadata: list[RouteMetadata] | None = None
-    ) -> dict[str, Any]:
+    def generate(self, route_metadata: list[RouteMetadata] | None = None) -> dict[str, Any]:
         """Generate a complete OpenAPI 3.1 spec as a dict."""
         self._schemas = {}
 
@@ -150,9 +148,7 @@ class OpenAPIGenerator:
     # Paths
     # ------------------------------------------------------------------
 
-    def _build_paths(
-        self, route_metadata: list[RouteMetadata]
-    ) -> dict[str, Any]:
+    def _build_paths(self, route_metadata: list[RouteMetadata]) -> dict[str, Any]:
         """Build the ``paths`` dict from a list of RouteMetadata."""
         paths: dict[str, Any] = {}
 
@@ -266,7 +262,7 @@ class OpenAPIGenerator:
         """
         name = model.__name__
         if name not in self._schemas:
-            schema = model.model_json_schema()  # type: ignore[union-attr]
+            schema = model.model_json_schema()  # type: ignore[attr-defined]
 
             # Hoist $defs into components/schemas
             defs = schema.pop("$defs", None)
@@ -326,4 +322,4 @@ class OpenAPIGenerator:
     @staticmethod
     def _get_list_inner_type(t: Any) -> type:
         """Extract the inner type from ``list[T]``."""
-        return get_args(t)[0]
+        return cast(type, get_args(t)[0])

@@ -21,7 +21,6 @@ import pytest
 from pyfly.data.document.mongodb.query_compiler import MongoQueryMethodCompiler
 from pyfly.data.query_parser import FieldPredicate, OrderClause, ParsedQuery, QueryMethodParser
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------

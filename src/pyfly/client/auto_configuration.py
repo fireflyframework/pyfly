@@ -15,6 +15,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from pyfly.client.ports.outbound import HttpClientPort
 from pyfly.client.post_processor import HttpClientBeanPostProcessor
 from pyfly.container.bean import bean
@@ -44,12 +46,10 @@ class ClientAutoConfiguration:
     @bean
     def http_client_post_processor(self, config: Config) -> HttpClientBeanPostProcessor:
         retry_cfg = config.get("pyfly.client.retry")
-        cb_cfg = config.get("pyfly.client.circuit_breaker") or config.get(
-            "pyfly.client.circuit-breaker"
-        )
+        cb_cfg = config.get("pyfly.client.circuit_breaker") or config.get("pyfly.client.circuit-breaker")
 
-        default_retry: dict | None = None
-        default_cb: dict | None = None
+        default_retry: dict[str, Any] | None = None
+        default_cb: dict[str, Any] | None = None
 
         if isinstance(retry_cfg, dict):
             default_retry = retry_cfg

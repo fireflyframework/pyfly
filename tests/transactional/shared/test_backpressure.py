@@ -173,7 +173,7 @@ class TestBatchedBackpressureStrategy:
         # Patch the strategy to track batch boundaries
         original_apply = strategy.apply
 
-        batch_boundaries: list[int] = []
+        _batch_boundaries: list[int] = []
 
         async def _tracked_apply(
             items: list,
@@ -188,10 +188,10 @@ class TestBatchedBackpressureStrategy:
 
     async def test_batch_size_2_on_5_items_yields_3_batches(self) -> None:
         """Verify that batch_size=2 on 5 items produces exactly 3 batches."""
-        batches_executed: list[list[int]] = []
+        _batches_executed: list[list[int]] = []
         current_batch_items: list[int] = []
         lock = asyncio.Lock()
-        batch_event = asyncio.Event()
+        _batch_event = asyncio.Event()
 
         async def _batch_recorder(x: int) -> int:
             async with lock:
@@ -247,9 +247,7 @@ class TestCircuitBreakerBackpressureStrategy:
 
     async def test_normal_operation_processes_all_items(self) -> None:
         strategy = CircuitBreakerBackpressureStrategy()
-        config = BackpressureConfig(
-            strategy="circuit_breaker", failure_threshold=5
-        )
+        config = BackpressureConfig(strategy="circuit_breaker", failure_threshold=5)
         items = [1, 2, 3, 4, 5]
 
         results = await strategy.apply(items, _double, config)
@@ -351,9 +349,7 @@ class TestCircuitBreakerBackpressureStrategy:
         assert CircuitBreakerBackpressureStrategy().strategy_name == "circuit_breaker"
 
     def test_implements_protocol(self) -> None:
-        assert isinstance(
-            CircuitBreakerBackpressureStrategy(), BackpressureStrategyPort
-        )
+        assert isinstance(CircuitBreakerBackpressureStrategy(), BackpressureStrategyPort)
 
 
 # ---------------------------------------------------------------------------

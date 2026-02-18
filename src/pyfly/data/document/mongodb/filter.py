@@ -47,32 +47,32 @@ class MongoFilterOperator:
     @staticmethod
     def eq(field: str, value: Any) -> MongoSpecification[Any]:
         """Equal to."""
-        return MongoSpecification(lambda root, q, _f=field, _v=value: {_f: _v})
+        return MongoSpecification(lambda root, q, _f=field, _v=value: {_f: _v})  # type: ignore[misc]
 
     @staticmethod
     def neq(field: str, value: Any) -> MongoSpecification[Any]:
         """Not equal to."""
-        return MongoSpecification(lambda root, q, _f=field, _v=value: {_f: {"$ne": _v}})
+        return MongoSpecification(lambda root, q, _f=field, _v=value: {_f: {"$ne": _v}})  # type: ignore[misc]
 
     @staticmethod
     def gt(field: str, value: Any) -> MongoSpecification[Any]:
         """Greater than."""
-        return MongoSpecification(lambda root, q, _f=field, _v=value: {_f: {"$gt": _v}})
+        return MongoSpecification(lambda root, q, _f=field, _v=value: {_f: {"$gt": _v}})  # type: ignore[misc]
 
     @staticmethod
     def gte(field: str, value: Any) -> MongoSpecification[Any]:
         """Greater than or equal."""
-        return MongoSpecification(lambda root, q, _f=field, _v=value: {_f: {"$gte": _v}})
+        return MongoSpecification(lambda root, q, _f=field, _v=value: {_f: {"$gte": _v}})  # type: ignore[misc]
 
     @staticmethod
     def lt(field: str, value: Any) -> MongoSpecification[Any]:
         """Less than."""
-        return MongoSpecification(lambda root, q, _f=field, _v=value: {_f: {"$lt": _v}})
+        return MongoSpecification(lambda root, q, _f=field, _v=value: {_f: {"$lt": _v}})  # type: ignore[misc]
 
     @staticmethod
     def lte(field: str, value: Any) -> MongoSpecification[Any]:
         """Less than or equal."""
-        return MongoSpecification(lambda root, q, _f=field, _v=value: {_f: {"$lte": _v}})
+        return MongoSpecification(lambda root, q, _f=field, _v=value: {_f: {"$lte": _v}})  # type: ignore[misc]
 
     @staticmethod
     def like(field: str, pattern: str) -> MongoSpecification[Any]:
@@ -91,45 +91,33 @@ class MongoFilterOperator:
             else:
                 parts.append(re.escape(char))
         regex = "^" + "".join(parts) + "$"
-        return MongoSpecification(
-            lambda root, q, _f=field, _r=regex: {_f: {"$regex": _r, "$options": "i"}}
-        )
+        return MongoSpecification(lambda root, q, _f=field, _r=regex: {_f: {"$regex": _r, "$options": "i"}})  # type: ignore[misc]
 
     @staticmethod
     def contains(field: str, value: str) -> MongoSpecification[Any]:
         """String contains (case-sensitive)."""
         escaped = re.escape(value)
-        return MongoSpecification(
-            lambda root, q, _f=field, _v=escaped: {_f: {"$regex": _v}}
-        )
+        return MongoSpecification(lambda root, q, _f=field, _v=escaped: {_f: {"$regex": _v}})  # type: ignore[misc]
 
     @staticmethod
     def in_list(field: str, values: list[Any]) -> MongoSpecification[Any]:
         """Value is in list."""
-        return MongoSpecification(
-            lambda root, q, _f=field, _v=values: {_f: {"$in": _v}}
-        )
+        return MongoSpecification(lambda root, q, _f=field, _v=values: {_f: {"$in": _v}})  # type: ignore[misc]
 
     @staticmethod
     def is_null(field: str) -> MongoSpecification[Any]:
         """Value is null."""
-        return MongoSpecification(
-            lambda root, q, _f=field: {_f: None}
-        )
+        return MongoSpecification(lambda root, q, _f=field: {_f: None})  # type: ignore[misc]
 
     @staticmethod
     def is_not_null(field: str) -> MongoSpecification[Any]:
         """Value is not null."""
-        return MongoSpecification(
-            lambda root, q, _f=field: {_f: {"$ne": None}}
-        )
+        return MongoSpecification(lambda root, q, _f=field: {_f: {"$ne": None}})  # type: ignore[misc]
 
     @staticmethod
     def between(field: str, low: Any, high: Any) -> MongoSpecification[Any]:
         """Value is between *low* and *high* (inclusive)."""
-        return MongoSpecification(
-            lambda root, q, _f=field, _lo=low, _hi=high: {_f: {"$gte": _lo, "$lte": _hi}}
-        )
+        return MongoSpecification(lambda root, q, _f=field, _lo=low, _hi=high: {_f: {"$gte": _lo, "$lte": _hi}})  # type: ignore[misc]
 
 
 class MongoFilterUtils(BaseFilterUtils):

@@ -22,6 +22,7 @@ from pyfly.context.request_context import RequestContext
 
 class DummyRequestService:
     """A test service that should be request-scoped."""
+
     pass
 
 
@@ -40,7 +41,7 @@ class TestRequestScope:
         container = Container()
         container.register(DummyRequestService, scope=Scope.REQUEST)
 
-        ctx = RequestContext.init()
+        _ctx = RequestContext.init()
         try:
             a = container.resolve(DummyRequestService)
             b = container.resolve(DummyRequestService)
@@ -53,11 +54,11 @@ class TestRequestScope:
         container = Container()
         container.register(DummyRequestService, scope=Scope.REQUEST)
 
-        ctx1 = RequestContext.init()
+        _ctx1 = RequestContext.init()
         a = container.resolve(DummyRequestService)
         RequestContext.clear()
 
-        ctx2 = RequestContext.init()
+        _ctx2 = RequestContext.init()
         b = container.resolve(DummyRequestService)
         RequestContext.clear()
 
@@ -68,7 +69,7 @@ class TestRequestScope:
         container = Container()
         container.register(DummyRequestService, scope=Scope.REQUEST)
 
-        ctx = RequestContext.init()
+        _ctx = RequestContext.init()
         container.resolve(DummyRequestService)
         RequestContext.clear()
 

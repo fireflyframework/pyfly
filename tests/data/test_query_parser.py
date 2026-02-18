@@ -20,14 +20,11 @@ from sqlalchemy import Integer, String
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import Mapped, mapped_column
 
-from pyfly.data.relational.sqlalchemy.entity import Base, BaseEntity
-from pyfly.data.relational.sqlalchemy.query_compiler import QueryMethodCompiler
 from pyfly.data.query_parser import (
-    FieldPredicate,
-    OrderClause,
-    ParsedQuery,
     QueryMethodParser,
 )
+from pyfly.data.relational.sqlalchemy.entity import Base, BaseEntity
+from pyfly.data.relational.sqlalchemy.query_compiler import QueryMethodCompiler
 
 # ---------------------------------------------------------------------------
 # Test entity for compiler tests

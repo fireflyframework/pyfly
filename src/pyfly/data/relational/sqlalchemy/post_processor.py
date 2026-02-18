@@ -45,9 +45,7 @@ class RepositoryBeanPostProcessor(BaseRepositoryPostProcessor):
     def _get_repository_type(self) -> type:
         return Repository
 
-    def _compile_derived(
-        self, parsed: Any, entity: Any, bean: Any, *, return_type: Any = None
-    ) -> Any:
+    def _compile_derived(self, parsed: Any, entity: Any, bean: Any, *, return_type: Any = None) -> Any:
         return self._query_compiler.compile(parsed, entity, return_type=return_type)
 
     def _wrap_derived_method(self, compiled_fn: Any) -> Any:
@@ -58,9 +56,7 @@ class RepositoryBeanPostProcessor(BaseRepositoryPostProcessor):
 
         return wrapper
 
-    def _process_query_decorated(
-        self, bean: Any, cls: type, attr_name: str, attr: Any, entity: Any
-    ) -> bool:
+    def _process_query_decorated(self, bean: Any, cls: type, attr_name: str, attr: Any, entity: Any) -> bool:
         """Process ``@query``-decorated methods."""
         if hasattr(attr, "__pyfly_query__"):
             compiled_fn = self._query_executor.compile_query_method(attr, entity)

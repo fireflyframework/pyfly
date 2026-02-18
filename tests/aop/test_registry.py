@@ -19,7 +19,6 @@ from pyfly.aop.decorators import after_returning, around, aspect, before
 from pyfly.aop.registry import AspectRegistry
 from pyfly.container.ordering import order
 
-
 # ---- Fixture aspects --------------------------------------------------------
 
 

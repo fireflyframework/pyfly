@@ -23,7 +23,6 @@ from pyfly.kernel.exceptions import ValidationException
 from pyfly.web.adapters.starlette.resolver import ParameterResolver
 from pyfly.web.params import Body, QueryParam, Valid
 
-
 # ── Test models ───────────────────────────────────────────────────────
 
 
@@ -58,8 +57,10 @@ def _make_request(
         "headers": headers or [],
     }
     if body is not None:
+
         async def receive():
             return {"type": "http.request", "body": body}
+
         return Request(scope, receive)
     return Request(scope)
 
@@ -70,6 +71,7 @@ def _make_request(
 class TestValidInspection:
     def test_valid_standalone_detected_as_body(self):
         """Valid[T] standalone should resolve as Body[T] with validate=True."""
+
         async def handler(self, body: Valid[CreateUser]):
             pass
 
@@ -82,6 +84,7 @@ class TestValidInspection:
 
     def test_valid_wrapping_body(self):
         """Valid[Body[T]] should resolve as Body[T] with validate=True."""
+
         async def handler(self, body: Valid[Body[CreateUser]]):
             pass
 
@@ -94,6 +97,7 @@ class TestValidInspection:
 
     def test_valid_wrapping_query_param(self):
         """Valid[QueryParam[T]] should resolve as QueryParam[T] with validate=True."""
+
         async def handler(self, page: Valid[QueryParam[int]]):
             pass
 
@@ -106,6 +110,7 @@ class TestValidInspection:
 
     def test_plain_body_has_validate_false(self):
         """Body[T] (without Valid) should have validate=False."""
+
         async def handler(self, body: Body[CreateUser]):
             pass
 
@@ -114,6 +119,7 @@ class TestValidInspection:
 
     def test_mixed_valid_and_plain(self):
         """Handler with both Valid and plain params resolves correctly."""
+
         async def handler(self, body: Valid[CreateUser], page: QueryParam[int] = 1):
             pass
 
@@ -130,6 +136,7 @@ class TestValidResolution:
     @pytest.mark.asyncio
     async def test_valid_standalone_resolves_valid_body(self):
         """Valid[T] with valid JSON body should resolve to a validated model instance."""
+
         async def handler(self, user: Valid[CreateUser]):
             pass
 
@@ -145,6 +152,7 @@ class TestValidResolution:
     @pytest.mark.asyncio
     async def test_valid_standalone_raises_422_on_invalid_body(self):
         """Valid[T] with invalid JSON body should raise ValidationException."""
+
         async def handler(self, user: Valid[CreateUser]):
             pass
 
@@ -162,6 +170,7 @@ class TestValidResolution:
     @pytest.mark.asyncio
     async def test_valid_standalone_raises_422_on_missing_fields(self):
         """Valid[T] with missing required fields should raise ValidationException."""
+
         async def handler(self, user: Valid[CreateUser]):
             pass
 
@@ -179,6 +188,7 @@ class TestValidResolution:
     @pytest.mark.asyncio
     async def test_valid_body_wrapper_resolves_valid(self):
         """Valid[Body[T]] with valid JSON body should resolve normally."""
+
         async def handler(self, user: Valid[Body[CreateUser]]):
             pass
 
@@ -193,6 +203,7 @@ class TestValidResolution:
     @pytest.mark.asyncio
     async def test_valid_body_wrapper_raises_422_on_invalid(self):
         """Valid[Body[T]] with invalid body should raise ValidationException."""
+
         async def handler(self, user: Valid[Body[CreateUser]]):
             pass
 
@@ -204,6 +215,7 @@ class TestValidResolution:
     @pytest.mark.asyncio
     async def test_valid_query_param_resolves(self):
         """Valid[QueryParam[int]] should resolve the query param normally."""
+
         async def handler(self, page: Valid[QueryParam[int]]):
             pass
 
@@ -237,6 +249,7 @@ class TestValidErrorFormat:
     @pytest.mark.asyncio
     async def test_validation_exception_has_structured_errors(self):
         """ValidationException from Valid[T] should contain structured error details."""
+
         async def handler(self, user: Valid[CreateUser]):
             pass
 
@@ -260,6 +273,7 @@ class TestValidErrorFormat:
     @pytest.mark.asyncio
     async def test_validation_exception_message_contains_field_details(self):
         """The exception message should list failing fields and their messages."""
+
         async def handler(self, user: Valid[CreateUser]):
             pass
 

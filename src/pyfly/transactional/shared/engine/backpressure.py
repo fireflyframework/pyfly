@@ -28,7 +28,7 @@ import asyncio
 import logging
 import time
 from collections.abc import Awaitable, Callable
-from typing import Any
+from typing import Any, cast
 
 from pyfly.transactional.shared.ports.outbound import BackpressureStrategyPort
 from pyfly.transactional.shared.types import BackpressureConfig
@@ -105,9 +105,7 @@ class AdaptiveBackpressureStrategy:
                                     concurrency,
                                 )
 
-        tasks = [
-            asyncio.create_task(_process(i, item)) for i, item in enumerate(items)
-        ]
+        tasks = [asyncio.create_task(_process(i, item)) for i, item in enumerate(items)]
         await asyncio.gather(*tasks)
 
         return results
@@ -181,10 +179,7 @@ class CircuitBreakerBackpressureStrategy:
         for item in items:
             if circuit_open:
                 # Check if we should transition to half-open
-                if (
-                    circuit_opened_at is not None
-                    and (time.monotonic() - circuit_opened_at) >= wait_duration_s
-                ):
+                if circuit_opened_at is not None and (time.monotonic() - circuit_opened_at) >= wait_duration_s:
                     # Half-open: try a single probe
                     try:
                         result = await processor(item)
@@ -199,11 +194,7 @@ class CircuitBreakerBackpressureStrategy:
                         results.append(exc)
                 else:
                     # Circuit is open, reject immediately
-                    results.append(
-                        RuntimeError(
-                            f"Circuit breaker is open — skipping item: {item}"
-                        )
-                    )
+                    results.append(RuntimeError(f"Circuit breaker is open — skipping item: {item}"))
             else:
                 # Closed state: process normally
                 try:
@@ -255,4 +246,4 @@ class BackpressureStrategyFactory:
                 f"Available types: {', '.join(sorted(strategies))}"
             )
 
-        return strategy_cls()
+        return cast(BackpressureStrategyPort, strategy_cls())

@@ -37,6 +37,7 @@ async def session():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     from sqlalchemy.ext.asyncio import async_sessionmaker
+
     factory = async_sessionmaker(engine, expire_on_commit=False)
     async with factory() as session:
         yield session

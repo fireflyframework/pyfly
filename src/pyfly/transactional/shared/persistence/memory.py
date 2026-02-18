@@ -20,7 +20,7 @@ configured.  **All state is lost on process restart.**
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 
@@ -56,7 +56,7 @@ class InMemoryPersistenceAdapter:
         """
         correlation_id: str = state["correlation_id"]
         state.setdefault("status", "IN_FLIGHT")
-        state.setdefault("started_at", datetime.now(timezone.utc))
+        state.setdefault("started_at", datetime.now(UTC))
         self._store[correlation_id] = state
 
     async def get_state(self, correlation_id: str) -> dict[str, Any] | None:
@@ -65,9 +65,7 @@ class InMemoryPersistenceAdapter:
 
     # -- step-level updates -------------------------------------------------
 
-    async def update_step_status(
-        self, correlation_id: str, step_id: str, status: str
-    ) -> None:
+    async def update_step_status(self, correlation_id: str, step_id: str, status: str) -> None:
         """Update the status of *step_id* within the given transaction.
 
         Initialises the ``"steps"`` dict and/or the individual step entry if
@@ -85,7 +83,7 @@ class InMemoryPersistenceAdapter:
         state = self._store[correlation_id]
         state["status"] = "COMPLETED" if successful else "FAILED"
         state["successful"] = successful
-        state["completed_at"] = datetime.now(timezone.utc)
+        state["completed_at"] = datetime.now(UTC)
 
     # -- queries ------------------------------------------------------------
 
@@ -95,11 +93,7 @@ class InMemoryPersistenceAdapter:
 
     async def get_stale(self, before: datetime) -> list[dict[str, Any]]:
         """Return transactions whose ``started_at`` is older than *before*."""
-        return [
-            s
-            for s in self._store.values()
-            if s.get("started_at") is not None and s["started_at"] < before
-        ]
+        return [s for s in self._store.values() if s.get("started_at") is not None and s["started_at"] < before]
 
     # -- maintenance --------------------------------------------------------
 
@@ -108,7 +102,7 @@ class InMemoryPersistenceAdapter:
 
         Returns the number of records deleted.
         """
-        cutoff = datetime.now(timezone.utc) - older_than
+        cutoff = datetime.now(UTC) - older_than
         to_remove: list[str] = []
         for cid, state in self._store.items():
             if state.get("status") in ("COMPLETED", "FAILED"):

@@ -41,7 +41,6 @@ from pyfly.transactional.saga.composition.validator import CompositionValidator
 from pyfly.transactional.saga.core.result import SagaResult, StepOutcome
 from pyfly.transactional.shared.types import CompensationPolicy, StepStatus
 
-
 # ── Helpers ──────────────────────────────────────────────────────
 
 
@@ -113,9 +112,15 @@ class TestSagaCompositionBuilder:
     def test_builder_creates_valid_composition(self) -> None:
         composition = (
             SagaCompositionBuilder("order-fulfillment")
-            .saga("reserve-inventory").depends_on().add()
-            .saga("process-payment").depends_on("reserve-inventory").add()
-            .saga("ship-order").depends_on("process-payment").add()
+            .saga("reserve-inventory")
+            .depends_on()
+            .add()
+            .saga("process-payment")
+            .depends_on("reserve-inventory")
+            .add()
+            .saga("ship-order")
+            .depends_on("process-payment")
+            .add()
             .build()
         )
         assert composition.name == "order-fulfillment"
@@ -127,15 +132,17 @@ class TestSagaCompositionBuilder:
     def test_builder_with_data_flows(self) -> None:
         composition = (
             SagaCompositionBuilder("test")
-            .saga("saga-a").depends_on().add()
+            .saga("saga-a")
+            .depends_on()
+            .add()
             .saga("saga-b")
-                .depends_on("saga-a")
-                .data_flow(
-                    source_saga="saga-a",
-                    source_step="step-1",
-                    target_key="input_from_a",
-                )
-                .add()
+            .depends_on("saga-a")
+            .data_flow(
+                source_saga="saga-a",
+                source_step="step-1",
+                target_key="input_from_a",
+            )
+            .add()
             .build()
         )
         entry_b = composition.entries["saga-b"]
@@ -147,7 +154,9 @@ class TestSagaCompositionBuilder:
     def test_builder_with_compensation_policy(self) -> None:
         composition = (
             SagaCompositionBuilder("test")
-            .saga("only").depends_on().add()
+            .saga("only")
+            .depends_on()
+            .add()
             .compensation_policy(CompensationPolicy.GROUPED_PARALLEL)
             .build()
         )
@@ -156,13 +165,17 @@ class TestSagaCompositionBuilder:
     def test_builder_multiple_data_flows(self) -> None:
         composition = (
             SagaCompositionBuilder("test")
-            .saga("a").depends_on().add()
-            .saga("b").depends_on().add()
+            .saga("a")
+            .depends_on()
+            .add()
+            .saga("b")
+            .depends_on()
+            .add()
             .saga("c")
-                .depends_on("a", "b")
-                .data_flow(source_saga="a", target_key="from_a")
-                .data_flow(source_saga="b", source_step="s1", target_key="from_b")
-                .add()
+            .depends_on("a", "b")
+            .data_flow(source_saga="a", target_key="from_a")
+            .data_flow(source_saga="b", source_step="s1", target_key="from_b")
+            .add()
             .build()
         )
         entry_c = composition.entries["c"]
@@ -180,10 +193,7 @@ class TestSagaCompositionBuilder:
 class TestCompositionValidator:
     def test_valid_composition(self) -> None:
         composition = (
-            SagaCompositionBuilder("test")
-            .saga("a").depends_on().add()
-            .saga("b").depends_on("a").add()
-            .build()
+            SagaCompositionBuilder("test").saga("a").depends_on().add().saga("b").depends_on("a").add().build()
         )
         CompositionValidator.validate(composition)
 
@@ -338,9 +348,15 @@ class TestCompensationManager:
         )
         composition = (
             SagaCompositionBuilder("test")
-            .saga("a").depends_on().add()
-            .saga("b").depends_on("a").add()
-            .saga("c").depends_on("b").add()
+            .saga("a")
+            .depends_on()
+            .add()
+            .saga("b")
+            .depends_on("a")
+            .add()
+            .saga("c")
+            .depends_on("b")
+            .add()
             .build()
         )
         ctx = CompositionContext(correlation_id="c-1", composition_name="test")
@@ -362,11 +378,7 @@ class TestCompensationManager:
     async def test_compensate_empty_list(self) -> None:
         manager = CompensationManager()
         ctx = CompositionContext(correlation_id="c", composition_name="test")
-        composition = (
-            SagaCompositionBuilder("test")
-            .saga("a").depends_on().add()
-            .build()
-        )
+        composition = SagaCompositionBuilder("test").saga("a").depends_on().add().build()
         await manager.compensate_completed(
             completed_sagas=[],
             composition=composition,
@@ -403,9 +415,15 @@ class TestSagaCompositor:
 
         composition = (
             SagaCompositionBuilder("linear")
-            .saga("a").depends_on().add()
-            .saga("b").depends_on("a").add()
-            .saga("c").depends_on("b").add()
+            .saga("a")
+            .depends_on()
+            .add()
+            .saga("b")
+            .depends_on("a")
+            .add()
+            .saga("c")
+            .depends_on("b")
+            .add()
             .build()
         )
 
@@ -438,9 +456,15 @@ class TestSagaCompositor:
 
         composition = (
             SagaCompositionBuilder("parallel")
-            .saga("a").depends_on().add()
-            .saga("b").depends_on().add()
-            .saga("c").depends_on("a", "b").add()
+            .saga("a")
+            .depends_on()
+            .add()
+            .saga("b")
+            .depends_on()
+            .add()
+            .saga("c")
+            .depends_on("a", "b")
+            .add()
             .build()
         )
 
@@ -455,7 +479,7 @@ class TestSagaCompositor:
     @pytest.mark.anyio
     async def test_failure_records_error_in_context(self) -> None:
         """On failure the context should record the error and completed sagas."""
-        error = RuntimeError("payment failed")
+        _error = RuntimeError("payment failed")
 
         async def mock_execute(
             saga_name: str,
@@ -473,9 +497,15 @@ class TestSagaCompositor:
 
         composition = (
             SagaCompositionBuilder("failing")
-            .saga("a").depends_on().add()
-            .saga("b").depends_on("a").add()
-            .saga("c").depends_on("b").add()
+            .saga("a")
+            .depends_on()
+            .add()
+            .saga("b")
+            .depends_on("a")
+            .add()
+            .saga("c")
+            .depends_on("b")
+            .add()
             .build()
         )
 
@@ -506,10 +536,7 @@ class TestSagaCompositor:
         mock_engine.execute = AsyncMock(side_effect=mock_execute)
 
         composition = (
-            SagaCompositionBuilder("exploding")
-            .saga("a").depends_on().add()
-            .saga("b").depends_on("a").add()
-            .build()
+            SagaCompositionBuilder("exploding").saga("a").depends_on().add().saga("b").depends_on("a").add().build()
         )
 
         compositor = SagaCompositor(saga_engine=mock_engine)
@@ -537,11 +564,7 @@ class TestSagaCompositor:
         mock_engine = AsyncMock()
         mock_engine.execute = AsyncMock(side_effect=mock_execute)
 
-        composition = (
-            SagaCompositionBuilder("headers-test")
-            .saga("a").depends_on().add()
-            .build()
-        )
+        composition = SagaCompositionBuilder("headers-test").saga("a").depends_on().add().build()
 
         compositor = SagaCompositor(saga_engine=mock_engine)
         await compositor.execute(
@@ -574,11 +597,13 @@ class TestSagaCompositor:
 
         composition = (
             SagaCompositionBuilder("data-flow-test")
-            .saga("a").depends_on().add()
+            .saga("a")
+            .depends_on()
+            .add()
             .saga("b")
-                .depends_on("a")
-                .data_flow(source_saga="a", source_step="main", target_key="a_data")
-                .add()
+            .depends_on("a")
+            .data_flow(source_saga="a", source_step="main", target_key="a_data")
+            .add()
             .build()
         )
 

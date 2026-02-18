@@ -21,9 +21,7 @@ from pyfly.data.ports.outbound import CrudRepository, PagingRepository
 class TestCrudRepository:
     def test_is_runtime_checkable(self) -> None:
         """CrudRepository should be decorated with @runtime_checkable."""
-        assert hasattr(CrudRepository, "__protocol_attrs__") or isinstance(
-            CrudRepository, type
-        )
+        assert hasattr(CrudRepository, "__protocol_attrs__") or isinstance(CrudRepository, type)
         # The real proof: isinstance checks don't raise TypeError
         # (they would if the protocol were not runtime_checkable).
 

@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import Any, cast
 
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
@@ -35,7 +36,7 @@ class WebFilterChainMiddleware(BaseHTTPMiddleware):
     returns ``True``, the filter is skipped and the next one in the chain runs.
     """
 
-    def __init__(self, app: object, filters: Sequence[WebFilter] = ()) -> None:
+    def __init__(self, app: Any, filters: Sequence[WebFilter] = ()) -> None:
         super().__init__(app)
         self._filters = list(filters)
 
@@ -47,7 +48,7 @@ class WebFilterChainMiddleware(BaseHTTPMiddleware):
         for f in reversed(self._filters):
             chain = _wrap(f, chain)
 
-        return await chain(request)
+        return cast(Response, await chain(request))
 
 
 def _wrap(web_filter: WebFilter, next_call: CallNext) -> CallNext:
@@ -55,7 +56,7 @@ def _wrap(web_filter: WebFilter, next_call: CallNext) -> CallNext:
 
     async def _inner(request: Request) -> Response:
         if web_filter.should_not_filter(request):
-            return await next_call(request)
-        return await web_filter.do_filter(request, next_call)
+            return cast(Response, await next_call(request))
+        return cast(Response, await web_filter.do_filter(request, next_call))
 
     return _inner

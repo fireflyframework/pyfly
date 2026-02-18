@@ -24,10 +24,10 @@ from pyfly.actuator.registry import ActuatorRegistry
 from pyfly.context.application_context import ApplicationContext
 from pyfly.core.config import Config
 
-
 # ---------------------------------------------------------------------------
 # Test endpoint classes
 # ---------------------------------------------------------------------------
+
 
 class _AlwaysEnabled:
     @property
@@ -58,6 +58,7 @@ class _AlwaysDisabled:
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 class TestActuatorEndpointProtocol:
     def test_valid_endpoint_is_instance(self):
@@ -135,7 +136,7 @@ class TestActuatorRegistry:
 
         # Simulate a context with a bean that has the same endpoint_id
         # (we test this through the registry's internal check)
-        duplicate = _AlwaysEnabled()
+        _duplicate = _AlwaysEnabled()
         reg._endpoints["test-on"] = original  # already present
         # Re-registering via discover logic shouldn't overwrite
         assert reg._endpoints["test-on"] is original

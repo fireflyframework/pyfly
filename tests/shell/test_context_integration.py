@@ -21,7 +21,7 @@ from pyfly.core.config import Config
 from pyfly.shell.adapters.click_adapter import ClickShellAdapter
 from pyfly.shell.decorators import shell_method
 from pyfly.shell.ports.outbound import ShellRunnerPort
-from pyfly.shell.runner import ApplicationArguments, ApplicationRunner, CommandLineRunner
+from pyfly.shell.runner import ApplicationArguments
 
 
 class TestShellWiring:

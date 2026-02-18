@@ -31,7 +31,8 @@ class TestVendorIsolation:
     def test_starlette_only_in_web_adapters_and_actuator_adapters(self):
         result = subprocess.run(
             [
-                sys.executable, "-c",
+                sys.executable,
+                "-c",
                 "import subprocess, sys; "
                 "r = subprocess.run("
                 "['grep', '-r', 'from starlette', 'src/pyfly/'], "
@@ -52,7 +53,8 @@ class TestVendorIsolation:
     def test_sqlalchemy_only_in_data_and_cli(self):
         result = subprocess.run(
             [
-                sys.executable, "-c",
+                sys.executable,
+                "-c",
                 "import subprocess, sys; "
                 "r = subprocess.run("
                 "['grep', '-r', '--include=*.py', 'from sqlalchemy', 'src/pyfly/'], "
@@ -71,7 +73,8 @@ class TestVendorIsolation:
     def test_httpx_only_in_client_adapters(self):
         result = subprocess.run(
             [
-                sys.executable, "-c",
+                sys.executable,
+                "-c",
                 "import subprocess, sys; "
                 "r = subprocess.run("
                 "['grep', '-r', 'import httpx', 'src/pyfly/'], "

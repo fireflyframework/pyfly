@@ -101,9 +101,7 @@ class TestWaveCFullLifecycle:
         monkeypatch.setenv("PYFLY_PROFILES_ACTIVE", "dev")
 
         config_file = tmp_path / "pyfly.yaml"
-        config_file.write_text(
-            "pyfly:\n  banner:\n    mode: 'MINIMAL'\nlogging:\n  level:\n    root: INFO\n"
-        )
+        config_file.write_text("pyfly:\n  banner:\n    mode: 'MINIMAL'\nlogging:\n  level:\n    root: INFO\n")
 
         dev_config = tmp_path / "pyfly-dev.yaml"
         dev_config.write_text("app:\n  debug: true\n")

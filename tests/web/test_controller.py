@@ -13,7 +13,6 @@
 # limitations under the License.
 """Tests for controller discovery and route building."""
 
-
 import pytest
 from pydantic import BaseModel
 from starlette.testclient import TestClient

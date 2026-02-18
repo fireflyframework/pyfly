@@ -24,9 +24,8 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from pyfly.data.relational.sqlalchemy.entity import Base, BaseEntity
 from pyfly.data.relational.sqlalchemy.post_processor import RepositoryBeanPostProcessor
-from pyfly.data.relational.sqlalchemy.repository import Repository
 from pyfly.data.relational.sqlalchemy.query import query
-
+from pyfly.data.relational.sqlalchemy.repository import Repository
 
 # ---------------------------------------------------------------------------
 # Test entity
@@ -77,9 +76,7 @@ class ConcreteMethodRepo(Repository[PPItem, UUID]):
 
     async def find_by_name(self, name: str) -> list[PPItem]:
         # This is a concrete implementation, NOT a stub.
-        result = await self._session.execute(
-            __import__("sqlalchemy").select(PPItem).where(PPItem.name == name)
-        )
+        result = await self._session.execute(__import__("sqlalchemy").select(PPItem).where(PPItem.name == name))
         return list(result.scalars().all())
 
 
@@ -406,10 +403,12 @@ class TestAllDerivedQueryTypes:
         session: AsyncSession,
     ):
         """6c. delete_by_ deletes and returns row count."""
-        session.add_all([
-            PPItem(name="DeleteMe", role="temp", active=True),
-            PPItem(name="KeepMe", role="perm", active=True),
-        ])
+        session.add_all(
+            [
+                PPItem(name="DeleteMe", role="temp", active=True),
+                PPItem(name="KeepMe", role="perm", active=True),
+            ]
+        )
         await session.flush()
 
         repo = AllDerivedTypesRepo(PPItem, session)

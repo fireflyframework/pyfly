@@ -41,35 +41,24 @@ Quick start::
 """
 
 # ── base types ────────────────────────────────────────────────
-from pyfly.cqrs.types import Command, Query
-
-# ── handlers ──────────────────────────────────────────────────
-from pyfly.cqrs.command.handler import CommandHandler, ContextAwareCommandHandler
-from pyfly.cqrs.query.handler import ContextAwareQueryHandler, QueryHandler
-
-# ── buses ─────────────────────────────────────────────────────
-from pyfly.cqrs.command.bus import CommandBus, DefaultCommandBus
-from pyfly.cqrs.query.bus import DefaultQueryBus, QueryBus
-
-# ── registry ──────────────────────────────────────────────────
-from pyfly.cqrs.command.registry import HandlerRegistry
-
-# ── decorators ────────────────────────────────────────────────
-from pyfly.cqrs.decorators import command_handler, query_handler
-
 # ── authorization ─────────────────────────────────────────────
 from pyfly.cqrs.authorization.exceptions import AuthorizationException
 from pyfly.cqrs.authorization.types import AuthorizationError, AuthorizationResult, AuthorizationSeverity
 
-# ── validation ────────────────────────────────────────────────
-from pyfly.cqrs.validation.exceptions import CqrsValidationException
-from pyfly.cqrs.validation.types import ValidationError, ValidationResult, ValidationSeverity
+# ── buses ─────────────────────────────────────────────────────
+from pyfly.cqrs.command.bus import CommandBus, DefaultCommandBus
+
+# ── handlers ──────────────────────────────────────────────────
+from pyfly.cqrs.command.handler import CommandHandler, ContextAwareCommandHandler
+
+# ── registry ──────────────────────────────────────────────────
+from pyfly.cqrs.command.registry import HandlerRegistry
 
 # ── context ───────────────────────────────────────────────────
 from pyfly.cqrs.context.execution_context import DefaultExecutionContext, ExecutionContext, ExecutionContextBuilder
 
-# ── tracing ───────────────────────────────────────────────────
-from pyfly.cqrs.tracing.correlation import CorrelationContext
+# ── decorators ────────────────────────────────────────────────
+from pyfly.cqrs.decorators import command_handler, query_handler
 
 # ── exceptions ────────────────────────────────────────────────
 from pyfly.cqrs.exceptions import (
@@ -80,6 +69,16 @@ from pyfly.cqrs.exceptions import (
     QueryHandlerNotFoundException,
     QueryProcessingException,
 )
+from pyfly.cqrs.query.bus import DefaultQueryBus, QueryBus
+from pyfly.cqrs.query.handler import ContextAwareQueryHandler, QueryHandler
+
+# ── tracing ───────────────────────────────────────────────────
+from pyfly.cqrs.tracing.correlation import CorrelationContext
+from pyfly.cqrs.types import Command, Query
+
+# ── validation ────────────────────────────────────────────────
+from pyfly.cqrs.validation.exceptions import CqrsValidationException
+from pyfly.cqrs.validation.types import ValidationError, ValidationResult, ValidationSeverity
 
 __all__ = [
     # base types

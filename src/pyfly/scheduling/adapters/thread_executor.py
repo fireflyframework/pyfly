@@ -41,12 +41,12 @@ class ThreadPoolTaskExecutor:
         task.add_done_callback(self._tasks.discard)
         return task
 
-    def submit_sync(self, func: Callable[..., T], *args: Any) -> asyncio.Task[T]:
+    def submit_sync(self, func: Callable[..., T], *args: Any) -> asyncio.Task[Any]:
         """Submit a synchronous function to the thread pool."""
         loop = asyncio.get_running_loop()
         future = loop.run_in_executor(self._executor, func, *args)
         # Wrap the future as a Task-like
-        task = asyncio.ensure_future(future)
+        task: asyncio.Task[Any] = asyncio.ensure_future(future)
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)
         return task

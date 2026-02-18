@@ -13,8 +13,6 @@
 # limitations under the License.
 """Tests for DI container basic registration and resolution."""
 
-from typing import Optional
-
 import pytest
 
 from pyfly.container import BeanCurrentlyInCreationError, Container, NoSuchBeanError, Scope
@@ -34,7 +32,7 @@ class UserService:
 
 
 class OptionalGreeterService:
-    def __init__(self, greeter: Optional[Greeter] = None) -> None:
+    def __init__(self, greeter: Greeter | None = None) -> None:
         self.greeter = greeter
 
 
@@ -170,6 +168,7 @@ class TestParameterDefaults:
 
 class PEP604OptionalService:
     """Uses PEP 604 union syntax (X | None) instead of typing.Optional."""
+
     def __init__(self, greeter: Greeter | None = None) -> None:
         self.greeter = greeter
 

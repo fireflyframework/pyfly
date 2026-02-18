@@ -41,11 +41,7 @@ class MetricsEndpoint:
         return self._list_metrics()
 
     def _list_metrics(self) -> dict[str, Any]:
-        names: list[str] = sorted({
-            sample.name
-            for metric in REGISTRY.collect()
-            for sample in metric.samples
-        })
+        names: list[str] = sorted({sample.name for metric in REGISTRY.collect() for sample in metric.samples})
         return {"names": names}
 
     def _get_metric_detail(self, name: str) -> dict[str, Any]:
@@ -53,11 +49,13 @@ class MetricsEndpoint:
         for metric_family in REGISTRY.collect():
             for sample in metric_family.samples:
                 if sample.name == name or sample.name.startswith(name + "_"):
-                    measurements.append({
-                        "statistic": sample.name.removeprefix(name).lstrip("_") or "value",
-                        "value": sample.value,
-                        "tags": dict(sample.labels),
-                    })
+                    measurements.append(
+                        {
+                            "statistic": sample.name.removeprefix(name).lstrip("_") or "value",
+                            "value": sample.value,
+                            "tags": dict(sample.labels),
+                        }
+                    )
         return {
             "name": name,
             "measurements": measurements,

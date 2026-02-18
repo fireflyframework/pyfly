@@ -36,6 +36,7 @@ class TestAdminProperties:
 
     def test_server_defaults(self):
         from pyfly.admin.config import AdminServerProperties
+
         props = AdminServerProperties()
         assert props.enabled is False
         assert props.poll_interval == 10000

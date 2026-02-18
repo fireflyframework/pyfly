@@ -91,16 +91,8 @@ class SagaResult:
 
     def failed_steps(self) -> dict[str, StepOutcome]:
         """Return a mapping of every step whose final status is ``FAILED``."""
-        return {
-            step_id: outcome
-            for step_id, outcome in self.steps.items()
-            if outcome.status == StepStatus.FAILED
-        }
+        return {step_id: outcome for step_id, outcome in self.steps.items() if outcome.status == StepStatus.FAILED}
 
     def compensated_steps(self) -> dict[str, StepOutcome]:
         """Return a mapping of every step whose final status is ``COMPENSATED``."""
-        return {
-            step_id: outcome
-            for step_id, outcome in self.steps.items()
-            if outcome.status == StepStatus.COMPENSATED
-        }
+        return {step_id: outcome for step_id, outcome in self.steps.items() if outcome.status == StepStatus.COMPENSATED}

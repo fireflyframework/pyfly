@@ -32,7 +32,6 @@ from pyfly.transactional.saga.registry.step_definition import StepDefinition
 from pyfly.transactional.shared.ports.outbound import TransactionalEventsPort
 from pyfly.transactional.shared.types import StepStatus
 
-
 # ── Helpers ──────────────────────────────────────────────────
 
 
@@ -108,9 +107,7 @@ def ctx() -> SagaContext:
 
 class TestLinearSaga:
     @pytest.mark.anyio
-    async def test_linear_executes_in_order(
-        self, ctx: SagaContext, events: AsyncMock
-    ) -> None:
+    async def test_linear_executes_in_order(self, ctx: SagaContext, events: AsyncMock) -> None:
         """Steps in a linear chain A->B->C execute sequentially, all succeed."""
         execution_order: list[str] = []
 
@@ -147,9 +144,7 @@ class TestLinearSaga:
 
 class TestParallelSteps:
     @pytest.mark.anyio
-    async def test_independent_steps_run_in_same_layer(
-        self, ctx: SagaContext, events: AsyncMock
-    ) -> None:
+    async def test_independent_steps_run_in_same_layer(self, ctx: SagaContext, events: AsyncMock) -> None:
         """A and B with no dependencies execute in the same layer (concurrently)."""
         concurrency_tracker: list[int] = []
         active_count = 0
@@ -192,9 +187,7 @@ class TestParallelSteps:
 
 class TestLayerConcurrency:
     @pytest.mark.anyio
-    async def test_semaphore_limits_concurrent_steps(
-        self, ctx: SagaContext, events: AsyncMock
-    ) -> None:
+    async def test_semaphore_limits_concurrent_steps(self, ctx: SagaContext, events: AsyncMock) -> None:
         """layer_concurrency=1 ensures only one step runs at a time even in same layer."""
         max_observed = 0
         active_count = 0
@@ -234,9 +227,7 @@ class TestLayerConcurrency:
 
 class TestRetry:
     @pytest.mark.anyio
-    async def test_succeeds_on_second_attempt(
-        self, ctx: SagaContext, events: AsyncMock
-    ) -> None:
+    async def test_succeeds_on_second_attempt(self, ctx: SagaContext, events: AsyncMock) -> None:
         """A step that fails once then succeeds on retry 2 completes successfully."""
         attempt_counter: dict[str, int] = {}
 
@@ -272,9 +263,7 @@ class TestRetry:
 
 class TestTimeout:
     @pytest.mark.anyio
-    async def test_timeout_raises_on_slow_step(
-        self, ctx: SagaContext, events: AsyncMock
-    ) -> None:
+    async def test_timeout_raises_on_slow_step(self, ctx: SagaContext, events: AsyncMock) -> None:
         """A step that exceeds its timeout_ms triggers a TimeoutError."""
 
         async def invoke(
@@ -306,9 +295,7 @@ class TestTimeout:
 
 class TestBackoff:
     @pytest.mark.anyio
-    async def test_backoff_introduces_delay_between_retries(
-        self, ctx: SagaContext, events: AsyncMock
-    ) -> None:
+    async def test_backoff_introduces_delay_between_retries(self, ctx: SagaContext, events: AsyncMock) -> None:
         """Retry with backoff_ms=100 introduces a measurable delay."""
         timestamps: list[float] = []
 
@@ -344,9 +331,7 @@ class TestBackoff:
 
 class TestFailureStopsLayers:
     @pytest.mark.anyio
-    async def test_failure_returns_completed_ids(
-        self, ctx: SagaContext, events: AsyncMock
-    ) -> None:
+    async def test_failure_returns_completed_ids(self, ctx: SagaContext, events: AsyncMock) -> None:
         """When B fails, C never executes; completed list contains only A."""
 
         async def invoke(
@@ -378,9 +363,7 @@ class TestFailureStopsLayers:
         assert "C" not in ctx.step_statuses
 
     @pytest.mark.anyio
-    async def test_failure_in_parallel_layer_cancels_siblings(
-        self, ctx: SagaContext, events: AsyncMock
-    ) -> None:
+    async def test_failure_in_parallel_layer_cancels_siblings(self, ctx: SagaContext, events: AsyncMock) -> None:
         """When one step in a parallel layer fails, other tasks are cancelled."""
 
         async def invoke(
@@ -416,9 +399,7 @@ class TestFailureStopsLayers:
 
 class TestEventsEmitted:
     @pytest.mark.anyio
-    async def test_success_event_emitted(
-        self, ctx: SagaContext, events: AsyncMock
-    ) -> None:
+    async def test_success_event_emitted(self, ctx: SagaContext, events: AsyncMock) -> None:
         """on_step_success is called for each successfully completed step."""
 
         async def invoke(
@@ -444,9 +425,7 @@ class TestEventsEmitted:
         assert call_args[0][3] == 1  # attempts
 
     @pytest.mark.anyio
-    async def test_failure_event_emitted(
-        self, ctx: SagaContext, events: AsyncMock
-    ) -> None:
+    async def test_failure_event_emitted(self, ctx: SagaContext, events: AsyncMock) -> None:
         """on_step_failed is called when a step fails after exhausting retries."""
 
         async def invoke(
@@ -507,9 +486,7 @@ class TestNoEventsPort:
 
 class TestContextPopulation:
     @pytest.mark.anyio
-    async def test_context_fully_populated(
-        self, ctx: SagaContext, events: AsyncMock
-    ) -> None:
+    async def test_context_fully_populated(self, ctx: SagaContext, events: AsyncMock) -> None:
         """After execution, context has statuses, results, attempts, and latencies."""
 
         async def invoke(
@@ -529,7 +506,7 @@ class TestContextPopulation:
         saga = _make_saga(steps)
 
         orchestrator = SagaExecutionOrchestrator(invoker, events)
-        completed = await orchestrator.execute(saga, ctx)
+        _completed = await orchestrator.execute(saga, ctx)
 
         # Statuses
         assert ctx.step_statuses["A"] == StepStatus.DONE
@@ -553,9 +530,7 @@ class TestContextPopulation:
         assert ctx.topology_layers[1] == ["B"]
 
     @pytest.mark.anyio
-    async def test_step_input_forwarded(
-        self, ctx: SagaContext, events: AsyncMock
-    ) -> None:
+    async def test_step_input_forwarded(self, ctx: SagaContext, events: AsyncMock) -> None:
         """step_input is forwarded to the StepInvoker."""
         received_inputs: list[Any] = []
 
@@ -584,9 +559,7 @@ class TestContextPopulation:
 
 class TestExponentialBackoff:
     @pytest.mark.anyio
-    async def test_exponential_backoff_doubles(
-        self, ctx: SagaContext, events: AsyncMock
-    ) -> None:
+    async def test_exponential_backoff_doubles(self, ctx: SagaContext, events: AsyncMock) -> None:
         """Backoff delay doubles on each retry (exponential)."""
         timestamps: list[float] = []
 
@@ -627,9 +600,7 @@ class TestExponentialBackoff:
 
 class TestJitter:
     @pytest.mark.anyio
-    async def test_jitter_varies_delay(
-        self, ctx: SagaContext, events: AsyncMock
-    ) -> None:
+    async def test_jitter_varies_delay(self, ctx: SagaContext, events: AsyncMock) -> None:
         """With jitter enabled, delays vary between attempts across runs."""
         timestamps: list[float] = []
 

@@ -23,7 +23,6 @@ from mongomock_motor import AsyncMongoMockClient
 
 from pyfly.data.document.mongodb.document import BaseDocument
 
-
 # ---------------------------------------------------------------------------
 # Test document subclass
 # ---------------------------------------------------------------------------

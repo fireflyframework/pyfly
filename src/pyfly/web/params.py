@@ -24,7 +24,7 @@ Usage in handler signatures::
 
 from __future__ import annotations
 
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic, TypeVar, cast
 
 T = TypeVar("T")
 
@@ -114,8 +114,8 @@ class UploadedFile:
         if hasattr(self._file, "read"):
             data = self._file.read()
             if hasattr(data, "__await__"):
-                return await data
-            return data
+                return cast(bytes, await data)
+            return cast(bytes, data)
         return b""
 
     async def save(self, path: Any) -> None:

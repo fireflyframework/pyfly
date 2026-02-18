@@ -24,12 +24,12 @@ from __future__ import annotations
 
 import logging
 import sys
-from typing import Any, Generic, TypeVar, get_args
+from typing import Generic, TypeVar, get_args
 
 if sys.version_info >= (3, 13):
     from types import get_original_bases as get_orig_bases
 else:
-    from typing import get_orig_bases
+    from typing import get_orig_bases  # type: ignore[attr-defined]
 
 from pyfly.cqrs.context.execution_context import ExecutionContext
 
@@ -66,8 +66,7 @@ class CommandHandler(Generic[C, R]):
         for base in get_orig_bases(type(self)):
             origin = getattr(base, "__origin__", None)
             if origin is not None and (
-                origin is CommandHandler
-                or (isinstance(origin, type) and issubclass(origin, CommandHandler))
+                origin is CommandHandler or (isinstance(origin, type) and issubclass(origin, CommandHandler))
             ):
                 args = get_args(base)
                 if args:
@@ -149,10 +148,9 @@ class ContextAwareCommandHandler(CommandHandler[C, R]):
     :meth:`handle_with_context`.
     """
 
-    async def do_handle(self, command: C) -> R:  # type: ignore[override]
+    async def do_handle(self, command: C) -> R:
         raise RuntimeError(
-            f"{type(self).__name__} requires an ExecutionContext. "
-            "Use handle_with_context() instead of handle()."
+            f"{type(self).__name__} requires an ExecutionContext. Use handle_with_context() instead of handle()."
         )
 
     async def do_handle_with_context(self, command: C, context: ExecutionContext) -> R:

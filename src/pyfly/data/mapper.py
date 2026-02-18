@@ -168,9 +168,7 @@ class Mapper:
         Falls back to standard field-name matching for fields without
         explicit transforms.
         """
-        transforms = self._projections.get(
-            (type(source), projection_type), {}
-        )
+        transforms = self._projections.get((type(source), projection_type), {})
         dest_fields = self._get_field_names(projection_type)
         source_data = self._extract_fields(source)
 

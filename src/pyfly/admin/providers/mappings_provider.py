@@ -42,12 +42,14 @@ class MappingsProvider:
                 mapping = getattr(method_obj, "__pyfly_mapping__", None)
                 if mapping is None:
                     continue
-                mappings.append({
-                    "controller": tag,
-                    "method": mapping["method"],
-                    "path": base_path + mapping["path"],
-                    "handler": attr_name,
-                    "status_code": mapping.get("status_code", 200),
-                })
+                mappings.append(
+                    {
+                        "controller": tag,
+                        "method": mapping["method"],
+                        "path": base_path + mapping["path"],
+                        "handler": attr_name,
+                        "status_code": mapping.get("status_code", 200),
+                    }
+                )
         mappings.sort(key=lambda m: m["path"])
         return {"mappings": mappings, "total": len(mappings)}

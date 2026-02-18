@@ -160,10 +160,13 @@ class TestCacheManager:
         class FailingCache:
             async def get(self, key: str):
                 raise ConnectionError("Redis down")
+
             async def put(self, key: str, value, ttl=None):
                 raise ConnectionError("Redis down")
+
             async def evict(self, key: str) -> bool:
                 raise ConnectionError("Redis down")
+
             async def clear(self) -> None:
                 raise ConnectionError("Redis down")
 

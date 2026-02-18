@@ -15,7 +15,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -39,7 +39,7 @@ class TestCronExpression:
 
     def test_next_fire_time_without_base_defaults_to_now(self) -> None:
         cron = CronExpression("* * * * *")  # Every minute
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         result = cron.next_fire_time()
         # The next fire time should be within 60 seconds from now
         delta = (result - now).total_seconds()

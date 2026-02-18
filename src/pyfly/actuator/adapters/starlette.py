@@ -91,7 +91,7 @@ def _make_generic_route(eid: str, ep: object) -> Route:
     """Generic endpoint — calls ``handle()`` and returns 200 JSON."""
 
     async def handler(request: Request) -> JSONResponse:
-        data = await ep.handle()  # type: ignore[union-attr]
+        data = await ep.handle()  # type: ignore[attr-defined]
         return JSONResponse(data)
 
     return Route(f"/actuator/{eid}", handler, methods=["GET"])

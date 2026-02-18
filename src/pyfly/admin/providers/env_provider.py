@@ -40,7 +40,7 @@ class EnvProvider:
             "sources": list(sources),
         }
 
-    def _flatten(self, data: dict, prefix: str = "") -> dict[str, Any]:
+    def _flatten(self, data: dict[str, Any], prefix: str = "") -> dict[str, Any]:
         result: dict[str, Any] = {}
         for key, value in data.items():
             full_key = f"{prefix}.{key}" if prefix else key

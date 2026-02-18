@@ -18,7 +18,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import timedelta
-from typing import Any
+from typing import Any, cast
 
 _logger = logging.getLogger(__name__)
 
@@ -53,12 +53,12 @@ class RedisCacheAdapter:
     async def evict(self, key: str) -> bool:
         """Remove a key. Returns True if the key existed."""
         count = await self._client.delete(key)
-        return count > 0
+        return cast(bool, count > 0)
 
     async def exists(self, key: str) -> bool:
         """Check whether a key exists."""
         count = await self._client.exists(key)
-        return count > 0
+        return cast(bool, count > 0)
 
     async def get_stats(self) -> dict[str, Any]:
         """Return cache statistics from Redis."""

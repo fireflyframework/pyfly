@@ -15,6 +15,7 @@
 
 from __future__ import annotations
 
+import contextlib
 from typing import TYPE_CHECKING
 
 from starlette.applications import Starlette
@@ -164,9 +165,7 @@ def create_app(
     # Mount admin dashboard when enabled
     admin_enabled = False
     if context is not None:
-        admin_enabled = str(
-            context.config.get("pyfly.admin.enabled", "false")
-        ).lower() in ("true", "1", "yes")
+        admin_enabled = str(context.config.get("pyfly.admin.enabled", "false")).lower() in ("true", "1", "yes")
 
     if admin_enabled and context is not None:
         from pyfly.admin.adapters.starlette import AdminRouteBuilder
@@ -189,10 +188,8 @@ def create_app(
         from pyfly.admin.registry import AdminViewRegistry
 
         admin_props = AdminProperties()
-        try:
+        with contextlib.suppress(Exception):
             admin_props = context.config.bind(AdminProperties)
-        except Exception:
-            pass
 
         # Find trace collector from context (registered by auto-config)
         trace_collector = None
@@ -239,7 +236,7 @@ def create_app(
             trace_collector=trace_collector,
             logfile=LogfileProvider(context),
         )
-        routes.extend(admin_builder.build_routes())
+        routes.extend(admin_builder.build_routes())  # type: ignore[arg-type]
 
     # Collect route metadata (used for OpenAPI and startup logging)
     route_metadata = registrar.collect_route_metadata(context) if context is not None else []
@@ -249,17 +246,19 @@ def create_app(
         generator = OpenAPIGenerator(title=title, version=version, description=description)
         spec = generator.generate(route_metadata or None)
 
-        routes.extend([
-            Route("/openapi.json", make_openapi_endpoint(spec)),
-            Route("/docs", make_swagger_ui_endpoint(title)),
-            Route("/redoc", make_redoc_endpoint(title)),
-        ])
+        routes.extend(
+            [
+                Route("/openapi.json", make_openapi_endpoint(spec)),
+                Route("/docs", make_swagger_ui_endpoint(title)),
+                Route("/redoc", make_redoc_endpoint(title)),
+            ]
+        )
 
     app = Starlette(
         debug=debug,
         middleware=middleware,
         routes=routes,
-        lifespan=lifespan,
+        lifespan=lifespan,  # type: ignore[arg-type]
     )
 
     # Store metadata for startup logging

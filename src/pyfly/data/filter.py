@@ -48,11 +48,7 @@ class BaseFilterUtils(ABC):
 
         ``None`` values are skipped.
         """
-        specs = [
-            cls._create_eq(field, value)
-            for field, value in filters.items()
-            if value is not None
-        ]
+        specs = [cls._create_eq(field, value) for field, value in filters.items() if value is not None]
         return cls._combine_and(specs)
 
     @classmethod
@@ -63,18 +59,11 @@ class BaseFilterUtils(ABC):
         Supports dataclasses and any object with ``__dict__``.
         """
         if dataclasses.is_dataclass(example) and not isinstance(example, type):
-            fields = {
-                f.name: getattr(example, f.name)
-                for f in dataclasses.fields(example)
-            }
+            fields = {f.name: getattr(example, f.name) for f in dataclasses.fields(example)}
         else:
             fields = vars(example)
 
-        specs = [
-            cls._create_eq(field, value)
-            for field, value in fields.items()
-            if value is not None
-        ]
+        specs = [cls._create_eq(field, value) for field, value in fields.items() if value is not None]
         return cls._combine_and(specs)
 
     @classmethod

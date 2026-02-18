@@ -16,7 +16,6 @@
 from __future__ import annotations
 
 import platform
-import sys
 import time
 from typing import TYPE_CHECKING, Any
 
@@ -55,6 +54,7 @@ class OverviewProvider:
         # Framework version
         try:
             from pyfly import __version__
+
             app_info["framework_version"] = __version__
         except (ImportError, AttributeError):
             app_info["framework_version"] = "0.1.0"

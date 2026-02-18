@@ -51,9 +51,7 @@ class OncePerRequestFilter(abc.ABC):
             return True
 
         # If any exclude pattern matches, skip
-        return bool(
-            self.exclude_patterns and any(fnmatch(path, p) for p in self.exclude_patterns)
-        )
+        return bool(self.exclude_patterns and any(fnmatch(path, p) for p in self.exclude_patterns))
 
     @abc.abstractmethod
     async def do_filter(self, request: Any, call_next: CallNext) -> Any:

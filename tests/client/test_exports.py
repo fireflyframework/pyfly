@@ -12,12 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Tests for client module public exports."""
+
 from __future__ import annotations
 
 
 class TestClientExports:
     def test_can_import_declarative(self) -> None:
-        from pyfly.client import http_client, get, post, put, delete, patch
+        from pyfly.client import http_client
 
         assert http_client is not None
 

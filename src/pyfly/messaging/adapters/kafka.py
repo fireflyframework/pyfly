@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Kafka message broker adapter — wraps aiokafka."""
+
 from __future__ import annotations
 
 import asyncio
@@ -42,12 +43,8 @@ class KafkaAdapter:
         key: bytes | None = None,
         headers: dict[str, str] | None = None,
     ) -> None:
-        kafka_headers = (
-            [(k, v.encode()) for k, v in headers.items()] if headers else None
-        )
-        await self._producer.send_and_wait(
-            topic, value=value, key=key, headers=kafka_headers
-        )
+        kafka_headers = [(k, v.encode()) for k, v in headers.items()] if headers else None
+        await self._producer.send_and_wait(topic, value=value, key=key, headers=kafka_headers)
 
     async def subscribe(
         self,
@@ -58,11 +55,9 @@ class KafkaAdapter:
         self._handlers.append((topic, handler, group))
 
     async def start(self) -> None:
-        from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
+        from aiokafka import AIOKafkaConsumer, AIOKafkaProducer  # type: ignore[import-untyped]
 
-        self._producer = AIOKafkaProducer(
-            bootstrap_servers=self._bootstrap_servers
-        )
+        self._producer = AIOKafkaProducer(bootstrap_servers=self._bootstrap_servers)
         await self._producer.start()
 
         grouped: dict[tuple[str, str | None], list[tuple[str, MessageHandler]]] = {}
@@ -79,9 +74,7 @@ class KafkaAdapter:
             await consumer.start()
             self._consumers.append(consumer)
             handlers_for_consumer = [h for _, h in entries]
-            task = asyncio.create_task(
-                self._consume_loop(consumer, handlers_for_consumer)
-            )
+            task = asyncio.create_task(self._consume_loop(consumer, handlers_for_consumer))
             self._consumer_tasks.append(task)
 
     async def stop(self) -> None:
@@ -94,9 +87,7 @@ class KafkaAdapter:
         if self._producer is not None:
             await self._producer.stop()
 
-    async def _consume_loop(
-        self, consumer: Any, handlers: list[MessageHandler]
-    ) -> None:
+    async def _consume_loop(self, consumer: Any, handlers: list[MessageHandler]) -> None:
         try:
             async for record in consumer:
                 headers = {}

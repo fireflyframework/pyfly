@@ -14,15 +14,12 @@
 """Tests for CommandBuilder and QueryBuilder fluent APIs."""
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock
-
-import pytest
 
 from pyfly.cqrs.fluent.command_builder import CommandBuilder
 from pyfly.cqrs.fluent.query_builder import QueryBuilder
 from pyfly.cqrs.types import Command, Query
-
 
 # -- Test messages ----------------------------------------------------------
 
@@ -55,30 +52,18 @@ class TestCommandBuilder:
         assert cmd.amount == 99.99
 
     def test_with_fields_kwargs(self) -> None:
-        cmd = (
-            CommandBuilder.create(CreateOrderCommand)
-            .with_fields(customer_id="cust-2", amount=50.0)
-            .build()
-        )
+        cmd = CommandBuilder.create(CreateOrderCommand).with_fields(customer_id="cust-2", amount=50.0).build()
         assert cmd.customer_id == "cust-2"
         assert cmd.amount == 50.0
 
     def test_correlated_by_sets_correlation_id(self) -> None:
         cmd = (
-            CommandBuilder.create(CreateOrderCommand)
-            .with_field("customer_id", "c1")
-            .correlated_by("corr-abc")
-            .build()
+            CommandBuilder.create(CreateOrderCommand).with_field("customer_id", "c1").correlated_by("corr-abc").build()
         )
         assert cmd.get_correlation_id() == "corr-abc"
 
     def test_initiated_by_sets_user(self) -> None:
-        cmd = (
-            CommandBuilder.create(CreateOrderCommand)
-            .with_field("customer_id", "c1")
-            .initiated_by("user-42")
-            .build()
-        )
+        cmd = CommandBuilder.create(CreateOrderCommand).with_field("customer_id", "c1").initiated_by("user-42").build()
         assert cmd.get_initiated_by() == "user-42"
 
     def test_with_metadata_adds_entries(self) -> None:
@@ -94,34 +79,21 @@ class TestCommandBuilder:
         assert metadata["version"] == "v2"
 
     def test_build_assigns_command_id(self) -> None:
-        cmd = (
-            CommandBuilder.create(CreateOrderCommand)
-            .with_field("customer_id", "c1")
-            .build()
-        )
+        cmd = CommandBuilder.create(CreateOrderCommand).with_field("customer_id", "c1").build()
         command_id = cmd.get_command_id()
         assert command_id is not None
         assert len(command_id) == 36
 
     def test_build_assigns_default_timestamp(self) -> None:
-        cmd = (
-            CommandBuilder.create(CreateOrderCommand)
-            .with_field("customer_id", "c1")
-            .build()
-        )
+        cmd = CommandBuilder.create(CreateOrderCommand).with_field("customer_id", "c1").build()
         ts = cmd.get_timestamp()
         assert ts.tzinfo is not None
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         assert (now - ts).total_seconds() < 2
 
     def test_at_sets_timestamp(self) -> None:
-        ts = datetime(2025, 6, 15, 12, 0, 0, tzinfo=timezone.utc)
-        cmd = (
-            CommandBuilder.create(CreateOrderCommand)
-            .with_field("customer_id", "c1")
-            .at(ts)
-            .build()
-        )
+        ts = datetime(2025, 6, 15, 12, 0, 0, tzinfo=UTC)
+        cmd = CommandBuilder.create(CreateOrderCommand).with_field("customer_id", "c1").at(ts).build()
         assert cmd.get_timestamp() == ts
 
     async def test_execute_with_builds_and_sends(self) -> None:
@@ -151,19 +123,11 @@ class TestCommandBuilder:
         assert builder.with_metadata("k", "v") is builder
 
     def test_no_correlation_id_when_not_set(self) -> None:
-        cmd = (
-            CommandBuilder.create(CreateOrderCommand)
-            .with_field("customer_id", "c1")
-            .build()
-        )
+        cmd = CommandBuilder.create(CreateOrderCommand).with_field("customer_id", "c1").build()
         assert cmd.get_correlation_id() is None
 
     def test_no_initiated_by_when_not_set(self) -> None:
-        cmd = (
-            CommandBuilder.create(CreateOrderCommand)
-            .with_field("customer_id", "c1")
-            .build()
-        )
+        cmd = CommandBuilder.create(CreateOrderCommand).with_field("customer_id", "c1").build()
         assert cmd.get_initiated_by() is None
 
 
@@ -172,65 +136,35 @@ class TestCommandBuilder:
 
 class TestQueryBuilder:
     def test_create_and_build_with_field(self) -> None:
-        query = (
-            QueryBuilder.create(GetOrderQuery)
-            .with_field("order_id", "ord-1")
-            .build()
-        )
+        query = QueryBuilder.create(GetOrderQuery).with_field("order_id", "ord-1").build()
         assert isinstance(query, GetOrderQuery)
         assert query.order_id == "ord-1"
 
     def test_with_fields_kwargs(self) -> None:
-        query = (
-            QueryBuilder.create(GetOrderQuery)
-            .with_fields(order_id="ord-2", include_details=True)
-            .build()
-        )
+        query = QueryBuilder.create(GetOrderQuery).with_fields(order_id="ord-2", include_details=True).build()
         assert query.order_id == "ord-2"
         assert query.include_details is True
 
     def test_cached_sets_cacheable(self) -> None:
-        query = (
-            QueryBuilder.create(GetOrderQuery)
-            .with_field("order_id", "o1")
-            .cached(True)
-            .build()
-        )
+        query = QueryBuilder.create(GetOrderQuery).with_field("order_id", "o1").cached(True).build()
         assert query.is_cacheable() is True
 
     def test_cached_false_disables_caching(self) -> None:
-        query = (
-            QueryBuilder.create(GetOrderQuery)
-            .with_field("order_id", "o1")
-            .cached(False)
-            .build()
-        )
+        query = QueryBuilder.create(GetOrderQuery).with_field("order_id", "o1").cached(False).build()
         assert query.is_cacheable() is False
 
     def test_correlated_by_sets_correlation_id(self) -> None:
-        query = (
-            QueryBuilder.create(GetOrderQuery)
-            .with_field("order_id", "o1")
-            .correlated_by("corr-q1")
-            .build()
-        )
+        query = QueryBuilder.create(GetOrderQuery).with_field("order_id", "o1").correlated_by("corr-q1").build()
         assert query.get_correlation_id() == "corr-q1"
 
     def test_with_metadata_adds_entries(self) -> None:
         query = (
-            QueryBuilder.create(GetOrderQuery)
-            .with_field("order_id", "o1")
-            .with_metadata("source", "dashboard")
-            .build()
+            QueryBuilder.create(GetOrderQuery).with_field("order_id", "o1").with_metadata("source", "dashboard").build()
         )
         assert query.get_metadata()["source"] == "dashboard"
 
     def test_build_assigns_query_id(self) -> None:
-        query = (
-            QueryBuilder.create(GetOrderQuery)
-            .with_field("order_id", "o1")
-            .build()
-        )
+        query = QueryBuilder.create(GetOrderQuery).with_field("order_id", "o1").build()
         query_id = query.get_query_id()
         assert query_id is not None
         assert len(query_id) == 36
@@ -240,10 +174,7 @@ class TestQueryBuilder:
         mock_bus.query.return_value = {"id": "ord-exec", "status": "pending"}
 
         result = await (
-            QueryBuilder.create(GetOrderQuery)
-            .with_field("order_id", "ord-exec")
-            .cached(True)
-            .execute_with(mock_bus)
+            QueryBuilder.create(GetOrderQuery).with_field("order_id", "ord-exec").cached(True).execute_with(mock_bus)
         )
 
         assert result == {"id": "ord-exec", "status": "pending"}
@@ -267,28 +198,14 @@ class TestQueryBuilder:
         assert result is builder
 
     def test_with_cache_key_overrides_get_cache_key(self) -> None:
-        query = (
-            QueryBuilder.create(GetOrderQuery)
-            .with_field("order_id", "o1")
-            .with_cache_key("custom-key")
-            .build()
-        )
+        query = QueryBuilder.create(GetOrderQuery).with_field("order_id", "o1").with_cache_key("custom-key").build()
         assert query.get_cache_key() == "custom-key"
 
     def test_at_sets_timestamp(self) -> None:
-        ts = datetime(2025, 6, 15, 12, 0, 0, tzinfo=timezone.utc)
-        query = (
-            QueryBuilder.create(GetOrderQuery)
-            .with_field("order_id", "o1")
-            .at(ts)
-            .build()
-        )
+        ts = datetime(2025, 6, 15, 12, 0, 0, tzinfo=UTC)
+        query = QueryBuilder.create(GetOrderQuery).with_field("order_id", "o1").at(ts).build()
         assert query.get_timestamp() == ts
 
     def test_default_cacheable_is_true(self) -> None:
-        query = (
-            QueryBuilder.create(GetOrderQuery)
-            .with_field("order_id", "o1")
-            .build()
-        )
+        query = QueryBuilder.create(GetOrderQuery).with_field("order_id", "o1").build()
         assert query.is_cacheable() is True

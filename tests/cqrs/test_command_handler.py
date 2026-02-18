@@ -23,7 +23,6 @@ from pyfly.cqrs.command.handler import CommandHandler, ContextAwareCommandHandle
 from pyfly.cqrs.context.execution_context import DefaultExecutionContext
 from pyfly.cqrs.types import Command
 
-
 # ── test command types ────────────────────────────────────────
 
 

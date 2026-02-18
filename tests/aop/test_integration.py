@@ -37,7 +37,6 @@ from pyfly.container.stereotypes import service
 from pyfly.context.application_context import ApplicationContext
 from pyfly.core.config import Config
 
-
 # ---------------------------------------------------------------------------
 # Test 1 — Full advice chain (all 5 advice types in correct order)
 # ---------------------------------------------------------------------------

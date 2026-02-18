@@ -20,14 +20,13 @@ import json
 from collections.abc import AsyncGenerator
 from typing import TYPE_CHECKING, Any
 
-from starlette.requests import Request
 from starlette.responses import StreamingResponse
 
 if TYPE_CHECKING:
     from pyfly.admin.log_handler import AdminLogHandler
+    from pyfly.admin.middleware.trace_collector import TraceCollectorFilter
     from pyfly.admin.providers.health_provider import HealthProvider
     from pyfly.admin.providers.metrics_provider import MetricsProvider
-    from pyfly.admin.middleware.trace_collector import TraceCollectorFilter
 
 
 def _sse_event(data: Any, event: str | None = None) -> str:

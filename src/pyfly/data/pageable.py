@@ -60,19 +60,11 @@ class Sort:
 
     def descending(self) -> Sort:
         """Return same sort but all directions flipped to desc."""
-        return Sort(
-            orders=tuple(
-                Order(property=o.property, direction="desc") for o in self.orders
-            )
-        )
+        return Sort(orders=tuple(Order(property=o.property, direction="desc") for o in self.orders))
 
     def ascending(self) -> Sort:
         """Return same sort but all directions flipped to asc."""
-        return Sort(
-            orders=tuple(
-                Order(property=o.property, direction="asc") for o in self.orders
-            )
-        )
+        return Sort(orders=tuple(Order(property=o.property, direction="asc") for o in self.orders))
 
 
 _UNPAGED_SENTINEL_SIZE = sys.maxsize

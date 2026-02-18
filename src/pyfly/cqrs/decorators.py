@@ -22,7 +22,8 @@ The decorators accept keyword arguments matching Java's
 
 from __future__ import annotations
 
-from typing import TypeVar, overload
+from collections.abc import Callable
+from typing import Any, TypeVar, overload
 
 T = TypeVar("T", bound=type)
 
@@ -46,7 +47,7 @@ def command_handler(
     priority: int = 0,
     tags: tuple[str, ...] = (),
     description: str = "",
-) -> callable: ...
+) -> Callable[..., Any]: ...
 
 
 def command_handler(
@@ -61,7 +62,7 @@ def command_handler(
     priority: int = 0,
     tags: tuple[str, ...] = (),
     description: str = "",
-) -> T | callable:
+) -> T | Callable[..., Any]:
     """Mark a class as a command handler for auto-discovery.
 
     Can be used as a bare decorator or with arguments:
@@ -111,7 +112,7 @@ def query_handler(
     priority: int = 0,
     tags: tuple[str, ...] = (),
     description: str = "",
-) -> callable: ...
+) -> Callable[..., Any]: ...
 
 
 def query_handler(
@@ -127,7 +128,7 @@ def query_handler(
     priority: int = 0,
     tags: tuple[str, ...] = (),
     description: str = "",
-) -> T | callable:
+) -> T | Callable[..., Any]:
     """Mark a class as a query handler for auto-discovery.
 
     Can be used as a bare decorator or with arguments:

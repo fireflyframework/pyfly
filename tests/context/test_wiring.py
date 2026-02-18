@@ -24,7 +24,6 @@ from pyfly.context.events import (
 )
 from pyfly.core.config import Config
 
-
 # --- Test: BeanPostProcessor auto-discovery ---
 
 

@@ -87,7 +87,7 @@ class ParameterResolver:
                 else:
                     # Valid[T] standalone → implies Body[T]
                     origin = Body
-                    hint = Body[inner_hint]
+                    hint = Body[inner_hint]  # type: ignore[valid-type]
 
             if origin not in _BINDING_TYPES:
                 continue
@@ -165,17 +165,14 @@ class ParameterResolver:
                     return param.inner_type.model_validate_json(body_bytes)
                 except PydanticValidationError as exc:
                     errors = exc.errors()
-                    detail = "; ".join(
-                        f"{'.'.join(str(loc) for loc in e['loc'])}: {e['msg']}"
-                        for e in errors
-                    )
+                    detail = "; ".join(f"{'.'.join(str(loc) for loc in e['loc'])}: {e['msg']}" for e in errors)
                     raise ValidationException(
                         f"Validation failed: {detail}",
                         code="VALIDATION_ERROR",
                         context={"errors": errors},
                     ) from exc
             return param.inner_type.model_validate_json(body_bytes)
-        return param.inner_type(body_bytes.decode())
+        return param.inner_type(body_bytes.decode())  # type: ignore[call-arg]
 
     def _resolve_header(self, request: Request, param: ResolvedParam) -> Any:
         header_name = param.name.replace("_", "-")

@@ -16,7 +16,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 import pytest
@@ -24,7 +24,6 @@ import pytest
 from pyfly.cqrs.authorization.types import AuthorizationResult
 from pyfly.cqrs.types import Command, Query
 from pyfly.cqrs.validation.types import ValidationResult
-
 
 # ── test command / query subclasses ───────────────────────────
 
@@ -114,10 +113,10 @@ class TestCommand:
         assert cmd.get_timestamp().tzinfo is not None
 
     def test_timestamp_is_recent(self) -> None:
-        before = datetime.now(timezone.utc)
+        before = datetime.now(UTC)
         cmd = CreateOrderCommand()
         ts = cmd.get_timestamp()  # lazy init happens here
-        after = datetime.now(timezone.utc)
+        after = datetime.now(UTC)
         assert before <= ts <= after
 
     def test_initiated_by_defaults_to_none(self) -> None:

@@ -105,11 +105,9 @@ class QueryExecutor:
             AttributeError: If *method* was not decorated with :func:`query`.
         """
         if not hasattr(method, "__pyfly_query__"):
-            raise AttributeError(
-                f"{method} is not decorated with @query (missing __pyfly_query__)"
-            )
+            raise AttributeError(f"{method} is not decorated with @query (missing __pyfly_query__)")
 
-        sql: str = method.__pyfly_query__  # type: ignore[attr-defined]
+        sql: str = method.__pyfly_query__
         is_native: bool = method.__pyfly_query_native__  # type: ignore[attr-defined]
 
         if not is_native:
@@ -158,9 +156,7 @@ class QueryExecutor:
         # Find the alias (e.g., "u" in "FROM User u") — anchored to the
         # entity class name so that SQL keywords like WHERE are never
         # mistakenly captured as the alias.
-        alias_match = re.search(
-            rf"FROM\s+{entity_name}\s+(\w+)", jpql, re.IGNORECASE
-        )
+        alias_match = re.search(rf"FROM\s+{entity_name}\s+(\w+)", jpql, re.IGNORECASE)
         alias = alias_match.group(1) if alias_match else None
 
         sql = jpql

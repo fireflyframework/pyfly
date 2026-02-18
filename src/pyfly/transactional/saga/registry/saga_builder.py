@@ -195,10 +195,7 @@ class SagaBuilder:
         for sb in self._step_builders:
             step_def = sb._build_definition()  # noqa: SLF001
             if step_def.step_method is None:
-                msg = (
-                    f"Step '{step_def.id}' in saga '{self._name}' "
-                    f"must have a handler"
-                )
+                msg = f"Step '{step_def.id}' in saga '{self._name}' must have a handler"
                 raise SagaValidationError(msg)
             definition.steps[step_def.id] = step_def
 
@@ -213,9 +210,7 @@ class SagaBuilder:
         """Register a finalised step builder (called by StepBuilder.add)."""
         step_id = step_builder._step_id  # noqa: SLF001
         if step_id in self._step_ids:
-            msg = (
-                f"Step '{step_id}' already exists in saga '{self._name}'"
-            )
+            msg = f"Step '{step_id}' already exists in saga '{self._name}'"
             raise SagaValidationError(msg)
         self._step_ids.add(step_id)
         self._step_builders.append(step_builder)
@@ -237,10 +232,7 @@ class SagaBuilder:
         for step_id, step_def in definition.steps.items():
             for dep in step_def.depends_on:
                 if dep not in step_ids:
-                    msg = (
-                        f"Step '{step_id}' in saga '{definition.name}' depends on "
-                        f"'{dep}' which is nonexistent"
-                    )
+                    msg = f"Step '{step_id}' in saga '{definition.name}' depends on '{dep}' which is nonexistent"
                     raise SagaValidationError(msg)
 
         # 2. Kahn's algorithm for cycle detection.
@@ -265,8 +257,5 @@ class SagaBuilder:
                         queue.append(step_def.id)
 
         if processed != len(step_ids):
-            msg = (
-                f"Saga '{definition.name}' contains a dependency cycle "
-                f"(processed {processed}/{len(step_ids)} steps)"
-            )
+            msg = f"Saga '{definition.name}' contains a dependency cycle (processed {processed}/{len(step_ids)} steps)"
             raise SagaValidationError(msg)

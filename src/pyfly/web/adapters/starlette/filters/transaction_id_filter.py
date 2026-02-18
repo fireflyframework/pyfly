@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 import uuid
+from typing import cast
 
 from starlette.requests import Request
 from starlette.responses import Response
@@ -34,6 +35,6 @@ class TransactionIdFilter(OncePerRequestFilter):
     async def do_filter(self, request: Request, call_next: CallNext) -> Response:
         tx_id = request.headers.get(TRANSACTION_ID_HEADER) or str(uuid.uuid4())
         request.state.transaction_id = tx_id
-        response = await call_next(request)
+        response = cast(Response, await call_next(request))
         response.headers[TRANSACTION_ID_HEADER] = tx_id
         return response

@@ -16,7 +16,7 @@
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response, StreamingResponse
@@ -96,46 +96,52 @@ class AdminRouteBuilder:
         routes: list[Route | Mount] = []
 
         # --- API routes ---
-        routes.extend([
-            Route(f"{api}/overview", self._handle_overview, methods=["GET"]),
-            Route(f"{api}/beans", self._handle_beans, methods=["GET"]),
-            Route(f"{api}/beans/{{name}}", self._handle_bean_detail, methods=["GET"]),
-            Route(f"{api}/health", self._handle_health, methods=["GET"]),
-            Route(f"{api}/env", self._handle_env, methods=["GET"]),
-            Route(f"{api}/config", self._handle_config, methods=["GET"]),
-            Route(f"{api}/loggers", self._handle_loggers, methods=["GET"]),
-            Route(f"{api}/loggers/{{name:path}}", self._handle_set_logger, methods=["POST"]),
-            Route(f"{api}/metrics", self._handle_metrics, methods=["GET"]),
-            Route(f"{api}/metrics/{{name:path}}", self._handle_metric_detail, methods=["GET"]),
-            Route(f"{api}/scheduled", self._handle_scheduled, methods=["GET"]),
-            Route(f"{api}/mappings", self._handle_mappings, methods=["GET"]),
-            Route(f"{api}/caches", self._handle_caches, methods=["GET"]),
-            Route(f"{api}/caches/keys", self._handle_cache_keys, methods=["GET"]),
-            Route(f"{api}/caches/{{name}}/evict", self._handle_cache_evict, methods=["POST"]),
-            Route(f"{api}/cqrs", self._handle_cqrs, methods=["GET"]),
-            Route(f"{api}/transactions", self._handle_transactions, methods=["GET"]),
-            Route(f"{api}/traces", self._handle_traces, methods=["GET"]),
-            Route(f"{api}/logfile", self._handle_logfile, methods=["GET"]),
-            Route(f"{api}/logfile/clear", self._handle_logfile_clear, methods=["POST"]),
-            Route(f"{api}/views", self._handle_views, methods=["GET"]),
-            Route(f"{api}/settings", self._handle_settings, methods=["GET"]),
-        ])
+        routes.extend(
+            [
+                Route(f"{api}/overview", self._handle_overview, methods=["GET"]),
+                Route(f"{api}/beans", self._handle_beans, methods=["GET"]),
+                Route(f"{api}/beans/{{name}}", self._handle_bean_detail, methods=["GET"]),
+                Route(f"{api}/health", self._handle_health, methods=["GET"]),
+                Route(f"{api}/env", self._handle_env, methods=["GET"]),
+                Route(f"{api}/config", self._handle_config, methods=["GET"]),
+                Route(f"{api}/loggers", self._handle_loggers, methods=["GET"]),
+                Route(f"{api}/loggers/{{name:path}}", self._handle_set_logger, methods=["POST"]),
+                Route(f"{api}/metrics", self._handle_metrics, methods=["GET"]),
+                Route(f"{api}/metrics/{{name:path}}", self._handle_metric_detail, methods=["GET"]),
+                Route(f"{api}/scheduled", self._handle_scheduled, methods=["GET"]),
+                Route(f"{api}/mappings", self._handle_mappings, methods=["GET"]),
+                Route(f"{api}/caches", self._handle_caches, methods=["GET"]),
+                Route(f"{api}/caches/keys", self._handle_cache_keys, methods=["GET"]),
+                Route(f"{api}/caches/{{name}}/evict", self._handle_cache_evict, methods=["POST"]),
+                Route(f"{api}/cqrs", self._handle_cqrs, methods=["GET"]),
+                Route(f"{api}/transactions", self._handle_transactions, methods=["GET"]),
+                Route(f"{api}/traces", self._handle_traces, methods=["GET"]),
+                Route(f"{api}/logfile", self._handle_logfile, methods=["GET"]),
+                Route(f"{api}/logfile/clear", self._handle_logfile_clear, methods=["POST"]),
+                Route(f"{api}/views", self._handle_views, methods=["GET"]),
+                Route(f"{api}/settings", self._handle_settings, methods=["GET"]),
+            ]
+        )
 
         # --- SSE routes ---
-        routes.extend([
-            Route(f"{api}/sse/health", self._handle_sse_health, methods=["GET"]),
-            Route(f"{api}/sse/metrics", self._handle_sse_metrics, methods=["GET"]),
-            Route(f"{api}/sse/traces", self._handle_sse_traces, methods=["GET"]),
-            Route(f"{api}/sse/logfile", self._handle_sse_logfile, methods=["GET"]),
-        ])
+        routes.extend(
+            [
+                Route(f"{api}/sse/health", self._handle_sse_health, methods=["GET"]),
+                Route(f"{api}/sse/metrics", self._handle_sse_metrics, methods=["GET"]),
+                Route(f"{api}/sse/traces", self._handle_sse_traces, methods=["GET"]),
+                Route(f"{api}/sse/logfile", self._handle_sse_logfile, methods=["GET"]),
+            ]
+        )
 
         # --- Instance registry routes (server mode) ---
         if self._instance_registry is not None:
-            routes.extend([
-                Route(f"{api}/instances", self._handle_instances_list, methods=["GET"]),
-                Route(f"{api}/instances", self._handle_instances_register, methods=["POST"]),
-                Route(f"{api}/instances/{{name}}", self._handle_instances_deregister, methods=["DELETE"]),
-            ])
+            routes.extend(
+                [
+                    Route(f"{api}/instances", self._handle_instances_list, methods=["GET"]),
+                    Route(f"{api}/instances", self._handle_instances_register, methods=["POST"]),
+                    Route(f"{api}/instances/{{name}}", self._handle_instances_deregister, methods=["DELETE"]),
+                ]
+            )
 
         # --- Static files ---
         routes.append(
@@ -181,9 +187,17 @@ class AdminRouteBuilder:
     async def _handle_loggers(self, request: Request) -> JSONResponse:
         return JSONResponse(await self._loggers.get_loggers())
 
-    _VALID_LOG_LEVELS = frozenset({
-        "TRACE", "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL", "OFF",
-    })
+    _VALID_LOG_LEVELS = frozenset(
+        {
+            "TRACE",
+            "DEBUG",
+            "INFO",
+            "WARNING",
+            "ERROR",
+            "CRITICAL",
+            "OFF",
+        }
+    )
 
     async def _handle_set_logger(self, request: Request) -> JSONResponse:
         name = request.path_params["name"]
@@ -192,7 +206,8 @@ class AdminRouteBuilder:
         level = payload.get("level", "INFO").upper()
         if level not in self._VALID_LOG_LEVELS:
             return JSONResponse(
-                {"error": f"Invalid log level: {level}"}, status_code=400,
+                {"error": f"Invalid log level: {level}"},
+                status_code=400,
             )
         result = await self._loggers.set_level(name, level)
         if "error" in result:
@@ -220,7 +235,7 @@ class AdminRouteBuilder:
         return JSONResponse({"keys": data.get("keys", [])})
 
     async def _handle_cache_evict(self, request: Request) -> JSONResponse:
-        name = request.path_params["name"]
+        _name = request.path_params["name"]
         body = await request.body()
         payload = json.loads(body) if body else {}
         key = payload.get("key")
@@ -254,39 +269,39 @@ class AdminRouteBuilder:
 
     async def _handle_views(self, request: Request) -> JSONResponse:
         extensions = self._view_registry.get_extensions()
-        views = [
-            {"id": ext.view_id, "name": ext.display_name, "icon": ext.icon}
-            for ext in extensions.values()
-        ]
+        views = [{"id": ext.view_id, "name": ext.display_name, "icon": ext.icon} for ext in extensions.values()]
         return JSONResponse({"views": views})
 
     async def _handle_settings(self, request: Request) -> JSONResponse:
-        return JSONResponse({
-            "title": self._props.title,
-            "theme": self._props.theme,
-            "refreshInterval": self._props.refresh_interval,
-            "serverMode": self._instance_registry is not None,
-        })
+        return JSONResponse(
+            {
+                "title": self._props.title,
+                "theme": self._props.theme,
+                "refreshInterval": self._props.refresh_interval,
+                "serverMode": self._instance_registry is not None,
+            }
+        )
 
     # --- Instance Registry Handlers ---
 
     async def _handle_instances_list(self, request: Request) -> JSONResponse:
+        assert self._instance_registry is not None
         return JSONResponse(self._instance_registry.to_dict())
 
     async def _handle_instances_register(self, request: Request) -> JSONResponse:
+        assert self._instance_registry is not None
         body = await request.body()
         payload = json.loads(body) if body else {}
         name = payload.get("name", "")
         url = payload.get("url", "")
         if not name or not url:
-            return JSONResponse(
-                {"error": "Both 'name' and 'url' are required"}, status_code=400
-            )
+            return JSONResponse({"error": "Both 'name' and 'url' are required"}, status_code=400)
         metadata = payload.get("metadata") or {}
         info = self._instance_registry.register(name, url, metadata)
         return JSONResponse(info.to_dict(), status_code=201)
 
     async def _handle_instances_deregister(self, request: Request) -> JSONResponse:
+        assert self._instance_registry is not None
         name = request.path_params["name"]
         removed = self._instance_registry.deregister(name)
         if not removed:
@@ -297,20 +312,24 @@ class AdminRouteBuilder:
 
     async def _handle_sse_health(self, request: Request) -> StreamingResponse:
         from pyfly.admin.api.sse import health_stream, make_sse_response
+
         interval = self._props.refresh_interval / 1000
         return make_sse_response(health_stream(self._health, interval))
 
     async def _handle_sse_metrics(self, request: Request) -> StreamingResponse:
-        from pyfly.admin.api.sse import metrics_stream, make_sse_response
+        from pyfly.admin.api.sse import make_sse_response, metrics_stream
+
         interval = self._props.refresh_interval / 1000
         return make_sse_response(metrics_stream(self._metrics, interval))
 
     async def _handle_sse_traces(self, request: Request) -> StreamingResponse:
-        from pyfly.admin.api.sse import traces_stream, make_sse_response
+        from pyfly.admin.api.sse import make_sse_response, traces_stream
+
         return make_sse_response(traces_stream(self._trace_collector))
 
     async def _handle_sse_logfile(self, request: Request) -> StreamingResponse:
         from pyfly.admin.api.sse import logfile_stream, make_sse_response
+
         handler = self._logfile.handler if self._logfile is not None else None
         return make_sse_response(logfile_stream(handler))
 

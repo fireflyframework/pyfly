@@ -33,7 +33,6 @@ from pyfly.cqrs.types import Command
 from pyfly.cqrs.validation.exceptions import CqrsValidationException
 from pyfly.cqrs.validation.types import ValidationResult
 
-
 # -- Test messages ----------------------------------------------------------
 
 
@@ -110,9 +109,7 @@ class TestDefaultCommandBus:
     def bus(self, registry: HandlerRegistry) -> DefaultCommandBus:
         return DefaultCommandBus(registry=registry)
 
-    async def test_send_dispatches_to_correct_handler(
-        self, bus: DefaultCommandBus, registry: HandlerRegistry
-    ) -> None:
+    async def test_send_dispatches_to_correct_handler(self, bus: DefaultCommandBus, registry: HandlerRegistry) -> None:
         registry.register_command_handler(CreateOrderHandler())
         result = await bus.send(CreateOrderCommand(customer_id="cust-1"))
         assert result == "order-cust-1"
@@ -177,9 +174,7 @@ class TestDefaultCommandBus:
         assert exc_info.value.cause is not None
         assert "Handler exploded" in str(exc_info.value.cause)
 
-    async def test_correlation_id_set_from_command(
-        self, bus: DefaultCommandBus, registry: HandlerRegistry
-    ) -> None:
+    async def test_correlation_id_set_from_command(self, bus: DefaultCommandBus, registry: HandlerRegistry) -> None:
         registry.register_command_handler(CreateOrderHandler())
         cmd = CreateOrderCommand(customer_id="cust-1")
         cmd.set_correlation_id("my-corr-id")

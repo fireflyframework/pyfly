@@ -26,10 +26,10 @@ from pyfly.context.application_context import ApplicationContext
 from pyfly.core.config import Config
 from pyfly.web.adapters.starlette.app import create_app
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 @component
 class DummyComponent:
@@ -63,6 +63,7 @@ def _make_test_routes(context, agg=None):
 # ---------------------------------------------------------------------------
 # /actuator/beans
 # ---------------------------------------------------------------------------
+
 
 class TestBeansEndpoint:
     @pytest.mark.asyncio
@@ -106,6 +107,7 @@ class TestBeansEndpoint:
 # /actuator/env
 # ---------------------------------------------------------------------------
 
+
 class TestEnvEndpoint:
     @pytest.mark.asyncio
     async def test_shows_active_profiles(self):
@@ -128,6 +130,7 @@ class TestEnvEndpoint:
 # ---------------------------------------------------------------------------
 # /actuator/info
 # ---------------------------------------------------------------------------
+
 
 class TestInfoEndpoint:
     @pytest.mark.asyncio
@@ -152,6 +155,7 @@ class TestInfoEndpoint:
 # /actuator index
 # ---------------------------------------------------------------------------
 
+
 class TestActuatorIndex:
     @pytest.mark.asyncio
     async def test_index_lists_enabled_endpoints(self):
@@ -174,6 +178,7 @@ class TestActuatorIndex:
 # ---------------------------------------------------------------------------
 # create_app(..., actuator_enabled=True)
 # ---------------------------------------------------------------------------
+
 
 class TestCreateAppActuatorWiring:
     @pytest.mark.asyncio

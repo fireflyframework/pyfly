@@ -12,9 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Tests for messaging decorators."""
-from __future__ import annotations
 
-import pytest
+from __future__ import annotations
 
 from pyfly.messaging.decorators import message_listener
 from pyfly.messaging.types import Message

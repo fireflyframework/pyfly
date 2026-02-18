@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 from pyfly.core.config import config_properties
 
@@ -26,5 +27,5 @@ class MessagingProperties:
     """Configuration for the messaging subsystem (pyfly.messaging.*)."""
 
     provider: str = "auto"
-    kafka: dict = field(default_factory=lambda: {"bootstrap-servers": "localhost:9092"})
-    rabbitmq: dict = field(default_factory=lambda: {"url": "amqp://guest:guest@localhost/"})
+    kafka: dict[str, Any] = field(default_factory=lambda: {"bootstrap-servers": "localhost:9092"})
+    rabbitmq: dict[str, Any] = field(default_factory=lambda: {"url": "amqp://guest:guest@localhost/"})

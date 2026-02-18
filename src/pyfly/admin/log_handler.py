@@ -18,7 +18,7 @@ from __future__ import annotations
 import logging
 import re
 from collections import deque
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 # Strip ANSI escape codes produced by structlog's ConsoleRenderer
@@ -26,9 +26,7 @@ _ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
 
 # Parse structlog console format:
 #   TIMESTAMP [level    ] event_name                     [logger] key=value ...
-_STRUCTLOG_RE = re.compile(
-    r"^(\S+)\s+\[(\w+)\s*\]\s+(.*?)\s+\[([^\]]+)\]\s*(.*)$"
-)
+_STRUCTLOG_RE = re.compile(r"^(\S+)\s+\[(\w+)\s*\]\s+(.*?)\s+\[([^\]]+)\]\s*(.*)$")
 
 
 class AdminLogHandler(logging.Handler):
@@ -58,15 +56,17 @@ class AdminLogHandler(logging.Handler):
     def emit(self, record: logging.LogRecord) -> None:
         self._counter += 1
         parsed = self._parse_message(self.format(record))
-        self._records.append({
-            "id": self._counter,
-            "timestamp": datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat(),
-            "level": record.levelname,
-            "logger": record.name,
-            "message": parsed["event"],
-            "context": parsed["context"],
-            "thread": record.threadName,
-        })
+        self._records.append(
+            {
+                "id": self._counter,
+                "timestamp": datetime.fromtimestamp(record.created, tz=UTC).isoformat(),
+                "level": record.levelname,
+                "logger": record.name,
+                "message": parsed["event"],
+                "context": parsed["context"],
+                "thread": record.threadName,
+            }
+        )
 
     def get_records(self, after: int = 0) -> list[dict[str, Any]]:
         """Return records with id > after (for incremental SSE polling)."""

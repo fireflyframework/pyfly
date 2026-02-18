@@ -20,12 +20,12 @@ from sqlalchemy import Integer, String, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import Mapped, mapped_column
 
-from pyfly.data.relational.sqlalchemy.entity import Base, BaseEntity
-from pyfly.data.relational.sqlalchemy.repository import Repository
-from pyfly.data.relational.sqlalchemy.transactional import reactive_transactional
 from pyfly.data.page import Page
 from pyfly.data.pageable import Order, Pageable, Sort
+from pyfly.data.relational.sqlalchemy.entity import Base, BaseEntity
+from pyfly.data.relational.sqlalchemy.repository import Repository
 from pyfly.data.relational.sqlalchemy.specification import Specification
+from pyfly.data.relational.sqlalchemy.transactional import reactive_transactional
 
 
 class Item(BaseEntity):
@@ -141,6 +141,7 @@ class TestRepository:
         assert await repo.exists(item.id) is True
 
         from uuid import uuid4
+
         assert await repo.exists(uuid4()) is False
 
 

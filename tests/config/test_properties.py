@@ -16,9 +16,9 @@
 from pyfly.config.properties import (
     CacheProperties,
     ClientProperties,
-    RelationalProperties,
     LoggingProperties,
     MessagingProperties,
+    RelationalProperties,
     WebProperties,
 )
 from pyfly.core.config import Config
@@ -65,9 +65,7 @@ class TestCacheProperties:
         assert props.ttl == 300
 
     def test_bind_enabled_redis(self):
-        config = Config(
-            {"pyfly": {"cache": {"enabled": True, "provider": "redis", "ttl": 600}}}
-        )
+        config = Config({"pyfly": {"cache": {"enabled": True, "provider": "redis", "ttl": 600}}})
         props = config.bind(CacheProperties)
         assert props.enabled is True
         assert props.provider == "redis"

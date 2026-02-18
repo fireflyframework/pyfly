@@ -129,10 +129,7 @@ class SagaCompensator:
             if not layer_steps:
                 continue
 
-            tasks = [
-                self._invoke_one(saga_name, sd, saga_def, ctx, raise_on_error=True)
-                for sd in layer_steps
-            ]
+            tasks = [self._invoke_one(saga_name, sd, saga_def, ctx, raise_on_error=True) for sd in layer_steps]
             await asyncio.gather(*tasks)
 
     async def _retry_with_backoff(
@@ -150,9 +147,7 @@ class SagaCompensator:
                 continue
 
             max_retries = (
-                step_def.compensation_retry
-                if step_def.compensation_retry is not None
-                else _DEFAULT_COMPENSATION_RETRY
+                step_def.compensation_retry if step_def.compensation_retry is not None else _DEFAULT_COMPENSATION_RETRY
             )
             backoff_ms = (
                 step_def.compensation_backoff_ms
@@ -164,7 +159,11 @@ class SagaCompensator:
             for attempt in range(max_retries):
                 try:
                     await self._invoke_one(
-                        saga_name, step_def, saga_def, ctx, raise_on_error=True,
+                        saga_name,
+                        step_def,
+                        saga_def,
+                        ctx,
+                        raise_on_error=True,
                         skip_error_handler=True,
                     )
                     last_error = None
@@ -172,14 +171,17 @@ class SagaCompensator:
                 except Exception as exc:  # noqa: BLE001
                     last_error = exc
                     if attempt < max_retries - 1:
-                        delay_s = (backoff_ms * (2 ** attempt)) / 1000.0
+                        delay_s = (backoff_ms * (2**attempt)) / 1000.0
                         await asyncio.sleep(delay_s)
 
             if last_error is not None:
                 await self._emit_compensated(saga_name, step_def.id, ctx, last_error)
                 if self._error_handler is not None:
                     await self._error_handler.handle(
-                        saga_name, step_def.id, last_error, ctx,
+                        saga_name,
+                        step_def.id,
+                        last_error,
+                        ctx,
                     )
                 raise last_error
 
@@ -210,7 +212,11 @@ class SagaCompensator:
 
             try:
                 await self._invoke_one(
-                    saga_name, step_def, saga_def, ctx, raise_on_error=True,
+                    saga_name,
+                    step_def,
+                    saga_def,
+                    ctx,
+                    raise_on_error=True,
                 )
                 consecutive_failures = 0
             except Exception:  # noqa: BLE001
@@ -225,7 +231,7 @@ class SagaCompensator:
         topology_layers: list[list[str]],
     ) -> None:
         """Compensate all steps in parallel; collect errors without raising."""
-        tasks: list[asyncio.Task[None]] = []
+        _tasks: list[asyncio.Task[None]] = []
         step_defs_for_tasks: list[StepDefinition] = []
 
         for step_id in completed_step_ids:
@@ -237,7 +243,9 @@ class SagaCompensator:
         async def _compensate_one(sd: StepDefinition) -> Exception | None:
             try:
                 await self._step_invoker.invoke_compensation(
-                    sd, saga_def.bean, ctx,
+                    sd,
+                    saga_def.bean,
+                    ctx,
                 )
                 await self._emit_compensated(saga_name, sd.id, ctx, error=None)
                 return None
@@ -283,7 +291,9 @@ class SagaCompensator:
         """Invoke a single compensation, emit events, and optionally handle errors."""
         try:
             await self._step_invoker.invoke_compensation(
-                step_def, saga_def.bean, ctx,
+                step_def,
+                saga_def.bean,
+                ctx,
             )
             await self._emit_compensated(saga_name, step_def.id, ctx, error=None)
         except Exception as exc:
@@ -303,5 +313,8 @@ class SagaCompensator:
         """Emit an ``on_compensated`` event if the events port is configured."""
         if self._events_port is not None:
             await self._events_port.on_compensated(
-                saga_name, ctx.correlation_id, step_id, error,
+                saga_name,
+                ctx.correlation_id,
+                step_id,
+                error,
             )

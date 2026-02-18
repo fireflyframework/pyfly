@@ -133,8 +133,7 @@ class TestAdminLogHandler:
     def test_parse_structlog_format(self):
         """Structlog console output is parsed into event + context."""
         result = AdminLogHandler._parse_message(
-            '2026-02-18T08:36:15.594605Z [info     ] bean_summary'
-            '                   [pyfly.core] total=40 services=1'
+            "2026-02-18T08:36:15.594605Z [info     ] bean_summary                   [pyfly.core] total=40 services=1"
         )
         assert result["event"] == "bean_summary"
         assert "total=40" in result["context"]
@@ -143,11 +142,11 @@ class TestAdminLogHandler:
     def test_parse_strips_ansi(self):
         """ANSI escape codes from ConsoleRenderer are stripped."""
         raw = (
-            '\x1b[2m2026-02-18T08:00:00Z\x1b[0m '
-            '[\x1b[32minfo     \x1b[0m] '
-            '\x1b[1mhttp_request\x1b[0m '
-            '[\x1b[34mpyfly.web\x1b[0m] '
-            'method=GET path=/health'
+            "\x1b[2m2026-02-18T08:00:00Z\x1b[0m "
+            "[\x1b[32minfo     \x1b[0m] "
+            "\x1b[1mhttp_request\x1b[0m "
+            "[\x1b[34mpyfly.web\x1b[0m] "
+            "method=GET path=/health"
         )
         result = AdminLogHandler._parse_message(raw)
         assert result["event"] == "http_request"

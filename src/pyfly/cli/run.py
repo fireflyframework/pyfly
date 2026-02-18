@@ -67,7 +67,7 @@ def run_command(host: str, port: int | None, use_reload: bool, app_path: str | N
 
 def _read_port_from_config() -> int | None:
     """Read the web port from pyfly.yaml if available."""
-    import yaml
+    import yaml  # type: ignore[import-untyped]
 
     config_path = Path("pyfly.yaml")
     if not config_path.exists():

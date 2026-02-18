@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Sequence
+from typing import cast
 
 from starlette.requests import Request
 from starlette.responses import Response
@@ -59,4 +60,4 @@ class SecurityFilter(OncePerRequestFilter):
             security_context = SecurityContext.anonymous()
 
         request.state.security_context = security_context
-        return await call_next(request)
+        return cast(Response, await call_next(request))

@@ -37,9 +37,7 @@ class LoggersProvider:
             if isinstance(logger_obj, logging.Logger):
                 loggers[name] = {
                     "configuredLevel": (
-                        logging.getLevelName(logger_obj.level)
-                        if logger_obj.level != logging.NOTSET
-                        else None
+                        logging.getLevelName(logger_obj.level) if logger_obj.level != logging.NOTSET else None
                     ),
                     "effectiveLevel": logging.getLevelName(logger_obj.getEffectiveLevel()),
                 }

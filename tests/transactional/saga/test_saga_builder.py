@@ -21,7 +21,6 @@ from pyfly.transactional.saga.core.context import SagaContext
 from pyfly.transactional.saga.registry.saga_builder import SagaBuilder
 from pyfly.transactional.saga.registry.saga_registry import SagaValidationError
 
-
 # ── Helper functions ──────────────────────────────────────────────────
 
 
@@ -54,11 +53,7 @@ async def notify_fn(ctx: SagaContext) -> str:
 
 class TestSagaBuilderSingleStep:
     def test_basic_builder_with_single_step(self) -> None:
-        saga_def = (
-            SagaBuilder("simple-saga")
-            .step("validate").handler(validate_fn).add()
-            .build()
-        )
+        saga_def = SagaBuilder("simple-saga").step("validate").handler(validate_fn).add().build()
 
         assert saga_def.name == "simple-saga"
         assert len(saga_def.steps) == 1
@@ -67,11 +62,7 @@ class TestSagaBuilderSingleStep:
         assert saga_def.steps["validate"].depends_on == []
 
     def test_single_step_defaults(self) -> None:
-        saga_def = (
-            SagaBuilder("defaults-saga")
-            .step("s1").handler(validate_fn).add()
-            .build()
-        )
+        saga_def = SagaBuilder("defaults-saga").step("s1").handler(validate_fn).add().build()
 
         step = saga_def.steps["s1"]
         assert step.retry == 0
@@ -83,11 +74,7 @@ class TestSagaBuilderSingleStep:
         assert step.compensate_method is None
 
     def test_bean_is_none_for_builder_sagas(self) -> None:
-        saga_def = (
-            SagaBuilder("no-bean")
-            .step("s1").handler(validate_fn).add()
-            .build()
-        )
+        saga_def = SagaBuilder("no-bean").step("s1").handler(validate_fn).add().build()
         assert saga_def.bean is None
 
 
@@ -95,9 +82,17 @@ class TestSagaBuilderMultipleSteps:
     def test_multiple_steps_with_dependencies(self) -> None:
         saga_def = (
             SagaBuilder("multi-saga")
-            .step("validate").handler(validate_fn).add()
-            .step("reserve").handler(reserve_fn).depends_on("validate").add()
-            .step("charge").handler(charge_fn).depends_on("reserve").add()
+            .step("validate")
+            .handler(validate_fn)
+            .add()
+            .step("reserve")
+            .handler(reserve_fn)
+            .depends_on("validate")
+            .add()
+            .step("charge")
+            .handler(charge_fn)
+            .depends_on("reserve")
+            .add()
             .build()
         )
 
@@ -109,9 +104,16 @@ class TestSagaBuilderMultipleSteps:
     def test_multiple_dependencies(self) -> None:
         saga_def = (
             SagaBuilder("fan-in")
-            .step("a").handler(validate_fn).add()
-            .step("b").handler(reserve_fn).add()
-            .step("c").handler(charge_fn).depends_on("a", "b").add()
+            .step("a")
+            .handler(validate_fn)
+            .add()
+            .step("b")
+            .handler(reserve_fn)
+            .add()
+            .step("c")
+            .handler(charge_fn)
+            .depends_on("a", "b")
+            .add()
             .build()
         )
 
@@ -120,10 +122,21 @@ class TestSagaBuilderMultipleSteps:
     def test_diamond_dependency_graph(self) -> None:
         saga_def = (
             SagaBuilder("diamond")
-            .step("root").handler(validate_fn).add()
-            .step("left").handler(reserve_fn).depends_on("root").add()
-            .step("right").handler(charge_fn).depends_on("root").add()
-            .step("join").handler(notify_fn).depends_on("left", "right").add()
+            .step("root")
+            .handler(validate_fn)
+            .add()
+            .step("left")
+            .handler(reserve_fn)
+            .depends_on("root")
+            .add()
+            .step("right")
+            .handler(charge_fn)
+            .depends_on("root")
+            .add()
+            .step("join")
+            .handler(notify_fn)
+            .depends_on("left", "right")
+            .add()
             .build()
         )
 
@@ -139,16 +152,18 @@ class TestSagaBuilderStepConfiguration:
         saga_def = (
             SagaBuilder("configured-saga")
             .step("reserve")
-                .handler(reserve_fn)
-                .compensate(release_fn)
-                .depends_on("validate")
-                .retry(3)
-                .backoff_ms(100)
-                .timeout_ms(5000)
-                .jitter(True, 0.3)
-                .cpu_bound(True)
+            .handler(reserve_fn)
+            .compensate(release_fn)
+            .depends_on("validate")
+            .retry(3)
+            .backoff_ms(100)
+            .timeout_ms(5000)
+            .jitter(True, 0.3)
+            .cpu_bound(True)
             .add()
-            .step("validate").handler(validate_fn).add()
+            .step("validate")
+            .handler(validate_fn)
+            .add()
             .build()
         )
 
@@ -166,8 +181,14 @@ class TestSagaBuilderStepConfiguration:
     def test_compensation_methods(self) -> None:
         saga_def = (
             SagaBuilder("comp-saga")
-            .step("reserve").handler(reserve_fn).compensate(release_fn).add()
-            .step("charge").handler(charge_fn).compensate(refund_fn).add()
+            .step("reserve")
+            .handler(reserve_fn)
+            .compensate(release_fn)
+            .add()
+            .step("charge")
+            .handler(charge_fn)
+            .compensate(refund_fn)
+            .add()
             .build()
         )
 
@@ -175,32 +196,20 @@ class TestSagaBuilderStepConfiguration:
         assert saga_def.steps["charge"].compensate_method is refund_fn
 
     def test_retry_only(self) -> None:
-        saga_def = (
-            SagaBuilder("retry-saga")
-            .step("s1").handler(validate_fn).retry(5).add()
-            .build()
-        )
+        saga_def = SagaBuilder("retry-saga").step("s1").handler(validate_fn).retry(5).add().build()
 
         assert saga_def.steps["s1"].retry == 5
         assert saga_def.steps["s1"].backoff_ms == 0
 
     def test_jitter_defaults(self) -> None:
-        saga_def = (
-            SagaBuilder("jitter-saga")
-            .step("s1").handler(validate_fn).jitter().add()
-            .build()
-        )
+        saga_def = SagaBuilder("jitter-saga").step("s1").handler(validate_fn).jitter().add().build()
 
         step = saga_def.steps["s1"]
         assert step.jitter is True
         assert step.jitter_factor == 0.5
 
     def test_cpu_bound_default(self) -> None:
-        saga_def = (
-            SagaBuilder("cpu-saga")
-            .step("s1").handler(validate_fn).cpu_bound().add()
-            .build()
-        )
+        saga_def = SagaBuilder("cpu-saga").step("s1").handler(validate_fn).cpu_bound().add().build()
 
         assert saga_def.steps["s1"].cpu_bound is True
 
@@ -208,20 +217,13 @@ class TestSagaBuilderStepConfiguration:
 class TestSagaBuilderLayerConcurrency:
     def test_layer_concurrency(self) -> None:
         saga_def = (
-            SagaBuilder("concurrent-saga")
-            .step("validate").handler(validate_fn).add()
-            .layer_concurrency(5)
-            .build()
+            SagaBuilder("concurrent-saga").step("validate").handler(validate_fn).add().layer_concurrency(5).build()
         )
 
         assert saga_def.layer_concurrency == 5
 
     def test_default_layer_concurrency(self) -> None:
-        saga_def = (
-            SagaBuilder("default-conc")
-            .step("s1").handler(validate_fn).add()
-            .build()
-        )
+        saga_def = SagaBuilder("default-conc").step("s1").handler(validate_fn).add().build()
 
         assert saga_def.layer_concurrency == 0
 
@@ -233,59 +235,50 @@ class TestSagaBuilderValidation:
 
     def test_build_raises_on_missing_dependency(self) -> None:
         with pytest.raises(SagaValidationError, match="nonexistent"):
-            (
-                SagaBuilder("bad-dep")
-                .step("s1").handler(validate_fn).depends_on("ghost").add()
-                .build()
-            )
+            (SagaBuilder("bad-dep").step("s1").handler(validate_fn).depends_on("ghost").add().build())
 
     def test_build_raises_on_cycle(self) -> None:
         with pytest.raises(SagaValidationError, match="cycle"):
             (
                 SagaBuilder("cyclic")
-                .step("a").handler(validate_fn).depends_on("b").add()
-                .step("b").handler(reserve_fn).depends_on("a").add()
+                .step("a")
+                .handler(validate_fn)
+                .depends_on("b")
+                .add()
+                .step("b")
+                .handler(reserve_fn)
+                .depends_on("a")
+                .add()
                 .build()
             )
 
     def test_build_raises_on_self_dependency(self) -> None:
         with pytest.raises(SagaValidationError, match="cycle"):
-            (
-                SagaBuilder("self-dep")
-                .step("a").handler(validate_fn).depends_on("a").add()
-                .build()
-            )
+            (SagaBuilder("self-dep").step("a").handler(validate_fn).depends_on("a").add().build())
 
     def test_duplicate_step_id_raises(self) -> None:
         with pytest.raises(SagaValidationError, match="duplicate|already exists"):
-            (
-                SagaBuilder("dup")
-                .step("s1").handler(validate_fn).add()
-                .step("s1").handler(reserve_fn).add()
-                .build()
-            )
+            (SagaBuilder("dup").step("s1").handler(validate_fn).add().step("s1").handler(reserve_fn).add().build())
 
     def test_step_without_handler_raises(self) -> None:
         with pytest.raises(SagaValidationError, match="handler"):
-            (
-                SagaBuilder("no-handler")
-                .step("s1").add()
-                .build()
-            )
+            (SagaBuilder("no-handler").step("s1").add().build())
 
 
 class TestSagaBuilderEndToEnd:
     def test_full_example_from_task_description(self) -> None:
         saga_def = (
             SagaBuilder("my-saga")
-            .step("validate").handler(validate_fn).add()
+            .step("validate")
+            .handler(validate_fn)
+            .add()
             .step("reserve")
-                .handler(reserve_fn)
-                .compensate(release_fn)
-                .depends_on("validate")
-                .retry(3)
-                .backoff_ms(100)
-                .timeout_ms(5000)
+            .handler(reserve_fn)
+            .compensate(release_fn)
+            .depends_on("validate")
+            .retry(3)
+            .backoff_ms(100)
+            .timeout_ms(5000)
             .add()
             .layer_concurrency(5)
             .build()

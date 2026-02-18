@@ -85,8 +85,7 @@ class SagaTopology:
         # -- 4. Cycle detection ---------------------------------------------
         if processed != len(deps):
             raise ValueError(
-                f"Dependency graph contains a cycle — "
-                f"processed {processed} of {len(deps)} steps",
+                f"Dependency graph contains a cycle — processed {processed} of {len(deps)} steps",
             )
 
         return layers

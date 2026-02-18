@@ -98,9 +98,7 @@ class TestSpecificationSingle:
 
     @pytest.mark.asyncio
     async def test_filter_by_role(self, seeded_session: AsyncSession):
-        admin_spec: Specification[User] = Specification(
-            lambda root, q: q.where(root.role == "admin")
-        )
+        admin_spec: Specification[User] = Specification(lambda root, q: q.where(root.role == "admin"))
         names = await _names(seeded_session, admin_spec)
         assert names == ["Alice", "Charlie"]
 
@@ -118,9 +116,7 @@ class TestSpecificationAnd:
 
     @pytest.mark.asyncio
     async def test_and_combination(self, seeded_session: AsyncSession):
-        admin_spec: Specification[User] = Specification(
-            lambda root, q: q.where(root.role == "admin")
-        )
+        admin_spec: Specification[User] = Specification(lambda root, q: q.where(root.role == "admin"))
         active_spec: Specification[User] = Specification(
             lambda root, q: q.where(root.active == True)  # noqa: E712
         )
@@ -130,15 +126,11 @@ class TestSpecificationAnd:
 
     @pytest.mark.asyncio
     async def test_and_three_specs(self, seeded_session: AsyncSession):
-        admin_spec: Specification[User] = Specification(
-            lambda root, q: q.where(root.role == "admin")
-        )
+        admin_spec: Specification[User] = Specification(lambda root, q: q.where(root.role == "admin"))
         active_spec: Specification[User] = Specification(
             lambda root, q: q.where(root.active == True)  # noqa: E712
         )
-        name_spec: Specification[User] = Specification(
-            lambda root, q: q.where(root.name == "Alice")
-        )
+        name_spec: Specification[User] = Specification(lambda root, q: q.where(root.name == "Alice"))
         combined = admin_spec & active_spec & name_spec
         names = await _names(seeded_session, combined)
         assert names == ["Alice"]
@@ -149,9 +141,7 @@ class TestSpecificationOr:
 
     @pytest.mark.asyncio
     async def test_or_combination(self, seeded_session: AsyncSession):
-        admin_spec: Specification[User] = Specification(
-            lambda root, q: q.where(root.role == "admin")
-        )
+        admin_spec: Specification[User] = Specification(lambda root, q: q.where(root.role == "admin"))
         active_spec: Specification[User] = Specification(
             lambda root, q: q.where(root.active == True)  # noqa: E712
         )
@@ -175,9 +165,7 @@ class TestSpecificationNot:
 
     @pytest.mark.asyncio
     async def test_not_admin(self, seeded_session: AsyncSession):
-        admin_spec: Specification[User] = Specification(
-            lambda root, q: q.where(root.role == "admin")
-        )
+        admin_spec: Specification[User] = Specification(lambda root, q: q.where(root.role == "admin"))
         non_admin = ~admin_spec
         names = await _names(seeded_session, non_admin)
         assert names == ["Bob", "Diana"]
@@ -188,15 +176,11 @@ class TestSpecificationComplex:
 
     @pytest.mark.asyncio
     async def test_complex_composition(self, seeded_session: AsyncSession):
-        admin_spec: Specification[User] = Specification(
-            lambda root, q: q.where(root.role == "admin")
-        )
+        admin_spec: Specification[User] = Specification(lambda root, q: q.where(root.role == "admin"))
         active_spec: Specification[User] = Specification(
             lambda root, q: q.where(root.active == True)  # noqa: E712
         )
-        diana_spec: Specification[User] = Specification(
-            lambda root, q: q.where(root.name == "Diana")
-        )
+        diana_spec: Specification[User] = Specification(lambda root, q: q.where(root.name == "Diana"))
         # (admin AND active) OR Diana  -> Alice OR Diana
         combined = (admin_spec & active_spec) | diana_spec
         names = await _names(seeded_session, combined)
@@ -204,9 +188,7 @@ class TestSpecificationComplex:
 
     @pytest.mark.asyncio
     async def test_not_combined_with_and(self, seeded_session: AsyncSession):
-        admin_spec: Specification[User] = Specification(
-            lambda root, q: q.where(root.role == "admin")
-        )
+        admin_spec: Specification[User] = Specification(lambda root, q: q.where(root.role == "admin"))
         active_spec: Specification[User] = Specification(
             lambda root, q: q.where(root.active == True)  # noqa: E712
         )
@@ -228,9 +210,7 @@ class TestSpecificationNoop:
     @pytest.mark.asyncio
     async def test_noop_and_spec(self, seeded_session: AsyncSession):
         noop: Specification[User] = Specification(lambda root, q: q)
-        admin_spec: Specification[User] = Specification(
-            lambda root, q: q.where(root.role == "admin")
-        )
+        admin_spec: Specification[User] = Specification(lambda root, q: q.where(root.role == "admin"))
         combined = noop & admin_spec
         names = await _names(seeded_session, combined)
         assert names == ["Alice", "Charlie"]
@@ -238,9 +218,7 @@ class TestSpecificationNoop:
     @pytest.mark.asyncio
     async def test_noop_or_spec(self, seeded_session: AsyncSession):
         noop: Specification[User] = Specification(lambda root, q: q)
-        admin_spec: Specification[User] = Specification(
-            lambda root, q: q.where(root.role == "admin")
-        )
+        admin_spec: Specification[User] = Specification(lambda root, q: q.where(root.role == "admin"))
         # noop has no whereclause, so OR falls through to admin_spec
         combined = noop | admin_spec
         names = await _names(seeded_session, combined)

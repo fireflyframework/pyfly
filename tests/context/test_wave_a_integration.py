@@ -28,8 +28,10 @@ from pyfly.core.config import Config
 
 # --- Domain layer ---
 
+
 class OrderRepository:
     """Interface."""
+
     async def find(self, order_id: str) -> dict | None: ...
     async def save(self, data: dict) -> dict: ...
 
@@ -79,6 +81,7 @@ class AuditService:
 
 
 # --- Integration test ---
+
 
 class TestWaveAIntegration:
     @pytest.mark.asyncio

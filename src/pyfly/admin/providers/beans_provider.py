@@ -41,33 +41,33 @@ class BeansProvider:
             # Inspect constructor dependencies
             deps = []
             try:
-                hints = (
-                    inspect.get_annotations(cls.__init__, eval_str=True)
-                    if hasattr(cls, "__init__")
-                    else {}
-                )
+                hints = inspect.get_annotations(cls.__init__, eval_str=True) if hasattr(cls, "__init__") else {}  # type: ignore[misc]
                 for param_name, param_type in hints.items():
                     if param_name in ("self", "return"):
                         continue
-                    deps.append({
-                        "name": param_name,
-                        "type": getattr(param_type, "__name__", str(param_type)),
-                    })
+                    deps.append(
+                        {
+                            "name": param_name,
+                            "type": getattr(param_type, "__name__", str(param_type)),
+                        }
+                    )
             except Exception:
                 pass
 
-            beans.append({
-                "name": bean_name,
-                "type": f"{cls.__module__}.{cls.__qualname__}",
-                "scope": reg.scope.name,
-                "stereotype": stereotype,
-                "primary": primary,
-                "order": order,
-                "profile": profile,
-                "conditions": [str(c) for c in conditions] if conditions else [],
-                "dependencies": deps,
-                "initialized": reg.instance is not None,
-            })
+            beans.append(
+                {
+                    "name": bean_name,
+                    "type": f"{cls.__module__}.{cls.__qualname__}",
+                    "scope": reg.scope.name,
+                    "stereotype": stereotype,
+                    "primary": primary,
+                    "order": order,
+                    "profile": profile,
+                    "conditions": [str(c) for c in conditions] if conditions else [],
+                    "dependencies": deps,
+                    "initialized": reg.instance is not None,
+                }
+            )
 
         beans.sort(key=lambda b: (b["stereotype"], b["name"]))
         return {"beans": beans, "total": len(beans)}

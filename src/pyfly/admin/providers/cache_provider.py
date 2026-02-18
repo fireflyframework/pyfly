@@ -35,6 +35,7 @@ class CacheProvider:
             return self._adapter
         try:
             from pyfly.cache.ports.outbound import CacheAdapter
+
             for _cls, reg in self._context.container._registrations.items():
                 if reg.instance is not None and isinstance(reg.instance, CacheAdapter):
                     self._adapter = reg.instance

@@ -98,8 +98,7 @@ class ArgumentResolver:
             hint = hints.get(name)
             if hint is None:
                 raise TypeError(
-                    f"Cannot resolve parameter '{name}' — "
-                    f"no type hint found on {func.__qualname__}",
+                    f"Cannot resolve parameter '{name}' — no type hint found on {func.__qualname__}",
                 )
 
             value = self._resolve_parameter(name, hint, ctx, step_input)
@@ -140,8 +139,7 @@ class ArgumentResolver:
 
         # 3. Cannot resolve — raise.
         raise TypeError(
-            f"Cannot resolve parameter '{name}' — "
-            f"no matching injection marker found in type hint: {hint}",
+            f"Cannot resolve parameter '{name}' — no matching injection marker found in type hint: {hint}",
         )
 
     def _resolve_marker(

@@ -28,7 +28,6 @@ from pyfly.aop.decorators import (
 from pyfly.aop.registry import AspectRegistry
 from pyfly.aop.weaver import weave_bean
 
-
 # ---------------------------------------------------------------------------
 # Helper beans and aspects
 # ---------------------------------------------------------------------------

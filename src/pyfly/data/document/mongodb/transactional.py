@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """MongoDB transactional decorator — wraps async functions in a Mongo session + transaction."""
+
 from __future__ import annotations
 
 import functools
@@ -50,13 +51,11 @@ def mongo_transactional(func: F) -> F:
         motor_client = getattr(self_arg, "_motor_client", None)
         if motor_client is None:
             raise RuntimeError(
-                f"{func.__qualname__}: cannot resolve Motor client. "
-                "Ensure the service has a '_motor_client' attribute."
+                f"{func.__qualname__}: cannot resolve Motor client. Ensure the service has a '_motor_client' attribute."
             )
 
-        async with await motor_client.start_session() as session:
-            async with session.start_transaction():
-                kwargs["session"] = session
-                return await func(*args, **kwargs)
+        async with await motor_client.start_session() as session, session.start_transaction():
+            kwargs["session"] = session
+            return await func(*args, **kwargs)
 
     return wrapper  # type: ignore[return-value]

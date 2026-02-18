@@ -63,10 +63,7 @@ class SagaExecutionOrchestrator:
             ctx.step_latencies_ms.
         """
         # 1. Compute topology layers from step dependencies.
-        deps = {
-            step_id: list(step_def.depends_on)
-            for step_id, step_def in saga_def.steps.items()
-        }
+        deps = {step_id: list(step_def.depends_on) for step_id, step_def in saga_def.steps.items()}
         layers = SagaTopology.compute_layers(deps)
         ctx.topology_layers = layers
 
@@ -98,7 +95,7 @@ class SagaExecutionOrchestrator:
                 tasks[step_id] = task
 
             # Wait for all tasks in the layer; on first failure cancel the rest.
-            first_error: Exception | None = None
+            first_error: BaseException | None = None
             done, pending = await asyncio.wait(
                 tasks.values(),
                 return_when=asyncio.FIRST_EXCEPTION,
@@ -143,9 +140,7 @@ class SagaExecutionOrchestrator:
         correlation_id = ctx.correlation_id
 
         async def _run_attempt() -> Any:
-            return await self._step_invoker.invoke_step(
-                step_def, bean, ctx, step_input
-            )
+            return await self._step_invoker.invoke_step(step_def, bean, ctx, step_input)
 
         async def _guarded() -> None:
             nonlocal backoff_ms
@@ -171,9 +166,7 @@ class SagaExecutionOrchestrator:
                     ctx.step_latencies_ms[step_id] = latency
 
                     if self._events_port is not None:
-                        await self._events_port.on_step_success(
-                            saga_name, correlation_id, step_id, attempt, latency
-                        )
+                        await self._events_port.on_step_success(saga_name, correlation_id, step_id, attempt, latency)
 
                     completed_step_ids.append(step_id)
                     return  # Success
@@ -184,9 +177,7 @@ class SagaExecutionOrchestrator:
                     if attempt < max_retries:
                         delay = backoff_ms / 1000.0
                         if jitter:
-                            delay *= 1 + random.uniform(
-                                -jitter_factor, jitter_factor
-                            )
+                            delay *= 1 + random.uniform(-jitter_factor, jitter_factor)
                         await asyncio.sleep(delay)
                         backoff_ms *= 2  # exponential
                     else:

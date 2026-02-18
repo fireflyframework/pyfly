@@ -57,9 +57,7 @@ class AdminClientRegistration:
             )
             return False
         except Exception:
-            logger.exception(
-                "Failed to register with admin server at %s", self._server_url
-            )
+            logger.exception("Failed to register with admin server at %s", self._server_url)
             return False
 
     async def deregister(self) -> bool:
@@ -71,9 +69,7 @@ class AdminClientRegistration:
         try:
             status, body = await self._delete(endpoint)
             if 200 <= status < 300:
-                logger.info(
-                    "Deregistered from admin server at %s", self._server_url
-                )
+                logger.info("Deregistered from admin server at %s", self._server_url)
                 return True
             logger.warning(
                 "Admin server deregistration failed (HTTP %s): %s",
@@ -82,15 +78,13 @@ class AdminClientRegistration:
             )
             return False
         except Exception:
-            logger.exception(
-                "Failed to deregister from admin server at %s", self._server_url
-            )
+            logger.exception("Failed to deregister from admin server at %s", self._server_url)
             return False
 
     # -- HTTP helpers (httpx preferred, urllib fallback) -------------------
 
     @staticmethod
-    async def _post(url: str, payload: dict) -> tuple[int, str]:
+    async def _post(url: str, payload: dict[str, str]) -> tuple[int, str]:
         try:
             import httpx
 

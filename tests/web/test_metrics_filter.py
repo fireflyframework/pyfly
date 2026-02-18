@@ -15,6 +15,7 @@
 
 from __future__ import annotations
 
+import contextlib
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -43,10 +44,8 @@ def _clean_prometheus_registry():
     yield
     for name in list(REGISTRY._names_to_collectors.keys()):
         if name not in collectors_before:
-            try:
+            with contextlib.suppress(Exception):
                 REGISTRY.unregister(REGISTRY._names_to_collectors[name])
-            except Exception:
-                pass
 
 
 class TestMetricsFilter:

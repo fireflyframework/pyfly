@@ -13,7 +13,7 @@
 # limitations under the License.
 """Tests for admin server mode — instance registry and discovery."""
 
-from pyfly.admin.server.instance_registry import InstanceInfo, InstanceRegistry
+from pyfly.admin.server.instance_registry import InstanceRegistry
 
 
 class TestInstanceRegistry:

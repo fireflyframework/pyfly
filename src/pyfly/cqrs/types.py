@@ -24,8 +24,8 @@ and :mod:`pyfly.cqrs.query.handler` (``QueryHandler[Q, R]``).
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Any, Generic, TypeVar
+from datetime import UTC, datetime
+from typing import Any, Generic, TypeVar, cast
 from uuid import uuid4
 
 from pyfly.cqrs.authorization.types import AuthorizationResult
@@ -53,7 +53,7 @@ class Command(Generic[R]):
     def get_command_id(self) -> str:
         """Unique identifier for this command instance (auto-generated UUID)."""
         try:
-            return self._cqrs_command_id  # type: ignore[attr-defined]
+            return cast(str, self._cqrs_command_id)  # type: ignore[attr-defined]
         except AttributeError:
             cid = str(uuid4())
             object.__setattr__(self, "_cqrs_command_id", cid)
@@ -69,9 +69,9 @@ class Command(Generic[R]):
     def get_timestamp(self) -> datetime:
         """When this command was created."""
         try:
-            return self._cqrs_timestamp  # type: ignore[attr-defined]
+            return cast(datetime, self._cqrs_timestamp)  # type: ignore[attr-defined]
         except AttributeError:
-            ts = datetime.now(timezone.utc)
+            ts = datetime.now(UTC)
             object.__setattr__(self, "_cqrs_timestamp", ts)
             return ts
 
@@ -85,7 +85,7 @@ class Command(Generic[R]):
     def get_metadata(self) -> dict[str, Any]:
         """Arbitrary metadata key-value pairs."""
         try:
-            return self._cqrs_metadata  # type: ignore[attr-defined]
+            return cast(dict[str, Any], self._cqrs_metadata)  # type: ignore[attr-defined]
         except AttributeError:
             md: dict[str, Any] = {}
             object.__setattr__(self, "_cqrs_metadata", md)
@@ -127,7 +127,7 @@ class Query(Generic[R]):
 
     def get_query_id(self) -> str:
         try:
-            return self._cqrs_query_id  # type: ignore[attr-defined]
+            return cast(str, self._cqrs_query_id)  # type: ignore[attr-defined]
         except AttributeError:
             qid = str(uuid4())
             object.__setattr__(self, "_cqrs_query_id", qid)
@@ -141,15 +141,15 @@ class Query(Generic[R]):
 
     def get_timestamp(self) -> datetime:
         try:
-            return self._cqrs_timestamp  # type: ignore[attr-defined]
+            return cast(datetime, self._cqrs_timestamp)  # type: ignore[attr-defined]
         except AttributeError:
-            ts = datetime.now(timezone.utc)
+            ts = datetime.now(UTC)
             object.__setattr__(self, "_cqrs_timestamp", ts)
             return ts
 
     def get_metadata(self) -> dict[str, Any]:
         try:
-            return self._cqrs_metadata  # type: ignore[attr-defined]
+            return cast(dict[str, Any], self._cqrs_metadata)  # type: ignore[attr-defined]
         except AttributeError:
             md: dict[str, Any] = {}
             object.__setattr__(self, "_cqrs_metadata", md)

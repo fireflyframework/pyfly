@@ -15,7 +15,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Generic, TypeVar, get_args, get_origin
+from typing import Any, Generic, TypeVar, cast, get_args, get_origin
 
 from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -59,26 +59,22 @@ class Repository(Generic[T, ID]):
                     cls._id_type = args[1]
                 break
 
-    def __init__(
-        self, model: type[T] | None = None, session: AsyncSession | None = None
-    ) -> None:
-        self._model = model or getattr(type(self), "_entity_type", None)
-        if self._model is None:
+    def __init__(self, model: type[T] | None = None, session: AsyncSession | None = None) -> None:
+        resolved = model or getattr(type(self), "_entity_type", None)
+        if resolved is None:
             raise TypeError(
-                f"{type(self).__name__} requires either Repository[Entity, ID] "
-                f"declaration or explicit model argument"
+                f"{type(self).__name__} requires either Repository[Entity, ID] declaration or explicit model argument"
             )
+        self._model: type[T] = cast(type[T], resolved)
         self._session = session
 
     def _require_session(self) -> AsyncSession:
         """Return the session or raise if none is configured."""
         if self._session is None:
-            raise RuntimeError(
-                "No AsyncSession configured — ensure a session bean is registered"
-            )
+            raise RuntimeError("No AsyncSession configured — ensure a session bean is registered")
         return self._session
 
-    def _apply_sort(self, stmt: Select, pageable: Pageable) -> Select:
+    def _apply_sort(self, stmt: Select[Any], pageable: Pageable) -> Select[Any]:
         """Apply sort orders from a Pageable to a SELECT statement."""
         for order in pageable.sort.orders:
             col = getattr(self._model, order.property)
@@ -115,9 +111,7 @@ class Repository(Generic[T, ID]):
             await session.delete(entity)
             await session.flush()
 
-    async def find_paginated(
-        self, page: int = 1, size: int = 20, pageable: Pageable | None = None
-    ) -> Page[T]:
+    async def find_paginated(self, page: int = 1, size: int = 20, pageable: Pageable | None = None) -> Page[T]:
         """Find entities with pagination.
 
         Args:
@@ -161,9 +155,7 @@ class Repository(Generic[T, ID]):
         result = await session.execute(stmt)
         return list(result.scalars().all())
 
-    async def find_all_by_spec_paged(
-        self, spec: Specification[T], pageable: Pageable
-    ) -> Page[T]:
+    async def find_all_by_spec_paged(self, spec: Specification[T], pageable: Pageable) -> Page[T]:
         """Find entities matching the specification with pagination and sorting."""
         session = self._require_session()
         # Count with spec
@@ -209,9 +201,7 @@ class Repository(Generic[T, ID]):
         if not ids:
             return []
         session = self._require_session()
-        stmt = select(self._model).where(
-            self._model.id.in_(ids)
-        )
+        stmt = select(self._model).where(self._model.id.in_(ids))  # type: ignore[attr-defined]
         result = await session.execute(stmt)
         return list(result.scalars().all())
 
@@ -221,12 +211,11 @@ class Repository(Generic[T, ID]):
             return 0
         session = self._require_session()
         from sqlalchemy import delete as sa_delete
-        stmt = sa_delete(self._model).where(
-            self._model.id.in_(ids)
-        )
+
+        stmt = sa_delete(self._model).where(self._model.id.in_(ids))  # type: ignore[attr-defined]
         result = await session.execute(stmt)
         await session.flush()
-        return result.rowcount
+        return cast(int, result.rowcount)  # type: ignore[attr-defined]
 
     async def delete_all_entities(self, entities: list[T]) -> int:
         """Delete all given entity instances. Returns count deleted."""

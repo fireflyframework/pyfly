@@ -45,9 +45,7 @@ class TransactionalPersistencePort(Protocol):
         """Return the persisted state for *correlation_id*, or ``None`` if absent."""
         ...
 
-    async def update_step_status(
-        self, correlation_id: str, step_id: str, status: str
-    ) -> None:
+    async def update_step_status(self, correlation_id: str, step_id: str, status: str) -> None:
         """Update the status of a single step within the identified transaction."""
         ...
 
@@ -127,9 +125,7 @@ class TransactionalEventsPort(Protocol):
         """
         ...
 
-    async def on_completed(
-        self, name: str, correlation_id: str, success: bool
-    ) -> None:
+    async def on_completed(self, name: str, correlation_id: str, success: bool) -> None:
         """Fired when the entire transaction finishes (committed or compensated)."""
         ...
 
@@ -170,9 +166,7 @@ class CompensationErrorHandlerPort(Protocol):
     alert, or apply domain-specific recovery logic.
     """
 
-    async def handle(
-        self, saga_name: str, step_id: str, error: Exception, ctx: Any
-    ) -> None:
+    async def handle(self, saga_name: str, step_id: str, error: Exception, ctx: Any) -> None:
         """Handle a compensation failure for the given step.
 
         Args:

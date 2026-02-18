@@ -29,5 +29,6 @@ class TestErrorStrategy:
 class TestEventPublisherProtocol:
     def test_in_memory_implements_publisher(self):
         from pyfly.eda.adapters.memory import InMemoryEventBus
+
         bus = InMemoryEventBus()
         assert isinstance(bus, EventPublisher)

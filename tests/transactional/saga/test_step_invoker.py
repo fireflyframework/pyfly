@@ -15,7 +15,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import threading
 from typing import Annotated, Any
 
@@ -26,7 +25,6 @@ from pyfly.transactional.saga.core.context import SagaContext
 from pyfly.transactional.saga.engine.argument_resolver import ArgumentResolver
 from pyfly.transactional.saga.engine.step_invoker import StepInvoker
 from pyfly.transactional.saga.registry.step_definition import StepDefinition
-
 
 # ── Helpers ──────────────────────────────────────────────────
 
@@ -77,9 +75,7 @@ def bean() -> _FakeBean:
 
 class TestInvokeStep:
     @pytest.mark.anyio
-    async def test_invoke_simple_async_step(
-        self, invoker: StepInvoker, ctx: SagaContext, bean: _FakeBean
-    ) -> None:
+    async def test_invoke_simple_async_step(self, invoker: StepInvoker, ctx: SagaContext, bean: _FakeBean) -> None:
         """Invoke a simple async step method and return its result."""
 
         async def process(self: Any, context: SagaContext) -> str:
@@ -104,9 +100,7 @@ class TestInvokeStep:
             return {"data": data, "prev": prev, "saga": context.saga_name}
 
         step_def = _make_step_def(step_method=process)
-        result = await invoker.invoke_step(
-            step_def, bean, ctx, step_input={"order_id": "o1"}
-        )
+        result = await invoker.invoke_step(step_def, bean, ctx, step_input={"order_id": "o1"})
         assert result == {
             "data": {"order_id": "o1"},
             "prev": {"valid": True},
@@ -114,9 +108,7 @@ class TestInvokeStep:
         }
 
     @pytest.mark.anyio
-    async def test_invoke_sync_step(
-        self, invoker: StepInvoker, ctx: SagaContext, bean: _FakeBean
-    ) -> None:
+    async def test_invoke_sync_step(self, invoker: StepInvoker, ctx: SagaContext, bean: _FakeBean) -> None:
         """Invoke a synchronous (non-async) step method."""
 
         def process(self: Any, context: SagaContext) -> str:
@@ -127,9 +119,7 @@ class TestInvokeStep:
         assert result == "sync-test-saga"
 
     @pytest.mark.anyio
-    async def test_step_exception_propagates(
-        self, invoker: StepInvoker, ctx: SagaContext, bean: _FakeBean
-    ) -> None:
+    async def test_step_exception_propagates(self, invoker: StepInvoker, ctx: SagaContext, bean: _FakeBean) -> None:
         """An exception thrown by a step method propagates to the caller."""
 
         async def failing_step(self: Any, context: SagaContext) -> None:
@@ -159,9 +149,7 @@ class TestInvokeStep:
 
 class TestInvokeCompensation:
     @pytest.mark.anyio
-    async def test_invoke_compensation(
-        self, invoker: StepInvoker, ctx: SagaContext, bean: _FakeBean
-    ) -> None:
+    async def test_invoke_compensation(self, invoker: StepInvoker, ctx: SagaContext, bean: _FakeBean) -> None:
         """Invoke a compensation method and return its result."""
 
         async def rollback(self: Any, context: SagaContext) -> str:
@@ -194,9 +182,7 @@ class TestInvokeCompensation:
             await invoker.invoke_compensation(step_def, bean, ctx)
 
     @pytest.mark.anyio
-    async def test_invoke_sync_compensation(
-        self, invoker: StepInvoker, ctx: SagaContext, bean: _FakeBean
-    ) -> None:
+    async def test_invoke_sync_compensation(self, invoker: StepInvoker, ctx: SagaContext, bean: _FakeBean) -> None:
         """Invoke a synchronous compensation method."""
 
         def rollback(self: Any, context: SagaContext) -> str:
@@ -230,9 +216,7 @@ class TestSetVariableHandling:
         assert ctx.variables.get("output_key") == "computed-value"
 
     @pytest.mark.anyio
-    async def test_multiple_set_variables(
-        self, invoker: StepInvoker, ctx: SagaContext, bean: _FakeBean
-    ) -> None:
+    async def test_multiple_set_variables(self, invoker: StepInvoker, ctx: SagaContext, bean: _FakeBean) -> None:
         """Multiple SetVariable markers all store the step result in context."""
 
         async def step(

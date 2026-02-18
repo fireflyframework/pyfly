@@ -34,7 +34,6 @@ from pyfly.transactional.saga.annotations import (
     step_event,
 )
 
-
 # ---------------------------------------------------------------------------
 # @saga
 # ---------------------------------------------------------------------------
@@ -265,7 +264,7 @@ class TestSagaStepDecorator:
         async def add(a: int, b: int) -> int:
             return a + b
 
-        result = asyncio.get_event_loop().run_until_complete(add(2, 3))
+        result = asyncio.run(add(2, 3))
         assert result == 5
 
     def test_preserves_sync_function_behavior(self) -> None:

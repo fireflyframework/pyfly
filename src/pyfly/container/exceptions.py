@@ -50,11 +50,7 @@ class NoSuchBeanError(BeanCreationException):
         self.parameter = parameter
         self.suggestions = suggestions or []
 
-        type_desc = (
-            getattr(bean_type, "__name__", repr(bean_type))
-            if bean_type is not None
-            else None
-        )
+        type_desc = getattr(bean_type, "__name__", repr(bean_type)) if bean_type is not None else None
         if type_desc:
             headline = f"No bean of type '{type_desc}' is registered"
         elif bean_name:
@@ -92,7 +88,7 @@ class NoSuchBeanError(BeanCreationException):
         self.args = (message,)
 
     def __str__(self) -> str:
-        return self.args[0] if self.args else ""
+        return str(self.args[0]) if self.args else ""
 
 
 class NoUniqueBeanError(BeanCreationException):
@@ -113,9 +109,7 @@ class NoUniqueBeanError(BeanCreationException):
 
         type_name = getattr(bean_type, "__name__", repr(bean_type))
         candidate_names = [getattr(c, "__name__", repr(c)) for c in candidates]
-        headline = (
-            f"Multiple beans of type '{type_name}' found but none is marked @primary"
-        )
+        headline = f"Multiple beans of type '{type_name}' found but none is marked @primary"
 
         lines = [f"NoUniqueBeanError: {headline}"]
         lines.append("")
@@ -142,7 +136,7 @@ class NoUniqueBeanError(BeanCreationException):
         self.args = (message,)
 
     def __str__(self) -> str:
-        return self.args[0] if self.args else ""
+        return str(self.args[0]) if self.args else ""
 
 
 class BeanCurrentlyInCreationError(BeanCreationException):
@@ -176,4 +170,4 @@ class BeanCurrentlyInCreationError(BeanCreationException):
         self.args = (message,)
 
     def __str__(self) -> str:
-        return self.args[0] if self.args else ""
+        return str(self.args[0]) if self.args else ""

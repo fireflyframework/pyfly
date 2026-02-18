@@ -91,9 +91,7 @@ class TccRegistry:
             attr = getattr(cls, attr_name, None)
             if attr is None or not inspect.isclass(attr):
                 continue
-            participant_meta: dict[str, Any] | None = getattr(
-                attr, "__pyfly_tcc_participant__", None
-            )
+            participant_meta: dict[str, Any] | None = getattr(attr, "__pyfly_tcc_participant__", None)
             if participant_meta is None:
                 continue
 
@@ -101,10 +99,7 @@ class TccRegistry:
 
             # Check for duplicate participant ids.
             if participant_id in {p.id for p in unsorted_participants}:
-                msg = (
-                    f"Duplicate participant id '{participant_id}' in TCC "
-                    f"'{tcc_name}'"
-                )
+                msg = f"Duplicate participant id '{participant_id}' in TCC '{tcc_name}'"
                 raise TccValidationError(msg)
 
             # Resolve try/confirm/cancel methods on the participant class.
@@ -126,10 +121,7 @@ class TccRegistry:
 
             # Validate that the participant has at least a try method.
             if resolved_try is None:
-                msg = (
-                    f"Participant '{participant_id}' in TCC '{tcc_name}' "
-                    f"must have a @try_method"
-                )
+                msg = f"Participant '{participant_id}' in TCC '{tcc_name}' must have a @try_method"
                 raise TccValidationError(msg)
 
             participant_def = ParticipantDefinition(

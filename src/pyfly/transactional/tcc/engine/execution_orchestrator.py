@@ -74,7 +74,11 @@ class TccExecutionOrchestrator:
         for p_def in participants:
             try:
                 result = await self._invoke_with_retry_and_timeout(
-                    self._invoker.invoke_try, p_def, bean, ctx, input_data,
+                    self._invoker.invoke_try,
+                    p_def,
+                    bean,
+                    ctx,
+                    input_data,
                     phase_attr="__pyfly_try_method__",
                 )
                 ctx.set_try_result(p_def.id, result)
@@ -84,11 +88,14 @@ class TccExecutionOrchestrator:
                 if p_def.optional:
                     logger.debug(
                         "Optional participant '%s' TRY failed (skipped): %s",
-                        p_def.id, exc,
+                        p_def.id,
+                        exc,
                     )
                     continue
                 logger.debug(
-                    "Participant '%s' TRY failed: %s", p_def.id, exc,
+                    "Participant '%s' TRY failed: %s",
+                    p_def.id,
+                    exc,
                 )
                 failed_participant_id = p_def.id
                 break
@@ -107,13 +114,19 @@ class TccExecutionOrchestrator:
                 continue
             try:
                 await self._invoke_with_retry_and_timeout(
-                    self._invoker.invoke_confirm, p_def, bean, ctx, None,
+                    self._invoker.invoke_confirm,
+                    p_def,
+                    bean,
+                    ctx,
+                    None,
                     phase_attr="__pyfly_confirm_method__",
                 )
                 ctx.set_participant_status(p_def.id, TccPhase.CONFIRM)
             except Exception as exc:
                 logger.debug(
-                    "Participant '%s' CONFIRM failed: %s", p_def.id, exc,
+                    "Participant '%s' CONFIRM failed: %s",
+                    p_def.id,
+                    exc,
                 )
                 failed_participant_id = p_def.id
                 break
@@ -144,13 +157,19 @@ class TccExecutionOrchestrator:
                 continue
             try:
                 await self._invoke_with_retry_and_timeout(
-                    self._invoker.invoke_cancel, p_def, bean, ctx, None,
+                    self._invoker.invoke_cancel,
+                    p_def,
+                    bean,
+                    ctx,
+                    None,
                     phase_attr="__pyfly_cancel_method__",
                 )
                 ctx.set_participant_status(pid, TccPhase.CANCEL)
             except Exception as exc:
                 logger.warning(
-                    "Participant '%s' CANCEL failed: %s", pid, exc,
+                    "Participant '%s' CANCEL failed: %s",
+                    pid,
+                    exc,
                 )
 
     async def _invoke_with_retry_and_timeout(
@@ -180,7 +199,8 @@ class TccExecutionOrchestrator:
 
                 if timeout_ms > 0:
                     return await asyncio.wait_for(
-                        coro, timeout=timeout_ms / 1000.0,
+                        coro,
+                        timeout=timeout_ms / 1000.0,
                     )
                 return await coro
 
@@ -197,7 +217,8 @@ class TccExecutionOrchestrator:
 
     @staticmethod
     def _get_phase_method(
-        p_def: ParticipantDefinition, phase_attr: str,
+        p_def: ParticipantDefinition,
+        phase_attr: str,
     ) -> Any | None:
         """Return the method object for the given phase attribute."""
         if phase_attr == "__pyfly_try_method__":

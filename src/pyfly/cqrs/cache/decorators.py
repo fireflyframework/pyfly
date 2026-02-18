@@ -19,7 +19,8 @@ Mirrors Java's ``@Cacheable`` and ``@CacheEvict`` annotations on
 
 from __future__ import annotations
 
-from typing import TypeVar
+from collections.abc import Callable
+from typing import Any, TypeVar
 
 T = TypeVar("T", bound=type)
 
@@ -28,7 +29,7 @@ def cacheable(
     *,
     ttl: int | None = None,
     cache_key_prefix: str | None = None,
-) -> callable:
+) -> Callable[..., Any]:
     """Mark a query handler class as cacheable.
 
     Args:
@@ -54,7 +55,7 @@ def cacheable(
     return decorator
 
 
-def cache_evict(*event_types: type) -> callable:
+def cache_evict(*event_types: type) -> Callable[..., Any]:
     """Mark a handler or listener to evict cache entries when certain events fire.
 
     Usage::

@@ -18,9 +18,10 @@ from __future__ import annotations
 import inspect
 import types
 import typing
-from typing import Any, Callable, Union, get_type_hints
+from collections.abc import Callable
+from typing import Any, Union, get_type_hints
 
-from pyfly.shell.result import ShellParam, MISSING
+from pyfly.shell.result import MISSING, ShellParam
 
 _SKIP = frozenset({"self", "return"})
 
@@ -61,12 +62,8 @@ def infer_params(func: Callable[..., Any]) -> list[ShellParam]:
         hints = {}
 
     # Build lookup tables from explicit @shell_option / @shell_argument metadata
-    option_overrides = _build_override_map(
-        getattr(func, "__pyfly_shell_options__", [])
-    )
-    argument_overrides = _build_override_map(
-        getattr(func, "__pyfly_shell_arguments__", [])
-    )
+    option_overrides = _build_override_map(getattr(func, "__pyfly_shell_options__", []))
+    argument_overrides = _build_override_map(getattr(func, "__pyfly_shell_arguments__", []))
 
     params: list[ShellParam] = []
 

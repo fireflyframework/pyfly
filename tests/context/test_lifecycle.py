@@ -13,7 +13,6 @@
 # limitations under the License.
 """Tests for @post_construct and @pre_destroy lifecycle annotations."""
 
-
 from pyfly.context.lifecycle import post_construct, pre_destroy
 
 

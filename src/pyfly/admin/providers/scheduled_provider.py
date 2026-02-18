@@ -38,12 +38,14 @@ class ScheduledProvider:
                     continue
                 if not getattr(method, "__pyfly_scheduled__", False):
                     continue
-                tasks.append({
-                    "class": cls.__name__,
-                    "method": attr_name,
-                    "cron": getattr(method, "__pyfly_scheduled_cron__", None),
-                    "fixed_rate": str(getattr(method, "__pyfly_scheduled_fixed_rate__", None)),
-                    "fixed_delay": str(getattr(method, "__pyfly_scheduled_fixed_delay__", None)),
-                    "initial_delay": str(getattr(method, "__pyfly_scheduled_initial_delay__", None)),
-                })
+                tasks.append(
+                    {
+                        "class": cls.__name__,
+                        "method": attr_name,
+                        "cron": getattr(method, "__pyfly_scheduled_cron__", None),
+                        "fixed_rate": str(getattr(method, "__pyfly_scheduled_fixed_rate__", None)),
+                        "fixed_delay": str(getattr(method, "__pyfly_scheduled_fixed_delay__", None)),
+                        "initial_delay": str(getattr(method, "__pyfly_scheduled_initial_delay__", None)),
+                    }
+                )
         return {"tasks": tasks, "total": len(tasks)}

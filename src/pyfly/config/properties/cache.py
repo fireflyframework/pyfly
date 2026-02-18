@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 from pyfly.core.config import config_properties
 
@@ -27,5 +28,5 @@ class CacheProperties:
 
     enabled: bool = False
     provider: str = "auto"
-    redis: dict = field(default_factory=lambda: {"url": "redis://localhost:6379/0"})
+    redis: dict[str, Any] = field(default_factory=lambda: {"url": "redis://localhost:6379/0"})
     ttl: int = 300

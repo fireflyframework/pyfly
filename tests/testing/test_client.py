@@ -34,10 +34,12 @@ async def not_found(request):
     return JSONResponse({"error": "not found"}, status_code=404)
 
 
-app = Starlette(routes=[
-    Route("/api/hello", hello),
-    Route("/api/missing", not_found),
-])
+app = Starlette(
+    routes=[
+        Route("/api/hello", hello),
+        Route("/api/missing", not_found),
+    ]
+)
 
 
 @pytest.fixture

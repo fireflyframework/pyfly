@@ -33,7 +33,6 @@ from pyfly.transactional.tcc.registry.tcc_registry import (
     TccValidationError,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fixtures: decorated TCC beans
 # ---------------------------------------------------------------------------

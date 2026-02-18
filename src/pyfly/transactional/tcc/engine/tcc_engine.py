@@ -20,6 +20,10 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
+from pyfly.transactional.shared.ports.outbound import (
+    TransactionalEventsPort,
+    TransactionalPersistencePort,
+)
 from pyfly.transactional.tcc.core.context import TccContext
 from pyfly.transactional.tcc.core.phase import TccPhase
 from pyfly.transactional.tcc.core.result import ParticipantResult, TccResult
@@ -29,10 +33,6 @@ from pyfly.transactional.tcc.engine.execution_orchestrator import (
 from pyfly.transactional.tcc.engine.participant_invoker import TccParticipantInvoker
 from pyfly.transactional.tcc.registry.tcc_definition import TccDefinition
 from pyfly.transactional.tcc.registry.tcc_registry import TccRegistry
-from pyfly.transactional.shared.ports.outbound import (
-    TransactionalEventsPort,
-    TransactionalPersistencePort,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -99,35 +99,44 @@ class TccEngine:
 
         # 4. Persist initial state.
         if self._persistence_port is not None:
-            await self._persistence_port.persist_state({
-                "tcc_name": tcc_name,
-                "correlation_id": ctx.correlation_id,
-                "headers": ctx.headers,
-                "started_at": started_at.isoformat(),
-            })
+            await self._persistence_port.persist_state(
+                {
+                    "tcc_name": tcc_name,
+                    "correlation_id": ctx.correlation_id,
+                    "headers": ctx.headers,
+                    "started_at": started_at.isoformat(),
+                }
+            )
 
         try:
             # 5. Execute via orchestrator.
             success, failed_participant_id = await self._orchestrator.execute(
-                tcc_def, ctx, input_data=input_data,
+                tcc_def,
+                ctx,
+                input_data=input_data,
             )
         except Exception as exc:
             error = exc
             logger.debug(
                 "TCC '%s' (correlation_id=%s) raised: %s",
-                tcc_name, ctx.correlation_id, exc,
+                tcc_name,
+                ctx.correlation_id,
+                exc,
             )
         finally:
             # 6. Emit on_completed event.
             if self._events_port is not None:
                 await self._events_port.on_completed(
-                    tcc_name, ctx.correlation_id, success,
+                    tcc_name,
+                    ctx.correlation_id,
+                    success,
                 )
 
             # 7. Persist final state.
             if self._persistence_port is not None:
                 await self._persistence_port.mark_completed(
-                    ctx.correlation_id, success,
+                    ctx.correlation_id,
+                    success,
                 )
 
         # 8. Build and return TccResult.
@@ -154,7 +163,7 @@ class TccEngine:
         """Build a TccResult from the execution context."""
         participant_results: dict[str, ParticipantResult] = {}
 
-        for pid, p_def in tcc_def.participants.items():
+        for pid, _p_def in tcc_def.participants.items():
             participant_results[pid] = ParticipantResult(
                 participant_id=pid,
                 try_result=ctx.try_results.get(pid),

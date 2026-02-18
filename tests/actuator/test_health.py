@@ -22,10 +22,10 @@ from pyfly.actuator.endpoints import HealthEndpoint
 from pyfly.actuator.health import HealthAggregator, HealthIndicator, HealthResult, HealthStatus
 from pyfly.actuator.registry import ActuatorRegistry
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 class AlwaysUpIndicator:
     async def health(self) -> HealthStatus:
@@ -46,6 +46,7 @@ class ExplodingIndicator:
 # HealthStatus
 # ---------------------------------------------------------------------------
 
+
 class TestHealthStatus:
     def test_creation_defaults(self):
         hs = HealthStatus(status="UP")
@@ -61,6 +62,7 @@ class TestHealthStatus:
 # ---------------------------------------------------------------------------
 # HealthResult
 # ---------------------------------------------------------------------------
+
 
 class TestHealthResult:
     def test_to_dict_no_components(self):
@@ -82,6 +84,7 @@ class TestHealthResult:
 # HealthIndicator protocol
 # ---------------------------------------------------------------------------
 
+
 class TestHealthIndicatorProtocol:
     def test_up_indicator_is_instance(self):
         assert isinstance(AlwaysUpIndicator(), HealthIndicator)
@@ -90,6 +93,7 @@ class TestHealthIndicatorProtocol:
 # ---------------------------------------------------------------------------
 # HealthAggregator
 # ---------------------------------------------------------------------------
+
 
 class TestHealthAggregator:
     @pytest.mark.asyncio
@@ -131,6 +135,7 @@ class TestHealthAggregator:
 # ---------------------------------------------------------------------------
 # /actuator/health endpoint
 # ---------------------------------------------------------------------------
+
 
 def _make_health_routes(agg):
     registry = ActuatorRegistry()

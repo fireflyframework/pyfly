@@ -212,9 +212,7 @@ class TestExecution:
         # then test _run_cron_loop in isolation by patching CronExpression.
         from unittest.mock import patch
 
-        with patch(
-            "pyfly.scheduling.task_scheduler.CronExpression"
-        ) as mock_cron_cls:
+        with patch("pyfly.scheduling.task_scheduler.CronExpression") as mock_cron_cls:
             mock_cron_instance = mock_cron_cls.return_value
             # Return very short delay so the loop fires quickly
             mock_cron_instance.seconds_until_next.return_value = 0.01

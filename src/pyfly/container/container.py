@@ -19,7 +19,7 @@ import difflib
 import inspect
 import types
 import typing
-from typing import Annotated, Any, TypeVar, Union, get_args, get_origin
+from typing import Annotated, Any, TypeVar, Union, cast, get_args, get_origin
 
 from pyfly.container.autowired import Autowired
 from pyfly.container.bean import Qualifier
@@ -81,7 +81,7 @@ class Container:
         """Resolve an instance of the given type."""
         # Direct registration
         if cls in self._registrations:
-            return self._resolve_registration(self._registrations[cls])
+            return cast(T, self._resolve_registration(self._registrations[cls]))
 
         # Follow binding(s)
         impls = self._bindings.get(cls, [])
@@ -94,12 +94,12 @@ class Container:
             )
 
         if len(impls) == 1:
-            return self._resolve_registration(self._registrations[impls[0]])
+            return cast(T, self._resolve_registration(self._registrations[impls[0]]))
 
         # Multiple impls: pick @primary
         for impl in impls:
             if getattr(impl, "__pyfly_primary__", False):
-                return self._resolve_registration(self._registrations[impl])
+                return cast(T, self._resolve_registration(self._registrations[impl]))
 
         raise NoUniqueBeanError(bean_type=cls, candidates=impls)
 
@@ -164,7 +164,7 @@ class Container:
             raise BeanCurrentlyInCreationError(chain=chain, current=reg.impl_type)
         self._resolving[reg.impl_type] = None
         try:
-            init = reg.impl_type.__init__
+            init = reg.impl_type.__init__  # type: ignore[misc]
             if init is object.__init__:
                 instance = reg.impl_type()
             else:
@@ -175,10 +175,7 @@ class Container:
                 kwargs: dict[str, Any] = {}
                 for param_name, param_type in hints.items():
                     param = sig.parameters.get(param_name)
-                    has_default = (
-                        param is not None
-                        and param.default is not inspect.Parameter.empty
-                    )
+                    has_default = param is not None and param.default is not inspect.Parameter.empty
                     try:
                         kwargs[param_name] = self._resolve_param(param_type)
                     except (NoSuchBeanError, NoUniqueBeanError):
@@ -270,8 +267,5 @@ class Container:
         """Return registered type names similar to *name* using fuzzy matching."""
         if not name:
             return []
-        registered_names = [
-            getattr(cls, "__name__", repr(cls))
-            for cls in self._registrations
-        ]
+        registered_names = [getattr(cls, "__name__", repr(cls)) for cls in self._registrations]
         return difflib.get_close_matches(name, registered_names, n=5, cutoff=0.4)

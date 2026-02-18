@@ -15,8 +15,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
-from typing import Any
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock
 
 import pytest
@@ -51,13 +50,15 @@ async def _persist_stale_saga(
     started_at: datetime | None = None,
 ) -> None:
     """Persist an IN_FLIGHT saga with an old started_at timestamp."""
-    old_time = started_at or (datetime.now(timezone.utc) - timedelta(hours=1))
-    await adapter.persist_state({
-        "correlation_id": correlation_id,
-        "saga_name": saga_name,
-        "status": "IN_FLIGHT",
-        "started_at": old_time,
-    })
+    old_time = started_at or (datetime.now(UTC) - timedelta(hours=1))
+    await adapter.persist_state(
+        {
+            "correlation_id": correlation_id,
+            "saga_name": saga_name,
+            "status": "IN_FLIGHT",
+            "started_at": old_time,
+        }
+    )
 
 
 async def _persist_completed_saga(
@@ -67,13 +68,15 @@ async def _persist_completed_saga(
     completed_at: datetime | None = None,
 ) -> None:
     """Persist a completed saga with a specific completed_at timestamp."""
-    old_time = completed_at or (datetime.now(timezone.utc) - timedelta(hours=48))
-    await adapter.persist_state({
-        "correlation_id": correlation_id,
-        "saga_name": saga_name,
-        "status": "IN_FLIGHT",
-        "started_at": datetime.now(timezone.utc) - timedelta(hours=49),
-    })
+    old_time = completed_at or (datetime.now(UTC) - timedelta(hours=48))
+    await adapter.persist_state(
+        {
+            "correlation_id": correlation_id,
+            "saga_name": saga_name,
+            "status": "IN_FLIGHT",
+            "started_at": datetime.now(UTC) - timedelta(hours=49),
+        }
+    )
     await adapter.mark_completed(correlation_id, successful=True)
     # Manually override completed_at for deterministic test control
     state = await adapter.get_state(correlation_id)
@@ -155,12 +158,14 @@ class TestRecoverStaleFindsAndMarks:
         recovery_service: SagaRecoveryService,
     ) -> None:
         # A saga started just now — not stale
-        await adapter.persist_state({
-            "correlation_id": "recent-1",
-            "saga_name": "order-saga",
-            "status": "IN_FLIGHT",
-            "started_at": datetime.now(timezone.utc),
-        })
+        await adapter.persist_state(
+            {
+                "correlation_id": "recent-1",
+                "saga_name": "order-saga",
+                "status": "IN_FLIGHT",
+                "started_at": datetime.now(UTC),
+            }
+        )
 
         await recovery_service.recover_stale(stale_threshold_seconds=600)
 
@@ -174,13 +179,15 @@ class TestRecoverStaleFindsAndMarks:
         recovery_service: SagaRecoveryService,
     ) -> None:
         # A saga that is COMPLETED — even if old, should not be re-marked
-        old_time = datetime.now(timezone.utc) - timedelta(hours=2)
-        await adapter.persist_state({
-            "correlation_id": "done-1",
-            "saga_name": "order-saga",
-            "status": "IN_FLIGHT",
-            "started_at": old_time,
-        })
+        old_time = datetime.now(UTC) - timedelta(hours=2)
+        await adapter.persist_state(
+            {
+                "correlation_id": "done-1",
+                "saga_name": "order-saga",
+                "status": "IN_FLIGHT",
+                "started_at": old_time,
+            }
+        )
         await adapter.mark_completed("done-1", successful=True)
 
         await recovery_service.recover_stale(stale_threshold_seconds=60)
@@ -225,12 +232,14 @@ class TestRecoverStaleCount:
         adapter: InMemoryPersistenceAdapter,
         recovery_service: SagaRecoveryService,
     ) -> None:
-        await adapter.persist_state({
-            "correlation_id": "recent-1",
-            "saga_name": "order-saga",
-            "status": "IN_FLIGHT",
-            "started_at": datetime.now(timezone.utc),
-        })
+        await adapter.persist_state(
+            {
+                "correlation_id": "recent-1",
+                "saga_name": "order-saga",
+                "status": "IN_FLIGHT",
+                "started_at": datetime.now(UTC),
+            }
+        )
 
         count = await recovery_service.recover_stale(stale_threshold_seconds=600)
 
@@ -245,13 +254,15 @@ class TestRecoverStaleCount:
         await _persist_stale_saga(adapter, "stale-1")
 
         # One old COMPLETED saga (should not count)
-        old_time = datetime.now(timezone.utc) - timedelta(hours=2)
-        await adapter.persist_state({
-            "correlation_id": "done-old",
-            "saga_name": "order-saga",
-            "status": "IN_FLIGHT",
-            "started_at": old_time,
-        })
+        old_time = datetime.now(UTC) - timedelta(hours=2)
+        await adapter.persist_state(
+            {
+                "correlation_id": "done-old",
+                "saga_name": "order-saga",
+                "status": "IN_FLIGHT",
+                "started_at": old_time,
+            }
+        )
         await adapter.mark_completed("done-old", successful=True)
 
         count = await recovery_service.recover_stale(stale_threshold_seconds=60)
@@ -384,12 +395,14 @@ class TestCleanup:
         recovery_service: SagaRecoveryService,
     ) -> None:
         # Completed just now — should not be cleaned up
-        await adapter.persist_state({
-            "correlation_id": "recent-done",
-            "saga_name": "order-saga",
-            "status": "IN_FLIGHT",
-            "started_at": datetime.now(timezone.utc),
-        })
+        await adapter.persist_state(
+            {
+                "correlation_id": "recent-done",
+                "saga_name": "order-saga",
+                "status": "IN_FLIGHT",
+                "started_at": datetime.now(UTC),
+            }
+        )
         await adapter.mark_completed("recent-done", successful=True)
 
         count = await recovery_service.cleanup(older_than_hours=24)
@@ -402,12 +415,14 @@ class TestCleanup:
         adapter: InMemoryPersistenceAdapter,
         recovery_service: SagaRecoveryService,
     ) -> None:
-        await adapter.persist_state({
-            "correlation_id": "in-flight-1",
-            "saga_name": "order-saga",
-            "status": "IN_FLIGHT",
-            "started_at": datetime.now(timezone.utc) - timedelta(hours=48),
-        })
+        await adapter.persist_state(
+            {
+                "correlation_id": "in-flight-1",
+                "saga_name": "order-saga",
+                "status": "IN_FLIGHT",
+                "started_at": datetime.now(UTC) - timedelta(hours=48),
+            }
+        )
 
         count = await recovery_service.cleanup(older_than_hours=24)
 

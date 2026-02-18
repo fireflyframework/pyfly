@@ -17,11 +17,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 
-class SagaExecutionStatus(str, Enum):
+class SagaExecutionStatus(StrEnum):
     """Status of a saga execution from the persistence perspective."""
 
     IN_FLIGHT = "IN_FLIGHT"

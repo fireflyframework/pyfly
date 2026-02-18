@@ -16,9 +16,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+from typing import cast
 
-from croniter import croniter
+from croniter import croniter  # type: ignore[import-untyped]
 
 
 @dataclass(frozen=True)
@@ -34,26 +35,24 @@ class CronExpression:
 
     def next_fire_time(self, after: datetime | None = None) -> datetime:
         """Return the next fire time after the given datetime (default: now)."""
-        base = after or datetime.now(timezone.utc)
+        base = after or datetime.now(UTC)
         cron = croniter(self.expression, base)
-        return cron.get_next(datetime)
+        return cast(datetime, cron.get_next(datetime))
 
     def previous_fire_time(self, before: datetime | None = None) -> datetime:
         """Return the previous fire time before the given datetime."""
-        base = before or datetime.now(timezone.utc)
+        base = before or datetime.now(UTC)
         cron = croniter(self.expression, base)
-        return cron.get_prev(datetime)
+        return cast(datetime, cron.get_prev(datetime))
 
-    def next_n_fire_times(
-        self, n: int, after: datetime | None = None
-    ) -> list[datetime]:
+    def next_n_fire_times(self, n: int, after: datetime | None = None) -> list[datetime]:
         """Return the next N fire times."""
-        base = after or datetime.now(timezone.utc)
+        base = after or datetime.now(UTC)
         cron = croniter(self.expression, base)
         return [cron.get_next(datetime) for _ in range(n)]
 
     def seconds_until_next(self, after: datetime | None = None) -> float:
         """Return seconds until the next fire time."""
-        now = after or datetime.now(timezone.utc)
+        now = after or datetime.now(UTC)
         next_time = self.next_fire_time(now)
         return (next_time - now).total_seconds()

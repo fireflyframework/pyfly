@@ -36,7 +36,7 @@ Example::
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import TypeVar
+from typing import Any, TypeVar
 
 from sqlalchemy import Select
 
@@ -45,7 +45,7 @@ from pyfly.data.specification import Specification as SpecificationBase
 T = TypeVar("T")
 
 
-class Specification(SpecificationBase[T, Select]):
+class Specification(SpecificationBase[T, Select[Any]]):
     """Composable query predicate for type-safe dynamic queries.
 
     A *Specification* wraps a callable that receives an entity class
@@ -59,10 +59,10 @@ class Specification(SpecificationBase[T, Select]):
     * ``~spec_a`` — negated predicate (NOT).
     """
 
-    def __init__(self, predicate: Callable[[type[T], Select], Select]) -> None:
+    def __init__(self, predicate: Callable[[type[T], Select[Any]], Select[Any]]) -> None:
         self._predicate = predicate
 
-    def to_predicate(self, root: type[T], query: Select) -> Select:
+    def to_predicate(self, root: type[T], query: Select[Any]) -> Select[Any]:
         """Apply this specification's predicate to *query*."""
         return self._predicate(root, query)
 
@@ -70,7 +70,7 @@ class Specification(SpecificationBase[T, Select]):
     # Combinators
     # ------------------------------------------------------------------
 
-    def __and__(self, other: Specification[T]) -> Specification[T]:
+    def __and__(self, other: Specification[T]) -> Specification[T]:  # type: ignore[override]
         """Combine with AND: both specs must match.
 
         Implemented by chaining the two predicates sequentially — the
@@ -81,7 +81,7 @@ class Specification(SpecificationBase[T, Select]):
         left, right = self._predicate, other._predicate
         return Specification(lambda root, q: right(root, left(root, q)))
 
-    def __or__(self, other: Specification[T]) -> Specification[T]:
+    def __or__(self, other: Specification[T]) -> Specification[T]:  # type: ignore[override]
         """Combine with OR: either spec may match.
 
         Each predicate is applied independently to a *clean* copy of the
@@ -92,7 +92,7 @@ class Specification(SpecificationBase[T, Select]):
 
         left_pred, right_pred = self._predicate, other._predicate
 
-        def or_predicate(root: type[T], query: Select) -> Select:
+        def or_predicate(root: type[T], query: Select[Any]) -> Select[Any]:
             left_q = left_pred(root, query)
             right_q = right_pred(root, query)
             left_clause = left_q.whereclause
@@ -117,7 +117,7 @@ class Specification(SpecificationBase[T, Select]):
 
         pred = self._predicate
 
-        def not_predicate(root: type[T], query: Select) -> Select:
+        def not_predicate(root: type[T], query: Select[Any]) -> Select[Any]:
             modified = pred(root, query)
             clause = modified.whereclause
             if clause is not None:

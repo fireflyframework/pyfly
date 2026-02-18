@@ -15,7 +15,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -24,12 +24,11 @@ from pyfly.transactional.saga.core.report import FailureReport
 from pyfly.transactional.saga.core.result import SagaResult, StepOutcome
 from pyfly.transactional.shared.types import StepStatus
 
-
 # ── helpers ───────────────────────────────────────────────────
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _make_step_outcome(
@@ -440,7 +439,7 @@ class TestFailureReport:
         assert report.compensation_errors == {}
 
     def test_custom_completed_and_compensated(self) -> None:
-        comp_err = IOError("io fail")
+        comp_err = OSError("io fail")
         report = FailureReport(
             saga_name="order-saga",
             correlation_id="corr-2",

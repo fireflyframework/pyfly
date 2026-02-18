@@ -15,8 +15,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from pyfly.aop.pointcut import matches_pointcut
 
 

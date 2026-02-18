@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Tests for scheduling decorators."""
+
 from __future__ import annotations
 
 from datetime import timedelta
@@ -141,7 +142,5 @@ class TestDecoratorStacking:
             pass
 
         assert scheduled_async_task.__pyfly_scheduled__ is True
-        assert scheduled_async_task.__pyfly_scheduled_fixed_rate__ == timedelta(
-            seconds=60
-        )
+        assert scheduled_async_task.__pyfly_scheduled_fixed_rate__ == timedelta(seconds=60)
         assert scheduled_async_task.__pyfly_async__ is True

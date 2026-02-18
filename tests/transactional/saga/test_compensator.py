@@ -27,7 +27,6 @@ from pyfly.transactional.saga.registry.saga_definition import SagaDefinition
 from pyfly.transactional.saga.registry.step_definition import StepDefinition
 from pyfly.transactional.shared.types import CompensationPolicy
 
-
 # ── Helpers ──────────────────────────────────────────────────
 
 
@@ -192,7 +191,13 @@ class TestStrictSequential:
         assert events_port.on_compensated.call_count == 2
         # First call should be for s2 (reverse order), second for s1
         calls = events_port.on_compensated.call_args_list
-        assert calls[0].kwargs.get("step_id") or calls[0][1][2] if len(calls[0][1]) > 2 else calls[0][0][2] if len(calls[0][0]) > 2 else None  # noqa: E501
+        assert (
+            calls[0].kwargs.get("step_id") or calls[0][1][2]
+            if len(calls[0][1]) > 2
+            else calls[0][0][2]
+            if len(calls[0][0]) > 2
+            else None
+        )  # noqa: E501
         # Verify both step_ids appear
         step_ids_called = []
         for call in calls:
@@ -224,7 +229,7 @@ class TestGroupedParallel:
         # layer 0: [s1, s2], layer 1: [s3, s4]
         topology = [["s1", "s2"], ["s3", "s4"]]
 
-        layer_order: list[list[str]] = []
+        _layer_order: list[list[str]] = []
         current_layer: list[str] = []
 
         async def _track_invoke(step_def: Any, bean: Any, context: Any, **kw: Any) -> None:
@@ -387,9 +392,7 @@ class TestRetryWithBackoff:
         steps = [_make_step_def("s1", compensation_retry=2, compensation_backoff_ms=50)]
         saga_def = _make_saga_def(steps)
 
-        step_invoker.invoke_compensation = AsyncMock(
-            side_effect=RuntimeError("persistent failure")
-        )
+        step_invoker.invoke_compensation = AsyncMock(side_effect=RuntimeError("persistent failure"))
 
         with patch("pyfly.transactional.saga.engine.compensator.asyncio.sleep", new_callable=AsyncMock):
             compensator = SagaCompensator(step_invoker, events_port, error_handler)
@@ -707,9 +710,7 @@ class TestCrossCutting:
         steps = [_make_step_def("s1")]
         saga_def = _make_saga_def(steps)
 
-        step_invoker.invoke_compensation = AsyncMock(
-            side_effect=RuntimeError("fail")
-        )
+        step_invoker.invoke_compensation = AsyncMock(side_effect=RuntimeError("fail"))
 
         compensator = SagaCompensator(step_invoker, events_port, error_handler=None)
         # BEST_EFFORT_PARALLEL does not raise

@@ -104,17 +104,21 @@ class SagaEngine:
 
         # 4. Persist initial state.
         if self._persistence_port is not None:
-            await self._persistence_port.persist_state({
-                "saga_name": saga_name,
-                "correlation_id": ctx.correlation_id,
-                "headers": ctx.headers,
-                "started_at": started_at.isoformat(),
-            })
+            await self._persistence_port.persist_state(
+                {
+                    "saga_name": saga_name,
+                    "correlation_id": ctx.correlation_id,
+                    "headers": ctx.headers,
+                    "started_at": started_at.isoformat(),
+                }
+            )
 
         try:
             # 5a. Execute via orchestrator.
             completed_step_ids = await self._execution_orchestrator.execute(
-                saga_def, ctx, step_input=input_data,
+                saga_def,
+                ctx,
+                step_input=input_data,
             )
             success = True
 
@@ -129,11 +133,7 @@ class SagaEngine:
             )
             # Derive completed step IDs from the context since the
             # orchestrator raised before returning a value.
-            completed_step_ids = [
-                step_id
-                for step_id, status in ctx.step_statuses.items()
-                if status == StepStatus.DONE
-            ]
+            completed_step_ids = [step_id for step_id, status in ctx.step_statuses.items() if status == StepStatus.DONE]
             try:
                 await self._compensator.compensate(
                     policy=compensation_policy,
@@ -155,13 +155,16 @@ class SagaEngine:
             # 7a. Emit on_completed event.
             if self._events_port is not None:
                 await self._events_port.on_completed(
-                    saga_name, ctx.correlation_id, success,
+                    saga_name,
+                    ctx.correlation_id,
+                    success,
                 )
 
             # 7b. Persist final state.
             if self._persistence_port is not None:
                 await self._persistence_port.mark_completed(
-                    ctx.correlation_id, success,
+                    ctx.correlation_id,
+                    success,
                 )
 
         # 8. Build and return SagaResult.

@@ -18,7 +18,7 @@ from __future__ import annotations
 import json as json_lib
 from typing import Any
 
-from jsonpath_ng import parse as jsonpath_parse
+from jsonpath_ng import parse as jsonpath_parse  # type: ignore[import-untyped]
 
 
 class TestResponse:
@@ -43,38 +43,28 @@ class TestResponse:
 
     def assert_status(self, expected: int) -> TestResponse:
         """Assert the response status code."""
-        assert self.status_code == expected, (
-            f"Expected status {expected}, got {self.status_code}"
-        )
+        assert self.status_code == expected, f"Expected status {expected}, got {self.status_code}"
         return self
 
-    def assert_json_path(
-        self, path: str, *, value: Any = ..., exists: bool = True
-    ) -> TestResponse:
+    def assert_json_path(self, path: str, *, value: Any = ..., exists: bool = True) -> TestResponse:
         """Assert a JSON path exists (or not) and optionally matches a value."""
         expr = jsonpath_parse(path)
         matches = expr.find(self.json())
         if exists:
             assert matches, f"No match for JSON path '{path}'"
             if value is not ...:
-                assert matches[0].value == value, (
-                    f"Expected {value!r} at '{path}', got {matches[0].value!r}"
-                )
+                assert matches[0].value == value, f"Expected {value!r} at '{path}', got {matches[0].value!r}"
         else:
             assert not matches, f"Expected no match for JSON path '{path}'"
         return self
 
-    def assert_header(
-        self, name: str, *, value: str | None = None, exists: bool = True
-    ) -> TestResponse:
+    def assert_header(self, name: str, *, value: str | None = None, exists: bool = True) -> TestResponse:
         """Assert a response header exists (or not) and optionally matches a value."""
         header_val = self.headers.get(name.lower())
         if exists:
             assert header_val is not None, f"Header '{name}' not found"
             if value is not None:
-                assert header_val == value, (
-                    f"Expected header '{name}' = '{value}', got '{header_val}'"
-                )
+                assert header_val == value, f"Expected header '{name}' = '{value}', got '{header_val}'"
         else:
             assert header_val is None, f"Header '{name}' should not exist"
         return self

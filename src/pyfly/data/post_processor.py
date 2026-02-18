@@ -47,7 +47,7 @@ class BaseRepositoryPostProcessor(ABC):
         if not isinstance(bean, repo_type):
             return bean
 
-        entity = bean._model
+        entity = bean._model  # type: ignore[attr-defined]
         cls = type(bean)
 
         # Collect names defined on the base repository class so we never
@@ -71,14 +71,12 @@ class BaseRepositoryPostProcessor(ABC):
                 continue
 
             if any(attr_name.startswith(prefix) for prefix in DERIVED_PREFIXES) and self._is_stub(attr):
-                    parsed = self._query_parser.parse(attr_name)
-                    hints = get_type_hints(attr)
-                    return_type = hints.get("return")
-                    compiled_fn = self._compile_derived(
-                        parsed, entity, bean, return_type=return_type
-                    )
-                    wrapper = self._wrap_derived_method(compiled_fn)
-                    setattr(bean, attr_name, wrapper.__get__(bean, cls))
+                parsed = self._query_parser.parse(attr_name)
+                hints = get_type_hints(attr)
+                return_type = hints.get("return")
+                compiled_fn = self._compile_derived(parsed, entity, bean, return_type=return_type)
+                wrapper = self._wrap_derived_method(compiled_fn)
+                setattr(bean, attr_name, wrapper.__get__(bean, cls))
 
         return bean
 
@@ -92,9 +90,7 @@ class BaseRepositoryPostProcessor(ABC):
         ...
 
     @abstractmethod
-    def _compile_derived(
-        self, parsed: Any, entity: Any, bean: Any, *, return_type: Any = None
-    ) -> Any:
+    def _compile_derived(self, parsed: Any, entity: Any, bean: Any, *, return_type: Any = None) -> Any:
         """Compile a parsed derived query method name into an executable callable."""
         ...
 
@@ -103,9 +99,7 @@ class BaseRepositoryPostProcessor(ABC):
         """Wrap a compiled derived-query function for binding onto the bean."""
         ...
 
-    def _process_query_decorated(
-        self, bean: Any, cls: type, attr_name: str, attr: Any, entity: Any
-    ) -> bool:
+    def _process_query_decorated(self, bean: Any, cls: type, attr_name: str, attr: Any, entity: Any) -> bool:
         """Process adapter-specific decorated methods (e.g., ``@query``).
 
         Return ``True`` if the attribute was handled, ``False`` otherwise.

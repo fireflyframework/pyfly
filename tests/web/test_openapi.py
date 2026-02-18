@@ -32,7 +32,6 @@ from pyfly.web.mappings import (
 from pyfly.web.openapi import OpenAPIGenerator
 from pyfly.web.params import Body, Cookie, Header, PathVar, QueryParam
 
-
 # ---- Test models and controllers -------------------------------------------
 
 
@@ -95,9 +94,7 @@ class CatalogController:
         return self._svc.create_item(body.name)
 
     @put_mapping("/{item_id}")
-    async def update_item(
-        self, item_id: PathVar[str], body: Body[UpdateItemRequest]
-    ) -> dict:
+    async def update_item(self, item_id: PathVar[str], body: Body[UpdateItemRequest]) -> dict:
         return self._svc.update_item(item_id, body.name)
 
     @delete_mapping("/{item_id}", status_code=204)

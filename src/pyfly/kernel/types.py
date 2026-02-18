@@ -89,11 +89,11 @@ class ErrorResponse:
     field_errors: list[FieldError] = field(default_factory=list)
 
     # Debug
-    debug_info: dict | None = None
+    debug_info: dict[str, Any] | None = None
     suggestion: str | None = None
     documentation_url: str | None = None
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to a dict suitable for JSON responses.
 
         Core fields, category, severity, and retryable are always included.
@@ -128,9 +128,7 @@ class ErrorResponse:
 
         # Field errors — include only when non-empty
         if self.field_errors:
-            result["field_errors"] = [
-                dataclasses.asdict(fe) for fe in self.field_errors
-            ]
+            result["field_errors"] = [dataclasses.asdict(fe) for fe in self.field_errors]
 
         # Debug info — include only when not None
         if self.debug_info is not None:

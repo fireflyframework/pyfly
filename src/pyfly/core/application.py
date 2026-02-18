@@ -179,8 +179,7 @@ class PyFlyApplication:
             total=self._context.bean_count,
             services=stereotype_counts.get("service", 0),
             repositories=stereotype_counts.get("repository", 0),
-            controllers=stereotype_counts.get("controller", 0)
-            + stereotype_counts.get("rest_controller", 0),
+            controllers=stereotype_counts.get("controller", 0) + stereotype_counts.get("rest_controller", 0),
             configurations=stereotype_counts.get("configuration", 0),
         )
 
@@ -239,9 +238,7 @@ class PyFlyApplication:
             self._logger.info("api_documentation", openapi=f"{base_url}/openapi.json")
 
         # Log admin dashboard URL when enabled
-        admin_enabled = str(
-            self.config.get("pyfly.admin.enabled", "false")
-        ).lower() in ("true", "1", "yes")
+        admin_enabled = str(self.config.get("pyfly.admin.enabled", "false")).lower() in ("true", "1", "yes")
         if admin_enabled:
             base_url = f"http://{host}:{port}"
             admin_path = str(self.config.get("pyfly.admin.path", "/admin"))
@@ -267,7 +264,7 @@ class PyFlyApplication:
         """Resolve active profiles before full config load."""
         import os
 
-        import yaml
+        import yaml  # type: ignore[import-untyped]
 
         env_profiles = os.environ.get("PYFLY_PROFILES_ACTIVE", "")
         if env_profiles:

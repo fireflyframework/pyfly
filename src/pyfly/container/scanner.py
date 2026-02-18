@@ -19,6 +19,7 @@ import abc
 import importlib
 import inspect
 import pkgutil
+import types
 from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
@@ -43,9 +44,7 @@ def scan_package(package_name: str, container: Container) -> int:
 
     # If it's a package, scan submodules
     if hasattr(module, "__path__"):
-        for _importer, modname, _ispkg in pkgutil.walk_packages(
-            module.__path__, prefix=module.__name__ + "."
-        ):
+        for _importer, modname, _ispkg in pkgutil.walk_packages(module.__path__, prefix=module.__name__ + "."):
             try:
                 submodule = importlib.import_module(modname)
                 count += _register_from_module(submodule, container)
@@ -55,7 +54,7 @@ def scan_package(package_name: str, container: Container) -> int:
     return count
 
 
-def scan_module_classes(module: object) -> list[type]:
+def scan_module_classes(module: types.ModuleType) -> list[type]:
     """Extract all stereotype-decorated classes from a module.
 
     Returns a list of classes that have ``__pyfly_injectable__ = True``.
@@ -67,7 +66,7 @@ def scan_module_classes(module: object) -> list[type]:
     return classes
 
 
-def _register_from_module(module: object, container: Container) -> int:
+def _register_from_module(module: types.ModuleType, container: Container) -> int:
     """Register all stereotype-decorated classes from a module."""
     from pyfly.container.types import Scope
 
@@ -97,7 +96,7 @@ def _auto_bind_interfaces(cls: type, container: Container) -> None:
 
 def _is_protocol(cls: type) -> bool:
     """Check if a class is a runtime-checkable Protocol."""
-    return getattr(cls, "_is_protocol", False) and cls is not Protocol
+    return bool(getattr(cls, "_is_protocol", False)) and cls is not Protocol  # type: ignore[comparison-overlap]
 
 
 def _is_port(cls: type) -> bool:

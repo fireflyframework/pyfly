@@ -28,7 +28,6 @@ from pyfly.transactional.saga.registry.saga_registry import SagaRegistry
 from pyfly.transactional.saga.registry.step_definition import StepDefinition
 from pyfly.transactional.shared.types import CompensationPolicy, StepStatus
 
-
 # ── Helpers ──────────────────────────────────────────────────
 
 
@@ -154,9 +153,7 @@ class TestSuccessfulExecution:
         registry.get.return_value = saga_def
 
         # Simulate orchestrator populating context
-        async def _execute_side_effect(
-            saga_def: Any, ctx: SagaContext, step_input: Any = None
-        ) -> list[str]:
+        async def _execute_side_effect(saga_def: Any, ctx: SagaContext, step_input: Any = None) -> list[str]:
             ctx.step_statuses["s1"] = StepStatus.DONE
             ctx.step_statuses["s2"] = StepStatus.DONE
             ctx.step_statuses["s3"] = StepStatus.DONE
@@ -174,8 +171,12 @@ class TestSuccessfulExecution:
         execution_orchestrator.execute = AsyncMock(side_effect=_execute_side_effect)
 
         engine = _build_engine(
-            registry, step_invoker, execution_orchestrator, compensator,
-            persistence_port, events_port,
+            registry,
+            step_invoker,
+            execution_orchestrator,
+            compensator,
+            persistence_port,
+            events_port,
         )
 
         result = await engine.execute("test-saga", input_data={"key": "value"})
@@ -205,9 +206,7 @@ class TestSuccessfulExecution:
         saga_def = _make_saga_def()
         registry.get.return_value = saga_def
 
-        async def _execute_side_effect(
-            saga_def: Any, ctx: SagaContext, step_input: Any = None
-        ) -> list[str]:
+        async def _execute_side_effect(saga_def: Any, ctx: SagaContext, step_input: Any = None) -> list[str]:
             ctx.step_statuses["s1"] = StepStatus.DONE
             ctx.step_statuses["s2"] = StepStatus.DONE
             ctx.step_statuses["s3"] = StepStatus.DONE
@@ -257,9 +256,7 @@ class TestFailedExecution:
 
         error = RuntimeError("step s3 failed")
 
-        async def _execute_side_effect(
-            saga_def: Any, ctx: SagaContext, step_input: Any = None
-        ) -> list[str]:
+        async def _execute_side_effect(saga_def: Any, ctx: SagaContext, step_input: Any = None) -> list[str]:
             ctx.step_statuses["s1"] = StepStatus.DONE
             ctx.step_statuses["s2"] = StepStatus.DONE
             ctx.step_statuses["s3"] = StepStatus.FAILED
@@ -273,8 +270,12 @@ class TestFailedExecution:
         execution_orchestrator.execute = AsyncMock(side_effect=_execute_side_effect)
 
         engine = _build_engine(
-            registry, step_invoker, execution_orchestrator, compensator,
-            persistence_port, events_port,
+            registry,
+            step_invoker,
+            execution_orchestrator,
+            compensator,
+            persistence_port,
+            events_port,
         )
 
         result = await engine.execute("test-saga")
@@ -300,9 +301,7 @@ class TestFailedExecution:
 
         error = RuntimeError("s2 boom")
 
-        async def _execute_side_effect(
-            saga_def: Any, ctx: SagaContext, step_input: Any = None
-        ) -> list[str]:
+        async def _execute_side_effect(saga_def: Any, ctx: SagaContext, step_input: Any = None) -> list[str]:
             ctx.step_statuses["s1"] = StepStatus.DONE
             ctx.step_statuses["s2"] = StepStatus.FAILED
             ctx.step_attempts["s1"] = 1
@@ -344,7 +343,10 @@ class TestEventsEmission:
         execution_orchestrator.execute = AsyncMock(return_value=["s1", "s2", "s3"])
 
         engine = _build_engine(
-            registry, step_invoker, execution_orchestrator, compensator,
+            registry,
+            step_invoker,
+            execution_orchestrator,
+            compensator,
             events_port=events_port,
         )
 
@@ -352,7 +354,9 @@ class TestEventsEmission:
 
         events_port.on_start.assert_called_once_with("test-saga", result.correlation_id)
         events_port.on_completed.assert_called_once_with(
-            "test-saga", result.correlation_id, True,
+            "test-saga",
+            result.correlation_id,
+            True,
         )
 
     @pytest.mark.anyio
@@ -372,7 +376,10 @@ class TestEventsEmission:
         )
 
         engine = _build_engine(
-            registry, step_invoker, execution_orchestrator, compensator,
+            registry,
+            step_invoker,
+            execution_orchestrator,
+            compensator,
             events_port=events_port,
         )
 
@@ -380,7 +387,9 @@ class TestEventsEmission:
 
         events_port.on_start.assert_called_once()
         events_port.on_completed.assert_called_once_with(
-            "test-saga", result.correlation_id, False,
+            "test-saga",
+            result.correlation_id,
+            False,
         )
 
     @pytest.mark.anyio
@@ -397,7 +406,10 @@ class TestEventsEmission:
         execution_orchestrator.execute = AsyncMock(return_value=["s1", "s2", "s3"])
 
         engine = _build_engine(
-            registry, step_invoker, execution_orchestrator, compensator,
+            registry,
+            step_invoker,
+            execution_orchestrator,
+            compensator,
             events_port=None,
         )
 
@@ -424,7 +436,10 @@ class TestPersistence:
         execution_orchestrator.execute = AsyncMock(return_value=["s1", "s2", "s3"])
 
         engine = _build_engine(
-            registry, step_invoker, execution_orchestrator, compensator,
+            registry,
+            step_invoker,
+            execution_orchestrator,
+            compensator,
             persistence_port=persistence_port,
         )
 
@@ -436,7 +451,8 @@ class TestPersistence:
         assert persist_call_state["correlation_id"] == result.correlation_id
 
         persistence_port.mark_completed.assert_called_once_with(
-            result.correlation_id, True,
+            result.correlation_id,
+            True,
         )
 
     @pytest.mark.anyio
@@ -456,7 +472,10 @@ class TestPersistence:
         )
 
         engine = _build_engine(
-            registry, step_invoker, execution_orchestrator, compensator,
+            registry,
+            step_invoker,
+            execution_orchestrator,
+            compensator,
             persistence_port=persistence_port,
         )
 
@@ -464,7 +483,8 @@ class TestPersistence:
 
         persistence_port.persist_state.assert_called_once()
         persistence_port.mark_completed.assert_called_once_with(
-            result.correlation_id, False,
+            result.correlation_id,
+            False,
         )
 
     @pytest.mark.anyio
@@ -481,7 +501,10 @@ class TestPersistence:
         execution_orchestrator.execute = AsyncMock(return_value=["s1", "s2", "s3"])
 
         engine = _build_engine(
-            registry, step_invoker, execution_orchestrator, compensator,
+            registry,
+            step_invoker,
+            execution_orchestrator,
+            compensator,
             persistence_port=None,
         )
 
@@ -505,7 +528,10 @@ class TestUnknownSaga:
         registry.get.return_value = None
 
         engine = _build_engine(
-            registry, step_invoker, execution_orchestrator, compensator,
+            registry,
+            step_invoker,
+            execution_orchestrator,
+            compensator,
         )
 
         with pytest.raises(ValueError, match="not registered"):
@@ -530,11 +556,15 @@ class TestCorrelationId:
         execution_orchestrator.execute = AsyncMock(return_value=["s1", "s2", "s3"])
 
         engine = _build_engine(
-            registry, step_invoker, execution_orchestrator, compensator,
+            registry,
+            step_invoker,
+            execution_orchestrator,
+            compensator,
         )
 
         result = await engine.execute(
-            "test-saga", correlation_id="custom-correlation-123",
+            "test-saga",
+            correlation_id="custom-correlation-123",
         )
 
         assert result.correlation_id == "custom-correlation-123"
@@ -553,7 +583,10 @@ class TestCorrelationId:
         execution_orchestrator.execute = AsyncMock(return_value=["s1", "s2", "s3"])
 
         engine = _build_engine(
-            registry, step_invoker, execution_orchestrator, compensator,
+            registry,
+            step_invoker,
+            execution_orchestrator,
+            compensator,
         )
 
         result = await engine.execute("test-saga")
@@ -580,7 +613,10 @@ class TestHeaders:
         execution_orchestrator.execute = AsyncMock(return_value=["s1", "s2", "s3"])
 
         engine = _build_engine(
-            registry, step_invoker, execution_orchestrator, compensator,
+            registry,
+            step_invoker,
+            execution_orchestrator,
+            compensator,
         )
 
         headers = {"trace-id": "abc-123", "user-id": "user-42"}
@@ -602,7 +638,10 @@ class TestHeaders:
         execution_orchestrator.execute = AsyncMock(return_value=["s1", "s2", "s3"])
 
         engine = _build_engine(
-            registry, step_invoker, execution_orchestrator, compensator,
+            registry,
+            step_invoker,
+            execution_orchestrator,
+            compensator,
         )
 
         result = await engine.execute("test-saga")
@@ -629,7 +668,10 @@ class TestCompensationPolicy:
         )
 
         engine = _build_engine(
-            registry, step_invoker, execution_orchestrator, compensator,
+            registry,
+            step_invoker,
+            execution_orchestrator,
+            compensator,
         )
 
         await engine.execute("test-saga")
@@ -653,7 +695,10 @@ class TestCompensationPolicy:
         )
 
         engine = _build_engine(
-            registry, step_invoker, execution_orchestrator, compensator,
+            registry,
+            step_invoker,
+            execution_orchestrator,
+            compensator,
         )
 
         await engine.execute(
@@ -680,7 +725,10 @@ class TestCompensationPolicy:
         )
 
         engine = _build_engine(
-            registry, step_invoker, execution_orchestrator, compensator,
+            registry,
+            step_invoker,
+            execution_orchestrator,
+            compensator,
         )
 
         await engine.execute(
@@ -710,9 +758,7 @@ class TestCompensationResults:
 
         error = RuntimeError("s3 failed")
 
-        async def _execute_side_effect(
-            saga_def: Any, ctx: SagaContext, step_input: Any = None
-        ) -> list[str]:
+        async def _execute_side_effect(saga_def: Any, ctx: SagaContext, step_input: Any = None) -> list[str]:
             ctx.step_statuses["s1"] = StepStatus.DONE
             ctx.step_statuses["s2"] = StepStatus.DONE
             ctx.step_statuses["s3"] = StepStatus.FAILED
@@ -732,7 +778,10 @@ class TestCompensationResults:
         compensator.compensate = AsyncMock(side_effect=_compensate_side_effect)
 
         engine = _build_engine(
-            registry, step_invoker, execution_orchestrator, compensator,
+            registry,
+            step_invoker,
+            execution_orchestrator,
+            compensator,
         )
 
         result = await engine.execute("test-saga")
@@ -763,7 +812,10 @@ class TestTiming:
         execution_orchestrator.execute = AsyncMock(return_value=["s1", "s2", "s3"])
 
         engine = _build_engine(
-            registry, step_invoker, execution_orchestrator, compensator,
+            registry,
+            step_invoker,
+            execution_orchestrator,
+            compensator,
         )
 
         result = await engine.execute("test-saga")

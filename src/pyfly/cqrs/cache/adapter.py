@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import logging
 from datetime import timedelta
-from typing import Any
+from typing import Any, cast
 
 _logger = logging.getLogger(__name__)
 
@@ -66,7 +66,7 @@ class QueryCacheAdapter:
             return False
         prefixed = f"{CQRS_CACHE_PREFIX}{cache_key}"
         try:
-            return await self._cache.evict(prefixed)
+            return cast(bool, await self._cache.evict(prefixed))
         except Exception as exc:
             _logger.warning("CQRS cache evict failed for key '%s': %s", prefixed, exc)
             return False

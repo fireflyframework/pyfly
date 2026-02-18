@@ -46,12 +46,15 @@ class TestExceptionConverterService:
         assert result is None
 
     def test_first_matching_converter_wins(self):
-        service = ExceptionConverterService([
-            PydanticExceptionConverter(),
-            JSONExceptionConverter(),
-        ])
+        service = ExceptionConverterService(
+            [
+                PydanticExceptionConverter(),
+                JSONExceptionConverter(),
+            ]
+        )
         # JSON decode error
         import json
+
         try:
             json.loads("{bad json")
         except json.JSONDecodeError as exc:
@@ -59,11 +62,14 @@ class TestExceptionConverterService:
             assert isinstance(result, InvalidRequestException)
 
     def test_chain_processes_in_order(self):
-        service = ExceptionConverterService([
-            JSONExceptionConverter(),
-            PydanticExceptionConverter(),
-        ])
+        service = ExceptionConverterService(
+            [
+                JSONExceptionConverter(),
+                PydanticExceptionConverter(),
+            ]
+        )
         import json
+
         try:
             json.loads("not json")
         except json.JSONDecodeError as exc:
@@ -96,6 +102,7 @@ class TestJSONExceptionConverter:
     def test_converts_json_decode_error(self):
         converter = JSONExceptionConverter()
         import json
+
         try:
             json.loads("{bad")
         except json.JSONDecodeError as exc:

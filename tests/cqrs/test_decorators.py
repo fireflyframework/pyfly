@@ -15,7 +15,6 @@
 
 from pyfly.cqrs.decorators import command_handler, query_handler
 
-
 # -- Bare decorator usage ---------------------------------------------------
 
 

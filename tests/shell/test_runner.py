@@ -15,10 +15,7 @@
 
 from __future__ import annotations
 
-import pytest
-
 from pyfly.shell.runner import ApplicationArguments, ApplicationRunner, CommandLineRunner
-
 
 # ---------------------------------------------------------------------------
 # ApplicationArguments.from_args

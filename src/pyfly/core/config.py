@@ -20,10 +20,11 @@ import importlib.resources
 import os
 import re
 import tomllib
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, TypeVar, get_type_hints
+from typing import Any, TypeVar, cast, get_type_hints
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 T = TypeVar("T")
 
@@ -32,7 +33,7 @@ _PLACEHOLDER_RE = re.compile(r"\$\{([^}]+)\}")
 _CONFIG_PROPERTIES_ATTR = "__pyfly_config_prefix__"
 
 
-def config_properties(prefix: str):
+def config_properties(prefix: str) -> Callable[[type[T]], type[T]]:
     """Mark a dataclass as bindable to a configuration prefix.
 
     Usage:
@@ -184,9 +185,7 @@ class Config:
     @staticmethod
     def _load_framework_defaults() -> dict[str, Any]:
         """Load built-in framework defaults from pyfly.resources."""
-        defaults_file = importlib.resources.files("pyfly.resources").joinpath(
-            "pyfly-defaults.yaml"
-        )
+        defaults_file = importlib.resources.files("pyfly.resources").joinpath("pyfly-defaults.yaml")
         with importlib.resources.as_file(defaults_file) as p, open(p) as f:
             return yaml.safe_load(f) or {}
 
@@ -241,11 +240,10 @@ class Config:
         """
         if _depth > 10:
             raise ValueError(
-                f"Max recursion depth exceeded resolving placeholders in '{value}'. "
-                "Check for circular references."
+                f"Max recursion depth exceeded resolving placeholders in '{value}'. Check for circular references."
             )
 
-        def _replace(match: re.Match) -> str:
+        def _replace(match: re.Match[str]) -> str:
             inner = match.group(1)
 
             # Check for default: ${key:default}
@@ -279,12 +277,9 @@ class Config:
                 return resolved
 
             if default_val is not None:
-                return default_val
+                return cast(str, default_val)
 
-            raise ValueError(
-                f"Cannot resolve placeholder '${{{inner}}}': "
-                f"not found in environment or config"
-            )
+            raise ValueError(f"Cannot resolve placeholder '${{{inner}}}': not found in environment or config")
 
         return _PLACEHOLDER_RE.sub(_replace, value)
 
@@ -310,7 +305,7 @@ class Config:
 
         # Build kwargs from config, falling back to dataclass defaults
         kwargs: dict[str, Any] = {}
-        for field in dataclasses.fields(config_cls):
+        for field in dataclasses.fields(config_cls):  # type: ignore[arg-type]
             if field.name in section:
                 value = section[field.name]
                 # Coerce type if needed

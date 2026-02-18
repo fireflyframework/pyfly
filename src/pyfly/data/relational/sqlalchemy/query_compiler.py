@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Coroutine, Sequence
 from types import SimpleNamespace
-from typing import Any, TypeVar, get_args, get_origin
+from typing import Any, TypeVar, cast, get_args, get_origin
 
 from sqlalchemy import Select, delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -125,7 +125,7 @@ class QueryMethodCompiler:
             stmt = select(func.count()).select_from(entity)
             stmt = self._apply_where(stmt, parsed, entity, args)
             result = await session.execute(stmt)
-            return result.scalar_one()
+            return cast(int, result.scalar_one())
 
         return _execute
 
@@ -142,7 +142,7 @@ class QueryMethodCompiler:
             stmt = select(func.count()).select_from(entity)
             stmt = self._apply_where(stmt, parsed, entity, args)
             result = await session.execute(stmt)
-            return result.scalar_one() > 0
+            return cast(bool, result.scalar_one() > 0)
 
         return _execute
 
@@ -159,7 +159,7 @@ class QueryMethodCompiler:
             stmt = delete(entity)
             stmt = self._apply_where(stmt, parsed, entity, args)
             result = await session.execute(stmt)
-            return result.rowcount or 0
+            return result.rowcount or 0  # type: ignore[attr-defined]
 
         return _execute
 
@@ -244,7 +244,7 @@ class QueryMethodCompiler:
         return clauses, arg_idx
 
     @staticmethod
-    def _apply_order(stmt: Select, parsed: ParsedQuery, entity: type[T]) -> Select:
+    def _apply_order(stmt: Select[Any], parsed: ParsedQuery, entity: type[T]) -> Select[Any]:
         """Apply ORDER BY clauses to a SELECT statement."""
         for order in parsed.order_clauses:
             col = getattr(entity, order.field_name)

@@ -20,8 +20,6 @@ from starlette.responses import JSONResponse
 from starlette.routing import Route
 from starlette.testclient import TestClient
 
-from pyfly.web.params import File, UploadedFile
-
 
 async def upload_single(request: Request) -> JSONResponse:
     """Handler that receives a single file upload."""
@@ -30,11 +28,13 @@ async def upload_single(request: Request) -> JSONResponse:
     if upload is None:
         return JSONResponse({"error": "no file"}, status_code=400)
     content = await upload.read()
-    return JSONResponse({
-        "filename": upload.filename,
-        "content_type": upload.content_type,
-        "size": len(content),
-    })
+    return JSONResponse(
+        {
+            "filename": upload.filename,
+            "content_type": upload.content_type,
+            "size": len(content),
+        }
+    )
 
 
 @pytest.fixture

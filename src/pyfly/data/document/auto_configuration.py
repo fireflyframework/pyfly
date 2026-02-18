@@ -42,7 +42,7 @@ class DocumentAutoConfiguration:
     """Auto-configures Motor client, Beanie initializer, and Mongo repository post-processor."""
 
     @bean
-    def motor_client(self, config: Config) -> AsyncIOMotorClient:
+    def motor_client(self, config: Config) -> AsyncIOMotorClient:  # type: ignore[type-arg]
         uri = str(config.get("pyfly.data.document.uri", "mongodb://localhost:27017"))
         return AsyncIOMotorClient(uri)
 
@@ -55,7 +55,7 @@ class DocumentAutoConfiguration:
         self,
         config: Config,
         container: Container,
-        motor_client: AsyncIOMotorClient,
+        motor_client: AsyncIOMotorClient,  # type: ignore[type-arg]
     ) -> BeanieInitializer:
         return BeanieInitializer(
             motor_client=motor_client,

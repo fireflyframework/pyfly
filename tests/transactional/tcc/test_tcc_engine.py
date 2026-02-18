@@ -16,21 +16,21 @@
 from __future__ import annotations
 
 from typing import Annotated, Any
-from unittest.mock import AsyncMock, MagicMock, call
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from pyfly.transactional.saga.annotations import Input
 from pyfly.transactional.tcc.annotations import (
     FromTry,
     cancel_method,
     confirm_method,
-    tcc,
     tcc_participant,
     try_method,
 )
 from pyfly.transactional.tcc.core.context import TccContext
 from pyfly.transactional.tcc.core.phase import TccPhase
-from pyfly.transactional.tcc.core.result import ParticipantResult, TccResult
+from pyfly.transactional.tcc.core.result import TccResult
 from pyfly.transactional.tcc.engine.argument_resolver import TccArgumentResolver
 from pyfly.transactional.tcc.engine.execution_orchestrator import (
     TccExecutionOrchestrator,
@@ -42,8 +42,6 @@ from pyfly.transactional.tcc.registry.participant_definition import (
 )
 from pyfly.transactional.tcc.registry.tcc_definition import TccDefinition
 from pyfly.transactional.tcc.registry.tcc_registry import TccRegistry
-from pyfly.transactional.saga.annotations import Input
-
 
 # ── Helpers ──────────────────────────────────────────────────
 
@@ -139,9 +137,7 @@ class TestTccArgumentResolver:
         ctx = TccContext(tcc_name="test")
         data = {"order_id": 123, "amount": 99.99}
 
-        async def method(
-            self: Any, order_id: Annotated[int, Input("order_id")]
-        ) -> None:
+        async def method(self: Any, order_id: Annotated[int, Input("order_id")]) -> None:
             pass
 
         result = resolver.resolve(method, _FakeBean(), ctx, input_data=data)
@@ -153,14 +149,10 @@ class TestTccArgumentResolver:
         ctx = TccContext(tcc_name="test")
         ctx.set_try_result("p1", "reservation-abc")
 
-        async def method(
-            self: Any, reservation: Annotated[str, FromTry()]
-        ) -> None:
+        async def method(self: Any, reservation: Annotated[str, FromTry()]) -> None:
             pass
 
-        result = resolver.resolve(
-            method, _FakeBean(), ctx, input_data=None, participant_id="p1"
-        )
+        result = resolver.resolve(method, _FakeBean(), ctx, input_data=None, participant_id="p1")
         assert result["reservation"] == "reservation-abc"
 
     def test_skip_self(self) -> None:
@@ -204,7 +196,9 @@ class TestTccParticipantInvoker:
             return "reservation-123"
 
         p_def = ParticipantDefinition(
-            id="p1", order=1, try_method=my_try,
+            id="p1",
+            order=1,
+            try_method=my_try,
         )
 
         result = await invoker.invoke_try(p_def, _FakeBean(), ctx, input_data=None)
@@ -229,7 +223,10 @@ class TestTccParticipantInvoker:
             confirmed = True
 
         p_def = ParticipantDefinition(
-            id="p1", order=1, try_method=MagicMock(), confirm_method=my_confirm,
+            id="p1",
+            order=1,
+            try_method=MagicMock(),
+            confirm_method=my_confirm,
         )
 
         await invoker.invoke_confirm(p_def, _FakeBean(), ctx)
@@ -254,7 +251,10 @@ class TestTccParticipantInvoker:
             cancelled = True
 
         p_def = ParticipantDefinition(
-            id="p1", order=1, try_method=MagicMock(), cancel_method=my_cancel,
+            id="p1",
+            order=1,
+            try_method=MagicMock(),
+            cancel_method=my_cancel,
         )
 
         await invoker.invoke_cancel(p_def, _FakeBean(), ctx)
@@ -268,7 +268,9 @@ class TestTccParticipantInvoker:
         ctx = TccContext(tcc_name="test")
 
         p_def = ParticipantDefinition(
-            id="p1", order=1, try_method=None,
+            id="p1",
+            order=1,
+            try_method=None,
         )
 
         with pytest.raises(ValueError, match="no try_method"):
@@ -282,7 +284,10 @@ class TestTccParticipantInvoker:
         ctx = TccContext(tcc_name="test")
 
         p_def = ParticipantDefinition(
-            id="p1", order=1, try_method=MagicMock(), confirm_method=None,
+            id="p1",
+            order=1,
+            try_method=MagicMock(),
+            confirm_method=None,
         )
 
         with pytest.raises(ValueError, match="no confirm_method"):
@@ -296,7 +301,10 @@ class TestTccParticipantInvoker:
         ctx = TccContext(tcc_name="test")
 
         p_def = ParticipantDefinition(
-            id="p1", order=1, try_method=MagicMock(), cancel_method=None,
+            id="p1",
+            order=1,
+            try_method=MagicMock(),
+            cancel_method=None,
         )
 
         with pytest.raises(ValueError, match="no cancel_method"):
@@ -313,7 +321,9 @@ class TestTccParticipantInvoker:
             return "sync-result"
 
         p_def = ParticipantDefinition(
-            id="p1", order=1, try_method=my_sync_try,
+            id="p1",
+            order=1,
+            try_method=my_sync_try,
         )
 
         result = await invoker.invoke_try(p_def, _FakeBean(), ctx, input_data=None)
@@ -350,9 +360,7 @@ class TestTccExecutionOrchestrator:
     async def test_try_fails_on_second_participant_cancels_first(self) -> None:
         """When TRY fails on p2, CANCEL is called for p1 (which succeeded TRY)."""
         invoker = AsyncMock(spec=TccParticipantInvoker)
-        invoker.invoke_try = AsyncMock(
-            side_effect=["try-p1", RuntimeError("p2 try failed")]
-        )
+        invoker.invoke_try = AsyncMock(side_effect=["try-p1", RuntimeError("p2 try failed")])
         invoker.invoke_confirm = AsyncMock(return_value=None)
         invoker.invoke_cancel = AsyncMock(return_value=None)
 
@@ -390,9 +398,7 @@ class TestTccExecutionOrchestrator:
         """When CONFIRM fails, CANCEL is called for all participants that completed TRY."""
         invoker = AsyncMock(spec=TccParticipantInvoker)
         invoker.invoke_try = AsyncMock(side_effect=["try-p1", "try-p2"])
-        invoker.invoke_confirm = AsyncMock(
-            side_effect=[None, RuntimeError("p2 confirm failed")]
-        )
+        invoker.invoke_confirm = AsyncMock(side_effect=[None, RuntimeError("p2 confirm failed")])
         invoker.invoke_cancel = AsyncMock(return_value=None)
 
         orchestrator = TccExecutionOrchestrator(invoker)
@@ -410,9 +416,7 @@ class TestTccExecutionOrchestrator:
     async def test_optional_participant_try_failure_skipped(self) -> None:
         """Optional participant's TRY failure is skipped; execution continues."""
         invoker = AsyncMock(spec=TccParticipantInvoker)
-        invoker.invoke_try = AsyncMock(
-            side_effect=[RuntimeError("p1 optional fail"), "try-p2"]
-        )
+        invoker.invoke_try = AsyncMock(side_effect=[RuntimeError("p1 optional fail"), "try-p2"])
         invoker.invoke_confirm = AsyncMock(return_value=None)
         invoker.invoke_cancel = AsyncMock(return_value=None)
 
@@ -539,9 +543,7 @@ class TestTccEngineSuccessful:
         tcc_def = _make_tcc_def()
         mock_registry.get.return_value = tcc_def
 
-        async def _exec_side_effect(
-            tcc_def: Any, ctx: TccContext, input_data: Any = None
-        ) -> tuple[bool, str | None]:
+        async def _exec_side_effect(tcc_def: Any, ctx: TccContext, input_data: Any = None) -> tuple[bool, str | None]:
             ctx.set_try_result("p1", "try-p1")
             ctx.set_try_result("p2", "try-p2")
             ctx.set_participant_status("p1", TccPhase.CONFIRM)
@@ -552,8 +554,11 @@ class TestTccEngineSuccessful:
         mock_orchestrator.execute = AsyncMock(side_effect=_exec_side_effect)
 
         engine = _build_engine(
-            mock_registry, mock_invoker, mock_orchestrator,
-            mock_persistence, mock_events,
+            mock_registry,
+            mock_invoker,
+            mock_orchestrator,
+            mock_persistence,
+            mock_events,
         )
 
         result = await engine.execute("test-tcc", input_data={"order": 1})
@@ -579,9 +584,7 @@ class TestTccEngineSuccessful:
         tcc_def = _make_tcc_def()
         mock_registry.get.return_value = tcc_def
 
-        async def _exec_side_effect(
-            tcc_def: Any, ctx: TccContext, input_data: Any = None
-        ) -> tuple[bool, str | None]:
+        async def _exec_side_effect(tcc_def: Any, ctx: TccContext, input_data: Any = None) -> tuple[bool, str | None]:
             ctx.set_try_result("p1", "reservation-1")
             ctx.set_try_result("p2", "reservation-2")
             ctx.set_participant_status("p1", TccPhase.CONFIRM)
@@ -616,9 +619,7 @@ class TestTccEngineFailure:
         tcc_def = _make_tcc_def()
         mock_registry.get.return_value = tcc_def
 
-        async def _exec_side_effect(
-            tcc_def: Any, ctx: TccContext, input_data: Any = None
-        ) -> tuple[bool, str | None]:
+        async def _exec_side_effect(tcc_def: Any, ctx: TccContext, input_data: Any = None) -> tuple[bool, str | None]:
             ctx.set_try_result("p1", "try-p1")
             ctx.set_participant_status("p1", TccPhase.CANCEL)
             ctx.set_phase(TccPhase.CANCEL)
@@ -670,16 +671,22 @@ class TestTccEngineEvents:
         mock_orchestrator.execute = AsyncMock(return_value=(True, None))
 
         engine = _build_engine(
-            mock_registry, mock_invoker, mock_orchestrator, events=mock_events,
+            mock_registry,
+            mock_invoker,
+            mock_orchestrator,
+            events=mock_events,
         )
 
         result = await engine.execute("test-tcc")
 
         mock_events.on_start.assert_called_once_with(
-            "test-tcc", result.correlation_id,
+            "test-tcc",
+            result.correlation_id,
         )
         mock_events.on_completed.assert_called_once_with(
-            "test-tcc", result.correlation_id, True,
+            "test-tcc",
+            result.correlation_id,
+            True,
         )
 
     @pytest.mark.anyio
@@ -696,14 +703,19 @@ class TestTccEngineEvents:
         mock_orchestrator.execute = AsyncMock(return_value=(False, "p2"))
 
         engine = _build_engine(
-            mock_registry, mock_invoker, mock_orchestrator, events=mock_events,
+            mock_registry,
+            mock_invoker,
+            mock_orchestrator,
+            events=mock_events,
         )
 
         result = await engine.execute("test-tcc")
 
         mock_events.on_start.assert_called_once()
         mock_events.on_completed.assert_called_once_with(
-            "test-tcc", result.correlation_id, False,
+            "test-tcc",
+            result.correlation_id,
+            False,
         )
 
     @pytest.mark.anyio
@@ -719,7 +731,10 @@ class TestTccEngineEvents:
         mock_orchestrator.execute = AsyncMock(return_value=(True, None))
 
         engine = _build_engine(
-            mock_registry, mock_invoker, mock_orchestrator, events=None,
+            mock_registry,
+            mock_invoker,
+            mock_orchestrator,
+            events=None,
         )
 
         result = await engine.execute("test-tcc")
@@ -743,7 +758,9 @@ class TestTccEnginePersistence:
         mock_orchestrator.execute = AsyncMock(return_value=(True, None))
 
         engine = _build_engine(
-            mock_registry, mock_invoker, mock_orchestrator,
+            mock_registry,
+            mock_invoker,
+            mock_orchestrator,
             persistence=mock_persistence,
         )
 
@@ -755,7 +772,8 @@ class TestTccEnginePersistence:
         assert state["correlation_id"] == result.correlation_id
 
         mock_persistence.mark_completed.assert_called_once_with(
-            result.correlation_id, True,
+            result.correlation_id,
+            True,
         )
 
     @pytest.mark.anyio
@@ -772,7 +790,9 @@ class TestTccEnginePersistence:
         mock_orchestrator.execute = AsyncMock(return_value=(False, "p1"))
 
         engine = _build_engine(
-            mock_registry, mock_invoker, mock_orchestrator,
+            mock_registry,
+            mock_invoker,
+            mock_orchestrator,
             persistence=mock_persistence,
         )
 
@@ -780,7 +800,8 @@ class TestTccEnginePersistence:
 
         mock_persistence.persist_state.assert_called_once()
         mock_persistence.mark_completed.assert_called_once_with(
-            result.correlation_id, False,
+            result.correlation_id,
+            False,
         )
 
     @pytest.mark.anyio
@@ -796,7 +817,10 @@ class TestTccEnginePersistence:
         mock_orchestrator.execute = AsyncMock(return_value=(True, None))
 
         engine = _build_engine(
-            mock_registry, mock_invoker, mock_orchestrator, persistence=None,
+            mock_registry,
+            mock_invoker,
+            mock_orchestrator,
+            persistence=None,
         )
 
         result = await engine.execute("test-tcc")
@@ -820,7 +844,8 @@ class TestTccEngineCorrelationId:
 
         engine = _build_engine(mock_registry, mock_invoker, mock_orchestrator)
         result = await engine.execute(
-            "test-tcc", correlation_id="custom-123",
+            "test-tcc",
+            correlation_id="custom-123",
         )
 
         assert result.correlation_id == "custom-123"

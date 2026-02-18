@@ -52,7 +52,8 @@ class AutoValidationProcessor:
     def _validate_pydantic(obj: Any) -> ValidationResult:
         """Validate using pydantic if the object is a BaseModel."""
         try:
-            from pydantic import BaseModel, ValidationError as PydanticError
+            from pydantic import BaseModel
+            from pydantic import ValidationError as PydanticError
 
             if isinstance(obj, BaseModel):
                 try:

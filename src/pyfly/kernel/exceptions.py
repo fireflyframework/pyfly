@@ -25,6 +25,8 @@ Categories:
 
 from __future__ import annotations
 
+from typing import Any
+
 # =============================================================================
 # Base Exception
 # =============================================================================
@@ -47,11 +49,11 @@ class PyFlyException(Exception):
         self,
         message: str,
         code: str | None = None,
-        context: dict | None = None,
+        context: dict[str, Any] | None = None,
     ) -> None:
         super().__init__(message)
         self.code = code
-        self.context: dict = context if context is not None else {}
+        self.context: dict[str, Any] = context if context is not None else {}
 
 
 # =============================================================================

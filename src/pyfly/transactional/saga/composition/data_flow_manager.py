@@ -78,10 +78,7 @@ class DataFlowManager:
                 continue
 
             # Determine the value to inject.
-            if flow.source_step is not None:
-                value = source_result.result_of(flow.source_step)
-            else:
-                value = source_result
+            value = source_result.result_of(flow.source_step) if flow.source_step is not None else source_result
 
             # Place into the resolved dict.
             if flow.target_key is not None:

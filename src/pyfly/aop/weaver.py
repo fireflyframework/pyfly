@@ -87,11 +87,11 @@ def _build_async_wrapper(
     bean: Any,
     method_name: str,
     original: Any,
-    before_bindings: list,
-    after_returning_bindings: list,
-    after_throwing_bindings: list,
-    after_bindings: list,
-    around_bindings: list,
+    before_bindings: list[Any],
+    after_returning_bindings: list[Any],
+    after_throwing_bindings: list[Any],
+    after_bindings: list[Any],
+    around_bindings: list[Any],
 ) -> Any:
     """Build an async wrapper that applies the advice chain."""
 
@@ -167,10 +167,10 @@ def _build_sync_wrapper(
     bean: Any,
     method_name: str,
     original: Any,
-    before_bindings: list,
-    after_returning_bindings: list,
-    after_throwing_bindings: list,
-    after_bindings: list,
+    before_bindings: list[Any],
+    after_returning_bindings: list[Any],
+    after_throwing_bindings: list[Any],
+    after_bindings: list[Any],
 ) -> Any:
     """Build a sync wrapper that applies the advice chain (no @around support)."""
 

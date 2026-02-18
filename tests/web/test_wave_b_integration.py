@@ -107,9 +107,7 @@ class OrderController:
         return self._svc.get_order(order_id)
 
     @get_mapping("/")
-    async def list_orders(
-        self, page: QueryParam[int] = 1, size: QueryParam[int] = 20
-    ) -> list:
+    async def list_orders(self, page: QueryParam[int] = 1, size: QueryParam[int] = 20) -> list:
         return self._svc.list_orders(page, size)
 
     @post_mapping("/", status_code=201)

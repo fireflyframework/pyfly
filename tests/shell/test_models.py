@@ -17,8 +17,7 @@ import dataclasses
 
 import pytest
 
-from pyfly.shell.result import CommandResult, ShellParam, MISSING
-
+from pyfly.shell.result import MISSING, CommandResult, ShellParam
 
 # ---------------------------------------------------------------------------
 # ShellParam

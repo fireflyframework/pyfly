@@ -23,7 +23,7 @@ from typing import Any
 
 import click
 
-from pyfly.shell.result import ShellParam, MISSING
+from pyfly.shell.result import MISSING, ShellParam
 
 # ---- type mapping from Python types to Click parameter types ----
 
@@ -79,20 +79,23 @@ def _wrap_handler(handler: Callable[..., Any]) -> Callable[..., Any]:
     the existing loop; otherwise ``asyncio.run()`` creates a new one.
     """
     if asyncio.iscoroutinefunction(handler):
+
         @functools.wraps(handler)
         def _sync_wrapper(**kwargs: Any) -> Any:
             coro = handler(**kwargs)
             try:
-                loop = asyncio.get_running_loop()
+                _loop = asyncio.get_running_loop()
             except RuntimeError:
                 # No running loop — safe to use asyncio.run()
                 return asyncio.run(coro)
             # Already inside a running loop — run the coroutine via a new
             # thread so we don't block the event loop.
             import concurrent.futures
+
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
                 future = pool.submit(asyncio.run, coro)
                 return future.result()
+
         return _sync_wrapper
     return handler
 
@@ -145,7 +148,7 @@ class ClickShellAdapter:
         """Invoke the Click group with *args*, returning ``(exit_code, output)``."""
         buf = StringIO()
         try:
-            result = self._root.main(
+            result = self._root.main(  # type: ignore[call-overload]
                 args=args,
                 standalone_mode=False,
                 **{"color": False},

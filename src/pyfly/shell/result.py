@@ -18,6 +18,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+
 class _MissingSentinel:
     """Sentinel indicating no default value was provided."""
 

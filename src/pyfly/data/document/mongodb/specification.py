@@ -66,7 +66,7 @@ class MongoSpecification(SpecificationBase[T, dict[str, Any]]):
     # Combinators
     # ------------------------------------------------------------------
 
-    def __and__(self, other: MongoSpecification[T]) -> MongoSpecification[T]:
+    def __and__(self, other: MongoSpecification[T]) -> MongoSpecification[T]:  # type: ignore[override]
         """Combine with AND: both specs must match (``$and``)."""
         left, right = self._predicate, other._predicate
 
@@ -81,7 +81,7 @@ class MongoSpecification(SpecificationBase[T, dict[str, Any]]):
 
         return MongoSpecification(and_predicate)
 
-    def __or__(self, other: MongoSpecification[T]) -> MongoSpecification[T]:
+    def __or__(self, other: MongoSpecification[T]) -> MongoSpecification[T]:  # type: ignore[override]
         """Combine with OR: either spec may match (``$or``)."""
         left, right = self._predicate, other._predicate
 

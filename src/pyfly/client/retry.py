@@ -50,7 +50,7 @@ class RetryPolicy:
             except self._retry_on as exc:
                 last_exception = exc
                 if attempt < self._max_attempts - 1:
-                    delay = self._base_delay * (2 ** attempt)
+                    delay = self._base_delay * (2**attempt)
                     await asyncio.sleep(delay)
             except Exception:
                 raise

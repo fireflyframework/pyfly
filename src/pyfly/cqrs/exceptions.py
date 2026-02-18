@@ -15,13 +15,15 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from pyfly.kernel.exceptions import BusinessException, InfrastructureException
 
 
 class CqrsException(BusinessException):
     """Base exception for all CQRS errors."""
 
-    def __init__(self, message: str, code: str | None = None, context: dict | None = None) -> None:
+    def __init__(self, message: str, code: str | None = None, context: dict[str, Any] | None = None) -> None:
         super().__init__(message=message, code=code or "CQRS_ERROR", context=context)
 
 
@@ -60,7 +62,7 @@ class CommandProcessingException(CqrsException):
     ) -> None:
         self.command_type = command_type
         self.cause = cause
-        ctx: dict = {}
+        ctx: dict[str, Any] = {}
         if command_type:
             ctx["command_type"] = command_type.__name__
         if cause:
@@ -79,7 +81,7 @@ class QueryProcessingException(CqrsException):
     ) -> None:
         self.query_type = query_type
         self.cause = cause
-        ctx: dict = {}
+        ctx: dict[str, Any] = {}
         if query_type:
             ctx["query_type"] = query_type.__name__
         if cause:

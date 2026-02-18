@@ -15,12 +15,9 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 from pyfly.shell.decorators import shell_argument, shell_method, shell_option
 from pyfly.shell.param_inference import infer_params
-from pyfly.shell.result import ShellParam, MISSING
-
+from pyfly.shell.result import MISSING, ShellParam
 
 # ---------------------------------------------------------------------------
 # Individual parameter kinds
@@ -130,14 +127,10 @@ class TestMultipleParams:
         name_p, count_p, verbose_p = params
 
         # name → positional argument
-        assert name_p == ShellParam(
-            name="name", param_type=str, is_option=False, default=MISSING
-        )
+        assert name_p == ShellParam(name="name", param_type=str, is_option=False, default=MISSING)
 
         # count → option with default
-        assert count_p == ShellParam(
-            name="count", param_type=int, is_option=True, default=1
-        )
+        assert count_p == ShellParam(name="count", param_type=int, is_option=True, default=1)
 
         # verbose → flag option
         assert verbose_p == ShellParam(

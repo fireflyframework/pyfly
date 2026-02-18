@@ -23,7 +23,6 @@ from pyfly.cqrs.context.execution_context import DefaultExecutionContext
 from pyfly.cqrs.query.handler import ContextAwareQueryHandler, QueryHandler
 from pyfly.cqrs.types import Query
 
-
 # ── test query types ──────────────────────────────────────────
 
 

@@ -65,9 +65,7 @@ class PydanticExceptionConverter:
     def convert(self, exc: Exception) -> PyFlyException:
         assert isinstance(exc, ValidationError)
         errors = exc.errors()
-        detail = "; ".join(
-            f"{'.'.join(str(loc) for loc in e['loc'])}: {e['msg']}" for e in errors
-        )
+        detail = "; ".join(f"{'.'.join(str(loc) for loc in e['loc'])}: {e['msg']}" for e in errors)
         return ValidationException(
             f"Validation failed: {detail}",
             code="VALIDATION_ERROR",

@@ -21,8 +21,18 @@ from jinja2 import Environment, PackageLoader
 
 # Available features that map to PyFly extras
 AVAILABLE_FEATURES: list[str] = [
-    "web", "data-relational", "data-document", "eda", "cache", "client",
-    "security", "scheduling", "observability", "cqrs", "shell", "transactional",
+    "web",
+    "data-relational",
+    "data-document",
+    "eda",
+    "cache",
+    "client",
+    "security",
+    "scheduling",
+    "observability",
+    "cqrs",
+    "shell",
+    "transactional",
 ]
 
 # Default features per archetype

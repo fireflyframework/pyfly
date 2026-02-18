@@ -21,8 +21,8 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from pyfly.transactional.shared.engine.compensation import (
-    CompositeCompensationErrorHandler,
     CompensationErrorHandlerFactory,
+    CompositeCompensationErrorHandler,
     FailFastErrorHandler,
     LogAndContinueErrorHandler,
     RetryWithBackoffErrorHandler,
@@ -91,9 +91,7 @@ class TestRetryWithBackoffErrorHandler:
     """RetryWithBackoffErrorHandler retries with exponential backoff."""
 
     async def test_raises_after_max_retries(self) -> None:
-        handler = RetryWithBackoffErrorHandler(
-            max_retries=3, backoff_ms=10, backoff_multiplier=2.0
-        )
+        handler = RetryWithBackoffErrorHandler(max_retries=3, backoff_ms=10, backoff_multiplier=2.0)
         error = RuntimeError("always fails")
 
         with patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
@@ -104,9 +102,7 @@ class TestRetryWithBackoffErrorHandler:
             assert mock_sleep.await_count == 3
 
     async def test_backoff_delays_are_exponential(self) -> None:
-        handler = RetryWithBackoffErrorHandler(
-            max_retries=3, backoff_ms=100, backoff_multiplier=2.0
-        )
+        handler = RetryWithBackoffErrorHandler(max_retries=3, backoff_ms=100, backoff_multiplier=2.0)
         error = RuntimeError("fails")
 
         with patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
@@ -128,9 +124,7 @@ class TestRetryWithBackoffErrorHandler:
             if call_count["n"] < 3:
                 raise _RetryableError("not yet")
 
-        handler = RetryWithBackoffErrorHandler(
-            max_retries=5, backoff_ms=10, backoff_multiplier=1.0
-        )
+        handler = RetryWithBackoffErrorHandler(max_retries=5, backoff_ms=10, backoff_multiplier=1.0)
 
         ctx = {"compensation_fn": _compensation_fn}
         error = _RetryableError("first failure")
@@ -225,9 +219,7 @@ class TestCompensationErrorHandlerFactory:
         assert isinstance(handler, LogAndContinueErrorHandler)
 
     def test_create_retry_with_backoff(self) -> None:
-        handler = CompensationErrorHandlerFactory.create(
-            "retry_with_backoff", max_retries=2
-        )
+        handler = CompensationErrorHandlerFactory.create("retry_with_backoff", max_retries=2)
         assert isinstance(handler, RetryWithBackoffErrorHandler)
         assert handler.max_retries == 2
 

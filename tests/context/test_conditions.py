@@ -13,6 +13,7 @@
 # limitations under the License.
 """Tests for conditional bean decorators."""
 
+from pyfly.container.types import Scope
 from pyfly.context.conditions import (
     auto_configuration,
     conditional_on_bean,
@@ -20,7 +21,6 @@ from pyfly.context.conditions import (
     conditional_on_missing_bean,
     conditional_on_property,
 )
-from pyfly.container.types import Scope
 
 
 class TestConditionalOnProperty:

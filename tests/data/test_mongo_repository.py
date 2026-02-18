@@ -22,7 +22,6 @@ from mongomock_motor import AsyncMongoMockClient
 from pyfly.data.document.mongodb.document import BaseDocument
 from pyfly.data.document.mongodb.repository import MongoRepository
 
-
 # ---------------------------------------------------------------------------
 # Test document
 # ---------------------------------------------------------------------------
@@ -91,6 +90,7 @@ class TestInitSubclass:
 
         class OtherDoc(BaseDocument):
             name: str
+
             class Settings:
                 name = "other"
 
@@ -165,7 +165,6 @@ class TestCRUD:
 
 
 class TestCountAndExists:
-
     @pytest.mark.asyncio
     async def test_count_empty(self, repo: MongoRepository):
         assert await repo.count() == 0
@@ -194,7 +193,6 @@ class TestCountAndExists:
 
 
 class TestPagination:
-
     @pytest.mark.asyncio
     async def test_find_paginated_basic(self, repo: MongoRepository):
         for i in range(15):

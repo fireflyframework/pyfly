@@ -106,6 +106,4 @@ class AspectRegistry:
 
     def get_matching(self, qualified_name: str) -> list[AdviceBinding]:
         """Return bindings whose pointcut matches *qualified_name*."""
-        return [
-            b for b in self._bindings if matches_pointcut(b.pointcut, qualified_name)
-        ]
+        return [b for b in self._bindings if matches_pointcut(b.pointcut, qualified_name)]

@@ -22,11 +22,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 
-class TccExecutionStatus(str, Enum):
+class TccExecutionStatus(StrEnum):
     """Status of a TCC execution from the persistence perspective.
 
     * **IN_FLIGHT** — the TCC is still running (try phase in progress).
@@ -113,11 +113,7 @@ class TccExecutionState:
         :class:`ParticipantExecutionState` instances.
         """
         completed_at_raw = data.get("completed_at")
-        completed_at = (
-            datetime.fromisoformat(completed_at_raw)
-            if completed_at_raw is not None
-            else None
-        )
+        completed_at = datetime.fromisoformat(completed_at_raw) if completed_at_raw is not None else None
 
         participants: dict[str, ParticipantExecutionState] = {}
         for pid, pdata in data.get("participants", {}).items():

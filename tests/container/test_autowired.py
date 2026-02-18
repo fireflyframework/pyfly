@@ -17,7 +17,7 @@ from typing import Annotated, Protocol, runtime_checkable
 
 import pytest
 
-from pyfly.container import Autowired, Container, NoSuchBeanError, Qualifier, service
+from pyfly.container import Autowired, Container, NoSuchBeanError, Qualifier
 
 
 class Greeter:

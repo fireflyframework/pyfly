@@ -31,11 +31,13 @@ def conditional_on_property(key: str, having_value: str = "") -> Any:
 
     def decorator(cls: T) -> T:
         conditions = getattr(cls, "__pyfly_conditions__", [])
-        conditions.append({
-            "type": "on_property",
-            "key": key,
-            "having_value": having_value,
-        })
+        conditions.append(
+            {
+                "type": "on_property",
+                "key": key,
+                "having_value": having_value,
+            }
+        )
         cls.__pyfly_conditions__ = conditions  # type: ignore[attr-defined]
         return cls
 
@@ -57,11 +59,13 @@ def conditional_on_class(module_name: str) -> Any:
 
     def decorator(cls: T) -> T:
         conditions = getattr(cls, "__pyfly_conditions__", [])
-        conditions.append({
-            "type": "on_class",
-            "module_name": module_name,
-            "check": _check,
-        })
+        conditions.append(
+            {
+                "type": "on_class",
+                "module_name": module_name,
+                "check": _check,
+            }
+        )
         cls.__pyfly_conditions__ = conditions  # type: ignore[attr-defined]
         return cls
 
@@ -76,10 +80,12 @@ def conditional_on_missing_bean(bean_type: type) -> Any:
 
     def decorator(cls: T) -> T:
         conditions = getattr(cls, "__pyfly_conditions__", [])
-        conditions.append({
-            "type": "on_missing_bean",
-            "bean_type": bean_type,
-        })
+        conditions.append(
+            {
+                "type": "on_missing_bean",
+                "bean_type": bean_type,
+            }
+        )
         cls.__pyfly_conditions__ = conditions  # type: ignore[attr-defined]
         return cls
 

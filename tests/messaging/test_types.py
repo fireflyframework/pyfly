@@ -12,9 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Tests for messaging types and port protocol."""
-from __future__ import annotations
 
-import pytest
+from __future__ import annotations
 
 from pyfly.messaging.ports.outbound import MessageBrokerPort
 from pyfly.messaging.types import Message

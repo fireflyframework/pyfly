@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 from pyfly.core.config import config_properties
 
@@ -26,7 +27,5 @@ class ClientProperties:
     """Configuration for the HTTP client subsystem (pyfly.client.*)."""
 
     timeout: int = 30
-    retry: dict = field(default_factory=lambda: {"max-attempts": 3, "base-delay": 1.0})
-    circuit_breaker: dict = field(
-        default_factory=lambda: {"failure-threshold": 5, "recovery-timeout": 30}
-    )
+    retry: dict[str, Any] = field(default_factory=lambda: {"max-attempts": 3, "base-delay": 1.0})
+    circuit_breaker: dict[str, Any] = field(default_factory=lambda: {"failure-threshold": 5, "recovery-timeout": 30})

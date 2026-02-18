@@ -43,34 +43,88 @@ from pyfly.cli.templates import (
     generate_project,
 )
 
-PYFLY_STYLE = Style([
-    ("qmark", "fg:#b388ff bold"),
-    ("question", "bold"),
-    ("answer", "fg:#4fc3f7 bold"),
-    ("pointer", "fg:#b388ff bold"),
-    ("highlighted", "fg:#b388ff bold"),
-    ("selected", "fg:#66bb6a bold"),
-    ("separator", "fg:#cc5454"),
-    ("instruction", "fg:#757575"),
-    ("text", ""),
-    ("disabled", "fg:#858585 italic"),
-])
+PYFLY_STYLE = Style(
+    [
+        ("qmark", "fg:#b388ff bold"),
+        ("question", "bold"),
+        ("answer", "fg:#4fc3f7 bold"),
+        ("pointer", "fg:#b388ff bold"),
+        ("highlighted", "fg:#b388ff bold"),
+        ("selected", "fg:#66bb6a bold"),
+        ("separator", "fg:#cc5454"),
+        ("instruction", "fg:#757575"),
+        ("text", ""),
+        ("disabled", "fg:#858585 italic"),
+    ]
+)
 
 _ARCHETYPES = list(ARCHETYPE_DESCRIPTIONS.keys())
 
 # Python stdlib modules and common names that will cause import conflicts.
 _RESERVED_NAMES: set[str] = {
-    "test", "tests", "src", "pyfly", "site", "setup", "pip", "pkg",
-    "main", "app", "config", "logging", "typing", "collections",
-    "os", "sys", "io", "re", "json", "http", "email", "html",
-    "xml", "csv", "ast", "dis", "code", "types", "abc",
-    "dataclasses", "enum", "string", "textwrap", "unicodedata",
-    "struct", "codecs", "datetime", "calendar", "time", "math",
-    "random", "statistics", "pathlib", "glob", "shutil",
-    "sqlite3", "socket", "signal", "subprocess",
-    "threading", "multiprocessing", "asyncio", "uuid",
-    "hashlib", "secrets", "pydantic", "starlette", "uvicorn",
-    "sqlalchemy", "alembic", "click", "rich", "jinja2",
+    "test",
+    "tests",
+    "src",
+    "pyfly",
+    "site",
+    "setup",
+    "pip",
+    "pkg",
+    "main",
+    "app",
+    "config",
+    "logging",
+    "typing",
+    "collections",
+    "os",
+    "sys",
+    "io",
+    "re",
+    "json",
+    "http",
+    "email",
+    "html",
+    "xml",
+    "csv",
+    "ast",
+    "dis",
+    "code",
+    "types",
+    "abc",
+    "dataclasses",
+    "enum",
+    "string",
+    "textwrap",
+    "unicodedata",
+    "struct",
+    "codecs",
+    "datetime",
+    "calendar",
+    "time",
+    "math",
+    "random",
+    "statistics",
+    "pathlib",
+    "glob",
+    "shutil",
+    "sqlite3",
+    "socket",
+    "signal",
+    "subprocess",
+    "threading",
+    "multiprocessing",
+    "asyncio",
+    "uuid",
+    "hashlib",
+    "secrets",
+    "pydantic",
+    "starlette",
+    "uvicorn",
+    "sqlalchemy",
+    "alembic",
+    "click",
+    "rich",
+    "jinja2",
 }
 
 
@@ -144,11 +198,13 @@ def _prompt_interactive() -> tuple[str, str, str, list[str]]:
                 for feat in group_feats:
                     detail = FEATURE_DETAILS.get(feat, {})
                     short = detail.get("short", "")
-                    choices.append(Choice(
-                        title=f"{feat:16s} {short}",
-                        value=feat,
-                        checked=feat in defaults,
-                    ))
+                    choices.append(
+                        Choice(
+                            title=f"{feat:16s} {short}",
+                            value=feat,
+                            checked=feat in defaults,
+                        )
+                    )
 
             features = questionary.checkbox(
                 "Select features:",

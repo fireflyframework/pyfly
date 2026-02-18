@@ -285,6 +285,7 @@ class TestExpandedExternalServiceExceptions:
 class TestErrorEnums:
     def test_error_category_values(self):
         from pyfly.kernel.types import ErrorCategory
+
         assert ErrorCategory.VALIDATION.value == "VALIDATION"
         assert ErrorCategory.BUSINESS.value == "BUSINESS"
         assert ErrorCategory.TECHNICAL.value == "TECHNICAL"
@@ -296,6 +297,7 @@ class TestErrorEnums:
 
     def test_error_severity_values(self):
         from pyfly.kernel.types import ErrorSeverity
+
         assert ErrorSeverity.LOW.value == "LOW"
         assert ErrorSeverity.MEDIUM.value == "MEDIUM"
         assert ErrorSeverity.HIGH.value == "HIGH"
@@ -305,9 +307,14 @@ class TestErrorEnums:
 class TestErrorResponse:
     def test_minimal_error_response(self):
         from pyfly.kernel.types import ErrorResponse
+
         resp = ErrorResponse(
-            timestamp="2026-02-13T12:00:00Z", status=404, error="Not Found",
-            message="Order not found", code="ORDER_NOT_FOUND", path="/api/orders/123",
+            timestamp="2026-02-13T12:00:00Z",
+            status=404,
+            error="Not Found",
+            message="Order not found",
+            code="ORDER_NOT_FOUND",
+            path="/api/orders/123",
         )
         assert resp.status == 404
         assert resp.code == "ORDER_NOT_FOUND"
@@ -316,11 +323,18 @@ class TestErrorResponse:
 
     def test_error_response_to_dict(self):
         from pyfly.kernel.types import ErrorCategory, ErrorResponse, ErrorSeverity
+
         resp = ErrorResponse(
-            timestamp="2026-02-13T12:00:00Z", status=429, error="Too Many Requests",
-            message="Rate limit exceeded", code="RATE_LIMIT", path="/api/orders",
-            category=ErrorCategory.RATE_LIMIT, severity=ErrorSeverity.MEDIUM,
-            retryable=True, retry_after=30,
+            timestamp="2026-02-13T12:00:00Z",
+            status=429,
+            error="Too Many Requests",
+            message="Rate limit exceeded",
+            code="RATE_LIMIT",
+            path="/api/orders",
+            category=ErrorCategory.RATE_LIMIT,
+            severity=ErrorSeverity.MEDIUM,
+            retryable=True,
+            retry_after=30,
         )
         d = resp.to_dict()
         assert d["status"] == 429
@@ -330,13 +344,18 @@ class TestErrorResponse:
 
     def test_error_response_with_validation_errors(self):
         from pyfly.kernel.types import ErrorResponse, FieldError
+
         field_errors = [
             FieldError(field="email", message="Invalid email format", rejected_value="not-email"),
             FieldError(field="age", message="Must be positive", rejected_value="-1"),
         ]
         resp = ErrorResponse(
-            timestamp="2026-02-13T12:00:00Z", status=422, error="Validation Error",
-            message="Input validation failed", code="VALIDATION_ERROR", path="/api/users",
+            timestamp="2026-02-13T12:00:00Z",
+            status=422,
+            error="Validation Error",
+            message="Input validation failed",
+            code="VALIDATION_ERROR",
+            path="/api/users",
             field_errors=field_errors,
         )
         assert len(resp.field_errors) == 2
@@ -347,9 +366,14 @@ class TestErrorResponse:
 
     def test_error_response_excludes_none_from_dict(self):
         from pyfly.kernel.types import ErrorResponse
+
         resp = ErrorResponse(
-            timestamp="2026-02-13T12:00:00Z", status=500, error="Internal Server Error",
-            message="Something went wrong", code="INTERNAL_ERROR", path="/api/test",
+            timestamp="2026-02-13T12:00:00Z",
+            status=500,
+            error="Internal Server Error",
+            message="Something went wrong",
+            code="INTERNAL_ERROR",
+            path="/api/test",
         )
         d = resp.to_dict()
         assert "trace_id" not in d

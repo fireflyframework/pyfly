@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Tests for KafkaAdapter using mock aiokafka objects."""
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock
@@ -34,7 +35,10 @@ class TestKafkaAdapter:
         adapter._producer = mock_producer
         await adapter.publish("orders", b'{"id": 1}', key=b"k1")
         mock_producer.send_and_wait.assert_called_once_with(
-            "orders", value=b'{"id": 1}', key=b"k1", headers=None,
+            "orders",
+            value=b'{"id": 1}',
+            key=b"k1",
+            headers=None,
         )
 
     @pytest.mark.asyncio

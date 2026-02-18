@@ -32,6 +32,7 @@ from pyfly.core.config import Config
 
 # --- Test beans ---
 
+
 @service
 class GreetingService:
     def greet(self) -> str:
@@ -61,6 +62,7 @@ class AppConfig:
 
 
 # --- Tests ---
+
 
 class TestApplicationContextBasics:
     @pytest.mark.asyncio

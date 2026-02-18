@@ -24,10 +24,10 @@ from starlette.responses import Response
 from pyfly.security.csrf import generate_csrf_token, validate_csrf_token
 from pyfly.web.adapters.starlette.filters.csrf_filter import CsrfFilter
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_request(
     method: str = "GET",

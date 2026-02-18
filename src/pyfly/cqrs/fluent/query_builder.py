@@ -19,9 +19,8 @@ queries and dispatching them through the bus.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any, Generic, TypeVar
-from uuid import uuid4
 
 from pyfly.cqrs.types import Query
 

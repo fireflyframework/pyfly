@@ -66,7 +66,6 @@ from pyfly.transactional.tcc.engine.participant_invoker import TccParticipantInv
 from pyfly.transactional.tcc.engine.tcc_engine import TccEngine
 from pyfly.transactional.tcc.registry.tcc_registry import TccRegistry
 
-
 # ── Saga engine factory ──────────────────────────────────────
 
 
@@ -320,9 +319,7 @@ class TestSagaWithParallelSteps:
         assert execution_log[-1] == "process_order"
 
         # Dependent step received results from both parents.
-        assert result.result_of("process_order") == (
-            "order for Alice with stock 42"
-        )
+        assert result.result_of("process_order") == ("order for Alice with stock 42")
         assert result.result_of("fetch_user") == {"name": "Alice"}
         assert result.result_of("fetch_inventory") == {"stock": 42}
 
@@ -714,7 +711,8 @@ class TestSagaWithInputData:
         engine = _build_saga_engine(registry)
 
         result = await engine.execute(
-            "input-saga", input_data={"order_id": "ORD-42"},
+            "input-saga",
+            input_data={"order_id": "ORD-42"},
         )
 
         assert result.success is True

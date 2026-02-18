@@ -51,7 +51,7 @@ class ApplicationArguments:
     def get_option_values(self, name: str) -> list[str]:
         """Get all values for ``--name=value`` options."""
         prefix = f"--{name}="
-        return [opt[len(prefix):] for opt in self.option_args if opt.startswith(prefix)]
+        return [opt[len(prefix) :] for opt in self.option_args if opt.startswith(prefix)]
 
 
 @runtime_checkable

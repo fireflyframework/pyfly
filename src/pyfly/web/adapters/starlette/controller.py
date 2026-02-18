@@ -202,9 +202,7 @@ class ControllerRegistrar:
             description = "\n".join(line.strip() for line in lines[2:]).strip()
         return summary, description
 
-    def _extract_param_metadata(
-        self, handler: Any
-    ) -> tuple[list[dict[str, Any]], type | None]:
+    def _extract_param_metadata(self, handler: Any) -> tuple[list[dict[str, Any]], type | None]:
         """Extract OpenAPI parameter dicts and request body model from handler type hints."""
         from pydantic import BaseModel
 
@@ -236,7 +234,7 @@ class ControllerRegistrar:
                 else:
                     # Valid[T] standalone → Body[T]
                     origin = Body
-                    hint = Body[inner_hint]
+                    hint = Body[inner_hint]  # type: ignore[valid-type]
 
             if origin not in _BINDING_TYPES:
                 continue
@@ -244,19 +242,17 @@ class ControllerRegistrar:
             args = get_args(hint)
             inner_type = args[0] if args else str
 
-            default = (
-                param.default
-                if param.default is not inspect.Parameter.empty
-                else _MISSING
-            )
+            default = param.default if param.default is not inspect.Parameter.empty else _MISSING
 
             if origin is PathVar:
-                params.append({
-                    "name": name,
-                    "in": "path",
-                    "required": True,
-                    "schema": {"type": _py_type_to_openapi(inner_type)},
-                })
+                params.append(
+                    {
+                        "name": name,
+                        "in": "path",
+                        "required": True,
+                        "schema": {"type": _py_type_to_openapi(inner_type)},
+                    }
+                )
             elif origin is QueryParam:
                 p: dict[str, Any] = {
                     "name": name,
@@ -268,27 +264,29 @@ class ControllerRegistrar:
                     p["schema"]["default"] = default
                 params.append(p)
             elif origin is Header:
-                params.append({
-                    "name": name.replace("_", "-"),
-                    "in": "header",
-                    "required": default is _MISSING,
-                    "schema": {"type": _py_type_to_openapi(inner_type)},
-                })
+                params.append(
+                    {
+                        "name": name.replace("_", "-"),
+                        "in": "header",
+                        "required": default is _MISSING,
+                        "schema": {"type": _py_type_to_openapi(inner_type)},
+                    }
+                )
             elif origin is Cookie:
-                params.append({
-                    "name": name,
-                    "in": "cookie",
-                    "required": default is _MISSING,
-                    "schema": {"type": _py_type_to_openapi(inner_type)},
-                })
+                params.append(
+                    {
+                        "name": name,
+                        "in": "cookie",
+                        "required": default is _MISSING,
+                        "schema": {"type": _py_type_to_openapi(inner_type)},
+                    }
+                )
             elif origin is Body and isinstance(inner_type, type) and issubclass(inner_type, BaseModel):
                 body_model = inner_type
 
         return params, body_model
 
-    def _collect_exception_handlers(
-        self, instance: Any
-    ) -> dict[type[Exception], Any]:
+    def _collect_exception_handlers(self, instance: Any) -> dict[type[Exception], Any]:
         """Collect all @exception_handler methods from a controller instance.
 
         Handlers are sorted by MRO depth (most specific first) so subclass
@@ -302,9 +300,7 @@ class ControllerRegistrar:
             exc_type = getattr(method, "__pyfly_exception_handler__", None)
             if exc_type is not None:
                 handlers[exc_type] = method
-        return dict(
-            sorted(handlers.items(), key=lambda item: len(item[0].__mro__), reverse=True)
-        )
+        return dict(sorted(handlers.items(), key=lambda item: len(item[0].__mro__), reverse=True))
 
     def _make_lazy_handler(
         self,
@@ -319,9 +315,7 @@ class ControllerRegistrar:
         async def lazy_endpoint(request: Request) -> Response:
             if "instance" not in _cache:
                 _cache["instance"] = ctx.get_bean(controller_cls)
-                _cache["exc_handlers"] = self._collect_exception_handlers(
-                    _cache["instance"]
-                )
+                _cache["exc_handlers"] = self._collect_exception_handlers(_cache["instance"])
                 bound_method = getattr(_cache["instance"], method_name)
                 _cache["resolver"] = ParameterResolver(bound_method)
                 _cache["method"] = bound_method

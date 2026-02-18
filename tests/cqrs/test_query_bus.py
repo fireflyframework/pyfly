@@ -18,8 +18,6 @@ from datetime import timedelta
 
 import pytest
 
-from pyfly.cqrs.authorization.service import AuthorizationService
-from pyfly.cqrs.command.metrics import CqrsMetricsService
 from pyfly.cqrs.command.registry import HandlerRegistry
 from pyfly.cqrs.command.validation import CommandValidationService
 from pyfly.cqrs.context.execution_context import ExecutionContextBuilder
@@ -31,7 +29,6 @@ from pyfly.cqrs.tracing.correlation import CorrelationContext
 from pyfly.cqrs.types import Query
 from pyfly.cqrs.validation.exceptions import CqrsValidationException
 from pyfly.cqrs.validation.types import ValidationResult
-
 
 # -- Test messages ----------------------------------------------------------
 
@@ -128,9 +125,7 @@ class TestDefaultQueryBus:
     def bus(self, registry: HandlerRegistry) -> DefaultQueryBus:
         return DefaultQueryBus(registry=registry)
 
-    async def test_query_dispatches_to_correct_handler(
-        self, bus: DefaultQueryBus, registry: HandlerRegistry
-    ) -> None:
+    async def test_query_dispatches_to_correct_handler(self, bus: DefaultQueryBus, registry: HandlerRegistry) -> None:
         registry.register_query_handler(GetOrderHandler())
         result = await bus.query(GetOrderQuery(order_id="ord-1"))
         assert result == {"id": "ord-1", "status": "shipped"}
@@ -162,9 +157,7 @@ class TestDefaultQueryBus:
         result = await bus.query(InvalidQuery(term="valid"))
         assert result is None
 
-    async def test_handler_error_wraps_in_processing_exception(
-        self, registry: HandlerRegistry
-    ) -> None:
+    async def test_handler_error_wraps_in_processing_exception(self, registry: HandlerRegistry) -> None:
         registry.register_query_handler(FailingQueryHandler())
         bus = DefaultQueryBus(registry=registry)
 
@@ -276,18 +269,14 @@ class TestDefaultQueryBus:
     async def test_has_handler_false_initially(self, bus: DefaultQueryBus) -> None:
         assert bus.has_handler(GetOrderQuery) is False
 
-    async def test_correlation_id_set_from_query(
-        self, bus: DefaultQueryBus, registry: HandlerRegistry
-    ) -> None:
+    async def test_correlation_id_set_from_query(self, bus: DefaultQueryBus, registry: HandlerRegistry) -> None:
         registry.register_query_handler(GetOrderHandler())
         query = GetOrderQuery(order_id="o1")
         query.set_correlation_id("my-corr")
         await bus.query(query)
         assert CorrelationContext.get_correlation_id() == "my-corr"
 
-    async def test_correlation_id_auto_generated(
-        self, bus: DefaultQueryBus, registry: HandlerRegistry
-    ) -> None:
+    async def test_correlation_id_auto_generated(self, bus: DefaultQueryBus, registry: HandlerRegistry) -> None:
         registry.register_query_handler(GetOrderHandler())
         query = GetOrderQuery(order_id="o1")
         assert query.get_correlation_id() is None

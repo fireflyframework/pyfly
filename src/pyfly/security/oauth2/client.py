@@ -138,9 +138,7 @@ class InMemoryClientRegistrationRepository:
     """
 
     def __init__(self, *registrations: ClientRegistration) -> None:
-        self._registrations: dict[str, ClientRegistration] = {
-            r.registration_id: r for r in registrations
-        }
+        self._registrations: dict[str, ClientRegistration] = {r.registration_id: r for r in registrations}
 
     def find_by_registration_id(self, registration_id: str) -> ClientRegistration | None:
         return self._registrations.get(registration_id)

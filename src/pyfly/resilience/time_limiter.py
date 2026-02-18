@@ -43,9 +43,7 @@ def time_limiter(
             try:
                 return await asyncio.wait_for(func(*args, **kwargs), timeout=timeout_seconds)
             except TimeoutError as exc:
-                raise OperationTimeoutException(
-                    f"{func.__name__} exceeded timeout of {timeout_seconds}s"
-                ) from exc
+                raise OperationTimeoutException(f"{func.__name__} exceeded timeout of {timeout_seconds}s") from exc
 
         return wrapper
 

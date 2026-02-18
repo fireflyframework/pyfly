@@ -19,7 +19,7 @@ for ALL six stereotypes.
 """
 
 import abc
-from typing import Optional, Protocol, runtime_checkable
+from typing import Protocol, runtime_checkable
 
 import pytest
 
@@ -31,13 +31,11 @@ from pyfly.container import (
     component,
     configuration,
     controller,
-    primary,
     repository,
     rest_controller,
     service,
 )
 from pyfly.container.scanner import _auto_bind_interfaces, scan_module_classes, scan_package
-
 
 # ---------------------------------------------------------------------------
 # Shared fixtures used across stereotype tests
@@ -244,13 +242,13 @@ class PhoneValidator(Validator):
 
 @service
 class ServiceWithOptional:
-    def __init__(self, cache: Optional[CacheAdapter] = None) -> None:
+    def __init__(self, cache: CacheAdapter | None = None) -> None:
         self.cache = cache
 
 
 @controller
 class ControllerWithOptional:
-    def __init__(self, cache: Optional[CacheAdapter] = None) -> None:
+    def __init__(self, cache: CacheAdapter | None = None) -> None:
         self.cache = cache
 
 

@@ -101,10 +101,7 @@ class TestTomlConfig:
 
     def test_toml_nested_tables(self, tmp_path: Path):
         config_file = tmp_path / "config.toml"
-        config_file.write_text(
-            "[server]\nport = 9090\nhost = \"0.0.0.0\"\n\n"
-            "[server.pool]\nsize = 20\n"
-        )
+        config_file.write_text('[server]\nport = 9090\nhost = "0.0.0.0"\n\n[server.pool]\nsize = 20\n')
         config = Config.from_file(config_file, load_defaults=False)
         assert config.get("server.port") == 9090
         assert config.get("server.pool.size") == 20
@@ -181,7 +178,7 @@ class TestMultiSourceConfig:
 
     def test_toml_and_yaml_merged(self, tmp_path: Path):
         (tmp_path / "pyfly.yaml").write_text("pyfly:\n  app:\n    name: from-yaml\n")
-        (tmp_path / "pyfly.toml").write_text('[pyfly.web]\nport = 9999\n')
+        (tmp_path / "pyfly.toml").write_text("[pyfly.web]\nport = 9999\n")
 
         config = Config.from_sources(tmp_path)
         assert config.get("pyfly.app.name") == "from-yaml"

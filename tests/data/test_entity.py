@@ -21,8 +21,8 @@ from sqlalchemy import String
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import Mapped, mapped_column
 
-from pyfly.data.relational.sqlalchemy.entity import Base, BaseEntity
 from pyfly.data.page import Page
+from pyfly.data.relational.sqlalchemy.entity import Base, BaseEntity
 
 
 class User(BaseEntity):

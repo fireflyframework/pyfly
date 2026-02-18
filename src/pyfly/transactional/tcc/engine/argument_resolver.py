@@ -86,12 +86,15 @@ class TccArgumentResolver:
             hint = hints.get(name)
             if hint is None:
                 raise TypeError(
-                    f"Cannot resolve parameter '{name}' — "
-                    f"no type hint found on {func.__qualname__}",
+                    f"Cannot resolve parameter '{name}' — no type hint found on {func.__qualname__}",
                 )
 
             value = self._resolve_parameter(
-                name, hint, ctx, input_data, participant_id,
+                name,
+                hint,
+                ctx,
+                input_data,
+                participant_id,
             )
             resolved[name] = value
 
@@ -130,8 +133,7 @@ class TccArgumentResolver:
 
         # 3. Cannot resolve — raise.
         raise TypeError(
-            f"Cannot resolve parameter '{name}' — "
-            f"no matching injection marker found in type hint: {hint}",
+            f"Cannot resolve parameter '{name}' — no matching injection marker found in type hint: {hint}",
         )
 
     def _resolve_marker(

@@ -42,18 +42,13 @@ def assert_event_published(
     matching = [e for e in events if e.event_type == event_type]
     if not matching:
         published_types = [e.event_type for e in events]
-        raise AssertionError(
-            f"Expected event '{event_type}' to be published. "
-            f"Published events: {published_types}"
-        )
+        raise AssertionError(f"Expected event '{event_type}' to be published. Published events: {published_types}")
 
     event = matching[0]
     if payload_contains:
         for key, value in payload_contains.items():
             assert key in event.payload, f"Expected key '{key}' in event payload"
-            assert event.payload[key] == value, (
-                f"Expected payload['{key}'] == {value!r}, got {event.payload[key]!r}"
-            )
+            assert event.payload[key] == value, f"Expected payload['{key}'] == {value!r}, got {event.payload[key]!r}"
 
     return event
 

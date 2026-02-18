@@ -24,11 +24,8 @@ class MetricsProvider:
     async def get_metric_names(self) -> dict[str, Any]:
         try:
             from prometheus_client import REGISTRY
-            names: list[str] = sorted({
-                sample.name
-                for metric in REGISTRY.collect()
-                for sample in metric.samples
-            })
+
+            names: list[str] = sorted({sample.name for metric in REGISTRY.collect() for sample in metric.samples})
             return {"names": names, "available": True}
         except ImportError:
             return {"names": [], "available": False}
@@ -36,15 +33,18 @@ class MetricsProvider:
     async def get_metric_detail(self, name: str) -> dict[str, Any]:
         try:
             from prometheus_client import REGISTRY
+
             measurements: list[dict[str, Any]] = []
             for metric_family in REGISTRY.collect():
                 for sample in metric_family.samples:
                     if sample.name == name or sample.name.startswith(name + "_"):
-                        measurements.append({
-                            "statistic": sample.name.removeprefix(name).lstrip("_") or "value",
-                            "value": sample.value,
-                            "tags": dict(sample.labels),
-                        })
+                        measurements.append(
+                            {
+                                "statistic": sample.name.removeprefix(name).lstrip("_") or "value",
+                                "value": sample.value,
+                                "tags": dict(sample.labels),
+                            }
+                        )
             return {"name": name, "measurements": measurements}
         except ImportError:
             return {"name": name, "measurements": [], "available": False}

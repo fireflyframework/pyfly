@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import click
 
@@ -82,7 +83,7 @@ else:
 '''
 
 
-def _require_alembic() -> tuple[object, type]:
+def _require_alembic() -> tuple[Any, type]:
     """Import alembic lazily, failing with a helpful message if not installed."""
     try:
         from alembic import command  # noqa: N812
@@ -94,7 +95,7 @@ def _require_alembic() -> tuple[object, type]:
     return command, Config
 
 
-def _get_alembic_config() -> object:
+def _get_alembic_config() -> Any:
     """Load Alembic config from the current directory.
 
     Raises :class:`SystemExit` when ``alembic.ini`` is missing.

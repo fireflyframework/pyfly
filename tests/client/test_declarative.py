@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Tests for declarative @http_client, @service_client, and HTTP method decorators."""
+
 from __future__ import annotations
 
 import pytest
@@ -26,17 +27,17 @@ class TestHttpClientDecorator:
         class MyClient:
             pass
 
-        assert getattr(MyClient, "__pyfly_http_client__") is True
-        assert getattr(MyClient, "__pyfly_http_base_url__") == "http://example.com"
+        assert MyClient.__pyfly_http_client__ is True
+        assert MyClient.__pyfly_http_base_url__ == "http://example.com"
 
     def test_marks_class_as_injectable(self) -> None:
         @http_client(base_url="http://example.com")
         class MyClient:
             pass
 
-        assert getattr(MyClient, "__pyfly_injectable__") is True
-        assert getattr(MyClient, "__pyfly_stereotype__") == "component"
-        assert getattr(MyClient, "__pyfly_scope__") is Scope.SINGLETON
+        assert MyClient.__pyfly_injectable__ is True
+        assert MyClient.__pyfly_stereotype__ == "component"
+        assert MyClient.__pyfly_scope__ is Scope.SINGLETON
 
 
 class TestServiceClientDecorator:
@@ -45,16 +46,16 @@ class TestServiceClientDecorator:
         class MyClient:
             pass
 
-        assert getattr(MyClient, "__pyfly_http_client__") is True
-        assert getattr(MyClient, "__pyfly_http_base_url__") == "http://example.com"
-        assert getattr(MyClient, "__pyfly_service_client__") is True
+        assert MyClient.__pyfly_http_client__ is True
+        assert MyClient.__pyfly_http_base_url__ == "http://example.com"
+        assert MyClient.__pyfly_service_client__ is True
 
     def test_resilience_defaults(self) -> None:
         @service_client(base_url="http://example.com")
         class MyClient:
             pass
 
-        res = getattr(MyClient, "__pyfly_resilience__")
+        res = MyClient.__pyfly_resilience__
         assert res["retry"] is True
         assert res["circuit_breaker"] is True
         assert res["retry_base_delay"] is None
@@ -66,7 +67,7 @@ class TestServiceClientDecorator:
         class MyClient:
             pass
 
-        res = getattr(MyClient, "__pyfly_resilience__")
+        res = MyClient.__pyfly_resilience__
         assert res["retry"] == 5
 
     def test_resilience_disabled(self) -> None:
@@ -74,7 +75,7 @@ class TestServiceClientDecorator:
         class MyClient:
             pass
 
-        res = getattr(MyClient, "__pyfly_resilience__")
+        res = MyClient.__pyfly_resilience__
         assert res["retry"] is False
         assert res["circuit_breaker"] is False
 
@@ -87,7 +88,7 @@ class TestServiceClientDecorator:
         class MyClient:
             pass
 
-        res = getattr(MyClient, "__pyfly_resilience__")
+        res = MyClient.__pyfly_resilience__
         assert res["circuit_breaker_failure_threshold"] == 10
         assert res["circuit_breaker_recovery_timeout"] == 60.0
 
@@ -96,10 +97,10 @@ class TestServiceClientDecorator:
         class MyClient:
             pass
 
-        res = getattr(MyClient, "__pyfly_resilience__")
+        res = MyClient.__pyfly_resilience__
         assert res["retry"] is False
         assert res["circuit_breaker"] is False
-        assert getattr(MyClient, "__pyfly_service_client__") is True
+        assert MyClient.__pyfly_service_client__ is True
 
 
 class TestHttpMethodDecorators:
@@ -107,36 +108,36 @@ class TestHttpMethodDecorators:
         @get("/items/{item_id}")
         async def get_item(self, item_id: str) -> dict: ...
 
-        assert getattr(get_item, "__pyfly_http_method__") == "GET"
-        assert getattr(get_item, "__pyfly_http_path__") == "/items/{item_id}"
+        assert get_item.__pyfly_http_method__ == "GET"
+        assert get_item.__pyfly_http_path__ == "/items/{item_id}"
 
     def test_post_decorator(self) -> None:
         @post("/items")
         async def create_item(self, body: dict) -> dict: ...
 
-        assert getattr(create_item, "__pyfly_http_method__") == "POST"
-        assert getattr(create_item, "__pyfly_http_path__") == "/items"
+        assert create_item.__pyfly_http_method__ == "POST"
+        assert create_item.__pyfly_http_path__ == "/items"
 
     def test_put_decorator(self) -> None:
         @put("/items/{item_id}")
         async def update_item(self, item_id: str, body: dict) -> dict: ...
 
-        assert getattr(update_item, "__pyfly_http_method__") == "PUT"
-        assert getattr(update_item, "__pyfly_http_path__") == "/items/{item_id}"
+        assert update_item.__pyfly_http_method__ == "PUT"
+        assert update_item.__pyfly_http_path__ == "/items/{item_id}"
 
     def test_delete_decorator(self) -> None:
         @delete("/items/{item_id}")
         async def delete_item(self, item_id: str) -> None: ...
 
-        assert getattr(delete_item, "__pyfly_http_method__") == "DELETE"
-        assert getattr(delete_item, "__pyfly_http_path__") == "/items/{item_id}"
+        assert delete_item.__pyfly_http_method__ == "DELETE"
+        assert delete_item.__pyfly_http_path__ == "/items/{item_id}"
 
     def test_patch_decorator(self) -> None:
         @patch("/items/{item_id}")
         async def patch_item(self, item_id: str, body: dict) -> dict: ...
 
-        assert getattr(patch_item, "__pyfly_http_method__") == "PATCH"
-        assert getattr(patch_item, "__pyfly_http_path__") == "/items/{item_id}"
+        assert patch_item.__pyfly_http_method__ == "PATCH"
+        assert patch_item.__pyfly_http_path__ == "/items/{item_id}"
 
     def test_multiple_methods_on_one_client(self) -> None:
         @http_client(base_url="http://api.example.com")
@@ -154,12 +155,12 @@ class TestHttpMethodDecorators:
         post_method = ItemClient.create_item
         delete_method = ItemClient.delete_item
 
-        assert getattr(get_method, "__pyfly_http_method__") == "GET"
-        assert getattr(get_method, "__pyfly_http_path__") == "/items/{item_id}"
-        assert getattr(post_method, "__pyfly_http_method__") == "POST"
-        assert getattr(post_method, "__pyfly_http_path__") == "/items"
-        assert getattr(delete_method, "__pyfly_http_method__") == "DELETE"
-        assert getattr(delete_method, "__pyfly_http_path__") == "/items/{item_id}"
+        assert get_method.__pyfly_http_method__ == "GET"
+        assert get_method.__pyfly_http_path__ == "/items/{item_id}"
+        assert post_method.__pyfly_http_method__ == "POST"
+        assert post_method.__pyfly_http_path__ == "/items"
+        assert delete_method.__pyfly_http_method__ == "DELETE"
+        assert delete_method.__pyfly_http_path__ == "/items/{item_id}"
 
     @pytest.mark.asyncio
     async def test_placeholder_raises_not_implemented(self) -> None:
