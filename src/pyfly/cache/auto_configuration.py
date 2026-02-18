@@ -50,7 +50,7 @@ class CacheAutoConfiguration:
             from pyfly.cache.adapters.redis import RedisCacheAdapter
 
             url = str(config.get("pyfly.cache.redis.url", "redis://localhost:6379/0"))
-            client = aioredis.from_url(url)
+            client = aioredis.from_url(url)  # type: ignore[no-untyped-call,unused-ignore]
             return RedisCacheAdapter(client=client)
 
         from pyfly.cache.adapters.memory import InMemoryCache

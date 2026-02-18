@@ -19,13 +19,8 @@ Mirrors Java's ``QueryHandler`` abstract class.
 from __future__ import annotations
 
 import logging
-import sys
+from types import get_original_bases as get_orig_bases
 from typing import Generic, TypeVar, get_args
-
-if sys.version_info >= (3, 13):
-    from types import get_original_bases as get_orig_bases
-else:
-    from typing import get_orig_bases  # type: ignore[attr-defined]
 
 from pyfly.cqrs.context.execution_context import ExecutionContext
 
