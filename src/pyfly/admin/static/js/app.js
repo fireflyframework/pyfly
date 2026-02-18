@@ -29,6 +29,7 @@ const routes = {
     'traces':     () => import('./views/traces.js'),
     'logfile':    () => import('./views/logfile.js'),
     'instances':  () => import('./views/instances.js'),
+    'bean-graph': () => import('./views/bean-graph.js'),
 };
 
 /* ── Application State ────────────────────────────────────────── */
