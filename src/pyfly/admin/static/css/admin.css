@@ -1625,3 +1625,58 @@ a:hover {
     white-space: pre-wrap;
     word-break: break-all;
 }
+
+/* ── Wallboard Mode ────────────────────────────────────────── */
+body.wallboard-mode .admin-sidebar,
+body.wallboard-mode .admin-navbar { display: none; }
+body.wallboard-mode .admin-main { margin-left: 0; }
+body.wallboard-mode .admin-content {
+    padding: 24px;
+    height: 100vh;
+}
+
+.wallboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 24px;
+    align-content: start;
+}
+
+.wallboard-tile {
+    background: var(--admin-card-bg);
+    border: 1px solid var(--admin-border);
+    border-radius: var(--admin-radius);
+    padding: 48px 32px;
+    text-align: center;
+    transition: border-color 0.2s;
+}
+
+.wallboard-tile:hover {
+    border-color: var(--admin-primary);
+}
+
+.wallboard-tile-value {
+    font-size: 3.5rem;
+    font-weight: 700;
+    font-family: var(--admin-font-mono);
+    line-height: 1.2;
+}
+
+.wallboard-tile-label {
+    font-size: 1.1rem;
+    color: var(--admin-text-muted);
+    margin-top: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.wallboard-hint {
+    position: fixed;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: var(--admin-text-muted);
+    font-size: 0.8rem;
+    opacity: 0.6;
+    pointer-events: none;
+}

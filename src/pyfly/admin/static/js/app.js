@@ -169,6 +169,17 @@ function renderNavbar() {
     themeBtn.appendChild(moonSvg);
 
     themeBtn.addEventListener('click', toggleTheme);
+
+    // Wallboard mode button
+    const wallboardBtn = document.createElement('button');
+    wallboardBtn.className = 'theme-toggle';
+    wallboardBtn.setAttribute('aria-label', 'Wallboard mode');
+    wallboardBtn.setAttribute('title', 'Wallboard mode');
+    wallboardBtn.style.fontSize = '1.1rem';
+    wallboardBtn.textContent = '\u229E';
+    wallboardBtn.addEventListener('click', () => { window.location.hash = 'wallboard'; });
+    right.appendChild(wallboardBtn);
+
     right.appendChild(themeBtn);
 
     navbar.appendChild(right);
