@@ -62,7 +62,7 @@ class AdminAutoConfiguration:
         return handler
 
     @bean
-    @conditional_on_property("pyfly.admin.client.url")  # type: ignore[untyped-decorator]
+    @conditional_on_property("pyfly.admin.client.url")
     def admin_client_registration(self, config: Config) -> AdminClientRegistration | None:
         """Create a client registration bean when an admin server URL is set."""
         client_props: AdminClientProperties = config.bind(AdminClientProperties)

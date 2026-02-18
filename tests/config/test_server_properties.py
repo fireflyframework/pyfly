@@ -23,7 +23,7 @@ class TestServerProperties:
         props = ServerProperties()
         assert props.type == "auto"
         assert props.event_loop == "auto"
-        assert props.workers == 0
+        assert props.workers == 1
         assert props.backlog == 1024
         assert props.graceful_timeout == 30
         assert props.http == "auto"

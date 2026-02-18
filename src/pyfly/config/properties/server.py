@@ -37,7 +37,7 @@ class ServerProperties:
 
     type: str = "auto"
     event_loop: str = "auto"
-    workers: int = 0
+    workers: int = 1
     backlog: int = 1024
     graceful_timeout: int = 30
     http: str = "auto"

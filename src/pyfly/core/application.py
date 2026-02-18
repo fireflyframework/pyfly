@@ -114,40 +114,50 @@ class PyFlyApplication:
 
     async def startup(self) -> None:
         """Start the application with full Spring Boot-style startup sequence."""
+        import os
+
         start = time.perf_counter()
 
-        # Print banner
-        profiles = self._context.environment.active_profiles
-        banner = BannerPrinter.from_config(
-            self.config,
-            version=self._version,
-            app_name=self._name,
-            app_version=self._version,
-            active_profiles=profiles,
-        )
-        banner_text = banner.render()
-        if banner_text:
-            print(banner_text)  # noqa: T201
-            sys.stdout.flush()
+        # Determine if startup logs should be suppressed (multi-worker or CLI-printed banner)
+        banner_printed = os.environ.get("_PYFLY_BANNER_PRINTED") == "1"
+        worker_count = int(os.environ.get("_PYFLY_WORKERS", "1"))
+        suppress_logs = banner_printed and worker_count > 1
 
-        # Log startup info
-        start_fields: dict[str, Any] = {"app": self._name, "version": self._version}
-        if self._description:
-            start_fields["description"] = self._description
-        self._logger.info("starting_application", **start_fields)
+        # Print banner (skip if already printed by CLI process)
+        if not banner_printed:
+            profiles = self._context.environment.active_profiles
+            banner = BannerPrinter.from_config(
+                self.config,
+                version=self._version,
+                app_name=self._name,
+                app_version=self._version,
+                active_profiles=profiles,
+            )
+            banner_text = banner.render()
+            if banner_text:
+                print(banner_text)  # noqa: T201
+                sys.stdout.flush()
 
-        if profiles:
-            self._logger.info("active_profiles", profiles=profiles)
-        else:
-            self._logger.info("no_active_profiles", message="No active profiles set, falling back to default")
+        if not suppress_logs:
+            # Log startup info
+            start_fields: dict[str, Any] = {"app": self._name, "version": self._version}
+            if self._description:
+                start_fields["description"] = self._description
+            self._logger.info("starting_application", **start_fields)
 
-        # Log loaded config sources
-        for source in self.config.loaded_sources:
-            self._logger.info("loaded_config", source=source)
+            profiles = self._context.environment.active_profiles
+            if profiles:
+                self._logger.info("active_profiles", profiles=profiles)
+            else:
+                self._logger.info("no_active_profiles", message="No active profiles set, falling back to default")
 
-        # Log deferred scan results (now appears after banner)
-        for package, count in self._scan_results:
-            self._logger.info("scanned_package", package=package, beans_found=count)
+            # Log loaded config sources
+            for source in self.config.loaded_sources:
+                self._logger.info("loaded_config", source=source)
+
+            # Log deferred scan results (now appears after banner)
+            for package, count in self._scan_results:
+                self._logger.info("scanned_package", package=package, beans_found=count)
 
         # Start the context (handles profile filtering, @order sorting, bean init)
         try:
@@ -164,11 +174,12 @@ class PyFlyApplication:
 
         self._startup_time = time.perf_counter() - start
 
-        # Log comprehensive startup summary
-        self._log_startup_summary()
+        if not suppress_logs:
+            # Log comprehensive startup summary
+            self._log_startup_summary()
 
-        # Log routes and API documentation URLs
-        self._log_routes_and_docs()
+            # Log routes and API documentation URLs
+            self._log_routes_and_docs()
 
     def _log_startup_summary(self) -> None:
         """Log a comprehensive startup report (Spring Boot style)."""

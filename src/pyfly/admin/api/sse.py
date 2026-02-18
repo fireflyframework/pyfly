@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from collections.abc import AsyncGenerator
 from typing import TYPE_CHECKING, Any
 
@@ -30,6 +31,8 @@ if TYPE_CHECKING:
     from pyfly.admin.providers.metrics_provider import MetricsProvider
     from pyfly.admin.providers.runtime_provider import RuntimeProvider
     from pyfly.admin.providers.server_provider import ServerProvider
+
+_logger = logging.getLogger(__name__)
 
 
 def _sse_event(data: Any, event: str | None = None) -> str:
@@ -48,22 +51,28 @@ async def health_stream(
     interval: float = 5.0,
 ) -> AsyncGenerator[str, None]:
     last_status = None
-    while True:
-        data = await health_provider.get_health()
-        if data.get("status") != last_status:
-            yield _sse_event(data, event="health")
-            last_status = data.get("status")
-        await asyncio.sleep(interval)
+    try:
+        while True:
+            data = await health_provider.get_health()
+            if data.get("status") != last_status:
+                yield _sse_event(data, event="health")
+                last_status = data.get("status")
+            await asyncio.sleep(interval)
+    except asyncio.CancelledError:
+        _logger.debug("sse_stream_closed", extra={"stream": "health"})
 
 
 async def metrics_stream(
     metrics_provider: MetricsProvider,
     interval: float = 5.0,
 ) -> AsyncGenerator[str, None]:
-    while True:
-        data = await metrics_provider.get_metric_names()
-        yield _sse_event(data, event="metrics")
-        await asyncio.sleep(interval)
+    try:
+        while True:
+            data = await metrics_provider.get_metric_names()
+            yield _sse_event(data, event="metrics")
+            await asyncio.sleep(interval)
+    except asyncio.CancelledError:
+        _logger.debug("sse_stream_closed", extra={"stream": "metrics"})
 
 
 async def traces_stream(
@@ -71,16 +80,19 @@ async def traces_stream(
     interval: float = 2.0,
 ) -> AsyncGenerator[str, None]:
     last_count = 0
-    while True:
-        if collector is not None:
-            traces = collector.get_traces()
-            current_count = len(traces)
-            if current_count > last_count:
-                new_traces = list(traces)[last_count:]
-                for trace in new_traces:
-                    yield _sse_event(trace, event="trace")
-                last_count = current_count
-        await asyncio.sleep(interval)
+    try:
+        while True:
+            if collector is not None:
+                traces = collector.get_traces()
+                current_count = len(traces)
+                if current_count > last_count:
+                    new_traces = list(traces)[last_count:]
+                    for trace in new_traces:
+                        yield _sse_event(trace, event="trace")
+                    last_count = current_count
+            await asyncio.sleep(interval)
+    except asyncio.CancelledError:
+        _logger.debug("sse_stream_closed", extra={"stream": "traces"})
 
 
 async def logfile_stream(
@@ -88,33 +100,42 @@ async def logfile_stream(
     interval: float = 1.0,
 ) -> AsyncGenerator[str, None]:
     last_id = 0
-    while True:
-        if log_handler is not None:
-            records = log_handler.get_records(after=last_id)
-            for record in records:
-                yield _sse_event(record, event="log")
-                last_id = record["id"]
-        await asyncio.sleep(interval)
+    try:
+        while True:
+            if log_handler is not None:
+                records = log_handler.get_records(after=last_id)
+                for record in records:
+                    yield _sse_event(record, event="log")
+                    last_id = record["id"]
+            await asyncio.sleep(interval)
+    except asyncio.CancelledError:
+        _logger.debug("sse_stream_closed", extra={"stream": "logfile"})
 
 
 async def runtime_stream(
     runtime_provider: RuntimeProvider,
     interval: float = 5.0,
 ) -> AsyncGenerator[str, None]:
-    while True:
-        data = await runtime_provider.get_runtime()
-        yield _sse_event(data, event="runtime")
-        await asyncio.sleep(interval)
+    try:
+        while True:
+            data = await runtime_provider.get_runtime()
+            yield _sse_event(data, event="runtime")
+            await asyncio.sleep(interval)
+    except asyncio.CancelledError:
+        _logger.debug("sse_stream_closed", extra={"stream": "runtime"})
 
 
 async def server_stream(
     server_provider: ServerProvider,
     interval: float = 5.0,
 ) -> AsyncGenerator[str, None]:
-    while True:
-        data = await server_provider.get_server_info()
-        yield _sse_event(data, event="server")
-        await asyncio.sleep(interval)
+    try:
+        while True:
+            data = await server_provider.get_server_info()
+            yield _sse_event(data, event="server")
+            await asyncio.sleep(interval)
+    except asyncio.CancelledError:
+        _logger.debug("sse_stream_closed", extra={"stream": "server"})
 
 
 async def beans_stream(
@@ -122,18 +143,21 @@ async def beans_stream(
     interval: float = 10.0,
 ) -> AsyncGenerator[str, None]:
     last_counts: dict[str, int] = {}
-    while True:
-        data = await beans_provider.get_beans()
-        updates = []
-        for bean in data.get("beans", []):
-            name = bean["name"]
-            count = bean.get("resolution_count", 0)
-            if count != last_counts.get(name, 0):
-                updates.append({"name": name, "resolution_count": count})
-                last_counts[name] = count
-        if updates:
-            yield _sse_event({"updates": updates}, event="beans")
-        await asyncio.sleep(interval)
+    try:
+        while True:
+            data = await beans_provider.get_beans()
+            updates = []
+            for bean in data.get("beans", []):
+                name = bean["name"]
+                count = bean.get("resolution_count", 0)
+                if count != last_counts.get(name, 0):
+                    updates.append({"name": name, "resolution_count": count})
+                    last_counts[name] = count
+            if updates:
+                yield _sse_event({"updates": updates}, event="beans")
+            await asyncio.sleep(interval)
+    except asyncio.CancelledError:
+        _logger.debug("sse_stream_closed", extra={"stream": "beans"})
 
 
 def make_sse_response(generator: AsyncGenerator[str, None]) -> StreamingResponse:

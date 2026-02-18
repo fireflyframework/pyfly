@@ -49,6 +49,7 @@ class HypercornServerAdapter:
         hc_config = HypercornConfig()
         hc_config.bind = [f"{host}:{port}"]
         hc_config.workers = workers
+        hc_config.loglevel = "WARNING"
         hc_config.keep_alive_timeout = config.keep_alive_timeout
         hc_config.backlog = config.backlog
 

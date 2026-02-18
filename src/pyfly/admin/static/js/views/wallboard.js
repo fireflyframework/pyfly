@@ -2,14 +2,16 @@
  * PyFly Admin — Wallboard View.
  *
  * Full-screen wallboard mode for large displays showing key metrics
- * as large tiles with real-time SSE updates for memory, threads,
- * and health status.
+ * as a 3x3 grid of tiles with real-time SSE updates for health,
+ * runtime (memory, threads, gc, cpu), and server data.
  *
  * Data sources:
  *   GET  /admin/api/overview
  *   GET  /admin/api/runtime
+ *   GET  /admin/api/server
  *   SSE  /admin/api/sse/runtime  (event: runtime)
  *   SSE  /admin/api/sse/health   (event: health)
+ *   SSE  /admin/api/sse/server   (event: server)
  */
 
 import { sse } from '../sse.js';
@@ -31,6 +33,72 @@ function formatUptime(seconds) {
     if (h > 0 || d > 0) parts.push(`${h}h`);
     parts.push(`${m}m`);
     return parts.join(' ');
+}
+
+/**
+ * Format a bean total with stereotype breakdown.
+ * @param {object|null} beans  The beans object from overview.
+ * @returns {string}  e.g. "42" or "--"
+ */
+function formatBeans(beans) {
+    if (!beans || beans.total == null) return '--';
+    const stereotypes = beans.stereotypes;
+    if (!stereotypes || Object.keys(stereotypes).length === 0) {
+        return String(beans.total);
+    }
+    const parts = Object.entries(stereotypes)
+        .map(([k, v]) => `${v} ${k}`)
+        .join(', ');
+    return `${beans.total} (${parts})`;
+}
+
+/**
+ * Sum all GC generation collections.
+ * @param {object|null} gc  The gc object from runtime.
+ * @returns {string}  e.g. "111" or "--"
+ */
+function formatGC(gc) {
+    if (!gc) return '--';
+    const total = (gc.gen0_collections || 0)
+        + (gc.gen1_collections || 0)
+        + (gc.gen2_collections || 0);
+    return String(total);
+}
+
+/**
+ * Format CPU process time.
+ * @param {object|null} cpu  The cpu object from runtime.
+ * @returns {string}  e.g. "12.5s" or "--"
+ */
+function formatCPU(cpu) {
+    if (!cpu || cpu.process_time_s == null) return '--';
+    return `${cpu.process_time_s.toFixed(1)}s`;
+}
+
+/**
+ * Format server info as "name (Nw)".
+ * @param {object|null} server  The server data.
+ * @returns {string}  e.g. "granian (1w)" or "--"
+ */
+function formatServer(server) {
+    if (!server || !server.name) return '--';
+    const workers = server.workers != null ? ` (${server.workers}w)` : '';
+    return `${server.name}${workers}`;
+}
+
+/**
+ * Format health status with component count.
+ * @param {object|null} health  The health data.
+ * @returns {string}  e.g. "UP (3)" or "UNKNOWN"
+ */
+function formatHealth(health) {
+    if (!health || !health.status) return 'UNKNOWN';
+    const components = health.components;
+    if (components && typeof components === 'object') {
+        const count = Object.keys(components).length;
+        if (count > 0) return `${health.status} (${count})`;
+    }
+    return health.status;
 }
 
 /**
@@ -70,26 +138,29 @@ export async function render(container, api) {
     document.body.classList.add('wallboard-mode');
     container.replaceChildren();
 
-    // Fetch initial data for both overview and runtime
-    const [overview, runtime] = await Promise.all([
+    // Fetch initial data from all three endpoints
+    const [overview, runtime, server] = await Promise.all([
         api.get('/overview').catch(() => null),
         api.get('/runtime').catch(() => null),
+        api.get('/server').catch(() => null),
     ]);
 
-    // Build tile grid
+    // Build 3x3 tile grid
     const grid = document.createElement('div');
     grid.className = 'wallboard-grid';
 
-    // Health tile
+    // ── Row 1 ──────────────────────────────────────────────────
+
+    // Health tile — status with component count
     const healthTile = createTile(
         'Health',
-        overview?.health?.status || 'UNKNOWN',
+        formatHealth(overview?.health),
         '--admin-success',
     );
     healthTile.id = 'wb-health';
     grid.appendChild(healthTile);
 
-    // Memory tile
+    // Memory tile — RSS in MB
     const memoryValue = runtime?.memory?.rss_mb != null
         ? `${runtime.memory.rss_mb.toFixed(1)} MB`
         : '--';
@@ -97,32 +168,66 @@ export async function render(container, api) {
     memTile.id = 'wb-memory';
     grid.appendChild(memTile);
 
-    // Threads tile
+    // CPU tile — process time
+    const cpuTile = createTile('CPU', formatCPU(runtime?.cpu), '--admin-info');
+    cpuTile.id = 'wb-cpu';
+    grid.appendChild(cpuTile);
+
+    // ── Row 2 ──────────────────────────────────────────────────
+
+    // Beans tile — total with breakdown
+    const beansTile = createTile(
+        'Beans',
+        formatBeans(overview?.beans),
+        '--admin-warning',
+    );
+    beansTile.id = 'wb-beans';
+    grid.appendChild(beansTile);
+
+    // Threads tile — active count
     const threadTile = createTile(
         'Threads',
         String(runtime?.threads?.active ?? '--'),
-        '--admin-info',
+        '--admin-text',
     );
     threadTile.id = 'wb-threads';
     grid.appendChild(threadTile);
 
-    // Beans tile
-    grid.appendChild(createTile(
-        'Beans',
-        String(overview?.beans?.total ?? '--'),
-        '--admin-warning',
-    ));
+    // GC tile — total collections across all generations
+    const gcTile = createTile('GC', formatGC(runtime?.gc), '--admin-danger');
+    gcTile.id = 'wb-gc';
+    grid.appendChild(gcTile);
 
-    // Uptime tile
-    grid.appendChild(createTile(
+    // ── Row 3 ──────────────────────────────────────────────────
+
+    // Server tile — name with worker count
+    const serverTile = createTile(
+        'Server',
+        formatServer(server),
+        '--admin-primary',
+    );
+    serverTile.id = 'wb-server';
+    grid.appendChild(serverTile);
+
+    // Uptime tile — formatted duration
+    const uptimeTile = createTile(
         'Uptime',
         formatUptime(overview?.app?.uptime_seconds),
         '--admin-text',
-    ));
+    );
+    uptimeTile.id = 'wb-uptime';
+    grid.appendChild(uptimeTile);
+
+    // Requests tile — placeholder until metrics available
+    const requestsTile = createTile('Requests', '--', '--admin-info');
+    requestsTile.id = 'wb-requests';
+    grid.appendChild(requestsTile);
 
     container.appendChild(grid);
 
-    // SSE for live runtime updates (memory + threads)
+    // ── SSE live updates ───────────────────────────────────────
+
+    // SSE for live runtime updates (memory, threads, gc, cpu)
     sse.connectTyped('/runtime', 'runtime', (data) => {
         const memValue = document.querySelector('#wb-memory .wallboard-tile-value');
         if (memValue && data.memory) {
@@ -133,17 +238,36 @@ export async function render(container, api) {
         if (threadValue && data.threads) {
             threadValue.textContent = String(data.threads.active);
         }
+
+        const gcValue = document.querySelector('#wb-gc .wallboard-tile-value');
+        if (gcValue && data.gc) {
+            gcValue.textContent = formatGC(data.gc);
+        }
+
+        const cpuValue = document.querySelector('#wb-cpu .wallboard-tile-value');
+        if (cpuValue && data.cpu) {
+            cpuValue.textContent = formatCPU(data.cpu);
+        }
     });
 
     // SSE for live health updates
     sse.connectTyped('/health', 'health', (data) => {
         const healthValue = document.querySelector('#wb-health .wallboard-tile-value');
         if (healthValue) {
-            healthValue.textContent = data.status || 'UNKNOWN';
+            healthValue.textContent = formatHealth(data);
         }
     });
 
-    // ESC key exits wallboard mode
+    // SSE for live server updates
+    sse.connectTyped('/server', 'server', (data) => {
+        const serverValue = document.querySelector('#wb-server .wallboard-tile-value');
+        if (serverValue) {
+            serverValue.textContent = formatServer(data);
+        }
+    });
+
+    // ── ESC key exits wallboard mode ───────────────────────────
+
     function escHandler(e) {
         if (e.key === 'Escape') window.location.hash = '';
     }
@@ -160,5 +284,6 @@ export async function render(container, api) {
         document.removeEventListener('keydown', escHandler);
         sse.disconnect('/runtime');
         sse.disconnect('/health');
+        sse.disconnect('/server');
     };
 }

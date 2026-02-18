@@ -16,6 +16,8 @@
 # NOTE: No `from __future__ import annotations` — typing.get_type_hints()
 # must resolve return types at runtime for @bean method registration.
 
+import logging
+
 try:
     from sqlalchemy.ext.asyncio import (
         AsyncEngine,
@@ -37,6 +39,32 @@ from pyfly.core.config import Config
 from pyfly.data.relational.sqlalchemy.post_processor import (
     RepositoryBeanPostProcessor,
 )
+
+_logger = logging.getLogger(__name__)
+
+
+class EngineLifecycle:
+    """Lifecycle wrapper that disposes the SQLAlchemy engine on shutdown.
+
+    Implements ``start()`` / ``stop()`` so the ``ApplicationContext``
+    auto-discovers it as an infrastructure adapter and calls ``stop()``
+    during graceful shutdown.
+    """
+
+    def __init__(self, engine: AsyncEngine, session: AsyncSession) -> None:
+        self._engine = engine
+        self._session = session
+
+    async def start(self) -> None:
+        """No-op — engine is ready after creation."""
+
+    async def stop(self) -> None:
+        """Dispose engine connection pool and close the shared session."""
+        try:
+            await self._session.close()
+        except Exception:
+            _logger.debug("session_close_failed", exc_info=True)
+        await self._engine.dispose()
 
 
 @auto_configuration
@@ -64,6 +92,11 @@ class RelationalAutoConfiguration:
         """
         factory = async_sessionmaker(async_engine, expire_on_commit=False)
         return factory()
+
+    @bean
+    def engine_lifecycle(self, async_engine: AsyncEngine, async_session: AsyncSession) -> EngineLifecycle:
+        """Lifecycle bean that disposes the engine on shutdown."""
+        return EngineLifecycle(async_engine, async_session)
 
     @bean
     def repository_post_processor(self) -> RepositoryBeanPostProcessor:

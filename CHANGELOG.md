@@ -6,7 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
-## v0.2.0-M1 (2026-02-18)
+## v0.2.0-M3 (2026-02-18)
+
+### Added
+
+- **Admin Wallboard Enhancement**: 9-tile 3x3 grid layout with CPU, GC, Server, and Requests tiles plus live SSE updates
+- **Bean Dependency Graph Enhancement**: Click-to-detail panel, real-time search toolbar, stereotype filter pills, dependency highlighting (outgoing/incoming), enhanced tooltips, stats bar
+- **Graceful Shutdown**: SQLAlchemy engine lifecycle bean for proper connection pool disposal, SSE stream cancellation handling, configurable shutdown timeout (`pyfly.context.shutdown-timeout`) with `asyncio.wait_for` protection
+
+### Changed
+
+- **Server Startup Output**: Clean Spring Boot-style banner — printed once from CLI process before workers spawn, native server logging suppressed, per-worker startup logs silenced when `workers > 1`
+- **Default Workers**: Changed from `os.cpu_count()` to `1` (Spring Boot parity — explicit opt-in for multi-worker)
+- **Decorator Typing**: Conditional decorator factories (`conditional_on_class`, `conditional_on_missing_bean`, `conditional_on_property`, `conditional_on_bean`) now return `Callable[[F], F]` instead of `Any`, fixing all `untyped-decorator` mypy strict errors
+
+---
+
+## v0.2.0-M2 (2026-02-18)
 
 ### Added
 

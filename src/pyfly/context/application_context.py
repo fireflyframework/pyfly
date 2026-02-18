@@ -227,26 +227,51 @@ class ApplicationContext:
         self._started = True
 
     async def stop(self) -> None:
-        """Stop the context: call @pre_destroy, publish ContextClosedEvent."""
+        """Stop the context: call @pre_destroy, publish ContextClosedEvent.
+
+        Each cleanup step is wrapped in a per-bean timeout (default 30s,
+        configurable via ``pyfly.context.shutdown-timeout``).  Beans that
+        exceed the timeout are logged and skipped so one hanging bean
+        cannot block the entire shutdown sequence.
+        """
+        shutdown_timeout = float(self._config.get("pyfly.context.shutdown-timeout", 30))
+
         # Stop task scheduler
         if self._task_scheduler is not None:
             try:
-                await self._task_scheduler.stop()
+                await asyncio.wait_for(self._task_scheduler.stop(), timeout=shutdown_timeout)
+            except TimeoutError:
+                logger.warning("task_scheduler_stop_timeout", extra={"timeout_s": shutdown_timeout})
             except Exception:
                 logger.debug("task_scheduler_stop_failed", exc_info=True)
 
         # Stop infrastructure adapters (reverse order)
         for adapter in reversed(self._infrastructure_adapters):
             if hasattr(adapter, "stop"):
+                adapter_name = type(adapter).__qualname__
                 try:
-                    await adapter.stop()
+                    await asyncio.wait_for(adapter.stop(), timeout=shutdown_timeout)
+                except TimeoutError:
+                    logger.warning(
+                        "adapter_stop_timeout",
+                        extra={"adapter": adapter_name, "timeout_s": shutdown_timeout},
+                    )
                 except Exception:
-                    logger.debug("adapter_stop_failed", extra={"adapter": type(adapter).__qualname__}, exc_info=True)
+                    logger.debug("adapter_stop_failed", extra={"adapter": adapter_name}, exc_info=True)
 
         # Call @pre_destroy on all resolved beans (reverse order)
         for reg in reversed(list(self._container._registrations.values())):
             if reg.instance is not None:
-                await self._call_pre_destroy(reg.instance)
+                try:
+                    await asyncio.wait_for(
+                        self._call_pre_destroy(reg.instance),
+                        timeout=shutdown_timeout,
+                    )
+                except TimeoutError:
+                    logger.warning(
+                        "pre_destroy_timeout",
+                        extra={"bean": type(reg.instance).__qualname__, "timeout_s": shutdown_timeout},
+                    )
 
         await self._event_bus.publish(ContextClosedEvent())
         self._started = False

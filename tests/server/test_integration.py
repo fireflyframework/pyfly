@@ -136,7 +136,7 @@ class TestServerProperties:
         """Default ServerProperties should be usable without config files."""
         config = ServerProperties()
         assert config.type == "auto"
-        assert config.workers == 0
+        assert config.workers == 1
         assert config.graceful_timeout == 30
         assert config.event_loop == "auto"
         assert config.backlog == 1024

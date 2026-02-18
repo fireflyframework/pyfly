@@ -535,7 +535,7 @@ class BannerMode(enum.Enum):
 | Mode | Behavior |
 |---|---|
 | `TEXT` | Full ASCII art banner (default) with a framework version line. |
-| `MINIMAL` | Single line: `:: PyFly :: (v0.2.0-M1)` |
+| `MINIMAL` | Single line: `:: PyFly :: (v0.2.0-M3)` |
 | `OFF` | No banner output at all. |
 
 ### BannerPrinter Class
@@ -576,7 +576,7 @@ ______ ___.__._/ ____\  | ___.__.
 |   __// ____| |__|  |____/ ____|
 |__|   \/                 \/
 
-:: PyFly Framework :: (v0.2.0-M1)
+:: PyFly Framework :: (v0.2.0-M3)
 ```
 
 ### Custom Banner Files

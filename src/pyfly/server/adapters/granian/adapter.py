@@ -34,8 +34,13 @@ class GranianServerAdapter:
 
     def serve(self, app: str | Any, config: Any) -> None:
         """Start Granian (blocking)."""
+        import logging
+
         from granian import Granian
         from granian.constants import Interfaces
+
+        # Suppress Granian's native [INFO] logs (Starting granian, Spawning worker-N)
+        logging.getLogger("granian").setLevel(logging.WARNING)
 
         workers = config.workers if config.workers > 0 else (os.cpu_count() or 1)
         event_loop = config.event_loop if config.event_loop != "auto" else "auto"
@@ -58,6 +63,7 @@ class GranianServerAdapter:
             "http": http_mode,
             "workers": workers,
             "loop": event_loop,
+            "log_level": "warning",
             "runtime_threads": runtime_threads,
             "runtime_mode": runtime_mode,
             "backlog": config.backlog,
@@ -92,7 +98,18 @@ class GranianServerAdapter:
         await loop.run_in_executor(None, self.serve, app, config)
 
     def shutdown(self) -> None:
-        """Request graceful shutdown."""
+        """Release server reference.
+
+        Granian handles graceful shutdown internally via OS signals
+        (SIGINT/SIGTERM).  When ``serve()`` is running, the Rust runtime
+        intercepts the signal, stops accepting connections, waits for
+        in-flight requests (up to ``workers_kill_timeout``), and then
+        triggers the ASGI lifespan shutdown event which calls
+        ``PyFlyApplication.shutdown()`` → ``ApplicationContext.stop()``.
+
+        This method only releases the Python-side reference; it is not
+        part of the normal shutdown path.
+        """
         self._server = None
 
     @property

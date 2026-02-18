@@ -15,6 +15,7 @@
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -85,7 +86,67 @@ def run_command(
     config.host = host
     config.port = port
 
+    # Print banner once from the CLI process (before workers spawn)
+    _print_cli_banner(config, host, port)
+
+    # Tell worker processes to skip the banner and suppress startup logs
+    os.environ["_PYFLY_BANNER_PRINTED"] = "1"
+    workers = config.workers if config.workers > 0 else 1
+    os.environ["_PYFLY_WORKERS"] = str(workers)
+
     server_adapter.serve(app_path, config)
+
+
+# ---------------------------------------------------------------------------
+# Banner printing (from CLI process, before workers spawn)
+# ---------------------------------------------------------------------------
+
+
+def _print_cli_banner(config: Any, host: str, port: int) -> None:
+    """Print the startup banner once from the CLI process."""
+    from pyfly.core.banner import BannerPrinter
+
+    try:
+        import yaml  # type: ignore[import-untyped]
+
+        config_path = Path("pyfly.yaml")
+        if config_path.exists():
+            with open(config_path) as f:
+                data = yaml.safe_load(f) or {}
+            pyfly_section = (data.get("pyfly", {}) or {})
+            app_section = pyfly_section.get("app", {}) or {}
+            app_name = str(app_section.get("name", "pyfly-app"))
+            app_version = str(app_section.get("version", "0.1.0"))
+        else:
+            app_name = "pyfly-app"
+            app_version = "0.1.0"
+    except Exception:
+        app_name = "pyfly-app"
+        app_version = "0.1.0"
+
+    from pyfly import __version__
+    from pyfly.core.config import Config
+
+    # Build minimal config for banner
+    config_dir = Path(".") if Path("pyfly.yaml").exists() else None
+    if config_dir:
+        try:
+            banner_config = Config.from_sources(config_dir)
+        except Exception:
+            banner_config = Config(Config._load_framework_defaults())
+    else:
+        banner_config = Config(Config._load_framework_defaults())
+
+    banner = BannerPrinter.from_config(
+        banner_config,
+        version=__version__,
+        app_name=app_name,
+        app_version=app_version,
+    )
+    banner_text = banner.render()
+    if banner_text:
+        print(banner_text)  # noqa: T201
+        sys.stdout.flush()
 
 
 # ---------------------------------------------------------------------------
@@ -176,7 +237,7 @@ def _load_server_properties() -> Any:
     from pyfly.config.properties.server import ServerProperties
 
     try:
-        import yaml  # type: ignore[import-untyped]
+        import yaml
 
         config_path = Path("pyfly.yaml")
         if config_path.exists():
