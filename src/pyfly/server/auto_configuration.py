@@ -25,6 +25,7 @@ from pyfly.server.ports.outbound import ApplicationServerPort
 
 
 @auto_configuration
+@conditional_on_missing_bean(ApplicationServerPort)
 class ServerAutoConfiguration:
     """Auto-configures the best available ASGI server.
 
@@ -57,6 +58,7 @@ class ServerAutoConfiguration:
 
 
 @auto_configuration
+@conditional_on_missing_bean(EventLoopPort)
 class EventLoopAutoConfiguration:
     """Auto-configures the best available event loop.
 

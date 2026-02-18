@@ -129,6 +129,11 @@ class ConditionEvaluator:
         for cls in self._container._registrations:
             if cls is bean_type or cls is exclude:
                 continue
-            if issubclass(cls, bean_type):
-                return True
+            try:
+                if issubclass(cls, bean_type):
+                    return True
+            except TypeError:
+                # Protocols with non-method members (e.g. properties) do not
+                # support issubclass().  Fall back to identity check only.
+                pass
         return False

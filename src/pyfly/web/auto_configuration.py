@@ -25,6 +25,7 @@ from pyfly.web.ports.outbound import WebServerPort
 
 
 @auto_configuration
+@conditional_on_class("starlette")
 class WebAutoConfiguration:
     """Auto-configures the best available web adapter.
 

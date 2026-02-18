@@ -43,7 +43,7 @@ class TestGranianServerAdapter:
         assert isinstance(info, ServerInfo)
         assert info.name == "granian"
 
-    @patch("pyfly.server.adapters.granian.adapter.Granian")
+    @patch("granian.Granian")
     def test_serve_creates_granian_with_config(self, mock_granian_cls):
         from pyfly.server.adapters.granian.adapter import GranianServerAdapter
         from pyfly.config.properties.server import ServerProperties
