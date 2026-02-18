@@ -11,18 +11,31 @@ description = "{{ name }} — PyFly library"
 description = "{{ name }} — PyFly CLI application"
 {% elif archetype == "web" %}
 description = "{{ name }} — PyFly web application"
+{% elif archetype == "fastapi-api" %}
+description = "{{ name }} — PyFly FastAPI application"
 {% else %}
 description = "{{ name }} — built with PyFly"
 {% endif %}
 requires-python = ">=3.12"
 dependencies = [
-{% if features %}
+{% if has_web and has_fastapi %}
+    "pyfly[web-fastapi{% for f in features if f not in ('web', 'fastapi') %},{{ f }}{% endfor %}]",
+{% elif features %}
     "pyfly[{{ features | join(',') }}]",
 {% else %}
     "pyfly",
 {% endif %}
 {% if archetype == "web" %}
     "jinja2>=3.1",
+{% endif %}
+{% if has_fastapi %}
+    "fastapi>=0.115",
+{% endif %}
+{% if has_granian %}
+    "granian>=2.6",
+{% endif %}
+{% if has_hypercorn %}
+    "hypercorn>=0.17",
 {% endif %}
 ]
 

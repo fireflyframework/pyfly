@@ -120,6 +120,9 @@ _RESERVED_NAMES: set[str] = {
     "pydantic",
     "starlette",
     "uvicorn",
+    "fastapi",
+    "granian",
+    "hypercorn",
     "sqlalchemy",
     "alembic",
     "click",
@@ -322,6 +325,10 @@ def new_command(name: str | None, archetype: str | None, features_str: str | Non
         console.print("\n  [info]Pages:[/info]")
         console.print("    http://localhost:8080/")
         console.print("    http://localhost:8080/about")
+    if archetype == "fastapi-api":
+        console.print("\n  [info]API Docs:[/info]")
+        console.print("    http://localhost:8080/docs   (Swagger UI)")
+        console.print("    http://localhost:8080/redoc  (ReDoc)")
     console.print()
     print_post_generation_tips(features)
     console.print()

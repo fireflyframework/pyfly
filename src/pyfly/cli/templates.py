@@ -22,6 +22,7 @@ from jinja2 import Environment, PackageLoader
 # Available features that map to PyFly extras
 AVAILABLE_FEATURES: list[str] = [
     "web",
+    "fastapi",
     "data-relational",
     "data-document",
     "eda",
@@ -33,12 +34,15 @@ AVAILABLE_FEATURES: list[str] = [
     "cqrs",
     "shell",
     "transactional",
+    "granian",
+    "hypercorn",
 ]
 
 # Default features per archetype
 DEFAULT_FEATURES: dict[str, list[str]] = {
     "core": [],
     "web-api": ["web"],
+    "fastapi-api": ["fastapi"],
     "web": ["web"],
     "hexagonal": ["web"],
     "library": [],
@@ -48,7 +52,8 @@ DEFAULT_FEATURES: dict[str, list[str]] = {
 # Archetype descriptions for interactive mode
 ARCHETYPE_DESCRIPTIONS: dict[str, str] = {
     "core": "Minimal microservice",
-    "web-api": "Full REST API with layered architecture",
+    "web-api": "REST API with Starlette (layered architecture)",
+    "fastapi-api": "REST API with FastAPI (layered architecture)",
     "web": "Server-rendered web application with HTML templates",
     "hexagonal": "Hexagonal architecture (ports & adapters)",
     "library": "Reusable library package",
@@ -64,10 +69,16 @@ ARCHETYPE_DETAILS: dict[str, dict[str, str | list[str]]] = {
         "good_for": "Background workers, CLI tools, lightweight services",
     },
     "web-api": {
-        "title": "REST API (Layered)",
-        "tagline": "Full REST API with controller/service/repository layers",
+        "title": "REST API — Starlette (Layered)",
+        "tagline": "REST API with Starlette, controller/service/repository layers",
         "layers": ["Controllers", "Services", "Models", "Repositories"],
         "good_for": "CRUD APIs, backend services, microservices",
+    },
+    "fastapi-api": {
+        "title": "REST API — FastAPI (Layered)",
+        "tagline": "REST API with FastAPI, native OpenAPI, controller/service/repository layers",
+        "layers": ["Controllers", "Services", "Models", "Repositories"],
+        "good_for": "CRUD APIs with native OpenAPI, backend services, microservices",
     },
     "web": {
         "title": "Web Application (SSR)",
@@ -97,11 +108,12 @@ ARCHETYPE_DETAILS: dict[str, dict[str, str | list[str]]] = {
 
 # Feature groups for categorized display in the wizard
 FEATURE_GROUPS: list[tuple[str, list[str]]] = [
-    ("Web & API", ["web"]),
+    ("Web & API", ["web", "fastapi"]),
     ("Data & Storage", ["data-relational", "data-document", "cache"]),
     ("Messaging & Events", ["eda", "cqrs"]),
     ("Distributed Transactions", ["transactional"]),
     ("Infrastructure", ["client", "security", "scheduling", "observability"]),
+    ("Servers", ["granian", "hypercorn"]),
     ("CLI & Shell", ["shell"]),
 ]
 
@@ -110,6 +122,10 @@ FEATURE_DETAILS: dict[str, dict[str, str]] = {
     "web": {
         "short": "HTTP server, REST controllers, OpenAPI docs",
         "adds": "Starlette server, @rest_controller, Swagger UI, ReDoc, WebFilters",
+    },
+    "fastapi": {
+        "short": "FastAPI (REST API with native OpenAPI)",
+        "adds": "FastAPI web adapter, native OpenAPI, automatic request validation",
     },
     "data-relational": {
         "short": "Data Relational — SQL databases (SQLAlchemy ORM)",
@@ -154,6 +170,14 @@ FEATURE_DETAILS: dict[str, dict[str, str]] = {
     "transactional": {
         "short": "Distributed SAGA and TCC transaction patterns",
         "adds": "@saga, @saga_step, @tcc, @tcc_participant, SagaEngine, TccEngine",
+    },
+    "granian": {
+        "short": "Granian (Rust ASGI server, ~3x faster)",
+        "adds": "Granian ASGI server (Rust/tokio, highest performance)",
+    },
+    "hypercorn": {
+        "short": "Hypercorn (HTTP/2 & HTTP/3 server)",
+        "adds": "Hypercorn ASGI server (HTTP/2, HTTP/3 support)",
     },
 }
 
@@ -202,6 +226,16 @@ FEATURE_TIPS: dict[str, list[str]] = {
         "Define TCC transactions with @tcc and @tcc_participant (Try-Confirm-Cancel)",
         "Enable via pyfly.transactional.enabled=true in pyfly.yaml",
     ],
+    "fastapi": [
+        "Visit http://localhost:8080/docs for FastAPI's native Swagger UI",
+        "Visit http://localhost:8080/redoc for ReDoc",
+    ],
+    "granian": [
+        "Granian is auto-selected when installed — configure via pyfly.server.granian.*",
+    ],
+    "hypercorn": [
+        "Hypercorn is auto-selected when installed — configure via pyfly.server.hypercorn.*",
+    ],
 }
 
 # Template → output path mapping per archetype.
@@ -221,6 +255,34 @@ _ARCHETYPE_FILES: dict[str, list[tuple[str, str]]] = {
         ("env.example.j2", ".env.example"),
     ],
     "web-api": [
+        ("pyproject.toml.j2", "pyproject.toml"),
+        ("app.py.j2", "src/{package_name}/app.py"),
+        ("main.py.j2", "src/{package_name}/main.py"),
+        ("init.py.j2", "src/{package_name}/__init__.py"),
+        ("pyfly.yaml.j2", "pyfly.yaml"),
+        ("conftest.py.j2", "tests/conftest.py"),
+        ("init_empty.j2", "tests/__init__.py"),
+        ("gitignore.j2", ".gitignore"),
+        ("readme.md.j2", "README.md"),
+        ("dockerfile.j2", "Dockerfile"),
+        ("env.example.j2", ".env.example"),
+        # Controllers
+        ("init_empty.j2", "src/{package_name}/controllers/__init__.py"),
+        ("health_controller.py.j2", "src/{package_name}/controllers/health_controller.py"),
+        ("todo_controller.py.j2", "src/{package_name}/controllers/todo_controller.py"),
+        # Services
+        ("init_empty.j2", "src/{package_name}/services/__init__.py"),
+        ("todo_service.py.j2", "src/{package_name}/services/todo_service.py"),
+        # Models
+        ("init_empty.j2", "src/{package_name}/models/__init__.py"),
+        ("todo_model.py.j2", "src/{package_name}/models/todo.py"),
+        # Repositories
+        ("init_empty.j2", "src/{package_name}/repositories/__init__.py"),
+        ("todo_repository.py.j2", "src/{package_name}/repositories/todo_repository.py"),
+        # Tests
+        ("test_todo_service.py.j2", "tests/test_todo_service.py"),
+    ],
+    "fastapi-api": [
         ("pyproject.toml.j2", "pyproject.toml"),
         ("app.py.j2", "src/{package_name}/app.py"),
         ("main.py.j2", "src/{package_name}/main.py"),
@@ -378,6 +440,9 @@ def _build_context(name: str, archetype: str, features: list[str]) -> dict[str, 
         "has_cqrs": "cqrs" in features,
         "has_shell": "shell" in features,
         "has_transactional": "transactional" in features,
+        "has_fastapi": "fastapi" in features,
+        "has_granian": "granian" in features,
+        "has_hypercorn": "hypercorn" in features,
     }
 
 
@@ -397,7 +462,7 @@ def generate_project(name: str, project_dir: Path, archetype: str, features: lis
     Args:
         name: Project name (e.g. ``"my-service"``).
         project_dir: Target directory to create.
-        archetype: One of ``core``, ``web-api``, ``web``, ``hexagonal``, ``library``, ``cli``.
+        archetype: One of ``core``, ``web-api``, ``fastapi-api``, ``web``, ``hexagonal``, ``library``, ``cli``.
         features: Selected PyFly extras (e.g. ``["web", "data-relational"]``).
     """
     env = _get_env()

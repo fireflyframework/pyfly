@@ -5,10 +5,26 @@ pyfly:
     module: {{ package_name }}.main:app
 {% endif %}
 
-{% if has_web or archetype in ("web-api", "web", "hexagonal", "core") %}
+{% if has_web or has_fastapi or archetype in ("web-api", "fastapi-api", "web", "hexagonal", "core") %}
   web:
     port: 8080
+{% if has_fastapi or archetype == "fastapi-api" %}
+    adapter: fastapi
+{% else %}
     adapter: auto
+{% endif %}
+{% endif %}
+
+{% if has_web or has_fastapi %}
+  server:
+    type: "auto"
+    event-loop: "auto"
+    workers: 0
+{% if has_granian %}
+    granian:
+      runtime-threads: 1
+      runtime-mode: "auto"
+{% endif %}
 {% endif %}
 
 {% if archetype == "cli" or has_shell %}
@@ -22,7 +38,7 @@ pyfly:
       enabled: true
 {% endif %}
 
-{% if has_web or archetype in ("web-api", "web", "hexagonal") %}
+{% if has_web or has_fastapi or archetype in ("web-api", "fastapi-api", "web", "hexagonal") %}
   admin:
     enabled: true
     # title: "{{ name }} Admin"
