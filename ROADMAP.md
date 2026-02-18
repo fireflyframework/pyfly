@@ -4,7 +4,7 @@ PyFly's roadmap is driven by achieving feature parity with the full [Firefly Fra
 
 ---
 
-## Current State (v0.1.0-alpha.5)
+## Current State (v0.1.0-M6)
 
 PyFly ships with **27 modules** covering the foundation, application, infrastructure, and cross-cutting layers. See the [Changelog](CHANGELOG.md) for full details on what's included.
 
@@ -15,7 +15,7 @@ PyFly ships with **27 modules** covering the foundation, application, infrastruc
 | Module | Description | Java Source |
 |--------|-------------|-------------|
 | **Event Sourcing** | Event store, aggregate roots, snapshots, projections, outbox pattern | [`fireflyframework-eventsourcing`](https://github.com/fireflyframework/fireflyframework-eventsourcing) |
-| ~~**Saga / Transactions**~~ | ~~Distributed Saga and TCC transaction orchestration with compensation and recovery~~ | ~~[`fireflyframework-transactional-engine`](https://github.com/fireflyframework/fireflyframework-transactional-engine)~~ **Done in v0.1.0-alpha.5** |
+| ~~**Saga / Transactions**~~ | ~~Distributed Saga and TCC transaction orchestration with compensation and recovery~~ | ~~[`fireflyframework-transactional-engine`](https://github.com/fireflyframework/fireflyframework-transactional-engine)~~ **Done in v0.1.0-M5** |
 | **Workflow** | Workflow orchestration engine with state persistence, scheduling, and DLQ | [`fireflyframework-workflow`](https://github.com/fireflyframework/fireflyframework-workflow) |
 | **Domain** | DDD building blocks — base entities, value objects, aggregate roots, domain events | [`fireflyframework-starter-domain`](https://github.com/fireflyframework/fireflyframework-starter-domain) |
 
@@ -60,7 +60,7 @@ PyFly is part of the broader [Firefly Framework](https://github.com/fireflyframe
 | Platform | Repository | Status |
 |----------|-----------|--------|
 | **Java / Spring Boot** | [`fireflyframework-*`](https://github.com/fireflyframework) (40+ modules) | Production |
-| **Python** | [`pyfly`](https://github.com/fireflyframework/pyfly) | Alpha |
+| **Python** | [`pyfly`](https://github.com/fireflyframework/pyfly) | Milestone (M6) |
 | **Frontend (Angular)** | [`flyfront`](https://github.com/fireflyframework/flyfront) | Active Development |
 | **GenAI** | [`fireflyframework-genai`](https://github.com/fireflyframework/fireflyframework-genai) | Active Development |
 | **CLI (Go)** | [`fireflyframework-cli`](https://github.com/fireflyframework/fireflyframework-cli) | Active Development |

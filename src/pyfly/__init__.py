@@ -13,4 +13,4 @@
 # limitations under the License.
 """PyFly — Enterprise Python Framework."""
 
-__version__ = "0.1.0"
+__version__ = "0.1.0-M6"

@@ -10,7 +10,7 @@
   <a href="https://github.com/fireflyframework"><img src="https://img.shields.io/badge/Firefly_Framework-official-ff6600?logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0id2hpdGUiIGQ9Ik0xMiAyQzYuNDggMiAyIDYuNDggMiAxMnM0LjQ4IDEwIDEwIDEwIDEwLTQuNDggMTAtMTBTMTcuNTIgMiAxMiAyeiIvPjwvc3ZnPg==" alt="Firefly Framework"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.12%2B-blue?logo=python&logoColor=white" alt="Python 3.12+"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-green" alt="License: Apache 2.0"></a>
-  <a href="#"><img src="https://img.shields.io/badge/version-0.1.0--alpha.5-yellow" alt="Version: 0.1.0-alpha.4"></a>
+  <a href="#"><img src="https://img.shields.io/badge/version-0.1.0--M6-yellow" alt="Version: 0.1.0-M6"></a>
   <a href="#"><img src="https://img.shields.io/badge/type--checked-mypy%20strict-blue?logo=python&logoColor=white" alt="Type Checked: mypy strict"></a>
   <a href="#"><img src="https://img.shields.io/badge/code%20style-ruff-purple?logo=ruff&logoColor=white" alt="Code Style: Ruff"></a>
   <a href="#"><img src="https://img.shields.io/badge/async-first-brightgreen" alt="Async First"></a>
@@ -552,11 +552,28 @@ See **[ROADMAP.md](ROADMAP.md)** for the full roadmap toward feature parity with
 
 ---
 
+## Versioning
+
+PyFly follows the same versioning system as Spring Boot, based on **Semantic Versioning** (`MAJOR.MINOR.PATCH`) with four release stages:
+
+| Stage | Format | Description |
+|-------|--------|-------------|
+| **SNAPSHOT** | `0.2.0-SNAPSHOT` | Active development build. Unstable, changes daily. |
+| **Milestone** | `0.1.0-M6` | Pre-release feature preview. New functionality available for early feedback. |
+| **Release Candidate** | `0.1.0-RC1` | Feature-complete. Only bug fixes from this point. |
+| **GA** | `0.1.0` | General Availability. Production-ready, fully tested and stable. |
+
+**Release lifecycle:** `SNAPSHOT` → `M1` → `M2` → ... → `RC1` → `RC2` → ... → `GA`
+
+For Python packaging (PEP 440), milestone versions map to alpha pre-releases (`0.1.0a6`), release candidates map to `rc` (`0.1.0rc1`), and GA is the final release (`0.1.0`). See [docs/versioning.md](docs/versioning.md) for full details.
+
+---
+
 ## Changelog
 
 See **[CHANGELOG.md](CHANGELOG.md)** for detailed release notes.
 
-**Current:** v0.1.0-alpha.6 (2026-02-18) — New `web` archetype for server-rendered HTML applications with Jinja2 templates, static assets, and `@controller` stereotype. `@controller` runtime support (route discovery + `Request` injection). Web API and hexagonal archetypes now scaffold a Todo CRUD example instead of generic Items.
+**Current:** v0.1.0-M6 (2026-02-18) — New `web` archetype for server-rendered HTML applications with Jinja2 templates, static assets, and `@controller` stereotype. `@controller` runtime support (route discovery + `Request` injection). Web API and hexagonal archetypes now scaffold a Todo CRUD example instead of generic Items.
 
 ---
 
@@ -567,7 +584,7 @@ PyFly is part of the [Firefly Framework](https://github.com/fireflyframework) ec
 | Platform | Repository | Status |
 |----------|-----------|--------|
 | **Java / Spring Boot** | [`fireflyframework-*`](https://github.com/fireflyframework) (40+ modules) | Production |
-| **Python** | [`pyfly`](https://github.com/fireflyframework/pyfly) | Alpha |
+| **Python** | [`pyfly`](https://github.com/fireflyframework/pyfly) | Milestone (M6) |
 | **Frontend (Angular)** | [`flyfront`](https://github.com/fireflyframework/flyfront) | Active Development |
 | **GenAI** | [`fireflyframework-genai`](https://github.com/fireflyframework/fireflyframework-genai) | Active Development |
 | **CLI (Go)** | [`fireflyframework-cli`](https://github.com/fireflyframework/fireflyframework-cli) | Active Development |

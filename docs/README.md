@@ -133,6 +133,7 @@ Browse the full [Adapter Catalog](adapters/README.md), or jump directly:
 
 | Document | Description |
 |----------|-------------|
+| [Versioning](versioning.md) | Release stages (SNAPSHOT, Milestone, RC, GA), PEP 440 mapping, version history |
 | [CLI Reference](cli.md) | Command-line tools — `new`, `run`, `info`, `doctor`, `db` |
 | [Spring Boot Comparison](spring-comparison.md) | Side-by-side concept mapping for Java developers |
 
