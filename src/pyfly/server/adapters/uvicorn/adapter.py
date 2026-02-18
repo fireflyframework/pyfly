@@ -15,7 +15,6 @@
 
 from __future__ import annotations
 
-import os
 from typing import Any
 
 import uvicorn
@@ -36,7 +35,7 @@ class UvicornServerAdapter:
 
     def serve(self, app: str | Any, config: Any) -> None:
         """Start Uvicorn (blocking)."""
-        workers = config.workers if config.workers > 0 else (os.cpu_count() or 1)
+        workers = config.workers if config.workers > 0 else 1
         host = getattr(config, "host", None) or "0.0.0.0"
         port = getattr(config, "port", None) or 8000
         loop = config.event_loop if config.event_loop != "auto" else "auto"

@@ -16,7 +16,6 @@
 from __future__ import annotations
 
 import asyncio
-import os
 from typing import Any
 
 from pyfly.server.types import ServerInfo
@@ -42,7 +41,7 @@ class HypercornServerAdapter:
         from hypercorn.asyncio import serve  # type: ignore[import-not-found]
         from hypercorn.config import Config as HypercornConfig  # type: ignore[import-not-found]
 
-        workers = config.workers if config.workers > 0 else (os.cpu_count() or 1)
+        workers = config.workers if config.workers > 0 else 1
         host = getattr(config, "host", None) or "0.0.0.0"
         port = getattr(config, "port", None) or 8000
 

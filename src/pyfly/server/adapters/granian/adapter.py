@@ -15,7 +15,6 @@
 
 from __future__ import annotations
 
-import os
 from typing import Any
 
 from pyfly.server.types import ServerInfo
@@ -42,7 +41,7 @@ class GranianServerAdapter:
         # Suppress Granian's native [INFO] logs (Starting granian, Spawning worker-N)
         logging.getLogger("granian").setLevel(logging.WARNING)
 
-        workers = config.workers if config.workers > 0 else (os.cpu_count() or 1)
+        workers = config.workers if config.workers > 0 else 1
         event_loop = config.event_loop if config.event_loop != "auto" else "auto"
         http_mode = self._resolve_http_mode(config.http)
 

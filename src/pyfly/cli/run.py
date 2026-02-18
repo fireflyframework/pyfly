@@ -89,10 +89,13 @@ def run_command(
     # Print banner once from the CLI process (before workers spawn)
     _print_cli_banner(config, host, port)
 
+    # Normalize workers: 0 or negative → 1 (explicit opt-in for multi-worker)
+    if config.workers <= 0:
+        config.workers = 1
+
     # Tell worker processes to skip the banner and suppress startup logs
     os.environ["_PYFLY_BANNER_PRINTED"] = "1"
-    workers = config.workers if config.workers > 0 else 1
-    os.environ["_PYFLY_WORKERS"] = str(workers)
+    os.environ["_PYFLY_WORKERS"] = str(config.workers)
 
     server_adapter.serve(app_path, config)
 
