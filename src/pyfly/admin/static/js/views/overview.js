@@ -7,8 +7,9 @@
  * Data source: GET /admin/api/overview
  */
 
-import { DonutChart, GaugeChart } from '../charts.js';
+import { DonutChart, GaugeChart, createLineChart, createGaugeChart, createBarChart } from '../charts.js';
 import { createStatusBadge } from '../components/status-badge.js';
+import { sse } from '../sse.js';
 
 /* ── Helpers ──────────────────────────────────────────────────── */
 
@@ -367,6 +368,126 @@ export async function render(container, api) {
 
     wrapper.appendChild(midRow);
 
+    // ── Runtime monitoring row (grid-3) ──────────────────────
+    const MAX_DATA_POINTS = 60;
+    const memoryData = [];
+    const memoryLabels = [];
+    let memChart = null;
+    let threadGauge = null;
+    let gcChart = null;
+
+    const runtimeRow = document.createElement('div');
+    runtimeRow.className = 'grid-3 mb-lg';
+
+    // 1) Memory Line Chart card
+    const memCard = document.createElement('div');
+    memCard.className = 'admin-card';
+    const memHeader = document.createElement('div');
+    memHeader.className = 'admin-card-header';
+    const memTitle = document.createElement('h3');
+    memTitle.textContent = 'Memory RSS (MB)';
+    memHeader.appendChild(memTitle);
+    memCard.appendChild(memHeader);
+    const memBody = document.createElement('div');
+    memBody.className = 'admin-card-body';
+    memBody.style.height = '200px';
+    const memCanvas = document.createElement('canvas');
+    memBody.appendChild(memCanvas);
+    memCard.appendChild(memBody);
+    runtimeRow.appendChild(memCard);
+
+    // 2) Thread Count Gauge card
+    const threadCard = document.createElement('div');
+    threadCard.className = 'admin-card';
+    const threadHeader = document.createElement('div');
+    threadHeader.className = 'admin-card-header';
+    const threadTitle = document.createElement('h3');
+    threadTitle.textContent = 'Thread Count';
+    threadHeader.appendChild(threadTitle);
+    threadCard.appendChild(threadHeader);
+    const threadBody = document.createElement('div');
+    threadBody.className = 'admin-card-body';
+    threadBody.style.display = 'flex';
+    threadBody.style.justifyContent = 'center';
+    threadBody.style.alignItems = 'center';
+    const threadCanvas = document.createElement('canvas');
+    threadCanvas.width = 180;
+    threadCanvas.height = 180;
+    threadBody.appendChild(threadCanvas);
+    threadCard.appendChild(threadBody);
+    runtimeRow.appendChild(threadCard);
+
+    // 3) GC Collections Bar Chart card
+    const gcCard = document.createElement('div');
+    gcCard.className = 'admin-card';
+    const gcHeader = document.createElement('div');
+    gcHeader.className = 'admin-card-header';
+    const gcTitle = document.createElement('h3');
+    gcTitle.textContent = 'GC Collections';
+    gcHeader.appendChild(gcTitle);
+    gcCard.appendChild(gcHeader);
+    const gcBody = document.createElement('div');
+    gcBody.className = 'admin-card-body';
+    gcBody.style.height = '200px';
+    const gcCanvas = document.createElement('canvas');
+    gcBody.appendChild(gcCanvas);
+    gcCard.appendChild(gcBody);
+    runtimeRow.appendChild(gcCard);
+
+    wrapper.appendChild(runtimeRow);
+
+    // Initialise charts after the canvases are in the DOM
+    requestAnimationFrame(() => {
+        memChart = createLineChart(memCanvas, {
+            label: 'Memory RSS (MB)',
+            color: '--admin-primary',
+        });
+
+        threadGauge = createGaugeChart(threadCanvas, {
+            value: 0,
+            label: 'Threads',
+            thresholds: { warning: 60, danger: 80 },
+        });
+
+        gcChart = createBarChart(gcCanvas, {
+            labels: ['Gen 0', 'Gen 1', 'Gen 2'],
+            data: [0, 0, 0],
+            colors: ['--admin-primary', '--admin-success', '--admin-warning'],
+        });
+    });
+
+    // Connect SSE for real-time runtime data
+    sse.connectTyped('/runtime', 'runtime', (data) => {
+        // Memory line chart — rolling window
+        const rss = data.memory && data.memory.rss_mb;
+        if (rss != null) {
+            const ts = data.timestamp
+                ? new Date(data.timestamp).toLocaleTimeString()
+                : new Date().toLocaleTimeString();
+            memoryData.push(rss);
+            memoryLabels.push(ts);
+            if (memoryData.length > MAX_DATA_POINTS) {
+                memoryData.shift();
+                memoryLabels.shift();
+            }
+            if (memChart) {
+                memChart.update([...memoryData], [...memoryLabels]);
+            }
+        }
+
+        // Thread gauge
+        const threads = data.threads && data.threads.active;
+        if (threads != null && threadGauge) {
+            threadGauge.update(threads);
+        }
+
+        // GC bar chart
+        const collections = data.gc && data.gc.collections;
+        if (Array.isArray(collections) && gcChart) {
+            gcChart.update([...collections]);
+        }
+    });
+
     // ── Quick links ───────────────────────────────────────────
     const linksSection = document.createElement('div');
     linksSection.className = 'mb-lg';
@@ -409,4 +530,12 @@ export async function render(container, api) {
 
     linksSection.appendChild(linksGrid);
     wrapper.appendChild(linksSection);
+
+    // Return cleanup function to disconnect SSE and destroy charts
+    return function cleanup() {
+        sse.disconnect('/runtime');
+        if (memChart) memChart.destroy();
+        if (threadGauge) threadGauge.destroy();
+        if (gcChart) gcChart.destroy();
+    };
 }
