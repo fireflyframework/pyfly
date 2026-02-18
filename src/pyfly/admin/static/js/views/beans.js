@@ -70,6 +70,16 @@ function createCheckIcon(yes) {
 }
 
 /**
+ * Format a creation time value as "X.Xms" or "--".
+ * @param {number|null} ms
+ * @returns {string}
+ */
+function formatCreationTime(ms) {
+    if (ms == null) return '--';
+    return ms.toFixed(1) + 'ms';
+}
+
+/**
  * Build a key-value table from an object, skipping null/undefined entries.
  * @param {Object<string, *>} data
  * @returns {HTMLTableElement}
@@ -97,6 +107,60 @@ function buildKvTable(data) {
     }
     table.appendChild(tbody);
     return table;
+}
+
+/**
+ * Create a section header element with consistent styling.
+ * @param {string} text
+ * @returns {HTMLHeadingElement}
+ */
+function createSectionHeader(text) {
+    const header = document.createElement('h4');
+    header.textContent = text;
+    header.style.marginBottom = '8px';
+    header.style.fontSize = '0.85rem';
+    header.style.fontWeight = '600';
+    return header;
+}
+
+/**
+ * Recursively render a dependency chain tree.
+ * @param {Array<{name: string, type: string, dependencies: Array}>} chain
+ * @param {number} [depth=0]
+ * @returns {HTMLElement}
+ */
+function buildDependencyTree(chain, depth) {
+    if (depth === undefined) depth = 0;
+    const list = document.createElement('ul');
+    list.style.listStyle = 'none';
+    list.style.paddingLeft = depth === 0 ? '0' : '16px';
+    list.style.margin = '0';
+
+    for (const dep of chain) {
+        const li = document.createElement('li');
+        li.style.padding = '4px 0';
+
+        const label = document.createElement('span');
+        label.className = 'mono text-sm';
+        label.textContent = dep.name;
+
+        const typeSpan = document.createElement('span');
+        typeSpan.className = 'text-sm';
+        typeSpan.style.color = 'var(--admin-text-muted)';
+        typeSpan.style.marginLeft = '6px';
+        typeSpan.textContent = ': ' + dep.type;
+
+        li.appendChild(label);
+        li.appendChild(typeSpan);
+
+        if (dep.dependencies && dep.dependencies.length > 0) {
+            li.appendChild(buildDependencyTree(dep.dependencies, depth + 1));
+        }
+
+        list.appendChild(li);
+    }
+
+    return list;
 }
 
 /* ── Detail Panel ─────────────────────────────────────────────── */
@@ -174,12 +238,7 @@ function createDetailPanel() {
         // Basic info
         const basicSection = document.createElement('div');
         basicSection.className = 'mb-lg';
-        const basicHeader = document.createElement('h4');
-        basicHeader.textContent = 'Basic Information';
-        basicHeader.style.marginBottom = '8px';
-        basicHeader.style.fontSize = '0.85rem';
-        basicHeader.style.fontWeight = '600';
-        basicSection.appendChild(basicHeader);
+        basicSection.appendChild(createSectionHeader('Basic Information'));
 
         const basicData = {
             'Name': bean.name,
@@ -189,70 +248,250 @@ function createDetailPanel() {
             'Scope': bean.scope,
             'Stereotype': bean.stereotype ? createStereotypeBadge(bean.stereotype) : null,
             'Initialized': bean.initialized != null ? (bean.initialized ? 'Yes' : 'No') : null,
+            'Creation Time': formatCreationTime(bean.creation_time_ms),
+            'Resolutions': bean.resolution_count != null ? String(bean.resolution_count) : '0',
         };
         basicSection.appendChild(buildKvTable(basicData));
         panelBody.appendChild(basicSection);
 
-        // Docstring
-        if (bean.docstring) {
+        // Docstring (detail returns "doc" field, not "docstring")
+        const docText = bean.docstring || bean.doc;
+        if (docText) {
             const docSection = document.createElement('div');
             docSection.className = 'mb-lg';
-            const docHeader = document.createElement('h4');
-            docHeader.textContent = 'Documentation';
-            docHeader.style.marginBottom = '8px';
-            docHeader.style.fontSize = '0.85rem';
-            docHeader.style.fontWeight = '600';
-            docSection.appendChild(docHeader);
+            docSection.appendChild(createSectionHeader('Documentation'));
             const docBlock = document.createElement('div');
             docBlock.className = 'code-block';
-            docBlock.textContent = bean.docstring;
+            docBlock.textContent = docText;
             docSection.appendChild(docBlock);
             panelBody.appendChild(docSection);
         }
 
-        // Dependencies
-        const deps = bean.dependencies || [];
-        if (deps.length > 0) {
-            const depSection = document.createElement('div');
-            depSection.className = 'mb-lg';
-            const depHeader = document.createElement('h4');
-            depHeader.textContent = 'Dependencies';
-            depHeader.style.marginBottom = '8px';
-            depHeader.style.fontSize = '0.85rem';
-            depHeader.style.fontWeight = '600';
-            depSection.appendChild(depHeader);
-            const depList = document.createElement('div');
-            depList.className = 'flex flex-col gap-sm';
-            for (const dep of deps) {
-                const depItem = document.createElement('div');
-                depItem.className = 'text-mono text-sm';
-                depItem.style.padding = '6px 10px';
-                depItem.style.background = 'var(--admin-bg)';
-                depItem.style.borderRadius = 'var(--admin-radius-sm)';
-                depItem.style.border = '1px solid var(--admin-border-subtle)';
-                depItem.textContent = typeof dep === 'string' ? dep : (dep.name || String(dep));
-                depList.appendChild(depItem);
-            }
-            depSection.appendChild(depList);
-            panelBody.appendChild(depSection);
+        // Configuration Source
+        if (bean.bean_method_origin) {
+            const originSection = document.createElement('div');
+            originSection.className = 'mb-lg';
+            originSection.appendChild(createSectionHeader('Configuration Source'));
+            const originBlock = document.createElement('div');
+            originBlock.className = 'mono text-sm';
+            originBlock.style.padding = '6px 10px';
+            originBlock.style.background = 'var(--admin-bg)';
+            originBlock.style.borderRadius = 'var(--admin-radius-sm)';
+            originBlock.style.border = '1px solid var(--admin-border-subtle)';
+            originBlock.textContent = bean.bean_method_origin;
+            originSection.appendChild(originBlock);
+            panelBody.appendChild(originSection);
         }
 
-        // Metadata (primary, order, profile, conditions)
+        // Conditions with pass/fail badges
+        const conditions = bean.conditions || [];
+        if (conditions.length > 0 && typeof conditions[0] === 'object') {
+            const condSection = document.createElement('div');
+            condSection.className = 'mb-lg';
+            condSection.appendChild(createSectionHeader('Conditions'));
+
+            const condTable = document.createElement('table');
+            condTable.className = 'admin-table';
+            condTable.style.fontSize = '0.8rem';
+            const condThead = document.createElement('thead');
+            const condHeadRow = document.createElement('tr');
+            for (const hdr of ['Type', 'Value', 'Status']) {
+                const th = document.createElement('th');
+                th.textContent = hdr;
+                condHeadRow.appendChild(th);
+            }
+            condThead.appendChild(condHeadRow);
+            condTable.appendChild(condThead);
+
+            const condTbody = document.createElement('tbody');
+            for (const cond of conditions) {
+                const tr = document.createElement('tr');
+
+                const tdType = document.createElement('td');
+                tdType.className = 'mono text-sm';
+                tdType.textContent = cond.type || 'unknown';
+                tr.appendChild(tdType);
+
+                const tdVal = document.createElement('td');
+                tdVal.className = 'mono text-sm';
+                // Show the most descriptive value available
+                tdVal.textContent = cond.value || cond.name || cond.class_name || '--';
+                tr.appendChild(tdVal);
+
+                const tdStatus = document.createElement('td');
+                const statusBadge = document.createElement('span');
+                if (cond.passed) {
+                    statusBadge.className = 'badge badge-success';
+                    statusBadge.textContent = 'pass';
+                } else {
+                    statusBadge.className = 'badge badge-danger';
+                    statusBadge.textContent = 'fail';
+                }
+                tdStatus.appendChild(statusBadge);
+                tr.appendChild(tdStatus);
+
+                condTbody.appendChild(tr);
+            }
+            condTable.appendChild(condTbody);
+
+            const condTableWrap = document.createElement('div');
+            condTableWrap.className = 'admin-table-wrapper';
+            condTableWrap.appendChild(condTable);
+            condSection.appendChild(condTableWrap);
+            panelBody.appendChild(condSection);
+        }
+
+        // Lifecycle Methods
+        const postConstruct = bean.post_construct || [];
+        const preDestroy = bean.pre_destroy || [];
+        if (postConstruct.length > 0 || preDestroy.length > 0) {
+            const lcSection = document.createElement('div');
+            lcSection.className = 'mb-lg';
+            lcSection.appendChild(createSectionHeader('Lifecycle Methods'));
+
+            const lcList = document.createElement('div');
+            lcList.className = 'flex flex-col gap-sm';
+
+            for (const methodName of postConstruct) {
+                const item = document.createElement('div');
+                item.className = 'mono text-sm';
+                item.style.padding = '6px 10px';
+                item.style.background = 'var(--admin-bg)';
+                item.style.borderRadius = 'var(--admin-radius-sm)';
+                item.style.border = '1px solid var(--admin-border-subtle)';
+
+                const decorator = document.createElement('span');
+                decorator.style.color = 'var(--admin-success)';
+                decorator.textContent = '@post_construct ';
+                item.appendChild(decorator);
+
+                const name = document.createTextNode(methodName);
+                item.appendChild(name);
+                lcList.appendChild(item);
+            }
+
+            for (const methodName of preDestroy) {
+                const item = document.createElement('div');
+                item.className = 'mono text-sm';
+                item.style.padding = '6px 10px';
+                item.style.background = 'var(--admin-bg)';
+                item.style.borderRadius = 'var(--admin-radius-sm)';
+                item.style.border = '1px solid var(--admin-border-subtle)';
+
+                const decorator = document.createElement('span');
+                decorator.style.color = 'var(--admin-danger)';
+                decorator.textContent = '@pre_destroy ';
+                item.appendChild(decorator);
+
+                const name = document.createTextNode(methodName);
+                item.appendChild(name);
+                lcList.appendChild(item);
+            }
+
+            lcSection.appendChild(lcList);
+            panelBody.appendChild(lcSection);
+        }
+
+        // Dependency Chain (recursive tree)
+        const chain = bean.dependency_chain || [];
+        if (chain.length > 0) {
+            const chainSection = document.createElement('div');
+            chainSection.className = 'mb-lg';
+            chainSection.appendChild(createSectionHeader('Dependency Chain'));
+
+            const treeWrap = document.createElement('div');
+            treeWrap.style.padding = '8px 10px';
+            treeWrap.style.background = 'var(--admin-bg)';
+            treeWrap.style.borderRadius = 'var(--admin-radius-sm)';
+            treeWrap.style.border = '1px solid var(--admin-border-subtle)';
+            treeWrap.appendChild(buildDependencyTree(chain));
+            chainSection.appendChild(treeWrap);
+            panelBody.appendChild(chainSection);
+        }
+
+        // Autowired Fields
+        const autowired = bean.autowired_fields || [];
+        if (autowired.length > 0) {
+            const awSection = document.createElement('div');
+            awSection.className = 'mb-lg';
+            awSection.appendChild(createSectionHeader('Autowired Fields'));
+
+            const awList = document.createElement('div');
+            awList.className = 'flex flex-col gap-sm';
+
+            for (const field of autowired) {
+                const item = document.createElement('div');
+                item.className = 'mono text-sm';
+                item.style.padding = '6px 10px';
+                item.style.background = 'var(--admin-bg)';
+                item.style.borderRadius = 'var(--admin-radius-sm)';
+                item.style.border = '1px solid var(--admin-border-subtle)';
+                item.style.display = 'flex';
+                item.style.alignItems = 'center';
+                item.style.gap = '8px';
+
+                const nameSpan = document.createElement('span');
+                nameSpan.textContent = field.name;
+                item.appendChild(nameSpan);
+
+                if (field.qualifier) {
+                    const qualBadge = document.createElement('span');
+                    qualBadge.className = 'badge badge-info';
+                    qualBadge.textContent = field.qualifier;
+                    item.appendChild(qualBadge);
+                }
+
+                const reqBadge = document.createElement('span');
+                if (field.required) {
+                    reqBadge.className = 'badge badge-warning';
+                    reqBadge.textContent = 'required';
+                } else {
+                    reqBadge.className = 'badge badge-neutral';
+                    reqBadge.textContent = 'optional';
+                }
+                item.appendChild(reqBadge);
+
+                awList.appendChild(item);
+            }
+
+            awSection.appendChild(awList);
+            panelBody.appendChild(awSection);
+        }
+
+        // Dependencies (flat list, shown when no dependency_chain is available)
+        if (chain.length === 0) {
+            const deps = bean.dependencies || [];
+            if (deps.length > 0) {
+                const depSection = document.createElement('div');
+                depSection.className = 'mb-lg';
+                depSection.appendChild(createSectionHeader('Dependencies'));
+                const depList = document.createElement('div');
+                depList.className = 'flex flex-col gap-sm';
+                for (const dep of deps) {
+                    const depItem = document.createElement('div');
+                    depItem.className = 'text-mono text-sm';
+                    depItem.style.padding = '6px 10px';
+                    depItem.style.background = 'var(--admin-bg)';
+                    depItem.style.borderRadius = 'var(--admin-radius-sm)';
+                    depItem.style.border = '1px solid var(--admin-border-subtle)';
+                    depItem.textContent = typeof dep === 'string' ? dep : (dep.name || String(dep));
+                    depList.appendChild(depItem);
+                }
+                depSection.appendChild(depList);
+                panelBody.appendChild(depSection);
+            }
+        }
+
+        // Metadata (primary, order, profile)
         const meta = {};
         if (bean.primary != null) meta['Primary'] = String(bean.primary);
         if (bean.order != null) meta['Order'] = String(bean.order);
         if (bean.profile) meta['Profile'] = Array.isArray(bean.profile) ? bean.profile.join(', ') : bean.profile;
-        if (bean.conditions) meta['Conditions'] = Array.isArray(bean.conditions) ? bean.conditions.join(', ') : bean.conditions;
 
         if (Object.keys(meta).length > 0) {
             const metaSection = document.createElement('div');
             metaSection.className = 'mb-lg';
-            const metaHeader = document.createElement('h4');
-            metaHeader.textContent = 'Metadata';
-            metaHeader.style.marginBottom = '8px';
-            metaHeader.style.fontSize = '0.85rem';
-            metaHeader.style.fontWeight = '600';
-            metaSection.appendChild(metaHeader);
+            metaSection.appendChild(createSectionHeader('Metadata'));
             metaSection.appendChild(buildKvTable(meta));
             panelBody.appendChild(metaSection);
         }
@@ -290,6 +529,33 @@ export async function render(container, api) {
     sub.textContent = 'application.beans';
     headerLeft.appendChild(sub);
     header.appendChild(headerLeft);
+
+    // List / Graph toggle
+    const headerRight = document.createElement('div');
+    const toggle = document.createElement('div');
+    toggle.className = 'btn-group';
+
+    const listBtn = document.createElement('button');
+    listBtn.className = 'btn btn-sm btn-primary';
+    listBtn.textContent = 'List';
+
+    const graphBtn = document.createElement('button');
+    graphBtn.className = 'btn btn-sm btn-default';
+    graphBtn.textContent = 'Graph';
+
+    listBtn.addEventListener('click', () => {
+        listBtn.className = 'btn btn-sm btn-primary';
+        graphBtn.className = 'btn btn-sm btn-default';
+    });
+    graphBtn.addEventListener('click', () => {
+        window.location.hash = 'bean-graph';
+    });
+
+    toggle.appendChild(listBtn);
+    toggle.appendChild(graphBtn);
+    headerRight.appendChild(toggle);
+    header.appendChild(headerRight);
+
     wrapper.appendChild(header);
 
     // Loading
@@ -445,6 +711,26 @@ export async function render(container, api) {
                 label: 'Initialized',
                 render(val) {
                     return createCheckIcon(!!val);
+                },
+            },
+            {
+                key: 'creation_time_ms',
+                label: 'Creation Time',
+                render(val) {
+                    const span = document.createElement('span');
+                    span.className = 'mono text-sm';
+                    span.textContent = formatCreationTime(val);
+                    return span;
+                },
+            },
+            {
+                key: 'resolution_count',
+                label: 'Resolutions',
+                render(val) {
+                    const span = document.createElement('span');
+                    span.className = 'mono text-sm';
+                    span.textContent = val != null ? String(val) : '0';
+                    return span;
                 },
             },
         ],
