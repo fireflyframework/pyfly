@@ -29,6 +29,7 @@ if TYPE_CHECKING:
     from pyfly.admin.providers.health_provider import HealthProvider
     from pyfly.admin.providers.metrics_provider import MetricsProvider
     from pyfly.admin.providers.runtime_provider import RuntimeProvider
+    from pyfly.admin.providers.server_provider import ServerProvider
 
 
 def _sse_event(data: Any, event: str | None = None) -> str:
@@ -103,6 +104,16 @@ async def runtime_stream(
     while True:
         data = await runtime_provider.get_runtime()
         yield _sse_event(data, event="runtime")
+        await asyncio.sleep(interval)
+
+
+async def server_stream(
+    server_provider: ServerProvider,
+    interval: float = 5.0,
+) -> AsyncGenerator[str, None]:
+    while True:
+        data = await server_provider.get_server_info()
+        yield _sse_event(data, event="server")
         await asyncio.sleep(interval)
 
 

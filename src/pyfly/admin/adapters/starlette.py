@@ -39,6 +39,7 @@ if TYPE_CHECKING:
     from pyfly.admin.providers.overview_provider import OverviewProvider
     from pyfly.admin.providers.runtime_provider import RuntimeProvider
     from pyfly.admin.providers.scheduled_provider import ScheduledProvider
+    from pyfly.admin.providers.server_provider import ServerProvider
     from pyfly.admin.providers.traces_provider import TracesProvider
     from pyfly.admin.providers.transactions_provider import TransactionsProvider
     from pyfly.admin.registry import AdminViewRegistry
@@ -69,6 +70,7 @@ class AdminRouteBuilder:
         trace_collector: TraceCollectorFilter | None = None,
         logfile: LogfileProvider | None = None,
         runtime: RuntimeProvider | None = None,
+        server: ServerProvider | None = None,
         instance_registry: InstanceRegistry | None = None,
     ) -> None:
         self._props = properties
@@ -89,6 +91,7 @@ class AdminRouteBuilder:
         self._trace_collector = trace_collector
         self._logfile = logfile
         self._runtime = runtime
+        self._server = server
         self._instance_registry = instance_registry
 
     def build_routes(self) -> list[Route | Mount]:
@@ -123,6 +126,7 @@ class AdminRouteBuilder:
                 Route(f"{api}/logfile", self._handle_logfile, methods=["GET"]),
                 Route(f"{api}/logfile/clear", self._handle_logfile_clear, methods=["POST"]),
                 Route(f"{api}/runtime", self._handle_runtime, methods=["GET"]),
+                Route(f"{api}/server", self._handle_server, methods=["GET"]),
                 Route(f"{api}/views", self._handle_views, methods=["GET"]),
                 Route(f"{api}/settings", self._handle_settings, methods=["GET"]),
             ]
@@ -136,6 +140,7 @@ class AdminRouteBuilder:
                 Route(f"{api}/sse/traces", self._handle_sse_traces, methods=["GET"]),
                 Route(f"{api}/sse/logfile", self._handle_sse_logfile, methods=["GET"]),
                 Route(f"{api}/sse/runtime", self._handle_sse_runtime, methods=["GET"]),
+                Route(f"{api}/sse/server", self._handle_sse_server, methods=["GET"]),
             ]
         )
 
@@ -281,6 +286,11 @@ class AdminRouteBuilder:
             return JSONResponse({"available": False})
         return JSONResponse(await self._runtime.get_runtime())
 
+    async def _handle_server(self, request: Request) -> JSONResponse:
+        if self._server is None:
+            return JSONResponse({"available": False})
+        return JSONResponse(await self._server.get_server_info())
+
     async def _handle_views(self, request: Request) -> JSONResponse:
         extensions = self._view_registry.get_extensions()
         views = [{"id": ext.view_id, "name": ext.display_name, "icon": ext.icon} for ext in extensions.values()]
@@ -354,6 +364,14 @@ class AdminRouteBuilder:
             return JSONResponse({"available": False})
         interval = self._props.refresh_interval / 1000
         return make_sse_response(runtime_stream(self._runtime, interval))
+
+    async def _handle_sse_server(self, request: Request) -> StreamingResponse:
+        from pyfly.admin.api.sse import make_sse_response, server_stream
+
+        if self._server is None:
+            return JSONResponse({"available": False})
+        interval = self._props.refresh_interval / 1000
+        return make_sse_response(server_stream(self._server, interval))
 
     async def _handle_spa(self, request: Request) -> Response:
         """Serve index.html for SPA client-side routing."""

@@ -182,7 +182,9 @@ def create_app(
         from pyfly.admin.providers.mappings_provider import MappingsProvider
         from pyfly.admin.providers.metrics_provider import MetricsProvider
         from pyfly.admin.providers.overview_provider import OverviewProvider
+        from pyfly.admin.providers.runtime_provider import RuntimeProvider
         from pyfly.admin.providers.scheduled_provider import ScheduledProvider
+        from pyfly.admin.providers.server_provider import ServerProvider
         from pyfly.admin.providers.traces_provider import TracesProvider
         from pyfly.admin.providers.transactions_provider import TransactionsProvider
         from pyfly.admin.registry import AdminViewRegistry
@@ -217,6 +219,18 @@ def create_app(
                     indicator_name = reg.name or cls.__name__
                     health_agg.add_indicator(indicator_name, reg.instance)
 
+        # Find server adapter from context for admin dashboard
+        server_adapter = None
+        try:
+            from pyfly.server.ports.outbound import ApplicationServerPort
+
+            for _cls, reg in context.container._registrations.items():
+                if reg.instance is not None and isinstance(reg.instance, ApplicationServerPort):
+                    server_adapter = reg.instance
+                    break
+        except ImportError:
+            pass
+
         admin_builder = AdminRouteBuilder(
             properties=admin_props,
             overview=OverviewProvider(context, health_agg),
@@ -235,6 +249,8 @@ def create_app(
             view_registry=view_registry,
             trace_collector=trace_collector,
             logfile=LogfileProvider(context),
+            runtime=RuntimeProvider(),
+            server=ServerProvider(server_adapter),
         )
         routes.extend(admin_builder.build_routes())  # type: ignore[arg-type]
 
