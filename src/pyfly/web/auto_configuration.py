@@ -25,12 +25,23 @@ from pyfly.web.ports.outbound import WebServerPort
 
 
 @auto_configuration
-@conditional_on_class("starlette")
-@conditional_on_missing_bean(WebServerPort)
 class WebAutoConfiguration:
-    """Auto-configures the Starlette web adapter when available."""
+    """Auto-configures the best available web adapter.
+
+    Priority: FastAPI (preferred) -> Starlette (fallback).
+    """
 
     @bean
+    @conditional_on_class("fastapi")
+    @conditional_on_missing_bean(WebServerPort)
+    def fastapi_adapter(self) -> WebServerPort:
+        from pyfly.web.adapters.fastapi.adapter import FastAPIWebAdapter
+
+        return FastAPIWebAdapter()
+
+    @bean
+    @conditional_on_class("starlette")
+    @conditional_on_missing_bean(WebServerPort)
     def web_adapter(self) -> WebServerPort:
         from pyfly.web.adapters.starlette.adapter import StarletteWebAdapter
 
