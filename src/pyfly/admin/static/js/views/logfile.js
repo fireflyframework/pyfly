@@ -1,12 +1,53 @@
 /**
  * PyFly Admin — Log Viewer.
  *
- * Displays application log output in a scrollable dark code-block
- * area with auto-scroll toggle and pause/resume controls.
+ * Real-time log viewer with SSE live tail, level filtering,
+ * pause/resume, clear, and auto-scroll controls.
  *
- * Data source:
- *   GET /admin/api/logfile -> log text (may not be available)
+ * Data sources:
+ *   GET  /admin/api/logfile       -> { available, records: [...], total }
+ *   POST /admin/api/logfile/clear -> { cleared }
+ *   SSE  /admin/api/sse/logfile   -> event type "log"
  */
+
+import { createFilterToolbar } from '../components/filter-toolbar.js';
+import { showToast } from '../components/toast.js';
+import { sse } from '../sse.js';
+
+/* ── Helpers ──────────────────────────────────────────────────── */
+
+function levelClass(level) {
+    switch ((level || '').toUpperCase()) {
+        case 'ERROR':   return 'log-level-error';
+        case 'CRITICAL':return 'log-level-error';
+        case 'WARNING': return 'log-level-warning';
+        case 'INFO':    return 'log-level-info';
+        case 'DEBUG':   return 'log-level-debug';
+        default:        return 'log-level-debug';
+    }
+}
+
+function formatTimestamp(ts) {
+    if (!ts) return '';
+    try {
+        const d = new Date(ts);
+        return d.toLocaleTimeString(undefined, {
+            hour: '2-digit', minute: '2-digit', second: '2-digit',
+            fractionalSecondDigits: 3,
+        });
+    } catch (_) {
+        return ts;
+    }
+}
+
+function createLogLine(record) {
+    const div = document.createElement('div');
+    div.className = `log-line ${levelClass(record.level)}`;
+    const time = formatTimestamp(record.timestamp);
+    const level = (record.level || 'INFO').padEnd(8);
+    div.textContent = `${time} ${level} ${record.logger} — ${record.message}`;
+    return div;
+}
 
 /* ── Render ───────────────────────────────────────────────────── */
 
@@ -14,6 +55,7 @@
  * Render the log file viewer.
  * @param {HTMLElement} container
  * @param {import('../api.js').AdminAPI} api
+ * @returns {function} Cleanup function to disconnect SSE.
  */
 export async function render(container, api) {
     container.replaceChildren();
@@ -33,6 +75,39 @@ export async function render(container, api) {
     sub.textContent = 'application.logfile';
     headerLeft.appendChild(sub);
     header.appendChild(headerLeft);
+
+    // Header right: Pause/Resume + Clear buttons
+    const headerRight = document.createElement('div');
+    headerRight.style.display = 'flex';
+    headerRight.style.gap = '8px';
+    headerRight.style.alignItems = 'center';
+
+    // Auto-scroll toggle
+    const autoScrollCheck = document.createElement('input');
+    autoScrollCheck.type = 'checkbox';
+    autoScrollCheck.id = 'auto-scroll-toggle';
+    autoScrollCheck.checked = true;
+    autoScrollCheck.style.cursor = 'pointer';
+    const autoScrollLabel = document.createElement('label');
+    autoScrollLabel.htmlFor = 'auto-scroll-toggle';
+    autoScrollLabel.className = 'text-sm';
+    autoScrollLabel.style.cursor = 'pointer';
+    autoScrollLabel.style.userSelect = 'none';
+    autoScrollLabel.textContent = 'Auto-scroll';
+    headerRight.appendChild(autoScrollCheck);
+    headerRight.appendChild(autoScrollLabel);
+
+    const pauseBtn = document.createElement('button');
+    pauseBtn.className = 'btn btn-sm';
+    pauseBtn.textContent = 'Pause';
+
+    const clearBtn = document.createElement('button');
+    clearBtn.className = 'btn btn-sm';
+    clearBtn.textContent = 'Clear';
+
+    headerRight.appendChild(pauseBtn);
+    headerRight.appendChild(clearBtn);
+    header.appendChild(headerRight);
     wrapper.appendChild(header);
 
     // Loading
@@ -41,25 +116,32 @@ export async function render(container, api) {
     wrapper.appendChild(loader);
     container.appendChild(wrapper);
 
-    // Fetch log data
-    let logData;
-    let logAvailable = true;
+    // Fetch initial data
+    let data;
     try {
-        logData = await api.get('/logfile');
-    } catch (_err) {
-        logAvailable = false;
+        data = await api.get('/logfile');
+    } catch (err) {
+        wrapper.removeChild(loader);
+        const errCard = document.createElement('div');
+        errCard.className = 'admin-card';
+        const errBody = document.createElement('div');
+        errBody.className = 'admin-card-body empty-state';
+        const errText = document.createElement('div');
+        errText.className = 'empty-state-text';
+        errText.textContent = 'Failed to load log data: ' + err.message;
+        errBody.appendChild(errText);
+        errCard.appendChild(errBody);
+        wrapper.appendChild(errCard);
+        return;
     }
 
     wrapper.removeChild(loader);
 
-    // ── Not available state ──────────────────────────────────
-    if (!logAvailable || !logData) {
+    if (!data.available) {
         const infoCard = document.createElement('div');
         infoCard.className = 'admin-card';
-
         const infoBody = document.createElement('div');
         infoBody.className = 'admin-card-body empty-state';
-
         const infoText = document.createElement('div');
         infoText.className = 'empty-state-text';
         infoText.textContent = 'Log file viewing is not configured';
@@ -69,49 +151,73 @@ export async function render(container, api) {
         return;
     }
 
-    // ── Controls card ────────────────────────────────────────
-    const controlsCard = document.createElement('div');
-    controlsCard.className = 'admin-card mb-lg';
+    // Mutable records array
+    const records = data.records || [];
+    let activeFilter = 'all';
 
-    const controlsBody = document.createElement('div');
-    controlsBody.className = 'admin-card-body';
-    controlsBody.style.display = 'flex';
-    controlsBody.style.alignItems = 'center';
-    controlsBody.style.justifyContent = 'space-between';
+    // ── Stats row ────────────────────────────────────────────
+    const statsRow = document.createElement('div');
+    statsRow.className = 'grid-2 mb-lg';
 
-    // Left side: auto-scroll toggle
-    const leftControls = document.createElement('div');
-    leftControls.style.display = 'flex';
-    leftControls.style.alignItems = 'center';
-    leftControls.style.gap = '8px';
+    const totalCard = document.createElement('div');
+    totalCard.className = 'stat-card';
+    const totalContent = document.createElement('div');
+    totalContent.className = 'stat-card-content';
+    const totalVal = document.createElement('div');
+    totalVal.className = 'stat-card-value';
+    totalVal.textContent = String(records.length);
+    totalContent.appendChild(totalVal);
+    const totalLabel = document.createElement('div');
+    totalLabel.className = 'stat-card-label';
+    totalLabel.textContent = 'Total Records';
+    totalContent.appendChild(totalLabel);
+    totalCard.appendChild(totalContent);
+    statsRow.appendChild(totalCard);
 
-    const autoScrollCheck = document.createElement('input');
-    autoScrollCheck.type = 'checkbox';
-    autoScrollCheck.id = 'auto-scroll-toggle';
-    autoScrollCheck.checked = true;
-    autoScrollCheck.style.cursor = 'pointer';
+    const liveCard = document.createElement('div');
+    liveCard.className = 'stat-card';
+    const liveContent = document.createElement('div');
+    liveContent.className = 'stat-card-content';
+    const liveVal = document.createElement('div');
+    liveVal.className = 'stat-card-value';
+    const liveBadge = document.createElement('span');
+    liveBadge.className = 'badge badge-success';
+    const liveDot = document.createElement('span');
+    liveDot.className = 'badge-dot';
+    liveBadge.appendChild(liveDot);
+    const liveText = document.createElement('span');
+    liveText.textContent = 'LIVE';
+    liveBadge.appendChild(liveText);
+    liveVal.appendChild(liveBadge);
+    liveContent.appendChild(liveVal);
+    const liveLabel = document.createElement('div');
+    liveLabel.className = 'stat-card-label';
+    liveLabel.textContent = 'Stream Status';
+    liveContent.appendChild(liveLabel);
+    liveCard.appendChild(liveContent);
+    statsRow.appendChild(liveCard);
 
-    const autoScrollLabel = document.createElement('label');
-    autoScrollLabel.htmlFor = 'auto-scroll-toggle';
-    autoScrollLabel.style.fontSize = '0.85rem';
-    autoScrollLabel.style.cursor = 'pointer';
-    autoScrollLabel.style.userSelect = 'none';
-    autoScrollLabel.textContent = 'Auto-scroll';
+    wrapper.appendChild(statsRow);
 
-    leftControls.appendChild(autoScrollCheck);
-    leftControls.appendChild(autoScrollLabel);
-    controlsBody.appendChild(leftControls);
+    // ── Filter toolbar ───────────────────────────────────────
+    const toolbar = createFilterToolbar({
+        placeholder: 'Search logs\u2026',
+        pills: [
+            { label: 'All', value: 'all' },
+            { label: 'ERROR', value: 'ERROR' },
+            { label: 'WARNING', value: 'WARNING' },
+            { label: 'INFO', value: 'INFO' },
+            { label: 'DEBUG', value: 'DEBUG' },
+        ],
+        onFilter: ({ pill }) => {
+            activeFilter = pill;
+            renderLogLines();
+        },
+        totalCount: records.length,
+    });
+    wrapper.appendChild(toolbar);
 
-    // Right side: pause/resume button
-    const pauseBtn = document.createElement('button');
-    pauseBtn.className = 'btn btn-sm';
-    pauseBtn.textContent = 'Pause';
-    controlsBody.appendChild(pauseBtn);
-
-    controlsCard.appendChild(controlsBody);
-    wrapper.appendChild(controlsCard);
-
-    // ── Log area ─────────────────────────────────────────────
+    // ── Log output card ──────────────────────────────────────
     const logCard = document.createElement('div');
     logCard.className = 'admin-card';
 
@@ -122,48 +228,99 @@ export async function render(container, api) {
     logHeader.appendChild(logTitle);
     logCard.appendChild(logHeader);
 
-    const logArea = document.createElement('pre');
-    logArea.className = 'code-block';
-    logArea.style.maxHeight = '600px';
-    logArea.style.overflowY = 'auto';
-    logArea.style.margin = '0';
-    logArea.style.borderRadius = '0';
-    logArea.style.border = 'none';
-    logArea.style.borderTop = '1px solid var(--admin-border)';
+    const logOutput = document.createElement('div');
+    logOutput.className = 'logfile-output';
 
-    // Populate with log content
-    const logContent = typeof logData === 'string'
-        ? logData
-        : (logData.content || logData.lines || JSON.stringify(logData, null, 2));
-    logArea.textContent = logContent;
-
-    logCard.appendChild(logArea);
-    wrapper.appendChild(logCard);
-
-    // Scroll to bottom initially if auto-scroll is on
-    if (autoScrollCheck.checked) {
-        requestAnimationFrame(() => {
-            logArea.scrollTop = logArea.scrollHeight;
-        });
+    function renderLogLines() {
+        logOutput.replaceChildren();
+        const filtered = activeFilter === 'all'
+            ? records
+            : records.filter(r => r.level === activeFilter);
+        if (filtered.length === 0) {
+            const empty = document.createElement('div');
+            empty.className = 'log-line';
+            empty.style.color = 'var(--admin-text-muted)';
+            empty.textContent = activeFilter === 'all'
+                ? 'No log records yet\u2026'
+                : `No ${activeFilter} records`;
+            logOutput.appendChild(empty);
+        } else {
+            for (const record of filtered) {
+                logOutput.appendChild(createLogLine(record));
+            }
+        }
+        toolbar.updateCount(filtered.length, records.length);
+        if (autoScrollCheck.checked) {
+            logOutput.scrollTop = logOutput.scrollHeight;
+        }
     }
 
-    // ── Pause/Resume ─────────────────────────────────────────
+    renderLogLines();
+    logCard.appendChild(logOutput);
+    wrapper.appendChild(logCard);
+
+    function updateStats() {
+        totalVal.textContent = String(records.length);
+    }
+
+    // ── SSE: Real-time log updates ───────────────────────────
     let paused = false;
+
+    sse.connectTyped('/logfile', 'log', (logRecord) => {
+        if (paused) return;
+        records.push(logRecord);
+        // Append to output if it passes the active filter
+        if (activeFilter === 'all' || logRecord.level === activeFilter) {
+            // Remove the "no records" placeholder if present
+            const first = logOutput.firstChild;
+            if (first && first.textContent.startsWith('No ')) {
+                logOutput.replaceChildren();
+            }
+            logOutput.appendChild(createLogLine(logRecord));
+            toolbar.updateCount(
+                logOutput.querySelectorAll('.log-line').length,
+                records.length,
+            );
+        }
+        updateStats();
+        if (autoScrollCheck.checked) {
+            logOutput.scrollTop = logOutput.scrollHeight;
+        }
+    });
+
+    // ── Pause/Resume ─────────────────────────────────────────
     pauseBtn.addEventListener('click', () => {
         paused = !paused;
         pauseBtn.textContent = paused ? 'Resume' : 'Pause';
-    });
-
-    // Auto-scroll behaviour: when new content is added, scroll to bottom
-    const observer = new MutationObserver(() => {
-        if (autoScrollCheck.checked && !paused) {
-            logArea.scrollTop = logArea.scrollHeight;
+        if (paused) {
+            liveText.textContent = 'PAUSED';
+            liveBadge.className = 'badge badge-warning';
+        } else {
+            liveText.textContent = 'LIVE';
+            liveBadge.className = 'badge badge-success';
         }
     });
-    observer.observe(logArea, { childList: true, characterData: true, subtree: true });
 
-    // Cleanup
+    // ── Clear ────────────────────────────────────────────────
+    clearBtn.addEventListener('click', async () => {
+        clearBtn.disabled = true;
+        clearBtn.textContent = 'Clearing\u2026';
+        try {
+            await api.post('/logfile/clear', {});
+            records.length = 0;
+            renderLogLines();
+            updateStats();
+            showToast('Log records cleared', 'success');
+        } catch (err) {
+            showToast('Failed to clear logs: ' + err.message, 'error');
+        } finally {
+            clearBtn.disabled = false;
+            clearBtn.textContent = 'Clear';
+        }
+    });
+
+    // ── Cleanup ──────────────────────────────────────────────
     return function cleanup() {
-        observer.disconnect();
+        sse.disconnect('/logfile');
     };
 }

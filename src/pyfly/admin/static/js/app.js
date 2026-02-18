@@ -41,7 +41,6 @@ let settings = {
 };
 
 let currentRoute = '';
-let refreshTimer = null;
 let currentCleanup = null;  // Cleanup function from current view
 
 /* ── DOM References ───────────────────────────────────────────── */
@@ -130,9 +129,6 @@ function renderNavbar() {
     sunSvg.setAttribute('stroke-width', '2');
     sunSvg.setAttribute('stroke-linecap', 'round');
     sunSvg.setAttribute('stroke-linejoin', 'round');
-    const sunPaths = [
-        'M12 2a10 10 0 100 20 10 10 0 000-20z', // simplified circle
-    ];
     // Sun: circle + rays
     const sunCircle = document.createElementNS(svgNS, 'circle');
     sunCircle.setAttribute('cx', '12');
@@ -273,22 +269,6 @@ async function navigateTo(route) {
     }
 }
 
-/* ── Auto-Refresh ─────────────────────────────────────────────── */
-
-function setupAutoRefresh() {
-    if (refreshTimer) clearInterval(refreshTimer);
-    refreshTimer = setInterval(() => {
-        // Only auto-refresh the overview view (other views use SSE or manual refresh)
-        if (currentRoute === '' || currentRoute === 'overview') {
-            const loader = routes[currentRoute];
-            if (loader) {
-                // Re-render current view silently
-                // Views should handle their own refresh logic
-            }
-        }
-    }, settings.refreshInterval);
-}
-
 /* ── Initialisation ───────────────────────────────────────────── */
 
 async function init() {
@@ -313,9 +293,6 @@ async function init() {
 
     // Render navbar
     renderNavbar();
-
-    // Setup auto-refresh
-    setupAutoRefresh();
 
     // Listen for hash changes
     window.addEventListener('hashchange', () => {

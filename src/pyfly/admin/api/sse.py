@@ -24,6 +24,7 @@ from starlette.requests import Request
 from starlette.responses import StreamingResponse
 
 if TYPE_CHECKING:
+    from pyfly.admin.log_handler import AdminLogHandler
     from pyfly.admin.providers.health_provider import HealthProvider
     from pyfly.admin.providers.metrics_provider import MetricsProvider
     from pyfly.admin.middleware.trace_collector import TraceCollectorFilter
@@ -77,6 +78,20 @@ async def traces_stream(
                 for trace in new_traces:
                     yield _sse_event(trace, event="trace")
                 last_count = current_count
+        await asyncio.sleep(interval)
+
+
+async def logfile_stream(
+    log_handler: AdminLogHandler | None,
+    interval: float = 1.0,
+) -> AsyncGenerator[str, None]:
+    last_id = 0
+    while True:
+        if log_handler is not None:
+            records = log_handler.get_records(after=last_id)
+            for record in records:
+                yield _sse_event(record, event="log")
+                last_id = record["id"]
         await asyncio.sleep(interval)
 
 

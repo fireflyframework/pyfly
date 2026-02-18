@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 from pyfly.admin.config import AdminClientProperties, AdminProperties
+from pyfly.admin.log_handler import AdminLogHandler
 from pyfly.admin.middleware.trace_collector import TraceCollectorFilter
 from pyfly.admin.registry import AdminViewRegistry
 from pyfly.admin.server.client_registration import AdminClientRegistration
@@ -45,6 +46,15 @@ class AdminAutoConfiguration:
     @bean
     def admin_trace_collector(self) -> TraceCollectorFilter:
         return TraceCollectorFilter()
+
+    @bean
+    def admin_log_handler(self) -> AdminLogHandler:
+        import logging
+
+        handler = AdminLogHandler()
+        handler.setFormatter(logging.Formatter("%(message)s"))
+        logging.getLogger().addHandler(handler)
+        return handler
 
     @bean
     @conditional_on_property("pyfly.admin.client.url")

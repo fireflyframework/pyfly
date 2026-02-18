@@ -25,6 +25,7 @@ from starlette.staticfiles import StaticFiles
 
 if TYPE_CHECKING:
     from pyfly.admin.config import AdminProperties
+    from pyfly.admin.log_handler import AdminLogHandler
     from pyfly.admin.middleware.trace_collector import TraceCollectorFilter
     from pyfly.admin.providers.beans_provider import BeansProvider
     from pyfly.admin.providers.cache_provider import CacheProvider
@@ -32,6 +33,7 @@ if TYPE_CHECKING:
     from pyfly.admin.providers.cqrs_provider import CqrsProvider
     from pyfly.admin.providers.env_provider import EnvProvider
     from pyfly.admin.providers.health_provider import HealthProvider
+    from pyfly.admin.providers.logfile_provider import LogfileProvider
     from pyfly.admin.providers.loggers_provider import LoggersProvider
     from pyfly.admin.providers.mappings_provider import MappingsProvider
     from pyfly.admin.providers.metrics_provider import MetricsProvider
@@ -65,6 +67,8 @@ class AdminRouteBuilder:
         traces: TracesProvider,
         view_registry: AdminViewRegistry,
         trace_collector: TraceCollectorFilter | None = None,
+        logfile: LogfileProvider | None = None,
+        log_handler: AdminLogHandler | None = None,
         instance_registry: InstanceRegistry | None = None,
     ) -> None:
         self._props = properties
@@ -83,6 +87,8 @@ class AdminRouteBuilder:
         self._traces = traces
         self._view_registry = view_registry
         self._trace_collector = trace_collector
+        self._logfile = logfile
+        self._log_handler = log_handler
         self._instance_registry = instance_registry
 
     def build_routes(self) -> list[Route | Mount]:
@@ -107,10 +113,13 @@ class AdminRouteBuilder:
             Route(f"{api}/scheduled", self._handle_scheduled, methods=["GET"]),
             Route(f"{api}/mappings", self._handle_mappings, methods=["GET"]),
             Route(f"{api}/caches", self._handle_caches, methods=["GET"]),
+            Route(f"{api}/caches/keys", self._handle_cache_keys, methods=["GET"]),
             Route(f"{api}/caches/{{name}}/evict", self._handle_cache_evict, methods=["POST"]),
             Route(f"{api}/cqrs", self._handle_cqrs, methods=["GET"]),
             Route(f"{api}/transactions", self._handle_transactions, methods=["GET"]),
             Route(f"{api}/traces", self._handle_traces, methods=["GET"]),
+            Route(f"{api}/logfile", self._handle_logfile, methods=["GET"]),
+            Route(f"{api}/logfile/clear", self._handle_logfile_clear, methods=["POST"]),
             Route(f"{api}/views", self._handle_views, methods=["GET"]),
             Route(f"{api}/settings", self._handle_settings, methods=["GET"]),
         ])
@@ -120,6 +129,7 @@ class AdminRouteBuilder:
             Route(f"{api}/sse/health", self._handle_sse_health, methods=["GET"]),
             Route(f"{api}/sse/metrics", self._handle_sse_metrics, methods=["GET"]),
             Route(f"{api}/sse/traces", self._handle_sse_traces, methods=["GET"]),
+            Route(f"{api}/sse/logfile", self._handle_sse_logfile, methods=["GET"]),
         ])
 
         # --- Instance registry routes (server mode) ---
@@ -200,6 +210,10 @@ class AdminRouteBuilder:
     async def _handle_caches(self, request: Request) -> JSONResponse:
         return JSONResponse(await self._caches.get_caches())
 
+    async def _handle_cache_keys(self, request: Request) -> JSONResponse:
+        data = await self._caches.get_caches()
+        return JSONResponse({"keys": data.get("keys", [])})
+
     async def _handle_cache_evict(self, request: Request) -> JSONResponse:
         name = request.path_params["name"]
         body = await request.body()
@@ -219,6 +233,16 @@ class AdminRouteBuilder:
     async def _handle_traces(self, request: Request) -> JSONResponse:
         limit = int(request.query_params.get("limit", "100"))
         return JSONResponse(await self._traces.get_traces(limit))
+
+    async def _handle_logfile(self, request: Request) -> JSONResponse:
+        if self._logfile is None:
+            return JSONResponse({"available": False, "records": [], "total": 0})
+        return JSONResponse(await self._logfile.get_logfile())
+
+    async def _handle_logfile_clear(self, request: Request) -> JSONResponse:
+        if self._logfile is None:
+            return JSONResponse({"error": "Log handler not available"}, status_code=400)
+        return JSONResponse(await self._logfile.clear_logfile())
 
     async def _handle_views(self, request: Request) -> JSONResponse:
         extensions = self._view_registry.get_extensions()
@@ -276,6 +300,10 @@ class AdminRouteBuilder:
     async def _handle_sse_traces(self, request: Request) -> StreamingResponse:
         from pyfly.admin.api.sse import traces_stream, make_sse_response
         return make_sse_response(traces_stream(self._trace_collector))
+
+    async def _handle_sse_logfile(self, request: Request) -> StreamingResponse:
+        from pyfly.admin.api.sse import logfile_stream, make_sse_response
+        return make_sse_response(logfile_stream(self._log_handler))
 
     async def _handle_spa(self, request: Request) -> Response:
         """Serve index.html for SPA client-side routing."""

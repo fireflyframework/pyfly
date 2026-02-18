@@ -1540,3 +1540,38 @@ a:hover {
         flex-wrap: wrap;
     }
 }
+
+/* ── Log Viewer ──────────────────────────────────────────────── */
+
+.logfile-output {
+    background: var(--admin-bg);
+    font-family: var(--admin-font-mono);
+    font-size: 0.8rem;
+    line-height: 1.6;
+    max-height: 600px;
+    overflow-y: auto;
+    padding: 16px;
+    border-top: 1px solid var(--admin-border);
+}
+
+.log-line {
+    white-space: pre-wrap;
+    word-break: break-all;
+    padding: 1px 0;
+}
+
+.log-level-error {
+    color: var(--admin-danger);
+}
+
+.log-level-warning {
+    color: var(--admin-warning);
+}
+
+.log-level-info {
+    color: var(--admin-info);
+}
+
+.log-level-debug {
+    color: var(--admin-text-muted);
+}

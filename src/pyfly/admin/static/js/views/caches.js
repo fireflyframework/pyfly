@@ -1,13 +1,16 @@
 /**
  * PyFly Admin — Caches View.
  *
- * Displays cache adapter status and provides eviction controls.
+ * Displays cache adapter status, stats, key listing with search,
+ * per-key eviction, and bulk eviction with confirmation.
  *
  * Data sources:
- *   GET  /admin/api/caches               -> { available, type }
- *   POST /admin/api/caches/{name}/evict   -> { cleared } | { error }
+ *   GET  /admin/api/caches               -> { available, type, stats, keys }
+ *   GET  /admin/api/caches/keys          -> { keys: [...] }
+ *   POST /admin/api/caches/{name}/evict  -> { cleared } | { evicted, key } | { error }
  */
 
+import { createFilterToolbar } from '../components/filter-toolbar.js';
 import { showToast } from '../components/toast.js';
 
 /* ── Render ───────────────────────────────────────────────────── */
@@ -35,6 +38,23 @@ export async function render(container, api) {
     sub.textContent = 'application.caches';
     headerLeft.appendChild(sub);
     header.appendChild(headerLeft);
+
+    // Header right: Refresh + Evict All
+    const headerRight = document.createElement('div');
+    headerRight.style.display = 'flex';
+    headerRight.style.gap = '8px';
+
+    const refreshBtn = document.createElement('button');
+    refreshBtn.className = 'btn btn-sm';
+    refreshBtn.textContent = 'Refresh';
+
+    const evictAllBtn = document.createElement('button');
+    evictAllBtn.className = 'btn btn-danger btn-sm';
+    evictAllBtn.textContent = 'Evict All';
+
+    headerRight.appendChild(refreshBtn);
+    headerRight.appendChild(evictAllBtn);
+    header.appendChild(headerRight);
     wrapper.appendChild(header);
 
     // Loading
@@ -68,10 +88,8 @@ export async function render(container, api) {
     if (!data.available) {
         const infoCard = document.createElement('div');
         infoCard.className = 'admin-card';
-
         const infoBody = document.createElement('div');
         infoBody.className = 'admin-card-body empty-state';
-
         const infoText = document.createElement('div');
         infoText.className = 'empty-state-text';
         infoText.textContent = 'No cache adapter is configured. Register a CacheAdapter bean to enable caching.';
@@ -81,148 +99,229 @@ export async function render(container, api) {
         return;
     }
 
-    // ── Status card ──────────────────────────────────────────
+    // ── Stats row ────────────────────────────────────────────
+    const statsRow = document.createElement('div');
+    statsRow.className = 'grid-3 mb-lg';
+
+    // Adapter Type
+    const typeCard = document.createElement('div');
+    typeCard.className = 'stat-card';
+    const typeContent = document.createElement('div');
+    typeContent.className = 'stat-card-content';
+    const typeVal = document.createElement('div');
+    typeVal.className = 'stat-card-value text-mono';
+    typeVal.style.fontSize = '1rem';
+    typeVal.textContent = data.type || '--';
+    typeContent.appendChild(typeVal);
+    const typeLabel = document.createElement('div');
+    typeLabel.className = 'stat-card-label';
+    typeLabel.textContent = 'Adapter Type';
+    typeContent.appendChild(typeLabel);
+    typeCard.appendChild(typeContent);
+    statsRow.appendChild(typeCard);
+
+    // Cache Size
+    const sizeCard = document.createElement('div');
+    sizeCard.className = 'stat-card';
+    const sizeContent = document.createElement('div');
+    sizeContent.className = 'stat-card-content';
+    const sizeVal = document.createElement('div');
+    sizeVal.className = 'stat-card-value';
+    sizeVal.textContent = data.stats?.size != null ? String(data.stats.size) : '--';
+    sizeContent.appendChild(sizeVal);
+    const sizeLabel = document.createElement('div');
+    sizeLabel.className = 'stat-card-label';
+    sizeLabel.textContent = 'Cache Size';
+    sizeContent.appendChild(sizeLabel);
+    sizeCard.appendChild(sizeContent);
+    statsRow.appendChild(sizeCard);
+
+    // Status
     const statusCard = document.createElement('div');
-    statusCard.className = 'admin-card mb-lg';
+    statusCard.className = 'stat-card';
+    const statusContent = document.createElement('div');
+    statusContent.className = 'stat-card-content';
+    const statusVal = document.createElement('div');
+    statusVal.className = 'stat-card-value';
+    const statusBadge = document.createElement('span');
+    statusBadge.className = 'badge badge-success';
+    const statusDot = document.createElement('span');
+    statusDot.className = 'badge-dot';
+    statusBadge.appendChild(statusDot);
+    const statusText = document.createElement('span');
+    statusText.textContent = 'AVAILABLE';
+    statusBadge.appendChild(statusText);
+    statusVal.appendChild(statusBadge);
+    statusContent.appendChild(statusVal);
+    const statusLabel = document.createElement('div');
+    statusLabel.className = 'stat-card-label';
+    statusLabel.textContent = 'Status';
+    statusContent.appendChild(statusLabel);
+    statusCard.appendChild(statusContent);
+    statsRow.appendChild(statusCard);
 
-    const statusHeader = document.createElement('div');
-    statusHeader.className = 'admin-card-header';
-    const statusTitle = document.createElement('h3');
-    statusTitle.textContent = 'Cache Status';
-    statusHeader.appendChild(statusTitle);
-    statusCard.appendChild(statusHeader);
+    wrapper.appendChild(statsRow);
 
-    const statusBody = document.createElement('div');
-    statusBody.className = 'admin-card-body';
+    // ── Keys table ───────────────────────────────────────────
+    let keys = data.keys || [];
 
-    const kvTable = document.createElement('table');
-    kvTable.className = 'kv-table';
-    const kvTbody = document.createElement('tbody');
+    const keysCard = document.createElement('div');
+    keysCard.className = 'admin-card';
 
-    // Available row
-    const availRow = document.createElement('tr');
-    const availTh = document.createElement('th');
-    availTh.textContent = 'Available';
-    const availTd = document.createElement('td');
-    const availBadge = document.createElement('span');
-    availBadge.className = 'badge badge-success';
-    const availDot = document.createElement('span');
-    availDot.className = 'badge-dot';
-    availBadge.appendChild(availDot);
-    const availLabel = document.createElement('span');
-    availLabel.textContent = 'YES';
-    availBadge.appendChild(availLabel);
-    availTd.appendChild(availBadge);
-    availRow.appendChild(availTh);
-    availRow.appendChild(availTd);
-    kvTbody.appendChild(availRow);
+    const keysHeader = document.createElement('div');
+    keysHeader.className = 'admin-card-header';
+    const keysTitle = document.createElement('h3');
+    keysTitle.textContent = 'Cache Keys';
+    keysHeader.appendChild(keysTitle);
+    const keysCount = document.createElement('span');
+    keysCount.className = 'badge badge-neutral';
+    keysCount.textContent = String(keys.length);
+    keysHeader.appendChild(keysCount);
+    keysCard.appendChild(keysHeader);
 
-    // Adapter type row
-    const typeRow = document.createElement('tr');
-    const typeTh = document.createElement('th');
-    typeTh.textContent = 'Adapter Type';
-    const typeTd = document.createElement('td');
-    const typeSpan = document.createElement('span');
-    typeSpan.className = 'text-mono';
-    typeSpan.textContent = data.type || '--';
-    typeTd.appendChild(typeSpan);
-    typeRow.appendChild(typeTh);
-    typeRow.appendChild(typeTd);
-    kvTbody.appendChild(typeRow);
-
-    kvTable.appendChild(kvTbody);
-    statusBody.appendChild(kvTable);
-    statusCard.appendChild(statusBody);
-    wrapper.appendChild(statusCard);
-
-    // ── Eviction card ────────────────────────────────────────
-    const evictCard = document.createElement('div');
-    evictCard.className = 'admin-card';
-
-    const evictHeader = document.createElement('div');
-    evictHeader.className = 'admin-card-header';
-    const evictTitle = document.createElement('h3');
-    evictTitle.textContent = 'Cache Management';
-    evictHeader.appendChild(evictTitle);
-    evictCard.appendChild(evictHeader);
-
-    const evictBody = document.createElement('div');
-    evictBody.className = 'admin-card-body';
-
-    const evictDesc = document.createElement('p');
-    evictDesc.style.marginBottom = '16px';
-    evictDesc.style.fontSize = '0.85rem';
-    evictDesc.style.color = 'var(--admin-text-secondary)';
-    evictDesc.textContent = 'Clear all entries from the cache. This action cannot be undone.';
-    evictBody.appendChild(evictDesc);
-
-    // Button row container
-    const btnRow = document.createElement('div');
-    btnRow.style.display = 'flex';
-    btnRow.style.alignItems = 'center';
-    btnRow.style.gap = '12px';
-
-    // Evict all button
-    const evictBtn = document.createElement('button');
-    evictBtn.className = 'btn btn-danger';
-    evictBtn.textContent = 'Evict All';
-
-    // Confirmation message (hidden initially)
-    const confirmWrap = document.createElement('span');
-    confirmWrap.style.display = 'none';
-    confirmWrap.style.alignItems = 'center';
-    confirmWrap.style.gap = '8px';
-
-    const confirmText = document.createElement('span');
-    confirmText.style.fontSize = '0.85rem';
-    confirmText.style.color = 'var(--admin-warning)';
-    confirmText.style.fontWeight = '500';
-    confirmText.textContent = 'Are you sure?';
-
-    const confirmYes = document.createElement('button');
-    confirmYes.className = 'btn btn-danger btn-sm';
-    confirmYes.textContent = 'Yes, clear';
-
-    const confirmNo = document.createElement('button');
-    confirmNo.className = 'btn btn-sm';
-    confirmNo.textContent = 'Cancel';
-
-    confirmWrap.appendChild(confirmText);
-    confirmWrap.appendChild(confirmYes);
-    confirmWrap.appendChild(confirmNo);
-
-    // Show confirmation on click
-    evictBtn.addEventListener('click', () => {
-        evictBtn.style.display = 'none';
-        confirmWrap.style.display = 'flex';
+    // Search toolbar
+    const toolbar = createFilterToolbar({
+        placeholder: 'Search keys\u2026',
+        onFilter: ({ search }) => renderKeys(search),
+        totalCount: keys.length,
     });
+    keysCard.appendChild(toolbar);
 
-    // Cancel
-    confirmNo.addEventListener('click', () => {
-        confirmWrap.style.display = 'none';
-        evictBtn.style.display = '';
-    });
+    const tableWrap = document.createElement('div');
+    tableWrap.className = 'admin-table-wrapper';
+    tableWrap.style.maxHeight = '400px';
+    tableWrap.style.overflowY = 'auto';
 
-    // Confirm eviction
-    confirmYes.addEventListener('click', async () => {
-        confirmYes.disabled = true;
-        confirmYes.textContent = 'Clearing...';
+    const table = document.createElement('table');
+    table.className = 'admin-table';
+
+    const thead = document.createElement('thead');
+    const headRow = document.createElement('tr');
+    const thKey = document.createElement('th');
+    thKey.textContent = 'Key';
+    headRow.appendChild(thKey);
+    const thAction = document.createElement('th');
+    thAction.textContent = 'Action';
+    thAction.style.width = '100px';
+    thAction.style.textAlign = 'right';
+    headRow.appendChild(thAction);
+    thead.appendChild(headRow);
+    table.appendChild(thead);
+
+    const tbody = document.createElement('tbody');
+
+    function renderKeys(search = '') {
+        tbody.replaceChildren();
+        const filtered = search
+            ? keys.filter(k => k.toLowerCase().includes(search.toLowerCase()))
+            : keys;
+
+        toolbar.updateCount(filtered.length, keys.length);
+        keysCount.textContent = String(keys.length);
+
+        if (filtered.length === 0) {
+            const tr = document.createElement('tr');
+            const td = document.createElement('td');
+            td.colSpan = 2;
+            td.style.textAlign = 'center';
+            td.style.padding = '32px 16px';
+            td.style.color = 'var(--admin-text-muted)';
+            td.textContent = keys.length === 0 ? 'No keys in cache' : 'No matching keys';
+            tr.appendChild(td);
+            tbody.appendChild(tr);
+            return;
+        }
+
+        for (const key of filtered) {
+            const tr = document.createElement('tr');
+            const tdKey = document.createElement('td');
+            tdKey.className = 'text-mono text-sm';
+            tdKey.textContent = key;
+            tr.appendChild(tdKey);
+
+            const tdAction = document.createElement('td');
+            tdAction.style.textAlign = 'right';
+            const evictBtn = document.createElement('button');
+            evictBtn.className = 'btn btn-sm';
+            evictBtn.textContent = 'Evict';
+            evictBtn.addEventListener('click', async () => {
+                evictBtn.disabled = true;
+                evictBtn.textContent = 'Evicting\u2026';
+                try {
+                    await api.post('/caches/default/evict', { key });
+                    keys = keys.filter(k => k !== key);
+                    renderKeys(toolbar.getState().search);
+                    sizeVal.textContent = String(keys.length);
+                    showToast(`Key "${key}" evicted`, 'success');
+                } catch (err) {
+                    showToast('Failed to evict key: ' + err.message, 'error');
+                    evictBtn.disabled = false;
+                    evictBtn.textContent = 'Evict';
+                }
+            });
+            tdAction.appendChild(evictBtn);
+            tr.appendChild(tdAction);
+            tbody.appendChild(tr);
+        }
+    }
+
+    renderKeys();
+    table.appendChild(tbody);
+    tableWrap.appendChild(table);
+    keysCard.appendChild(tableWrap);
+    wrapper.appendChild(keysCard);
+
+    // ── Evict All with confirmation ──────────────────────────
+    let confirmState = false;
+
+    evictAllBtn.addEventListener('click', async () => {
+        if (!confirmState) {
+            confirmState = true;
+            evictAllBtn.textContent = 'Confirm Evict All?';
+            evictAllBtn.className = 'btn btn-danger btn-sm';
+            // Auto-reset after 3 seconds
+            setTimeout(() => {
+                if (confirmState) {
+                    confirmState = false;
+                    evictAllBtn.textContent = 'Evict All';
+                }
+            }, 3000);
+            return;
+        }
+
+        confirmState = false;
+        evictAllBtn.disabled = true;
+        evictAllBtn.textContent = 'Clearing\u2026';
         try {
             await api.post('/caches/default/evict', {});
+            keys = [];
+            renderKeys();
+            sizeVal.textContent = '0';
             showToast('Cache cleared successfully', 'success');
         } catch (err) {
             showToast('Failed to clear cache: ' + err.message, 'error');
         } finally {
-            confirmWrap.style.display = 'none';
-            evictBtn.style.display = '';
-            confirmYes.disabled = false;
-            confirmYes.textContent = 'Yes, clear';
+            evictAllBtn.disabled = false;
+            evictAllBtn.textContent = 'Evict All';
         }
     });
 
-    btnRow.appendChild(evictBtn);
-    btnRow.appendChild(confirmWrap);
-    evictBody.appendChild(btnRow);
-    evictCard.appendChild(evictBody);
-    wrapper.appendChild(evictCard);
+    // ── Refresh ──────────────────────────────────────────────
+    refreshBtn.addEventListener('click', async () => {
+        refreshBtn.disabled = true;
+        refreshBtn.textContent = 'Refreshing\u2026';
+        try {
+            const freshData = await api.get('/caches');
+            keys = freshData.keys || [];
+            sizeVal.textContent = freshData.stats?.size != null
+                ? String(freshData.stats.size) : '--';
+            renderKeys(toolbar.getState().search);
+            showToast('Cache data refreshed', 'success');
+        } catch (err) {
+            showToast('Failed to refresh: ' + err.message, 'error');
+        } finally {
+            refreshBtn.disabled = false;
+            refreshBtn.textContent = 'Refresh';
+        }
+    });
 }

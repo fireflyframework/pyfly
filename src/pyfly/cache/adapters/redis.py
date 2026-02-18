@@ -53,6 +53,21 @@ class RedisCacheAdapter:
         count = await self._client.exists(key)
         return count > 0
 
+    async def get_stats(self) -> dict[str, Any]:
+        """Return cache statistics from Redis."""
+        info = await self._client.info("keyspace")
+        dbsize = await self._client.dbsize()
+        return {"size": dbsize, "type": "redis", "info": info}
+
+    async def get_keys(self, pattern: str = "*", limit: int = 100) -> list[str]:
+        """Return up to *limit* keys matching *pattern* via SCAN."""
+        keys: list[str] = []
+        async for key in self._client.scan_iter(match=pattern, count=limit):
+            keys.append(key.decode() if isinstance(key, bytes) else key)
+            if len(keys) >= limit:
+                break
+        return keys
+
     async def clear(self) -> None:
         """Flush the entire database."""
         await self._client.flushdb()

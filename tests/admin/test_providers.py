@@ -216,6 +216,59 @@ class TestTransactionsProvider:
         assert result["tcc"][0]["participants"][0]["has_cancel"] is True
 
 
+class TestCacheProvider:
+    async def test_cache_provider_no_adapter(self):
+        from pyfly.admin.providers.cache_provider import CacheProvider
+        ctx = _make_mock_context()
+        provider = CacheProvider(ctx)
+        result = await provider.get_caches()
+        assert result["available"] is False
+        assert result["stats"] == {}
+        assert result["keys"] == []
+
+    async def test_cache_provider_with_stats(self):
+        from pyfly.admin.providers.cache_provider import CacheProvider
+        from pyfly.cache.adapters.memory import InMemoryCache
+        from pyfly.cache.ports.outbound import CacheAdapter
+
+        ctx = _make_mock_context()
+        cache = InMemoryCache()
+        await cache.put("k1", "v1")
+        await cache.put("k2", "v2")
+
+        reg = MagicMock()
+        reg.name = "memoryCache"
+        reg.instance = cache
+        ctx.container._registrations[CacheAdapter] = reg
+
+        provider = CacheProvider(ctx)
+        result = await provider.get_caches()
+        assert result["available"] is True
+        assert result["type"] == "InMemoryCache"
+        assert result["stats"]["size"] == 2
+        assert sorted(result["keys"]) == ["k1", "k2"]
+
+    async def test_cache_provider_evict_key(self):
+        from pyfly.admin.providers.cache_provider import CacheProvider
+        from pyfly.cache.adapters.memory import InMemoryCache
+        from pyfly.cache.ports.outbound import CacheAdapter
+
+        ctx = _make_mock_context()
+        cache = InMemoryCache()
+        await cache.put("target", "value")
+
+        reg = MagicMock()
+        reg.name = "memoryCache"
+        reg.instance = cache
+        ctx.container._registrations[CacheAdapter] = reg
+
+        provider = CacheProvider(ctx)
+        result = await provider.evict_cache("target")
+        assert result["evicted"] is True
+        assert result["key"] == "target"
+        assert await cache.get("target") is None
+
+
 class TestConfigProvider:
     async def test_get_config_grouped(self):
         ctx = _make_mock_context()

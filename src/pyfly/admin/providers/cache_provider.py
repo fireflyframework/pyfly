@@ -11,10 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Cache data provider -- cache listing and management."""
+"""Cache data provider -- cache listing, stats, and management."""
 
 from __future__ import annotations
 
+import asyncio
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -44,10 +45,33 @@ class CacheProvider:
 
     async def get_caches(self) -> dict[str, Any]:
         adapter = self._resolve_adapter()
-        return {
-            "available": adapter is not None,
-            "type": type(adapter).__name__ if adapter else None,
+        if adapter is None:
+            return {"available": False, "type": None, "stats": {}, "keys": []}
+
+        result: dict[str, Any] = {
+            "available": True,
+            "type": type(adapter).__name__,
         }
+
+        # Stats via duck-typing
+        if hasattr(adapter, "get_stats"):
+            stats = adapter.get_stats()
+            if asyncio.iscoroutine(stats):
+                stats = await stats
+            result["stats"] = stats
+        else:
+            result["stats"] = {}
+
+        # Keys via duck-typing
+        if hasattr(adapter, "get_keys"):
+            keys = adapter.get_keys()
+            if asyncio.iscoroutine(keys):
+                keys = await keys
+            result["keys"] = keys
+        else:
+            result["keys"] = []
+
+        return result
 
     async def evict_cache(self, key: str | None = None) -> dict[str, Any]:
         adapter = self._resolve_adapter()
