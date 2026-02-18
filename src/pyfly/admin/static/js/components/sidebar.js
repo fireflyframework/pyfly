@@ -44,6 +44,8 @@ const NAV_ITEMS = [
     { id: 'cqrs',      label: 'CQRS',           icon: 'arrows' },
     { id: 'transactions', label: 'Transactions', icon: 'shuffle' },
     { id: 'logfile',   label: 'Log Viewer',     icon: 'fileText' },
+    { id: 'runtime',  label: 'Process',        icon: 'activity',  section: 'Runtime' },
+    { id: 'bean-graph', label: 'Bean Graph',   icon: 'shuffle' },
 ];
 
 /** Navigation item only shown in server mode. */
