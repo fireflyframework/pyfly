@@ -101,7 +101,7 @@ The admin module is structured into four layers:
 |  EnvProvider         ConfigProvider    LoggersProvider          |
 |  MetricsProvider     ScheduledProvider MappingsProvider         |
 |  CacheProvider       CqrsProvider     TransactionsProvider     |
-|  TracesProvider                                                |
+|  TracesProvider      LogfileProvider                            |
 |                                                               |
 +-------------------------------+------------------------------+
                                 | reads from
@@ -127,7 +127,12 @@ The admin module is structured into four layers:
   custom `AdminViewExtension` implementations for the views API endpoint.
 - **TraceCollectorFilter** (`pyfly.admin.middleware.trace_collector`) -- A
   `OncePerRequestFilter` that captures HTTP request/response metadata into a
-  ring buffer for the traces view.
+  ring buffer (500 entries) for the traces view. Automatically excludes
+  `/admin/*` and `/actuator/*` paths.
+- **AdminLogHandler** (`pyfly.admin.log_handler`) -- A `logging.Handler`
+  subclass that captures log records into a ring buffer (2000 entries) for the
+  log viewer. Strips ANSI escape codes and parses structlog `ConsoleRenderer`
+  output to extract event names and key-value context.
 - **AdminAutoConfiguration** (`pyfly.admin.auto_configuration`) -- Discovered
   via the `pyfly.auto_configuration` entry-point group; registers all admin
   beans when `pyfly.admin.enabled=true` and Starlette is available.
@@ -240,10 +245,10 @@ stream for live updates.
 | View | Sidebar ID | Description |
 |------|-----------|-------------|
 | **Mappings** | `mappings` | All registered HTTP route mappings with methods, paths, and handler references. |
-| **Caches** | `caches` | Registered cache names with eviction controls. POST to evict individual keys. |
+| **Caches** | `caches` | Cache adapter type, entry count, key listing with search, per-key eviction, and bulk evict-all. Introspects `InMemoryCache` and `RedisCacheAdapter` via duck-typed `get_stats()` / `get_keys()`. |
 | **CQRS** | `cqrs` | Registered command and query handlers with bus pipeline introspection (validation, authorization, metrics, event publishing). |
 | **Transactions** | `transactions` | Saga definitions with step DAGs, TCC transactions with participant phase coverage, and in-flight execution count. |
-| **Log Viewer** | `logfile` | Tail-style log file viewer for application log output. |
+| **Log Viewer** | `logfile` | Real-time log viewer with SSE live tail, level-based color-coded badges (ERROR red, WARNING yellow, INFO blue, DEBUG grey), filter toolbar (All / ERROR / WARNING / INFO / DEBUG), search, pause/resume streaming, clear log buffer, and auto-scroll. Structlog `ConsoleRenderer` output is parsed to extract event names and key-value context; ANSI escape codes are stripped. Ring buffer of 2000 records. |
 
 ### Fleet (Server Mode Only)
 
@@ -255,7 +260,7 @@ stream for live updates.
 
 ## Real-Time Updates (SSE)
 
-The admin dashboard uses Server-Sent Events for live data streaming. Three SSE
+The admin dashboard uses Server-Sent Events for live data streaming. Four SSE
 endpoints are available:
 
 | Endpoint | Event Name | Behavior |
@@ -263,6 +268,7 @@ endpoints are available:
 | `GET /admin/api/sse/health` | `health` | Emits a health status event whenever the aggregate status changes. Poll interval is `refresh_interval / 1000` seconds. |
 | `GET /admin/api/sse/metrics` | `metrics` | Emits the full list of metric names at each interval. |
 | `GET /admin/api/sse/traces` | `trace` | Emits individual new HTTP trace events as they are captured by the `TraceCollectorFilter`. Polled every 2 seconds. |
+| `GET /admin/api/sse/logfile` | `log` | Emits new log records captured by the `AdminLogHandler`. Uses incremental polling (records with id > last seen) every 1 second. Each event contains `id`, `timestamp`, `level`, `logger`, `message`, `context`, and `thread`. |
 
 Each SSE stream sends JSON payloads in the standard `data:` format with
 appropriate `Cache-Control: no-cache` and `X-Accel-Buffering: no` headers for
@@ -301,11 +307,14 @@ All API endpoints return JSON responses. The base path defaults to `/admin/api`
 | `GET` | `/admin/api/metrics/{name}` | Metric detail by name. |
 | `GET` | `/admin/api/scheduled` | List scheduled tasks. |
 | `GET` | `/admin/api/mappings` | List HTTP route mappings. |
-| `GET` | `/admin/api/caches` | List cache names. |
-| `POST` | `/admin/api/caches/{name}/evict` | Evict a cache key. Body: `{"key": "..."}`. |
+| `GET` | `/admin/api/caches` | Cache stats: adapter type, entry count, key list. |
+| `GET` | `/admin/api/caches/keys` | List all cache keys (filtered from stats). |
+| `POST` | `/admin/api/caches/{name}/evict` | Evict a cache key. Body: `{"key": "specific-key"}`. Omit `key` to evict all. |
 | `GET` | `/admin/api/cqrs` | List CQRS command/query handlers and bus pipeline status. |
 | `GET` | `/admin/api/transactions` | List saga and TCC definitions with in-flight count. |
 | `GET` | `/admin/api/traces` | List HTTP traces. Optional query param: `?limit=100`. |
+| `GET` | `/admin/api/logfile` | Log records from in-memory ring buffer. Returns `{ available, records, total }`. |
+| `POST` | `/admin/api/logfile/clear` | Clear all log records from the buffer. Returns `{ cleared: true }`. |
 | `GET` | `/admin/api/views` | List registered view extensions (built-in + custom). |
 | `GET` | `/admin/api/settings` | Dashboard settings (title, theme, refresh interval, server mode flag). |
 
@@ -316,6 +325,7 @@ All API endpoints return JSON responses. The base path defaults to `/admin/api`
 | `GET` | `/admin/api/sse/health` | Real-time health status stream. |
 | `GET` | `/admin/api/sse/metrics` | Real-time metrics stream. |
 | `GET` | `/admin/api/sse/traces` | Real-time HTTP trace stream. |
+| `GET` | `/admin/api/sse/logfile` | Real-time log record stream. |
 
 ### Instance Registry Endpoints (Server Mode)
 
@@ -549,7 +559,8 @@ admin = "pyfly.admin.auto_configuration:AdminAutoConfiguration"
 |------|------|-------------|
 | `admin_properties` | `AdminProperties` | Bound configuration dataclass. |
 | `admin_view_registry` | `AdminViewRegistry` | Collects built-in and custom view extensions. |
-| `admin_trace_collector` | `TraceCollectorFilter` | HTTP trace collection filter (ring buffer of 500). |
+| `admin_trace_collector` | `TraceCollectorFilter` | HTTP trace collection filter (ring buffer of 500). Excludes `/admin/*` and `/actuator/*` paths. |
+| `admin_log_handler` | `AdminLogHandler` | In-memory log handler attached to the root logger (ring buffer of 2000). Parses structlog output and strips ANSI codes. |
 | `admin_client_registration` | `AdminClientRegistration` | Created only when `pyfly.admin.client.url` is set. |
 
 ### Packaging
@@ -575,3 +586,6 @@ automatically by the wheel build target (`packages = ["src/pyfly"]`).
 | `/actuator` endpoints | `/admin/api/*` endpoints + `/actuator` integration |
 | SSE/WebSocket notifications | SSE streams (`/admin/api/sse/*`) |
 | `spring.boot.admin.ui.theme` | `pyfly.admin.theme` (`auto`, `light`, `dark`) |
+| Logfile viewer (via `/actuator/logfile`) | In-memory log viewer with SSE live tail (`/admin/api/logfile` + `/admin/api/sse/logfile`) |
+| Cache management (JMX/Actuator) | Cache stats, key listing, per-key eviction (`/admin/api/caches`) |
+| Log level management | Runtime log level changes via `/admin/api/loggers/{name}` |

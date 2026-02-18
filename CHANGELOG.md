@@ -13,6 +13,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **`web` archetype** (`pyfly new --archetype web`) — New scaffolding archetype for server-rendered HTML applications. Generates `@controller` endpoints with Jinja2 `TemplateResponse`, `@service` page data providers, HTML templates (`base.html`, `home.html`, `about.html`), static CSS assets, and `StaticFiles` mounting in `main.py`. Includes `jinja2>=3.1` dependency. Default feature: `web`
 - **`@controller` runtime support** — `ControllerRegistrar` now discovers both `@rest_controller` and `@controller` stereotypes for route registration. Controllers returning Starlette `Response` objects (e.g., `TemplateResponse`) are passed through unchanged
 - **`Request` parameter injection** — `ParameterResolver` now supports injecting the raw Starlette `Request` object into controller method parameters via type hint (`request: Request`). Required for `TemplateResponse` rendering
+- **Admin log viewer** — Real-time log viewer with SSE live tail, level-based color-coded badges, filter toolbar (All/ERROR/WARNING/INFO/DEBUG), pause/resume streaming, clear buffer, and auto-scroll. `AdminLogHandler` ring buffer (2000 records) with structlog `ConsoleRenderer` parsing and ANSI escape code stripping
+- **Admin cache introspection** — Enhanced cache view with adapter stats (type, entry count), key listing with search, per-key eviction, and bulk evict-all. `InMemoryCache.get_stats()` / `get_keys()` and `RedisCacheAdapter.get_stats()` / `get_keys()` via duck-typed provider
 
 ### Changed
 
