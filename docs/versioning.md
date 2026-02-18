@@ -12,7 +12,7 @@ All PyFly versions follow the `MAJOR.MINOR.PATCH` scheme:
 - **MINOR** — New functionality in a backward-compatible manner
 - **PATCH** — Backward-compatible bug fixes
 
-Pre-release versions append a stage suffix: `0.1.0-M6`, `0.1.0-RC1`.
+Pre-release versions append a stage suffix: `0.2.0-M1`, `0.2.0-RC1`.
 
 ---
 
@@ -40,7 +40,7 @@ SNAPSHOT versions represent the bleeding edge of development. They are rebuilt f
 
 | | |
 |-|-|
-| **Format** | `X.Y.Z-MN` (e.g., `0.1.0-M1`, `0.1.0-M6`) |
+| **Format** | `X.Y.Z-MN` (e.g., `0.1.0-M1`, `0.2.0-M1`) |
 | **Stability** | Pre-release — APIs may still change |
 | **Purpose** | Feature previews and early feedback |
 | **Audience** | Developers evaluating upcoming features |
@@ -77,12 +77,12 @@ Python packaging standards ([PEP 440](https://peps.python.org/pep-0440/)) use a 
 
 | PyFly (Spring Boot Style) | PEP 440 (`pyproject.toml`) | Example |
 |---------------------------|---------------------------|---------|
-| `0.1.0-SNAPSHOT` | `0.1.0.dev1` | Development |
-| `0.1.0-M6` | `0.1.0a6` | Milestone 6 |
-| `0.1.0-RC1` | `0.1.0rc1` | Release Candidate 1 |
-| `0.1.0` (GA) | `0.1.0` | General Availability |
+| `0.2.0-SNAPSHOT` | `0.2.0.dev1` | Development |
+| `0.2.0-M1` | `0.2.0a1` | Milestone 1 |
+| `0.2.0-RC1` | `0.2.0rc1` | Release Candidate 1 |
+| `0.2.0` (GA) | `0.2.0` | General Availability |
 
-The display version (`__version__` in `pyfly/__init__.py`) uses the Spring Boot format (`0.1.0-M6`), which is what you see in the startup banner, CLI output, and admin dashboard. The `pyproject.toml` version uses PEP 440 format for compatibility with Python packaging tools (pip, uv, hatchling).
+The display version (`__version__` in `pyfly/__init__.py`) uses the Spring Boot format (`0.2.0-M1`), which is what you see in the startup banner, CLI output, and admin dashboard. The `pyproject.toml` version uses PEP 440 format for compatibility with Python packaging tools (pip, uv, hatchling).
 
 ---
 
@@ -90,6 +90,7 @@ The display version (`__version__` in `pyfly/__init__.py`) uses the Spring Boot 
 
 | Version | Date | Stage | Highlights |
 |---------|------|-------|------------|
+| `0.2.0-M1` | 2026-02-18 | Milestone | Application server architecture, FastAPI adapter, Granian/Hypercorn support |
 | `0.1.0-M6` | 2026-02-18 | Milestone | Web archetype, `@controller`, admin log viewer, cache introspection |
 | `0.1.0-M5` | 2026-02-17 | Milestone | Transactional engine (SAGA + TCC), saga composition |
 | `0.1.0-M4` | 2026-02-17 | Milestone | Admin dashboard, CLI archetype, shell subsystem |
@@ -107,7 +108,7 @@ See **[CHANGELOG.md](../CHANGELOG.md)** for detailed release notes.
 
 ```python
 import pyfly
-print(pyfly.__version__)  # e.g., "0.1.0-M6"
+print(pyfly.__version__)  # e.g., "0.2.0-M1"
 ```
 
 **CLI:**
@@ -126,7 +127,7 @@ ______ ___.__._/ ____\  | ___.__.
 |   __// ____| |__|  |____/ ____|
 |__|   \/                 \/
 
-:: PyFly Framework :: (v0.1.0-M6) (Python 3.13.9)
+:: PyFly Framework :: (v0.2.0-M1) (Python 3.13.9)
 Copyright 2026 Firefly Software Solutions Inc. | Apache License 2.0
 ```
 
