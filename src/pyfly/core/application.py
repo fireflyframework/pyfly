@@ -115,6 +115,7 @@ class PyFlyApplication:
     async def startup(self) -> None:
         """Start the application with full Spring Boot-style startup sequence."""
         import os
+        import platform
 
         start = time.perf_counter()
 
@@ -139,11 +140,25 @@ class PyFlyApplication:
                 sys.stdout.flush()
 
         if not suppress_logs:
-            # Log startup info
-            start_fields: dict[str, Any] = {"app": self._name, "version": self._version}
-            if self._description:
-                start_fields["description"] = self._description
-            self._logger.info("starting_application", **start_fields)
+            # "Starting X using Python 3.13.9 with PID 12345" (mirrors Spring Boot)
+            py_version = platform.python_version()
+            self._logger.info(
+                "starting_application",
+                app=self._name,
+                version=self._version,
+                python=py_version,
+                pid=os.getpid(),
+            )
+
+            # Runtime environment info
+            self._logger.info(
+                "runtime_environment",
+                os=platform.system(),
+                os_version=platform.release(),
+                arch=platform.machine(),
+                cpus=os.cpu_count() or 1,
+                python_impl=platform.python_implementation(),
+            )
 
             profiles = self._context.environment.active_profiles
             if profiles:
@@ -175,14 +190,20 @@ class PyFlyApplication:
         self._startup_time = time.perf_counter() - start
 
         if not suppress_logs:
-            # Log comprehensive startup summary
+            # Log comprehensive startup summary (beans, wiring)
             self._log_startup_summary()
 
             # Log routes and API documentation URLs
             self._log_routes_and_docs()
 
+            # Log server info — like Spring Boot's "Netty started on port 8080"
+            self._log_server_info()
+
+            # Final "Started X in Y seconds" — LAST line (Spring Boot parity)
+            self._log_started()
+
     def _log_startup_summary(self) -> None:
-        """Log a comprehensive startup report (Spring Boot style)."""
+        """Log bean and wiring summary."""
         # Bean type breakdown
         stereotype_counts = self._context.get_bean_counts_by_stereotype()
         self._logger.info(
@@ -207,18 +228,53 @@ class PyFlyApplication:
                 post_processors=wiring.get("post_processors", 0),
             )
 
-        # Active profiles
-        profiles = self._context.environment.active_profiles
-        if profiles:
-            self._logger.info("active_profiles_summary", profiles=profiles)
+    def _log_server_info(self) -> None:
+        """Log server configuration — like Spring Boot's 'Netty started on port 8080'."""
+        import os
 
-        # Final started message
+        server_type = os.environ.get("_PYFLY_SERVER_TYPE", "unknown")
+        host = os.environ.get("_PYFLY_SERVER_HOST", "0.0.0.0")
+        port = os.environ.get("_PYFLY_SERVER_PORT", "8080")
+        workers = os.environ.get("_PYFLY_WORKERS", "1")
+        event_loop = os.environ.get("_PYFLY_EVENT_LOOP", "auto")
+        http = os.environ.get("_PYFLY_HTTP", "auto")
+
+        # Resolve server version at runtime
+        server_version = self._resolve_server_version(server_type)
+
+        self._logger.info(
+            "server_started",
+            server=server_type,
+            server_version=server_version,
+            host=host,
+            port=int(port),
+            workers=int(workers),
+            event_loop=event_loop,
+            http=http,
+        )
+
+    def _log_started(self) -> None:
+        """Log final 'Started X in Y seconds' — the LAST startup line (Spring Boot parity)."""
         self._logger.info(
             "application_started",
             app=self._name,
             startup_time_s=round(self._startup_time, 3),
             beans_initialized=self._context.bean_count,
         )
+
+    @staticmethod
+    def _resolve_server_version(server_type: str) -> str:
+        """Resolve the installed version of the server library."""
+        try:
+            from importlib.metadata import version
+
+            name_map = {"granian": "granian", "uvicorn": "uvicorn", "hypercorn": "hypercorn"}
+            pkg = name_map.get(server_type)
+            if pkg:
+                return version(pkg)
+        except Exception:
+            pass
+        return "unknown"
 
     def _log_routes_and_docs(self) -> None:
         """Log mapped endpoints and documentation URLs (Spring Boot style)."""

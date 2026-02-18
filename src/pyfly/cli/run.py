@@ -97,6 +97,13 @@ def run_command(
     os.environ["_PYFLY_BANNER_PRINTED"] = "1"
     os.environ["_PYFLY_WORKERS"] = str(config.workers)
 
+    # Pass server configuration to workers so they can log server info
+    os.environ["_PYFLY_SERVER_TYPE"] = config.type
+    os.environ["_PYFLY_SERVER_HOST"] = host
+    os.environ["_PYFLY_SERVER_PORT"] = str(port)
+    os.environ["_PYFLY_EVENT_LOOP"] = config.event_loop
+    os.environ["_PYFLY_HTTP"] = config.http
+
     server_adapter.serve(app_path, config)
 
 
