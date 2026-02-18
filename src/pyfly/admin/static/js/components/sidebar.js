@@ -106,8 +106,12 @@ export function renderSidebar(container, currentRoute, options = {}) {
     logo.alt = 'PyFly';
     brand.appendChild(logo);
 
+    const divider = document.createElement('div');
+    divider.className = 'admin-sidebar-brand-divider';
+    brand.appendChild(divider);
+
     const brandText = document.createElement('span');
-    brandText.textContent = 'Admin';
+    brandText.textContent = 'Admin Dashboard';
     brand.appendChild(brandText);
 
     container.appendChild(brand);

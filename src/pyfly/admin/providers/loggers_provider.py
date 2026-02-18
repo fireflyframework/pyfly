@@ -18,9 +18,47 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+_LOGGER_DESCRIPTIONS: dict[str, str] = {
+    "pyfly.core": "Framework core (bootstrap, lifecycle)",
+    "pyfly.web": "Web layer (HTTP, routing, filters)",
+    "pyfly.container": "IoC container (bean resolution, injection)",
+    "pyfly.security": "Security (authentication, authorization)",
+    "pyfly.admin": "Admin dashboard",
+    "pyfly.data": "Data access layer",
+    "pyfly.cache": "Caching subsystem",
+    "pyfly.cqrs": "CQRS (commands, queries, buses)",
+    "pyfly.scheduling": "Task scheduling",
+    "pyfly.messaging": "Messaging (Kafka, RabbitMQ)",
+    "pyfly.resilience": "Resilience (circuit breaker, retry)",
+    "pyfly.transactional": "Distributed transactions (saga, TCC)",
+    "pyfly.observability": "Observability (tracing, metrics)",
+    "pyfly.client": "HTTP client",
+    "pyfly.config": "Configuration subsystem",
+    "pyfly.context": "Application context",
+    "uvicorn": "ASGI server (Uvicorn)",
+    "granian": "ASGI server (Granian)",
+    "hypercorn": "ASGI server (Hypercorn)",
+    "structlog": "Structured logging",
+    "sqlalchemy": "SQL database toolkit",
+    "asyncio": "Python asyncio runtime",
+    "httpx": "HTTP client library",
+    "fastapi": "FastAPI framework",
+    "starlette": "Starlette ASGI framework",
+}
+
 
 class LoggersProvider:
     """Provides logger data and level management."""
+
+    @staticmethod
+    def _infer_description(name: str) -> str:
+        """Map known logger name prefixes to descriptions."""
+        if name == "ROOT":
+            return "Root logger (parent of all loggers)"
+        for prefix, desc in _LOGGER_DESCRIPTIONS.items():
+            if name == prefix or name.startswith(prefix + "."):
+                return desc
+        return ""
 
     async def get_loggers(self) -> dict[str, Any]:
         manager = logging.Logger.manager
@@ -30,6 +68,7 @@ class LoggersProvider:
         loggers["ROOT"] = {
             "configuredLevel": logging.getLevelName(root.level),
             "effectiveLevel": logging.getLevelName(root.getEffectiveLevel()),
+            "description": self._infer_description("ROOT"),
         }
 
         for name in sorted(manager.loggerDict):
@@ -40,6 +79,7 @@ class LoggersProvider:
                         logging.getLevelName(logger_obj.level) if logger_obj.level != logging.NOTSET else None
                     ),
                     "effectiveLevel": logging.getLevelName(logger_obj.getEffectiveLevel()),
+                    "description": self._infer_description(name),
                 }
 
         return {

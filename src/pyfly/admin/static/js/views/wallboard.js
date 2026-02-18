@@ -9,6 +9,7 @@
  *   GET  /admin/api/overview
  *   GET  /admin/api/runtime
  *   GET  /admin/api/server
+ *   GET  /admin/api/traces
  *   SSE  /admin/api/sse/runtime  (event: runtime)
  *   SSE  /admin/api/sse/health   (event: health)
  *   SSE  /admin/api/sse/server   (event: server)
@@ -36,20 +37,26 @@ function formatUptime(seconds) {
 }
 
 /**
- * Format a bean total with stereotype breakdown.
+ * Format a bean total — just the number.
  * @param {object|null} beans  The beans object from overview.
- * @returns {string}  e.g. "42" or "--"
+ * @returns {string}  e.g. "52" or "--"
  */
 function formatBeans(beans) {
     if (!beans || beans.total == null) return '--';
-    const stereotypes = beans.stereotypes;
-    if (!stereotypes || Object.keys(stereotypes).length === 0) {
-        return String(beans.total);
-    }
-    const parts = Object.entries(stereotypes)
-        .map(([k, v]) => `${v} ${k}`)
-        .join(', ');
-    return `${beans.total} (${parts})`;
+    return String(beans.total);
+}
+
+/**
+ * Get the top stereotype from beans data.
+ * @param {object|null} beans
+ * @returns {string}  e.g. "12 components" or ""
+ */
+function beansSubtitle(beans) {
+    if (!beans?.stereotypes) return '';
+    const entries = Object.entries(beans.stereotypes);
+    if (entries.length === 0) return '';
+    entries.sort((a, b) => b[1] - a[1]);
+    return `${entries[0][1]} ${entries[0][0]}`;
 }
 
 /**
@@ -76,39 +83,87 @@ function formatCPU(cpu) {
 }
 
 /**
- * Format server info as "name (Nw)".
+ * Format server info — just the name.
  * @param {object|null} server  The server data.
- * @returns {string}  e.g. "granian (1w)" or "--"
+ * @returns {string}  e.g. "granian" or "--"
  */
 function formatServer(server) {
     if (!server || !server.name) return '--';
-    const workers = server.workers != null ? ` (${server.workers}w)` : '';
-    return `${server.name}${workers}`;
+    return server.name;
 }
 
 /**
- * Format health status with component count.
+ * Server subtitle — workers info.
+ * @param {object|null} server
+ * @returns {string}  e.g. "4 workers" or ""
+ */
+function serverSubtitle(server) {
+    if (!server) return '';
+    const parts = [];
+    if (server.workers != null) parts.push(`${server.workers} workers`);
+    if (server.version) parts.push(`v${server.version}`);
+    return parts.join(' · ');
+}
+
+/**
+ * Format health status — just the status string.
  * @param {object|null} health  The health data.
- * @returns {string}  e.g. "UP (3)" or "UNKNOWN"
+ * @returns {string}  e.g. "UP" or "UNKNOWN"
  */
 function formatHealth(health) {
     if (!health || !health.status) return 'UNKNOWN';
-    const components = health.components;
-    if (components && typeof components === 'object') {
-        const count = Object.keys(components).length;
-        if (count > 0) return `${health.status} (${count})`;
-    }
     return health.status;
 }
 
 /**
- * Create a wallboard tile element with a large value and label.
+ * Health subtitle — component count.
+ * @param {object|null} health
+ * @returns {string}
+ */
+function healthSubtitle(health) {
+    if (!health?.components) return '';
+    const count = Object.keys(health.components).length;
+    return count > 0 ? `${count} components` : '';
+}
+
+/**
+ * Map health status to a CSS custom property name.
+ * @param {string} status
+ * @returns {string}
+ */
+function healthCssVar(status) {
+    switch (status) {
+        case 'UP': return '--admin-success';
+        case 'DOWN': return '--admin-danger';
+        case 'DEGRADED': return '--admin-warning';
+        default: return '--admin-text-muted';
+    }
+}
+
+/**
+ * Memory subtitle — heap percentage.
+ * @param {object|null} runtime
+ * @returns {string}
+ */
+function memorySubtitle(runtime) {
+    if (!runtime?.memory) return '';
+    const { rss_mb, vms_mb } = runtime.memory;
+    if (rss_mb != null && vms_mb != null && vms_mb > 0) {
+        const pct = ((rss_mb / vms_mb) * 100).toFixed(0);
+        return `${pct}% of virtual`;
+    }
+    return '';
+}
+
+/**
+ * Create a wallboard tile element with a large value, optional subtitle, and label.
  * @param {string} label
  * @param {string} value
- * @param {string} [cssVar]  CSS custom property name for the value colour.
+ * @param {string} [cssVar]      CSS custom property name for the value colour.
+ * @param {string} [subtitle]    Small muted text below the value.
  * @returns {HTMLDivElement}
  */
-function createTile(label, value, cssVar) {
+function createTile(label, value, cssVar, subtitle) {
     const tile = document.createElement('div');
     tile.className = 'wallboard-tile';
 
@@ -117,6 +172,11 @@ function createTile(label, value, cssVar) {
     if (cssVar) valueEl.style.color = `var(${cssVar})`;
     valueEl.textContent = value;
     tile.appendChild(valueEl);
+
+    const subtitleEl = document.createElement('div');
+    subtitleEl.className = 'wallboard-tile-subtitle';
+    subtitleEl.textContent = subtitle || '';
+    tile.appendChild(subtitleEl);
 
     const labelEl = document.createElement('div');
     labelEl.className = 'wallboard-tile-label';
@@ -138,11 +198,12 @@ export async function render(container, api) {
     document.body.classList.add('wallboard-mode');
     container.replaceChildren();
 
-    // Fetch initial data from all three endpoints
-    const [overview, runtime, server] = await Promise.all([
+    // Fetch initial data from all endpoints
+    const [overview, runtime, server, traces] = await Promise.all([
         api.get('/overview').catch(() => null),
         api.get('/runtime').catch(() => null),
         api.get('/server').catch(() => null),
+        api.get('/traces').catch(() => null),
     ]);
 
     // Build 3x3 tile grid
@@ -151,11 +212,13 @@ export async function render(container, api) {
 
     // ── Row 1 ──────────────────────────────────────────────────
 
-    // Health tile — status with component count
+    // Health tile — dynamic color based on status
+    const healthStatus = formatHealth(overview?.health);
     const healthTile = createTile(
         'Health',
-        formatHealth(overview?.health),
-        '--admin-success',
+        healthStatus,
+        healthCssVar(healthStatus),
+        healthSubtitle(overview?.health),
     );
     healthTile.id = 'wb-health';
     grid.appendChild(healthTile);
@@ -164,7 +227,9 @@ export async function render(container, api) {
     const memoryValue = runtime?.memory?.rss_mb != null
         ? `${runtime.memory.rss_mb.toFixed(1)} MB`
         : '--';
-    const memTile = createTile('Memory', memoryValue, '--admin-primary');
+    const memTile = createTile(
+        'Memory', memoryValue, '--admin-primary', memorySubtitle(runtime),
+    );
     memTile.id = 'wb-memory';
     grid.appendChild(memTile);
 
@@ -175,11 +240,12 @@ export async function render(container, api) {
 
     // ── Row 2 ──────────────────────────────────────────────────
 
-    // Beans tile — total with breakdown
+    // Beans tile — just the number
     const beansTile = createTile(
         'Beans',
         formatBeans(overview?.beans),
         '--admin-warning',
+        beansSubtitle(overview?.beans),
     );
     beansTile.id = 'wb-beans';
     grid.appendChild(beansTile);
@@ -200,11 +266,12 @@ export async function render(container, api) {
 
     // ── Row 3 ──────────────────────────────────────────────────
 
-    // Server tile — name with worker count
+    // Server tile — name with workers subtitle
     const serverTile = createTile(
         'Server',
         formatServer(server),
         '--admin-primary',
+        serverSubtitle(server),
     );
     serverTile.id = 'wb-server';
     grid.appendChild(serverTile);
@@ -218,8 +285,13 @@ export async function render(container, api) {
     uptimeTile.id = 'wb-uptime';
     grid.appendChild(uptimeTile);
 
-    // Requests tile — placeholder until metrics available
-    const requestsTile = createTile('Requests', '--', '--admin-info');
+    // Requests tile — trace count
+    const traceCount = Array.isArray(traces) ? traces.length : (traces?.length ?? 0);
+    const requestsTile = createTile(
+        'Requests',
+        traceCount > 0 ? String(traceCount) : '--',
+        '--admin-info',
+    );
     requestsTile.id = 'wb-requests';
     grid.appendChild(requestsTile);
 
@@ -232,6 +304,14 @@ export async function render(container, api) {
         const memValue = document.querySelector('#wb-memory .wallboard-tile-value');
         if (memValue && data.memory) {
             memValue.textContent = `${data.memory.rss_mb.toFixed(1)} MB`;
+        }
+
+        const memSub = document.querySelector('#wb-memory .wallboard-tile-subtitle');
+        if (memSub && data.memory) {
+            const { rss_mb, vms_mb } = data.memory;
+            if (rss_mb != null && vms_mb != null && vms_mb > 0) {
+                memSub.textContent = `${((rss_mb / vms_mb) * 100).toFixed(0)}% of virtual`;
+            }
         }
 
         const threadValue = document.querySelector('#wb-threads .wallboard-tile-value');
@@ -250,11 +330,17 @@ export async function render(container, api) {
         }
     });
 
-    // SSE for live health updates
+    // SSE for live health updates — dynamic color
     sse.connectTyped('/health', 'health', (data) => {
         const healthValue = document.querySelector('#wb-health .wallboard-tile-value');
         if (healthValue) {
-            healthValue.textContent = formatHealth(data);
+            const status = formatHealth(data);
+            healthValue.textContent = status;
+            healthValue.style.color = `var(${healthCssVar(status)})`;
+        }
+        const healthSub = document.querySelector('#wb-health .wallboard-tile-subtitle');
+        if (healthSub) {
+            healthSub.textContent = healthSubtitle(data);
         }
     });
 
@@ -263,6 +349,10 @@ export async function render(container, api) {
         const serverValue = document.querySelector('#wb-server .wallboard-tile-value');
         if (serverValue) {
             serverValue.textContent = formatServer(data);
+        }
+        const serverSub = document.querySelector('#wb-server .wallboard-tile-subtitle');
+        if (serverSub) {
+            serverSub.textContent = serverSubtitle(data);
         }
     });
 

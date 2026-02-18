@@ -16,7 +16,9 @@
 from __future__ import annotations
 
 import inspect
-from typing import TYPE_CHECKING, Any
+import types
+import typing
+from typing import TYPE_CHECKING, Annotated, Any, Union, get_args, get_origin
 
 from pyfly.container.autowired import Autowired
 
@@ -31,6 +33,36 @@ class BeansProvider:
 
     def __init__(self, context: ApplicationContext) -> None:
         self._context = context
+
+    # ------------------------------------------------------------------
+    # Category inference
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _infer_category(cls: type, stereotype: str) -> str:
+        """Infer a human-friendly category when stereotype is 'none'."""
+        if stereotype != "none":
+            return stereotype
+
+        if getattr(cls, "__pyfly_bean_method__", None):
+            return "bean_method"
+
+        name = cls.__name__
+        suffixes: list[tuple[str, str]] = [
+            ("AutoConfiguration", "auto_configuration"),
+            ("Adapter", "adapter"),
+            ("Provider", "provider"),
+            ("Filter", "filter"),
+            ("Middleware", "middleware"),
+            ("Handler", "handler"),
+            ("Factory", "factory"),
+            ("Listener", "listener"),
+        ]
+        for suffix, category in suffixes:
+            if name.endswith(suffix):
+                return category
+
+        return "component"
 
     # ------------------------------------------------------------------
     # Metrics helpers
@@ -193,12 +225,15 @@ class BeansProvider:
             deps = self._build_deps_list(cls)
             metrics = self._get_metrics_dict(cls)
 
+            category = self._infer_category(cls, stereotype)
+
             beans.append(
                 {
                     "name": bean_name,
                     "type": f"{cls.__module__}.{cls.__qualname__}",
                     "scope": reg.scope.name,
                     "stereotype": stereotype,
+                    "category": category,
                     "primary": primary,
                     "order": order,
                     "profile": profile,
@@ -221,14 +256,77 @@ class BeansProvider:
                 return await self._build_detail(cls, reg)
         return None
 
+    @staticmethod
+    def _extract_base_type(hint: Any) -> type | None:
+        """Extract the concrete base type from a type hint.
+
+        Handles ``Optional[T]``, ``list[T]``, ``Annotated[T, ...]``,
+        and ``T | None`` (PEP 604) so we can find a matching registered bean.
+        """
+        if isinstance(hint, type):
+            return hint
+
+        origin = get_origin(hint)
+
+        # Annotated[T, Qualifier(...)] → unwrap to T
+        if origin is Annotated:
+            args = get_args(hint)
+            if args:
+                return BeansProvider._extract_base_type(args[0])
+            return None
+
+        # Optional[T] / Union[T, None] / T | None
+        if origin is Union or isinstance(hint, types.UnionType):
+            args = get_args(hint)
+            non_none = [a for a in args if a is not type(None)]
+            if len(non_none) == 1:
+                return BeansProvider._extract_base_type(non_none[0])
+            return None
+
+        # list[T] → unwrap to T
+        if origin is list:
+            args = get_args(hint)
+            if args:
+                return BeansProvider._extract_base_type(args[0])
+            return None
+
+        return None
+
+    def _find_matching_bean(
+        self, target_type: type, registered_names: dict[type, str]
+    ) -> str | None:
+        """Find a registered bean matching *target_type* (direct or subclass)."""
+        if target_type in registered_names:
+            return registered_names[target_type]
+        for reg_cls, reg_name in registered_names.items():
+            try:
+                if issubclass(reg_cls, target_type):
+                    return reg_name
+            except TypeError:
+                continue
+        return None
+
+    def _get_autowired_hints(self, cls: type) -> dict[str, Any]:
+        """Return type hints for @Autowired fields on *cls*."""
+        result: dict[str, Any] = {}
+        try:
+            hints = typing.get_type_hints(cls, include_extras=True)
+        except Exception:
+            return result
+        for attr_name, attr_type in hints.items():
+            default = getattr(cls, attr_name, None)
+            if isinstance(default, Autowired):
+                result[attr_name] = attr_type
+        return result
+
     async def get_bean_graph(self) -> dict[str, Any]:
         """Build a dependency graph of all registered beans.
 
         Returns ``{nodes, edges}`` where each node contains bean metadata
-        and each edge represents a constructor dependency.
+        and each edge represents a constructor or autowired dependency.
         """
         nodes: list[dict[str, Any]] = []
-        edges: list[dict[str, str]] = []
+        edges: list[dict[str, Any]] = []
         registered_names: dict[type, str] = {}
 
         for cls, reg in self._context.container._registrations.items():
@@ -236,13 +334,19 @@ class BeansProvider:
             registered_names[cls] = bean_name
             stereotype = getattr(cls, "__pyfly_stereotype__", "none")
             metrics = self._get_metrics_dict(cls)
+            category = self._infer_category(cls, stereotype)
             nodes.append(
                 {
                     "id": bean_name,
                     "name": bean_name,
                     "type": f"{cls.__module__}.{cls.__qualname__}",
                     "stereotype": stereotype,
+                    "category": category,
+                    "scope": reg.scope.name,
+                    "initialized": reg.instance is not None,
+                    "order": getattr(cls, "__pyfly_order__", None),
                     "resolution_count": metrics["resolution_count"],
+                    "creation_time_ms": metrics["creation_time_ms"],
                 }
             )
 
@@ -250,19 +354,34 @@ class BeansProvider:
         for cls, reg in self._context.container._registrations.items():
             source = reg.name or cls.__name__
             for _param_name, param_type in self._get_constructor_hints(cls).items():
-                if not isinstance(param_type, type):
+                base = self._extract_base_type(param_type)
+                if base is None:
                     continue
-                # Direct registration
-                if param_type in registered_names:
-                    edges.append({"source": source, "target": registered_names[param_type]})
-                else:
-                    # Check if any registered bean is a subclass
-                    for reg_cls, reg_name in registered_names.items():
-                        if issubclass(reg_cls, param_type):
-                            edges.append({"source": source, "target": reg_name})
-                            break
+                target = self._find_matching_bean(base, registered_names)
+                if target and target != source:
+                    edges.append({"source": source, "target": target, "type": "constructor"})
 
-        return {"nodes": nodes, "edges": edges}
+        # Build edges from @Autowired field injection
+        for cls, reg in self._context.container._registrations.items():
+            source = reg.name or cls.__name__
+            for _field_name, field_type in self._get_autowired_hints(cls).items():
+                base = self._extract_base_type(field_type)
+                if base is None:
+                    continue
+                target = self._find_matching_bean(base, registered_names)
+                if target and target != source:
+                    edges.append({"source": source, "target": target, "type": "autowired"})
+
+        # Deduplicate edges (same source-target pair)
+        seen: set[tuple[str, str]] = set()
+        unique_edges: list[dict[str, Any]] = []
+        for edge in edges:
+            key = (edge["source"], edge["target"])
+            if key not in seen:
+                seen.add(key)
+                unique_edges.append(edge)
+
+        return {"nodes": nodes, "edges": unique_edges}
 
     # ------------------------------------------------------------------
     # Internal
@@ -277,6 +396,7 @@ class BeansProvider:
 
     async def _build_detail(self, cls: type, reg: Any) -> dict[str, Any]:
         stereotype = getattr(cls, "__pyfly_stereotype__", "none")
+        category = self._infer_category(cls, stereotype)
         lifecycle = self._find_lifecycle_methods(cls)
         metrics = self._get_metrics_dict(cls)
 
@@ -285,6 +405,7 @@ class BeansProvider:
             "type": f"{cls.__module__}.{cls.__qualname__}",
             "scope": reg.scope.name,
             "stereotype": stereotype,
+            "category": category,
             "module": cls.__module__,
             "file": self._safe_getfile(cls),
             "doc": inspect.getdoc(cls) or "",

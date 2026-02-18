@@ -654,7 +654,7 @@ export async function render(container, api) {
     defs.append('marker')
         .attr('id', 'arrowhead')
         .attr('viewBox', '0 -5 10 10')
-        .attr('refX', 20)
+        .attr('refX', 28)
         .attr('refY', 0)
         .attr('markerWidth', 6)
         .attr('markerHeight', 6)
@@ -667,7 +667,7 @@ export async function render(container, api) {
     defs.append('marker')
         .attr('id', 'arrowhead-dependent')
         .attr('viewBox', '0 -5 10 10')
-        .attr('refX', 20)
+        .attr('refX', 28)
         .attr('refY', 0)
         .attr('markerWidth', 6)
         .attr('markerHeight', 6)
@@ -680,7 +680,7 @@ export async function render(container, api) {
     defs.append('marker')
         .attr('id', 'arrowhead-dependency')
         .attr('viewBox', '0 -5 10 10')
-        .attr('refX', 20)
+        .attr('refX', 28)
         .attr('refY', 0)
         .attr('markerWidth', 6)
         .attr('markerHeight', 6)
@@ -697,26 +697,31 @@ export async function render(container, api) {
         .on('zoom', (event) => g.attr('transform', event.transform));
     svg.call(zoom);
 
-    // Force simulation
+    // Force simulation (stronger repulsion for larger nodes)
     const simulation = d3.forceSimulation(data.nodes)
-        .force('link', d3.forceLink(data.edges).id(d => d.id).distance(100))
-        .force('charge', d3.forceManyBody().strength(-200))
+        .force('link', d3.forceLink(data.edges).id(d => d.id).distance(120))
+        .force('charge', d3.forceManyBody().strength(-350))
         .force('center', d3.forceCenter(width / 2, height / 2))
-        .force('collision', d3.forceCollide().radius(d => nodeRadius(d) + 5));
+        .force('collision', d3.forceCollide().radius(d => nodeRadius(d) + 8));
 
-    // Draw edges
+    // Draw edges (dashed for autowired injection, solid for constructor)
     const links = g.append('g')
         .selectAll('line')
         .data(data.edges)
         .join('line')
         .attr('stroke', '#64748b')
         .attr('stroke-opacity', 0.4)
-        .attr('stroke-width', 1)
+        .attr('stroke-width', d => d.type === 'autowired' ? 1 : 1.5)
+        .attr('stroke-dasharray', d => d.type === 'autowired' ? '4,3' : null)
         .attr('marker-end', 'url(#arrowhead)');
 
-    // Node radius based on resolution count
+    // Node radius based on resolution count + connection degree
     function nodeRadius(d) {
-        return Math.max(6, Math.min(20, Math.sqrt((d.resolution_count || 0) + 1) * 4));
+        const resolutions = d.resolution_count || 0;
+        const outCount = outgoingMap.get(d.id) ? outgoingMap.get(d.id).size : 0;
+        const inCount = incomingMap.get(d.id) ? incomingMap.get(d.id).size : 0;
+        const degree = outCount + inCount;
+        return Math.max(10, Math.min(35, Math.sqrt(resolutions + degree * 2 + 1) * 5));
     }
 
     // Draw nodes
@@ -747,9 +752,10 @@ export async function render(container, api) {
         .data(data.nodes)
         .join('text')
         .text(d => d.name)
-        .attr('font-size', '10px')
+        .attr('font-size', '11px')
+        .attr('font-weight', '500')
         .attr('fill', '#94a3b8')
-        .attr('dx', d => nodeRadius(d) + 4)
+        .attr('dx', d => nodeRadius(d) + 6)
         .attr('dy', 4);
 
     // ── Enhanced Tooltip ─────────────────────────────────────
@@ -831,7 +837,8 @@ export async function render(container, api) {
         links
             .attr('stroke', '#64748b')
             .attr('stroke-opacity', 0.4)
-            .attr('stroke-width', 1)
+            .attr('stroke-width', d => d.type === 'autowired' ? 1 : 1.5)
+            .attr('stroke-dasharray', d => d.type === 'autowired' ? '4,3' : null)
             .attr('marker-end', 'url(#arrowhead)');
     }
 
@@ -866,18 +873,21 @@ export async function render(container, api) {
                 el.attr('stroke', '#3b82f6')
                     .attr('stroke-opacity', 0.9)
                     .attr('stroke-width', 2.5)
+                    .attr('stroke-dasharray', e.type === 'autowired' ? '4,3' : null)
                     .attr('marker-end', 'url(#arrowhead-dependency)');
             } else if (inEdges.has(i)) {
                 // Incoming dependent: thicker, amber
                 el.attr('stroke', '#f59e0b')
                     .attr('stroke-opacity', 0.9)
                     .attr('stroke-width', 2.5)
+                    .attr('stroke-dasharray', e.type === 'autowired' ? '4,3' : null)
                     .attr('marker-end', 'url(#arrowhead-dependent)');
             } else {
                 // Unrelated: dim
                 el.attr('stroke', '#64748b')
                     .attr('stroke-opacity', 0.15)
                     .attr('stroke-width', 1)
+                    .attr('stroke-dasharray', e.type === 'autowired' ? '4,3' : null)
                     .attr('marker-end', 'url(#arrowhead)');
             }
         });
@@ -928,7 +938,8 @@ export async function render(container, api) {
             links
                 .attr('stroke', '#64748b')
                 .attr('stroke-opacity', 0.4)
-                .attr('stroke-width', 1)
+                .attr('stroke-width', d => d.type === 'autowired' ? 1 : 1.5)
+                .attr('stroke-dasharray', d => d.type === 'autowired' ? '4,3' : null)
                 .attr('marker-end', 'url(#arrowhead)');
             return;
         }
@@ -953,15 +964,18 @@ export async function render(container, api) {
             const el = d3.select(this);
             const srcId = typeof e.source === 'object' ? e.source.id : e.source;
             const tgtId = typeof e.target === 'object' ? e.target.id : e.target;
+            const dashArray = e.type === 'autowired' ? '4,3' : null;
             if (matchingIds.has(srcId) && matchingIds.has(tgtId)) {
                 el.attr('stroke', '#64748b')
                     .attr('stroke-opacity', 0.4)
-                    .attr('stroke-width', 1)
+                    .attr('stroke-width', e.type === 'autowired' ? 1 : 1.5)
+                    .attr('stroke-dasharray', dashArray)
                     .attr('marker-end', 'url(#arrowhead)');
             } else {
                 el.attr('stroke', '#64748b')
                     .attr('stroke-opacity', 0.15)
                     .attr('stroke-width', 1)
+                    .attr('stroke-dasharray', dashArray)
                     .attr('marker-end', 'url(#arrowhead)');
             }
         });
@@ -992,6 +1006,7 @@ export async function render(container, api) {
     legendBody.style.display = 'flex';
     legendBody.style.flexWrap = 'wrap';
     legendBody.style.gap = '16px';
+    legendBody.style.alignItems = 'center';
     for (const [stereotype, color] of Object.entries(STEREOTYPE_COLORS)) {
         const item = document.createElement('div');
         item.style.display = 'flex';
@@ -1010,6 +1025,49 @@ export async function render(container, api) {
         item.appendChild(label);
         legendBody.appendChild(item);
     }
+
+    // Edge type legend separator
+    const sep = document.createElement('div');
+    sep.style.width = '1px';
+    sep.style.height = '20px';
+    sep.style.background = 'var(--admin-border)';
+    sep.style.margin = '0 4px';
+    legendBody.appendChild(sep);
+
+    // Constructor edge
+    const ctorItem = document.createElement('div');
+    ctorItem.style.display = 'flex';
+    ctorItem.style.alignItems = 'center';
+    ctorItem.style.gap = '6px';
+    const ctorLine = document.createElement('div');
+    ctorLine.style.width = '24px';
+    ctorLine.style.height = '2px';
+    ctorLine.style.background = '#64748b';
+    const ctorLabel = document.createElement('span');
+    ctorLabel.style.fontSize = '12px';
+    ctorLabel.style.color = 'var(--admin-text-muted)';
+    ctorLabel.textContent = 'constructor';
+    ctorItem.appendChild(ctorLine);
+    ctorItem.appendChild(ctorLabel);
+    legendBody.appendChild(ctorItem);
+
+    // Autowired edge
+    const awItem = document.createElement('div');
+    awItem.style.display = 'flex';
+    awItem.style.alignItems = 'center';
+    awItem.style.gap = '6px';
+    const awLine = document.createElement('div');
+    awLine.style.width = '24px';
+    awLine.style.height = '0';
+    awLine.style.borderTop = '2px dashed #64748b';
+    const awLabel = document.createElement('span');
+    awLabel.style.fontSize = '12px';
+    awLabel.style.color = 'var(--admin-text-muted)';
+    awLabel.textContent = 'autowired';
+    awItem.appendChild(awLine);
+    awItem.appendChild(awLabel);
+    legendBody.appendChild(awItem);
+
     legendCard.appendChild(legendBody);
     wrapper.appendChild(legendCard);
 
@@ -1028,9 +1086,14 @@ export async function render(container, api) {
     statsBar.style.border = '1px solid var(--admin-border)';
     statsBar.style.borderRadius = 'var(--admin-radius-lg)';
 
+    const ctorEdgeCount = data.edges.filter(e => e.type === 'constructor').length;
+    const awEdgeCount = data.edges.filter(e => e.type === 'autowired').length;
+
     const statsItems = [
         ['Nodes', String(data.nodes.length)],
         ['Edges', String(data.edges.length)],
+        ['Constructor', String(ctorEdgeCount)],
+        ['Autowired', String(awEdgeCount)],
         ['Components', String(componentCount)],
     ];
     for (const [statLabel, statValue] of statsItems) {

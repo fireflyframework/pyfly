@@ -11,44 +11,72 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""WebFilterChainMiddleware — single Starlette middleware wrapping all WebFilters."""
+"""WebFilterChainMiddleware — pure ASGI middleware wrapping all WebFilters."""
 
 from __future__ import annotations
 
 from collections.abc import Sequence
 from typing import Any, cast
 
-from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
 from starlette.responses import Response
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from pyfly.web.ports.filter import CallNext, WebFilter
 
 
-class WebFilterChainMiddleware(BaseHTTPMiddleware):
-    """Starlette middleware that executes a sorted chain of :class:`WebFilter` instances.
-
-    Wraps all filters inside a single ``BaseHTTPMiddleware`` to avoid the
-    per-middleware task-context overhead.  Filters are executed in the order
-    provided (should already be sorted by ``@order``).
+class WebFilterChainMiddleware:
+    """Pure ASGI middleware that executes a sorted chain of :class:`WebFilter` instances.
 
     Each filter's ``should_not_filter()`` is checked before invocation — if it
     returns ``True``, the filter is skipped and the next one in the chain runs.
+
+    Uses raw ASGI protocol instead of ``BaseHTTPMiddleware`` to avoid the
+    ``anyio`` dependency that causes ``ModuleNotFoundError`` with ASGI servers
+    that don't register with sniffio (e.g. Granian).
     """
 
-    def __init__(self, app: Any, filters: Sequence[WebFilter] = ()) -> None:
-        super().__init__(app)
+    def __init__(self, app: ASGIApp, filters: Sequence[WebFilter] = ()) -> None:
+        self.app = app
         self._filters = list(filters)
 
-    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
-        chain: CallNext = call_next  # type: ignore[assignment]
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
 
-        # Build the chain from right to left (last filter wraps call_next,
-        # first filter is the outermost wrapper).
+        request = Request(scope, receive, send)
+
+        async def _call_app(req: Any) -> Response:
+            """Terminal: run downstream ASGI app and capture its response."""
+            status_code = 200
+            raw_headers: list[tuple[bytes, bytes]] = []
+            body_parts: list[bytes] = []
+
+            async def _intercept(message: Any) -> None:
+                nonlocal status_code, raw_headers
+                if message["type"] == "http.response.start":
+                    status_code = message["status"]
+                    raw_headers = list(message.get("headers", []))
+                elif message["type"] == "http.response.body":
+                    body = message.get("body", b"")
+                    if body:
+                        body_parts.append(body)
+
+            await self.app(scope, receive, _intercept)
+
+            response = Response(
+                content=b"".join(body_parts), status_code=status_code
+            )
+            response.raw_headers[:] = raw_headers
+            return response
+
+        chain: CallNext = _call_app
         for f in reversed(self._filters):
             chain = _wrap(f, chain)
 
-        return cast(Response, await chain(request))
+        response = cast(Response, await chain(request))
+        await response(scope, receive, send)
 
 
 def _wrap(web_filter: WebFilter, next_call: CallNext) -> CallNext:

@@ -133,7 +133,7 @@ export async function render(container, api) {
 
     wrapper.removeChild(loader);
 
-    // If Prometheus / metrics not available
+    // If metrics not available at all
     if (data.available === false) {
         const infoCard = document.createElement('div');
         infoCard.className = 'admin-card';
@@ -141,7 +141,7 @@ export async function render(container, api) {
         infoBody.className = 'admin-card-body empty-state';
         const infoText = document.createElement('div');
         infoText.className = 'empty-state-text';
-        infoText.textContent = 'Metrics are not available. Ensure Prometheus or a metrics provider is configured.';
+        infoText.textContent = 'Metrics are not available.';
         infoBody.appendChild(infoText);
         infoCard.appendChild(infoBody);
         wrapper.appendChild(infoCard);
@@ -149,6 +149,7 @@ export async function render(container, api) {
     }
 
     const names = data.names || [];
+    const hasPrometheus = data.has_prometheus || false;
 
     if (names.length === 0) {
         const emptyCard = document.createElement('div');
@@ -199,6 +200,38 @@ export async function render(container, api) {
     totalContent.appendChild(totalLabel);
     totalCard.appendChild(totalContent);
     statsRow.appendChild(totalCard);
+
+    // Built-in count
+    const builtinCard = document.createElement('div');
+    builtinCard.className = 'stat-card';
+    const builtinContent = document.createElement('div');
+    builtinContent.className = 'stat-card-content';
+    const builtinVal = document.createElement('div');
+    builtinVal.className = 'stat-card-value';
+    builtinVal.textContent = String(data.builtin_count || 0);
+    builtinContent.appendChild(builtinVal);
+    const builtinLabel = document.createElement('div');
+    builtinLabel.className = 'stat-card-label';
+    builtinLabel.textContent = 'Built-in';
+    builtinContent.appendChild(builtinLabel);
+    builtinCard.appendChild(builtinContent);
+    statsRow.appendChild(builtinCard);
+
+    // Prometheus count
+    const promCard = document.createElement('div');
+    promCard.className = 'stat-card';
+    const promContent = document.createElement('div');
+    promContent.className = 'stat-card-content';
+    const promVal = document.createElement('div');
+    promVal.className = 'stat-card-value';
+    promVal.textContent = hasPrometheus ? String(data.prometheus_count || 0) : '--';
+    promContent.appendChild(promVal);
+    const promLabel = document.createElement('div');
+    promLabel.className = 'stat-card-label';
+    promLabel.textContent = hasPrometheus ? 'Prometheus' : 'No Prometheus';
+    promContent.appendChild(promLabel);
+    promCard.appendChild(promContent);
+    statsRow.appendChild(promCard);
 
     wrapper.appendChild(statsRow);
 
@@ -356,13 +389,27 @@ export async function render(container, api) {
 
             // Metric name header
             const nameHeader = document.createElement('h3');
-            nameHeader.style.marginBottom = '16px';
+            nameHeader.style.marginBottom = '4px';
             nameHeader.style.fontSize = '1rem';
             nameHeader.style.fontWeight = '600';
             nameHeader.style.fontFamily = 'var(--admin-font-mono)';
             nameHeader.style.wordBreak = 'break-all';
             nameHeader.textContent = detail.name || metricName;
             detailBody.appendChild(nameHeader);
+
+            // Description and metadata
+            if (detail.description || detail.unit || detail.source) {
+                const meta = document.createElement('div');
+                meta.style.marginBottom = '16px';
+                meta.style.fontSize = '0.8rem';
+                meta.style.color = 'var(--admin-text-muted)';
+                const parts = [];
+                if (detail.description) parts.push(detail.description);
+                if (detail.unit) parts.push(`Unit: ${detail.unit}`);
+                if (detail.source) parts.push(`Source: ${detail.source}`);
+                meta.textContent = parts.join(' · ');
+                detailBody.appendChild(meta);
+            }
 
             // Measurements table
             const measurements = detail.measurements || [];

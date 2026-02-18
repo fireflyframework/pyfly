@@ -15,6 +15,7 @@
 
 from __future__ import annotations
 
+import inspect
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -26,6 +27,39 @@ class MappingsProvider:
 
     def __init__(self, context: ApplicationContext) -> None:
         self._context = context
+
+    @staticmethod
+    def _extract_parameters(method_obj: Any) -> list[dict[str, str]]:
+        """Extract handler parameters with name, type, and kind."""
+        params: list[dict[str, str]] = []
+        try:
+            sig = inspect.signature(method_obj)
+            hints = inspect.get_annotations(method_obj, eval_str=True)
+        except (ValueError, TypeError):
+            return params
+
+        for name, param in sig.parameters.items():
+            if name == "self":
+                continue
+            type_hint = hints.get(name)
+            type_name = getattr(type_hint, "__name__", str(type_hint)) if type_hint else "Any"
+            kind = "query"
+            if param.default is not inspect.Parameter.empty:
+                kind = "query"
+            params.append({"name": name, "type": type_name, "kind": kind})
+        return params
+
+    @staticmethod
+    def _extract_return_type(method_obj: Any) -> str | None:
+        """Extract return type annotation from handler."""
+        try:
+            hints = inspect.get_annotations(method_obj, eval_str=True)
+        except (ValueError, TypeError):
+            return None
+        ret = hints.get("return")
+        if ret is None:
+            return None
+        return getattr(ret, "__name__", str(ret))
 
     async def get_mappings(self) -> dict[str, Any]:
         mappings: list[dict[str, Any]] = []
@@ -42,13 +76,26 @@ class MappingsProvider:
                 mapping = getattr(method_obj, "__pyfly_mapping__", None)
                 if mapping is None:
                     continue
+
+                full_path = base_path + mapping["path"]
+
+                # Extract parameter kinds from path variables
+                parameters = self._extract_parameters(method_obj)
+                for p in parameters:
+                    if f"{{{p['name']}}}" in full_path:
+                        p["kind"] = "path"
+
                 mappings.append(
                     {
                         "controller": tag,
                         "method": mapping["method"],
-                        "path": base_path + mapping["path"],
+                        "path": full_path,
                         "handler": attr_name,
                         "status_code": mapping.get("status_code", 200),
+                        "parameters": parameters,
+                        "return_type": self._extract_return_type(method_obj),
+                        "doc": inspect.getdoc(method_obj) or "",
+                        "response_model": mapping.get("response_model", None),
                     }
                 )
         mappings.sort(key=lambda m: m["path"])

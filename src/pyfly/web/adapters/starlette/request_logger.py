@@ -11,29 +11,48 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Request logging middleware -- logs method, path, status, and duration."""
+"""Request logging middleware — pure ASGI, logs method, path, status, and duration."""
 
 from __future__ import annotations
 
 import time
+from typing import Any
 
 import structlog
-from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
-from starlette.responses import Response
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 logger = structlog.get_logger("pyfly.web")
 
 
-class RequestLoggingMiddleware(BaseHTTPMiddleware):
-    """Logs HTTP method, path, status code, and duration for each request."""
+class RequestLoggingMiddleware:
+    """Logs HTTP method, path, status code, and duration for each request.
 
-    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+    Uses raw ASGI protocol instead of ``BaseHTTPMiddleware`` to avoid the
+    ``anyio`` dependency that causes ``ModuleNotFoundError`` with Granian.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        request = Request(scope, receive, send)
         start = time.perf_counter()
         tx_id = getattr(request.state, "transaction_id", None)
+        status_code = 500
+
+        async def send_with_logging(message: Any) -> None:
+            nonlocal status_code
+            if message["type"] == "http.response.start":
+                status_code = message["status"]
+            await send(message)
 
         try:
-            response = await call_next(request)
+            await self.app(scope, receive, send_with_logging)
         except Exception as exc:
             duration_ms = (time.perf_counter() - start) * 1000
             logger.error(
@@ -52,8 +71,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             "http_request",
             method=request.method,
             path=request.url.path,
-            status_code=response.status_code,
+            status_code=status_code,
             duration_ms=round(duration_ms, 2),
             transaction_id=tx_id,
         )
-        return response

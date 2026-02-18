@@ -31,11 +31,14 @@ class ConfigProvider:
         raw = self._context.config.to_dict()
         groups: dict[str, Any] = {}
 
-        pyfly_config = raw.get("pyfly", {})
-        for section_name, section_data in pyfly_config.items():
-            if isinstance(section_data, dict):
-                groups[f"pyfly.{section_name}"] = section_data
+        for top_key, top_value in raw.items():
+            if isinstance(top_value, dict):
+                for section_name, section_data in top_value.items():
+                    if isinstance(section_data, dict):
+                        groups[f"{top_key}.{section_name}"] = section_data
+                    else:
+                        groups.setdefault(top_key, {})[section_name] = section_data
             else:
-                groups.setdefault("pyfly", {})[section_name] = section_data
+                groups.setdefault("root", {})[top_key] = top_value
 
         return {"groups": groups}

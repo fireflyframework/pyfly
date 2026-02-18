@@ -2,7 +2,8 @@
  * PyFly Admin — Traces View.
  *
  * Real-time HTTP trace viewer with SSE live updates,
- * pause/resume toggle, and clear functionality.
+ * pause/resume toggle, clear functionality, status filter pills,
+ * and click-to-detail panel.
  *
  * Data sources:
  *   GET /admin/api/traces     -> { traces: [...], total: N }
@@ -59,13 +60,122 @@ function createStatusCodeBadge(status) {
 }
 
 /**
+ * Get the status group for filtering (e.g. "2xx", "4xx").
+ * @param {number} status
+ * @returns {string}
+ */
+function statusGroup(status) {
+    if (status >= 500) return '5xx';
+    if (status >= 400) return '4xx';
+    if (status >= 300) return '3xx';
+    if (status >= 200) return '2xx';
+    return 'other';
+}
+
+/* ── Detail Panel ────────────────────────────────────────────── */
+
+function createDetailPanel() {
+    const overlay = document.createElement('div');
+    overlay.className = 'detail-panel-overlay';
+
+    const panel = document.createElement('div');
+    panel.className = 'detail-panel';
+
+    const panelHeader = document.createElement('div');
+    panelHeader.className = 'detail-panel-header';
+    const panelTitle = document.createElement('h3');
+    panelTitle.textContent = 'Trace Detail';
+    panelHeader.appendChild(panelTitle);
+
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'detail-panel-close';
+    closeBtn.setAttribute('aria-label', 'Close detail panel');
+    const svgNS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(svgNS, 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', '2');
+    const l1 = document.createElementNS(svgNS, 'line');
+    l1.setAttribute('x1', '18'); l1.setAttribute('y1', '6');
+    l1.setAttribute('x2', '6');  l1.setAttribute('y2', '18');
+    svg.appendChild(l1);
+    const l2 = document.createElementNS(svgNS, 'line');
+    l2.setAttribute('x1', '6');  l2.setAttribute('y1', '6');
+    l2.setAttribute('x2', '18'); l2.setAttribute('y2', '18');
+    svg.appendChild(l2);
+    closeBtn.appendChild(svg);
+    panelHeader.appendChild(closeBtn);
+    panel.appendChild(panelHeader);
+
+    const panelBody = document.createElement('div');
+    panelBody.className = 'detail-panel-body';
+    panel.appendChild(panelBody);
+
+    function hide() {
+        overlay.classList.remove('open');
+        panel.classList.remove('open');
+    }
+
+    closeBtn.addEventListener('click', hide);
+    overlay.addEventListener('click', hide);
+
+    function show(trace) {
+        panelBody.textContent = '';
+        panelTitle.textContent = `${trace.method} ${trace.path}`;
+
+        const kv = document.createElement('table');
+        kv.className = 'kv-table';
+
+        const rows = [
+            ['Timestamp', formatTime(trace.timestamp)],
+            ['Method', () => createMethodBadge(trace.method)],
+            ['Path', trace.path || '--'],
+            ['Query String', trace.query_string || '--'],
+            ['Status', () => createStatusCodeBadge(trace.status)],
+            ['Duration', (trace.duration_ms != null ? trace.duration_ms.toFixed(1) : '--') + ' ms'],
+            ['Client Host', trace.client_host || '--'],
+            ['Content Type', trace.content_type || '--'],
+            ['Content Length', trace.content_length != null ? String(trace.content_length) + ' bytes' : '--'],
+            ['User Agent', trace.user_agent || '--'],
+        ];
+
+        for (const [label, value] of rows) {
+            const tr = document.createElement('tr');
+            const th = document.createElement('th');
+            th.textContent = label;
+            tr.appendChild(th);
+            const td = document.createElement('td');
+            if (typeof value === 'function') {
+                td.appendChild(value());
+            } else {
+                const span = document.createElement('span');
+                span.className = label === 'User Agent' ? 'text-sm' : 'mono';
+                span.textContent = value;
+                td.appendChild(span);
+            }
+            tr.appendChild(td);
+            kv.appendChild(tr);
+        }
+        panelBody.appendChild(kv);
+
+        overlay.classList.add('open');
+        panel.classList.add('open');
+    }
+
+    return { overlay, panel, show, hide };
+}
+
+/**
  * Create a table row from a trace object.
  * @param {object} trace
- * @param {string[]} columns  Column keys for ordering
+ * @param {function} onClick
  * @returns {HTMLTableRowElement}
  */
-function createTraceRow(trace) {
+function createTraceRow(trace, onClick) {
     const tr = document.createElement('tr');
+    tr.classList.add('clickable');
+    tr.addEventListener('click', () => onClick(trace));
 
     // Time
     const tdTime = document.createElement('td');
@@ -176,11 +286,15 @@ export async function render(container, api) {
     // Trace data (mutable array)
     const traces = data.traces || [];
 
+    // ── Detail panel ─────────────────────────────────────────
+    const { overlay, panel, show } = createDetailPanel();
+    wrapper.appendChild(overlay);
+    wrapper.appendChild(panel);
+
     // ── Stats row ────────────────────────────────────────────
     const statsRow = document.createElement('div');
     statsRow.className = 'grid-2 mb-lg';
 
-    // Total traces stat
     const totalCard = document.createElement('div');
     totalCard.className = 'stat-card';
     const totalContent = document.createElement('div');
@@ -196,7 +310,6 @@ export async function render(container, api) {
     totalCard.appendChild(totalContent);
     statsRow.appendChild(totalCard);
 
-    // Average duration stat
     const avgCard = document.createElement('div');
     avgCard.className = 'stat-card';
     const avgContent = document.createElement('div');
@@ -216,6 +329,30 @@ export async function render(container, api) {
     statsRow.appendChild(avgCard);
 
     wrapper.appendChild(statsRow);
+
+    // ── Status filter pills ──────────────────────────────────
+    let activeFilter = '';
+    const pillBar = document.createElement('div');
+    pillBar.className = 'filter-pills mb-md';
+
+    const filterOptions = ['All', '2xx', '3xx', '4xx', '5xx'];
+    const pillButtons = [];
+
+    for (const label of filterOptions) {
+        const pill = document.createElement('button');
+        pill.className = 'filter-pill';
+        pill.textContent = label;
+        if (label === 'All') pill.classList.add('active');
+        pill.addEventListener('click', () => {
+            activeFilter = label === 'All' ? '' : label;
+            for (const p of pillButtons) p.classList.remove('active');
+            pill.classList.add('active');
+            renderTraces();
+        });
+        pillButtons.push(pill);
+        pillBar.appendChild(pill);
+    }
+    wrapper.appendChild(pillBar);
 
     // ── Trace table ──────────────────────────────────────────
     const tableCard = document.createElement('div');
@@ -247,7 +384,6 @@ export async function render(container, api) {
     const table = document.createElement('table');
     table.className = 'admin-table';
 
-    // Table head
     const thead = document.createElement('thead');
     const headRow = document.createElement('tr');
     const colHeaders = ['Time', 'Method', 'Path', 'Status', 'Duration'];
@@ -259,25 +395,28 @@ export async function render(container, api) {
     thead.appendChild(headRow);
     table.appendChild(thead);
 
-    // Table body
     const tbody = document.createElement('tbody');
 
     function renderTraces() {
         tbody.replaceChildren();
-        if (traces.length === 0) {
+        const filtered = activeFilter
+            ? traces.filter((t) => statusGroup(t.status) === activeFilter)
+            : traces;
+
+        if (filtered.length === 0) {
             const tr = document.createElement('tr');
             const td = document.createElement('td');
             td.colSpan = 5;
             td.style.textAlign = 'center';
             td.style.padding = '32px 16px';
             td.style.color = 'var(--admin-text-muted)';
-            td.textContent = 'No traces recorded';
+            td.textContent = activeFilter ? `No ${activeFilter} traces` : 'No traces recorded';
             tr.appendChild(td);
             tbody.appendChild(tr);
             return;
         }
-        for (const trace of traces) {
-            tbody.appendChild(createTraceRow(trace));
+        for (const trace of filtered) {
+            tbody.appendChild(createTraceRow(trace, show));
         }
     }
 
@@ -303,16 +442,17 @@ export async function render(container, api) {
 
     sse.connectTyped('/traces', 'trace', (traceData) => {
         if (paused) return;
-        // Prepend new trace
         traces.unshift(traceData);
-        // Insert at top of tbody
-        const newRow = createTraceRow(traceData);
-        if (tbody.firstChild) {
-            tbody.insertBefore(newRow, tbody.firstChild);
-        } else {
-            // Was showing empty state, clear it first
-            tbody.replaceChildren();
-            tbody.appendChild(newRow);
+
+        // Only insert into DOM if the trace matches the active filter
+        if (!activeFilter || statusGroup(traceData.status) === activeFilter) {
+            const newRow = createTraceRow(traceData, show);
+            if (tbody.firstChild) {
+                tbody.insertBefore(newRow, tbody.firstChild);
+            } else {
+                tbody.replaceChildren();
+                tbody.appendChild(newRow);
+            }
         }
         updateStats();
     });

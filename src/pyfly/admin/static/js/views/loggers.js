@@ -111,6 +111,7 @@ export async function render(container, api) {
         name,
         configuredLevel: info.configuredLevel || info.configured_level || '--',
         effectiveLevel: info.effectiveLevel || info.effective_level || '--',
+        description: info.description || '',
     }));
 
     // ── Filter toolbar ───────────────────────────────────────
@@ -204,7 +205,7 @@ export async function render(container, api) {
     // Table head
     const thead = document.createElement('thead');
     const headRow = document.createElement('tr');
-    const headers = ['Name', 'Configured Level', 'Effective Level', 'Actions'];
+    const headers = ['Name', 'Description', 'Configured Level', 'Effective Level', 'Actions'];
     for (const label of headers) {
         const th = document.createElement('th');
         th.textContent = label;
@@ -236,7 +237,7 @@ export async function render(container, api) {
         if (filtered.length === 0) {
             const tr = document.createElement('tr');
             const td = document.createElement('td');
-            td.colSpan = 4;
+            td.colSpan = 5;
             td.style.textAlign = 'center';
             td.style.padding = '32px 16px';
             td.style.color = 'var(--admin-text-muted)';
@@ -257,6 +258,12 @@ export async function render(container, api) {
             tdName.appendChild(nameSpan);
             tr.appendChild(tdName);
 
+            // Description column
+            const tdDesc = document.createElement('td');
+            tdDesc.className = 'text-muted text-sm';
+            tdDesc.textContent = entry.description || '';
+            tr.appendChild(tdDesc);
+
             // Configured Level column
             const tdConfigured = document.createElement('td');
             tdConfigured.appendChild(createLevelLabel(entry.configuredLevel));
@@ -267,8 +274,12 @@ export async function render(container, api) {
             tdEffective.appendChild(createLevelLabel(entry.effectiveLevel));
             tr.appendChild(tdEffective);
 
-            // Actions column — level change dropdown
+            // Actions column — level change dropdown + reset button
             const tdActions = document.createElement('td');
+            tdActions.style.display = 'flex';
+            tdActions.style.alignItems = 'center';
+            tdActions.style.gap = '6px';
+
             const select = document.createElement('select');
             select.className = 'select';
             select.style.width = 'auto';
@@ -286,6 +297,24 @@ export async function render(container, api) {
                 select.appendChild(option);
             }
 
+            /** Re-fetch logger state to verify a level change took effect. */
+            async function refreshEntry() {
+                try {
+                    const fresh = await api.get('/loggers');
+                    const info = (fresh.loggers || {})[entry.name];
+                    if (info) {
+                        entry.configuredLevel = info.configuredLevel || info.configured_level || '--';
+                        entry.effectiveLevel = info.effectiveLevel || info.effective_level || '--';
+                        tdConfigured.replaceChildren();
+                        tdConfigured.appendChild(createLevelLabel(entry.configuredLevel));
+                        tdEffective.replaceChildren();
+                        tdEffective.appendChild(createLevelLabel(entry.effectiveLevel));
+                    }
+                } catch (_) {
+                    // ignore refresh failures
+                }
+            }
+
             select.addEventListener('change', async () => {
                 const newLevel = select.value;
                 try {
@@ -293,33 +322,51 @@ export async function render(container, api) {
                         '/loggers/' + encodeURIComponent(entry.name),
                         { level: newLevel }
                     );
-                    // Update local state
-                    entry.configuredLevel = newLevel;
-                    entry.effectiveLevel = newLevel;
-
-                    // Update the displayed level labels in this row
-                    tdConfigured.replaceChildren();
-                    tdConfigured.appendChild(createLevelLabel(newLevel));
-                    tdEffective.replaceChildren();
-                    tdEffective.appendChild(createLevelLabel(newLevel));
-
                     showToast(
                         'Logger "' + entry.name + '" set to ' + newLevel,
                         'success'
                     );
+                    await refreshEntry();
                 } catch (err) {
                     showToast(
                         'Failed to update logger: ' + err.message,
                         'error'
                     );
-                    // Reset select to previous value
                     select.value = entry.configuredLevel;
                 }
             });
 
             tdActions.appendChild(select);
-            tr.appendChild(tdActions);
 
+            // Reset button (sets to NOTSET — inherits from parent)
+            if (entry.name !== 'ROOT') {
+                const resetBtn = document.createElement('button');
+                resetBtn.className = 'btn btn-sm';
+                resetBtn.textContent = 'Reset';
+                resetBtn.title = 'Reset to NOTSET (inherit from parent)';
+                resetBtn.addEventListener('click', async () => {
+                    try {
+                        await api.post(
+                            '/loggers/' + encodeURIComponent(entry.name),
+                            { level: 'NOTSET' }
+                        );
+                        showToast(
+                            'Logger "' + entry.name + '" reset to NOTSET',
+                            'success'
+                        );
+                        await refreshEntry();
+                        select.value = entry.configuredLevel;
+                    } catch (err) {
+                        showToast(
+                            'Failed to reset logger: ' + err.message,
+                            'error'
+                        );
+                    }
+                });
+                tdActions.appendChild(resetBtn);
+            }
+
+            tr.appendChild(tdActions);
             tbody.appendChild(tr);
         }
     }

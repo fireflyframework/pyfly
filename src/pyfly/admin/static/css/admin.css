@@ -93,9 +93,16 @@ a:hover {
 }
 
 .admin-sidebar-brand img {
-    height: 26px;
+    height: 36px;
     width: auto;
     object-fit: contain;
+}
+
+.admin-sidebar-brand-divider {
+    width: 1px;
+    height: 24px;
+    background: var(--admin-border-subtle);
+    flex-shrink: 0;
 }
 
 .admin-sidebar-brand span {
@@ -1660,6 +1667,14 @@ body.wallboard-mode .admin-content {
     font-weight: 700;
     font-family: var(--admin-font-mono);
     line-height: 1.2;
+}
+
+.wallboard-tile-subtitle {
+    font-family: var(--admin-font-mono);
+    font-size: 0.8rem;
+    color: var(--admin-text-muted);
+    margin-top: 4px;
+    min-height: 1.2em;
 }
 
 .wallboard-tile-label {

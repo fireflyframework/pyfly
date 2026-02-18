@@ -15,6 +15,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import time
 from collections import deque
 from datetime import UTC, datetime
@@ -41,13 +42,34 @@ class TraceCollectorFilter(OncePerRequestFilter):
         response = await call_next(request)
         duration_ms = round((time.monotonic() - start) * 1000, 2)
 
+        # Extract additional request metadata
+        query_string = str(request.url.query) if request.url.query else ""
+        client_host = request.client.host if request.client else None
+        content_type = request.headers.get("content-type")
+        user_agent = request.headers.get("user-agent", "")
+        if len(user_agent) > 100:
+            user_agent = user_agent[:100]
+
+        # Extract response content-length if available
+        content_length: int | None = None
+        if hasattr(response, "headers"):
+            cl = response.headers.get("content-length")
+            if cl is not None:
+                with contextlib.suppress(ValueError, TypeError):
+                    content_length = int(cl)
+
         self._traces.append(
             {
                 "timestamp": datetime.now(UTC).isoformat(),
                 "method": request.method,
                 "path": request.url.path,
+                "query_string": query_string,
                 "status": response.status_code,
                 "duration_ms": duration_ms,
+                "client_host": client_host,
+                "content_type": content_type,
+                "user_agent": user_agent,
+                "content_length": content_length,
             }
         )
         return response
