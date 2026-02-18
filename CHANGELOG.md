@@ -6,6 +6,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## 0.2.0-M1 (2026-02-18)
+
+### Added
+
+- **Server Abstraction Layer**: Pluggable ASGI servers via `ApplicationServerPort` protocol
+  - Granian adapter (Rust/tokio, ~3x faster than Uvicorn, default when installed)
+  - Uvicorn adapter (ecosystem standard, fallback)
+  - Hypercorn adapter (HTTP/2 and HTTP/3 support)
+- **Event Loop Layer**: Pluggable event loops via `EventLoopPort` protocol
+  - uvloop (Linux/macOS), winloop (Windows), asyncio (fallback)
+- **FastAPI Web Adapter**: First-class peer to Starlette with native OpenAPI support
+  - `FastAPIControllerRegistrar` for `@rest_controller` bean discovery
+  - Auto-configuration: FastAPI preferred over Starlette when both installed
+- **Server Configuration**: `pyfly.server.*` YAML properties with Granian-specific tuning
+- **CLI**: `pyfly run --server granian|uvicorn|hypercorn --workers N`
+- **Admin Dashboard**: Server info tab with live SSE metrics
+- **Scaffolding**: `fastapi-api` archetype in `pyfly new`
+- **Installer**: New extras (web-fast, web-fastapi, fastapi, granian, hypercorn)
+
+---
+
 ## v0.1.0-M6 (2026-02-18)
 
 ### Added

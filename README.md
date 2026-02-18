@@ -260,7 +260,11 @@ This bean is created only when (1) no user-provided `CacheAdapter` exists and (2
 
 | Entry Point | Class | Detects | Binds | Fallback |
 |-------------|-------|---------|-------|----------|
+| `web_fastapi` | `FastAPIAutoConfiguration` | `fastapi` | `FastAPIWebAdapter` | none |
 | `web` | `WebAutoConfiguration` | `starlette` | `StarletteWebAdapter` | none |
+| `server_granian` | `GranianServerAutoConfiguration` | `granian` | `GranianServerAdapter` | none |
+| `server_uvicorn` | `UvicornServerAutoConfiguration` | `uvicorn` | `UvicornServerAdapter` | none |
+| `server_hypercorn` | `HypercornServerAutoConfiguration` | `hypercorn` | `HypercornServerAdapter` | none |
 | `relational` | `RelationalAutoConfiguration` | `sqlalchemy` | `Repository[T, ID]` | none |
 | `document` | `DocumentAutoConfiguration` | `motor`, `beanie` | `MongoRepository[T, ID]` | none |
 | `messaging` | `MessagingAutoConfiguration` | `aiokafka` / `aio-pika` | `KafkaAdapter` / `RabbitMQAdapter` | `InMemoryMessageBroker` |
@@ -365,6 +369,7 @@ The `pyfly` CLI generates production-ready project structures with DI stereotype
 |---------|-------------|
 | `pyfly new my-app` | Minimal microservice (`core` archetype) |
 | `pyfly new my-api --archetype web-api` | REST API with controllers, services, repositories |
+| `pyfly new my-api --archetype fastapi-api` | REST API with FastAPI and native OpenAPI |
 | `pyfly new my-site --archetype web` | Server-rendered HTML with Jinja2 templates |
 | `pyfly new my-svc --archetype hexagonal` | Hexagonal architecture with ports & adapters |
 | `pyfly new my-lib --archetype library` | Reusable library with `py.typed` marker |
@@ -484,7 +489,8 @@ PyFly currently implements **27 modules** organized into four layers:
 
 | Module | Description | Firefly Java Equivalent |
 |--------|-------------|------------------------|
-| **Web** | HTTP routing, controllers, middleware, OpenAPI | `fireflyframework-web` |
+| **Web** | HTTP routing, controllers, middleware, OpenAPI (Starlette and FastAPI adapters) | `fireflyframework-web` |
+| **Server** | Pluggable ASGI servers (Granian, Uvicorn, Hypercorn) and event loops (uvloop, asyncio) | Embedded Tomcat/Jetty/Undertow |
 | **Data** | Repository ports, derived queries, pagination, sorting, entity mapping | Spring Data Commons |
 | **Data Relational** | SQLAlchemy adapter — specifications, transactions, custom queries | `fireflyframework-r2dbc` |
 | **Data Document** | MongoDB adapter — Beanie ODM, document repositories | `fireflyframework-mongodb` |
@@ -533,6 +539,7 @@ Full documentation lives in the [`docs/`](docs/README.md) directory:
 Browse all guides in the [Module Guides Index](docs/modules/README.md):
 
 - [Web Layer](docs/modules/web.md) — REST controllers, routing, parameter binding, OpenAPI
+- [Server Layer](docs/modules/server.md) — Pluggable ASGI servers, event loops, auto-configuration
 - [Data Commons](docs/modules/data.md) — Repository ports, derived queries, pagination, sorting, entity mapping
 - [Data Relational (SQL)](docs/modules/data-relational.md) — SQLAlchemy adapter: specifications, transactions, custom queries
 - [Data Document (MongoDB)](docs/modules/data-document.md) — MongoDB adapter: MongoRepository, Beanie ODM patterns
@@ -547,7 +554,7 @@ Browse all guides in the [Module Guides Index](docs/modules/README.md):
 
 Browse the [Adapter Catalog](docs/adapters/README.md) for setup and configuration of each concrete backend:
 
-- [SQLAlchemy](docs/adapters/sqlalchemy.md) · [MongoDB](docs/adapters/mongodb.md) · [Starlette](docs/adapters/starlette.md) · [Kafka](docs/adapters/kafka.md) · [RabbitMQ](docs/adapters/rabbitmq.md) · [Redis](docs/adapters/redis.md) · [HTTPX](docs/adapters/httpx.md) · [Click](docs/adapters/click.md)
+- [SQLAlchemy](docs/adapters/sqlalchemy.md) · [MongoDB](docs/adapters/mongodb.md) · [Starlette](docs/adapters/starlette.md) · [FastAPI](docs/adapters/fastapi.md) · [Granian](docs/adapters/granian.md) · [Kafka](docs/adapters/kafka.md) · [RabbitMQ](docs/adapters/rabbitmq.md) · [Redis](docs/adapters/redis.md) · [HTTPX](docs/adapters/httpx.md) · [Click](docs/adapters/click.md)
 
 Browse the full list in the [Documentation Table of Contents](docs/README.md).
 
@@ -587,7 +594,7 @@ For Python packaging (PEP 440), milestone versions map to alpha pre-releases (`0
 
 See **[CHANGELOG.md](CHANGELOG.md)** for detailed release notes.
 
-**Current:** v0.1.0-M6 (2026-02-18) — New `web` archetype for server-rendered HTML applications with Jinja2 templates, static assets, and `@controller` stereotype. `@controller` runtime support (route discovery + `Request` injection). Web API and hexagonal archetypes now scaffold a Todo CRUD example instead of generic Items.
+**Current:** 0.2.0-M1 (2026-02-18) — Server abstraction layer with pluggable ASGI servers (Granian, Uvicorn, Hypercorn) and event loops (uvloop, asyncio). FastAPI web adapter as a first-class peer to Starlette with native OpenAPI. `pyfly run --server granian --workers N` CLI. New extras: web-fast, web-fastapi, fastapi, granian, hypercorn.
 
 ---
 

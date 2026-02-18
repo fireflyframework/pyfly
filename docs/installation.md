@@ -272,7 +272,12 @@ Each extra pulls in the third-party libraries needed for a specific framework mo
 
 | Extra | Dependencies | What It Enables |
 |-------|-------------|-----------------|
-| `web` | starlette, uvicorn, python-multipart | HTTP server, REST controllers, routing, middleware, OpenAPI docs |
+| `web` | starlette, uvicorn, python-multipart | HTTP server (Starlette + Uvicorn), REST controllers, routing, middleware, OpenAPI docs |
+| `web-fast` | starlette, granian, uvloop, python-multipart | High-performance web stack: Starlette + Granian + uvloop |
+| `web-fastapi` | fastapi, granian, uvloop, python-multipart | High-performance FastAPI stack: FastAPI + Granian + uvloop |
+| `fastapi` | fastapi, uvicorn, python-multipart | HTTP server (FastAPI + Uvicorn), REST controllers, native OpenAPI |
+| `granian` | granian | Granian ASGI server (Rust/tokio, ~3x faster than Uvicorn) |
+| `hypercorn` | hypercorn | Hypercorn ASGI server (HTTP/2 and HTTP/3 support) |
 | `data-relational` | sqlalchemy[asyncio], alembic, aiosqlite | Async SQL database access, repositories, migrations (SQLite default) |
 | `data-document` | motor, beanie | MongoDB document access via Beanie ODM |
 | `postgresql` | asyncpg | PostgreSQL async driver (add for production databases) |
@@ -293,6 +298,10 @@ Each extra pulls in the third-party libraries needed for a specific framework mo
 
 **For a typical web service:** `web,data-relational,security,cli`
 
+**For a high-performance web service:** `web-fast,data-relational,security,cli`
+
+**For a FastAPI service:** `web-fastapi,data-relational,security,cli`
+
 **For a microservice with messaging:** `web,data-relational,eda,cache,cli`
 
 **For development:** `dev` (includes everything + test/lint tools)
@@ -305,6 +314,9 @@ PyFly's auto-configuration engine detects which libraries are installed and wire
 
 | Installed Library | Auto-Configured Adapter |
 |------------------|------------------------|
+| `fastapi` | `FastAPIWebAdapter` (instead of `StarletteWebAdapter`) |
+| `granian` | `GranianServerAdapter` (instead of `UvicornServerAdapter`) |
+| `uvloop` | `UvloopEventLoopAdapter` (instead of `AsyncioEventLoopAdapter`) |
 | `redis` | `RedisCacheAdapter` (instead of `InMemoryCache`) |
 | `aiokafka` | `KafkaAdapter` (instead of `InMemoryMessageBroker`) |
 | `aio-pika` | `RabbitMQAdapter` (instead of `InMemoryMessageBroker`) |

@@ -138,6 +138,7 @@ The project name is converted to a valid Python package name: `my-service` becom
 |-----------|-------------|-----------------|
 | `core` | Minimal microservice | *(none)* |
 | `web-api` | Full REST API with layered architecture | `web` |
+| `fastapi-api` | Full REST API with FastAPI and native OpenAPI | `fastapi` |
 | `web` | Server-rendered web application with HTML templates | `web` |
 | `hexagonal` | Hexagonal architecture (ports & adapters) | `web` |
 | `library` | Reusable library package | *(none)* |
@@ -149,9 +150,12 @@ Features control which PyFly extras are included as dependencies and which confi
 
 | Feature | What it adds |
 |---------|-------------|
-| `web` | HTTP server, REST controllers, OpenAPI docs |
-| `data-relational` | Data Relational — SQL databases (SQLAlchemy ORM) |
-| `data-document` | Data Document — Document databases (Beanie ODM) |
+| `web` | HTTP server (Starlette), REST controllers, OpenAPI docs |
+| `fastapi` | HTTP server (FastAPI), REST controllers, native OpenAPI |
+| `granian` | Granian ASGI server (Rust/tokio, highest throughput) |
+| `hypercorn` | Hypercorn ASGI server (HTTP/2 and HTTP/3 support) |
+| `data-relational` | Data Relational -- SQL databases (SQLAlchemy ORM) |
+| `data-document` | Data Document -- Document databases (Beanie ODM) |
 | `eda` | Event-driven architecture, in-memory event bus |
 | `cache` | Caching with in-memory adapter |
 | `client` | Resilient HTTP client with retry and circuit breaker |
@@ -451,7 +455,7 @@ After creation, the CLI displays a Rich tree panel showing all created files and
 
 ## pyfly run
 
-Start the PyFly application using [uvicorn](https://www.uvicorn.org/) as the ASGI server.
+Start the PyFly application using the auto-configured ASGI server (Granian, Uvicorn, or Hypercorn).
 
 ### Usage
 
@@ -465,6 +469,8 @@ pyfly run [OPTIONS]
 |--------|---------|-------------|
 | `--host` | `0.0.0.0` | Bind address |
 | `--port` | From `pyfly.yaml` or `8080` | Port number (resolved from: CLI flag → `pyfly.web.port` in config → `8080`) |
+| `--server` | From config or `auto` | ASGI server: `granian`, `uvicorn`, `hypercorn` (auto-selects highest-priority installed) |
+| `--workers` | From config or `0` | Number of worker processes (`0` = `cpu_count`) |
 | `--reload` | `false` | Enable auto-reload on code changes (for development) |
 | `--app` | Auto-discovered | Application import path (e.g., `myapp.main:app`) |
 
@@ -494,13 +500,23 @@ No application found.
 Provide --app flag or create a pyfly.yaml in the current directory.
 ```
 
+### Server Selection
+
+When `--server` is not specified, `pyfly run` auto-selects the highest-priority installed ASGI server:
+
+| Priority | Server | Condition |
+|----------|--------|-----------|
+| 1 | Granian | `granian` is importable |
+| 2 | Uvicorn | `uvicorn` is importable |
+| 3 | Hypercorn | `hypercorn` is importable |
+
 ### Requirements
 
-Requires `uvicorn` to be installed. If not available, the command suggests installing the `web` extra:
+Requires at least one ASGI server to be installed (Granian, Uvicorn, or Hypercorn). If none is available, the command suggests installing the `web` extra:
 
 ```
-✗ uvicorn is not installed.
-  Install it with: pip install 'pyfly[web]'
+✗ No ASGI server found.
+  Install one with: pip install 'pyfly[web]'
 ```
 
 ### Examples
@@ -509,14 +525,17 @@ Requires `uvicorn` to be installed. If not available, the command suggests insta
 # Development with auto-reload
 pyfly run --reload
 
+# Force Granian with 4 workers
+pyfly run --server granian --workers 4
+
 # Custom port
 pyfly run --port 3000
 
 # Explicit app path
 pyfly run --app my_service.app:Application
 
-# Production binding
-pyfly run --host 0.0.0.0 --port 80
+# Production binding with Granian on all cores
+pyfly run --host 0.0.0.0 --port 80 --server granian --workers 0
 ```
 
 ---

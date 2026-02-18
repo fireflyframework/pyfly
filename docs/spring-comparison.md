@@ -27,6 +27,7 @@ If you're coming from the Java/Spring Boot ecosystem, this guide shows you how e
 - [Observability](#observability)
 - [Messaging](#messaging)
 - [Distributed Transactions](#distributed-transactions)
+- [Server Abstraction](#server-abstraction)
 - [Quick Reference Table](#quick-reference-table)
 
 ---
@@ -998,6 +999,52 @@ The patterns map one-to-one. See the [Transactional Engine Guide](modules/transa
 
 ---
 
+## Server Abstraction
+
+### Spring Boot
+
+Spring Boot embeds a servlet/reactive container (Tomcat, Jetty, or Undertow) selected via classpath detection. The `WebServer` interface abstracts the embedded server, and `EventLoopGroup` (in Spring WebFlux with Netty) manages the I/O runtime.
+
+```yaml
+server:
+  port: 8080
+  tomcat:
+    threads:
+      max: 200
+```
+
+### PyFly
+
+PyFly follows the same pattern with `ApplicationServerPort` for ASGI servers and `EventLoopPort` for event loop policies. Server selection cascades by priority: Granian > Uvicorn > Hypercorn, mirroring Spring's Tomcat > Jetty > Undertow ordering.
+
+```yaml
+pyfly:
+  web:
+    port: 8080
+  server:
+    type: auto            # auto | granian | uvicorn | hypercorn
+    event-loop: auto      # auto | uvloop | winloop | asyncio
+    workers: 0            # 0 = cpu_count
+    granian:
+      runtime-threads: 1
+```
+
+| Spring Boot | PyFly | Purpose |
+|-------------|-------|---------|
+| `WebServer` interface | `ApplicationServerPort` protocol | Contract for the embedded server |
+| `EventLoopGroup` (Netty) | `EventLoopPort` protocol | Contract for the I/O runtime |
+| `server.port` | `pyfly.web.port` | HTTP listen port |
+| `server.tomcat.*` | `pyfly.server.granian.*` | Server-specific tuning |
+| Tomcat (default) | Granian (default) | Highest-priority server |
+| Jetty (fallback) | Uvicorn (fallback) | Ecosystem-standard fallback |
+| Undertow (alternative) | Hypercorn (alternative) | Advanced protocol support (HTTP/3) |
+
+**Key similarity:** Both frameworks use conditional bean registration to cascade through server implementations. The first matching auto-configuration wins, and users can always override by providing their own bean.
+
+**Key difference:** Spring Boot runs the server inside the JVM process. PyFly's servers (Granian, Uvicorn) are external ASGI servers that host the Python application. Granian's Rust/tokio runtime provides C-level performance for HTTP parsing without the GIL overhead that Python-only servers face.
+
+---
+
 ## Quick Reference Table
 
 A complete mapping of Spring Boot concepts to PyFly equivalents:
@@ -1077,6 +1124,15 @@ A complete mapping of Spring Boot concepts to PyFly equivalents:
 | `CompensationPolicy` | `CompensationPolicy` | Compensation strategy enum |
 | `SagaContext` | `SagaContext` | Saga execution context |
 | `SagaResult` | `SagaResult` | Saga execution result |
+| `WebServer` | `ApplicationServerPort` | Embedded ASGI server contract |
+| `EventLoopGroup` (Netty) | `EventLoopPort` | Event loop / I/O runtime |
+| `server.port` | `pyfly.web.port` | HTTP listen port |
+| `server.tomcat.*` | `pyfly.server.granian.*` | Server-specific tuning |
+| `server.jetty.*` | `pyfly.server.uvicorn.*` | Fallback server tuning |
+| `server.undertow.*` | `pyfly.server.hypercorn.*` | Alternative server tuning |
+| Tomcat (default) | Granian (default) | Highest-priority embedded server |
+| Jetty (fallback) | Uvicorn (fallback) | Ecosystem-standard fallback |
+| Undertow (alternative) | Hypercorn (alternative) | Advanced protocol support |
 
 ---
 

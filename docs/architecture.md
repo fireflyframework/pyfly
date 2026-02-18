@@ -107,6 +107,8 @@ Examples of ports in the framework:
 | `CacheAdapter` | `pyfly.cache.ports.outbound` | Defines cache get/set/delete operations. |
 | `HttpClientPort` | `pyfly.client.ports.outbound` | Defines HTTP request operations. |
 | `TaskExecutorPort` | `pyfly.scheduling.ports.outbound` | Defines task execution. |
+| `ApplicationServerPort` | `pyfly.server.ports.outbound` | Defines the contract for running an ASGI application on a network socket. |
+| `EventLoopPort` | `pyfly.server.ports.outbound` | Defines the contract for configuring the asyncio event loop policy. |
 | `LoggingPort` | `pyfly.logging` | Defines structured logging operations. |
 
 ### What Are Adapters?
@@ -126,6 +128,11 @@ Examples of adapters:
 | `InMemoryCache` | `pyfly.cache.adapters.memory` | `CacheAdapter` | In-process dict |
 | `HttpxClientAdapter` | `pyfly.client.adapters.httpx_adapter` | `HttpClientPort` | HTTPX |
 | `ControllerRegistrar` | `pyfly.web.adapters.starlette` | Web routing | Starlette/ASGI |
+| `FastAPIControllerRegistrar` | `pyfly.web.adapters.fastapi` | Web routing | FastAPI/ASGI |
+| `GranianServerAdapter` | `pyfly.server.adapters.granian` | `ApplicationServerPort` | Granian (Rust/tokio) |
+| `UvicornServerAdapter` | `pyfly.server.adapters.uvicorn` | `ApplicationServerPort` | Uvicorn |
+| `HypercornServerAdapter` | `pyfly.server.adapters.hypercorn` | `ApplicationServerPort` | Hypercorn |
+| `UvloopEventLoopAdapter` | `pyfly.server.adapters.uvloop` | `EventLoopPort` | uvloop (libuv) |
 | `AsyncIOTaskExecutor` | `pyfly.scheduling.adapters.asyncio_executor` | `TaskExecutorPort` | asyncio |
 | `ThreadPoolTaskExecutor` | `pyfly.scheduling.adapters.thread_executor` | `TaskExecutorPort` | concurrent.futures |
 | `StructlogAdapter` | `pyfly.logging` | `LoggingPort` | structlog |
@@ -237,7 +244,8 @@ Infrastructure modules follow the hexagonal pattern: ports in `ports/`, adapters
 
 | Module | Package | Ports | Adapters |
 |---|---|---|---|
-| **Web** | `pyfly.web` | Mappings (`@get_mapping`, `@post_mapping`, etc.), params (`Body`, `PathVar`, `QueryParam`, `Header`, `Cookie`, `Valid`), `CORSConfig`, `SecurityHeadersConfig`, `WebFilter` protocol, `OncePerRequestFilter`, `@exception_handler`. Config-driven adapter selection (`pyfly.web.adapter`). | Starlette/ASGI (`StarletteWebAdapter`, `ControllerRegistrar`, `create_app`, `WebFilterChainMiddleware`, built-in filters). |
+| **Web** | `pyfly.web` | Mappings (`@get_mapping`, `@post_mapping`, etc.), params (`Body`, `PathVar`, `QueryParam`, `Header`, `Cookie`, `Valid`), `CORSConfig`, `SecurityHeadersConfig`, `WebFilter` protocol, `OncePerRequestFilter`, `@exception_handler`. Config-driven adapter selection (`pyfly.web.adapter`). | Starlette/ASGI (`StarletteWebAdapter`, `ControllerRegistrar`, `create_app`, `WebFilterChainMiddleware`, built-in filters), FastAPI (`FastAPIWebAdapter`, `FastAPIControllerRegistrar`). |
+| **Server** | `pyfly.server` | `ApplicationServerPort` (ASGI server contract), `EventLoopPort` (event loop policy contract), `ServerProperties`. Cascading auto-configuration for server and event loop selection. | Granian (`GranianServerAdapter`), Uvicorn (`UvicornServerAdapter`), Hypercorn (`HypercornServerAdapter`), uvloop (`UvloopEventLoopAdapter`), winloop (`WinloopEventLoopAdapter`), asyncio (`AsyncioEventLoopAdapter`). |
 | **Data** | `pyfly.data` | `RepositoryPort`, `SessionPort`, `QueryMethodCompilerPort`. | SQLAlchemy (`Repository`, `Specification`, `FilterUtils`, `@query`, `QueryMethodCompiler`, `RepositoryBeanPostProcessor`), MongoDB (`MongoRepository`, `BaseDocument`, `MongoQueryMethodCompiler`, `MongoRepositoryBeanPostProcessor`). |
 | **Messaging** | `pyfly.messaging` | `MessageBrokerPort`, `MessageHandler`, `Message`, `@message_listener`. | Kafka (`KafkaAdapter`), RabbitMQ (`RabbitMQAdapter`), in-memory (`InMemoryMessageBroker`). |
 | **Cache** | `pyfly.cache` | `CacheAdapter`, `CacheManager`, `@cacheable`, `@cache_evict`, `@cache_put`. | Redis (`RedisCacheAdapter`), in-memory (`InMemoryCache`). |
@@ -268,7 +276,7 @@ Cross-cutting modules provide capabilities that span all other layers.
           |                   |                  |
 +-----------------------------------------------------------------------+
 |                       Infrastructure Layer                            |
-|   web    data    messaging    cache    client    scheduling           |
+|   web    server    data    messaging    cache    client    scheduling |
 |   security    actuator                                                |
 |                                                                       |
 |   Each module:  ports/  <--  adapters/                                |
@@ -588,6 +596,10 @@ The six built-in auto-configuration classes are:
 | Auto-Configuration Class | Module | Port/Bean | Conditions |
 |---|---|---|---|
 | `WebAutoConfiguration` | `pyfly.web.auto_configuration` | `WebServerPort` | `@conditional_on_class("starlette")`, `@conditional_on_missing_bean(WebServerPort)` |
+| `FastAPIAutoConfiguration` | `pyfly.web.auto_configuration` | `WebServerPort` | `@conditional_on_class("fastapi")`, `@conditional_on_missing_bean(WebServerPort)` |
+| `GranianServerAutoConfiguration` | `pyfly.server.auto_configuration` | `ApplicationServerPort` | `@conditional_on_class("granian")`, `@conditional_on_missing_bean(ApplicationServerPort)` |
+| `UvicornServerAutoConfiguration` | `pyfly.server.auto_configuration` | `ApplicationServerPort` | `@conditional_on_class("uvicorn")`, `@conditional_on_missing_bean(ApplicationServerPort)` |
+| `HypercornServerAutoConfiguration` | `pyfly.server.auto_configuration` | `ApplicationServerPort` | `@conditional_on_class("hypercorn")`, `@conditional_on_missing_bean(ApplicationServerPort)` |
 | `CacheAutoConfiguration` | `pyfly.cache.auto_configuration` | `CacheAdapter` | `@conditional_on_property("pyfly.cache.enabled")`, `@conditional_on_missing_bean(CacheAdapter)` |
 | `MessagingAutoConfiguration` | `pyfly.messaging.auto_configuration` | `MessageBrokerPort` | `@conditional_on_property("pyfly.messaging.provider")`, `@conditional_on_missing_bean(MessageBrokerPort)` |
 | `ClientAutoConfiguration` | `pyfly.client.auto_configuration` | `HttpClientPort` | `@conditional_on_class("httpx")`, `@conditional_on_missing_bean(HttpClientPort)` |
@@ -607,12 +619,16 @@ The built-in auto-configuration classes are registered in `pyproject.toml`:
 
 ```toml
 [project.entry-points."pyfly.auto_configuration"]
-web        = "pyfly.web.auto_configuration:WebAutoConfiguration"
-cache      = "pyfly.cache.auto_configuration:CacheAutoConfiguration"
-messaging  = "pyfly.messaging.auto_configuration:MessagingAutoConfiguration"
-client     = "pyfly.client.auto_configuration:ClientAutoConfiguration"
-document   = "pyfly.data.document.auto_configuration:DocumentAutoConfiguration"
-relational = "pyfly.data.relational.auto_configuration:RelationalAutoConfiguration"
+web              = "pyfly.web.auto_configuration:WebAutoConfiguration"
+web_fastapi      = "pyfly.web.auto_configuration:FastAPIAutoConfiguration"
+server_granian   = "pyfly.server.auto_configuration:GranianServerAutoConfiguration"
+server_uvicorn   = "pyfly.server.auto_configuration:UvicornServerAutoConfiguration"
+server_hypercorn = "pyfly.server.auto_configuration:HypercornServerAutoConfiguration"
+cache            = "pyfly.cache.auto_configuration:CacheAutoConfiguration"
+messaging        = "pyfly.messaging.auto_configuration:MessagingAutoConfiguration"
+client           = "pyfly.client.auto_configuration:ClientAutoConfiguration"
+document         = "pyfly.data.document.auto_configuration:DocumentAutoConfiguration"
+relational       = "pyfly.data.relational.auto_configuration:RelationalAutoConfiguration"
 ```
 
 Each `@auto_configuration` class uses `@conditional_on_class`, `@conditional_on_property`,
@@ -688,7 +704,51 @@ pyfly.web/
 Framework-agnostic decorators (`@get_mapping`, `@post_mapping`), parameter types
 (`Body`, `QueryParam`, `Valid`), and the `WebFilter` protocol work with any web
 framework. The Starlette adapter is the default; config-driven selection
-(`pyfly.web.adapter: auto|starlette`) allows future adapters.
+(`pyfly.web.adapter: auto|starlette|fastapi`) allows multiple adapters. When FastAPI is
+installed, the FastAPI adapter is auto-selected over Starlette.
+
+### Server Module
+
+```
+pyfly.server/
+    __init__.py              # Public API exports
+    properties.py            # ServerProperties dataclass
+    ports/
+        outbound.py          # ApplicationServerPort, EventLoopPort protocols
+    adapters/
+        granian.py           # GranianServerAdapter (highest priority)
+        uvicorn.py           # UvicornServerAdapter (ecosystem standard)
+        hypercorn.py         # HypercornServerAdapter (HTTP/2 + HTTP/3)
+        uvloop.py            # UvloopEventLoopAdapter (Linux/macOS)
+        winloop.py           # WinloopEventLoopAdapter (Windows)
+        asyncio.py           # AsyncioEventLoopAdapter (fallback)
+    auto_configuration.py    # Cascading auto-configuration classes
+```
+
+The server module adds two port interfaces to the hexagonal architecture:
+
+- **`ApplicationServerPort`** — Defines the contract for running an ASGI application on a
+  network socket. Implementations: `GranianServerAdapter`, `UvicornServerAdapter`,
+  `HypercornServerAdapter`. This sits between the web adapter (which creates the ASGI app)
+  and the network, analogous to Spring Boot's `WebServer` interface.
+
+- **`EventLoopPort`** — Defines the contract for configuring the asyncio event loop policy.
+  Implementations: `UvloopEventLoopAdapter`, `WinloopEventLoopAdapter`,
+  `AsyncioEventLoopAdapter`. This is analogous to Netty's `EventLoopGroup` in Spring Boot.
+
+The relationship between the three layers:
+
+```
+EventLoopPort          ApplicationServerPort          WebServerPort
+  (uvloop)      →        (Granian)              →      (FastAPI/Starlette)
+  configures             serves                        creates
+  event loop             ASGI app                      ASGI app
+```
+
+Server selection uses cascading `@conditional_on_class` auto-configuration:
+Granian > Uvicorn > Hypercorn. Event loop selection: uvloop > winloop > asyncio.
+Both can be overridden via `pyfly.server.type` and `pyfly.server.event-loop` config
+or by registering a user-provided bean.
 
 ### Data Module
 
