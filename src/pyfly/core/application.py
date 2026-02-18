@@ -179,7 +179,8 @@ class PyFlyApplication:
             total=self._context.bean_count,
             services=stereotype_counts.get("service", 0),
             repositories=stereotype_counts.get("repository", 0),
-            controllers=stereotype_counts.get("controller", 0),
+            controllers=stereotype_counts.get("controller", 0)
+            + stereotype_counts.get("rest_controller", 0),
             configurations=stereotype_counts.get("configuration", 0),
         )
 
@@ -236,6 +237,15 @@ class PyFlyApplication:
             self._logger.info("api_documentation", swagger_ui=f"{base_url}/docs")
             self._logger.info("api_documentation", redoc=f"{base_url}/redoc")
             self._logger.info("api_documentation", openapi=f"{base_url}/openapi.json")
+
+        # Log admin dashboard URL when enabled
+        admin_enabled = str(
+            self.config.get("pyfly.admin.enabled", "false")
+        ).lower() in ("true", "1", "yes")
+        if admin_enabled:
+            base_url = f"http://{host}:{port}"
+            admin_path = str(self.config.get("pyfly.admin.path", "/admin"))
+            self._logger.info("admin_dashboard", url=f"{base_url}{admin_path}")
 
     async def shutdown(self) -> None:
         """Shutdown the application — stop the ApplicationContext."""

@@ -283,4 +283,8 @@ class AdminRouteBuilder:
 
         index_path = importlib.resources.files("pyfly.admin") / "static" / "index.html"
         content = index_path.read_text(encoding="utf-8")
+        # Inject <base> so relative URLs (static/css/*, static/js/*) resolve
+        # correctly regardless of whether the browser path has a trailing slash.
+        base_href = self._props.path.rstrip("/") + "/"
+        content = content.replace("<head>", f'<head>\n    <base href="{base_href}">', 1)
         return Response(content, media_type="text/html")

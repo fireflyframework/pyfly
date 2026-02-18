@@ -162,3 +162,9 @@ class TestAdminAPI:
         resp = admin_client.get("/admin/")
         assert resp.status_code == 200
         assert "text/html" in resp.headers["content-type"]
+        assert '<base href="/admin/">' in resp.text
+
+    def test_spa_no_trailing_slash(self, admin_client):
+        resp = admin_client.get("/admin")
+        assert resp.status_code == 200
+        assert '<base href="/admin/">' in resp.text
