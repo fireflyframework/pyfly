@@ -163,8 +163,20 @@ class Query(Generic[R]):
         object.__setattr__(self, "_cqrs_cacheable", enabled)
 
     def get_cache_key(self) -> str | None:
-        """Smart cache key — override for custom keys, else auto-generated from class name."""
-        return type(self).__name__
+        """Smart cache key — override for custom keys, else auto-generated from class + fields."""
+        import dataclasses
+
+        if not dataclasses.is_dataclass(self):
+            return type(self).__name__
+        fields = {}
+        for f in dataclasses.fields(self):
+            value = getattr(self, f.name)
+            try:
+                hash(value)
+                fields[f.name] = value
+            except TypeError:
+                fields[f.name] = repr(value)
+        return f"{type(self).__name__}:{hash(tuple(sorted(fields.items())))}"
 
     # ── hooks for bus pipeline ─────────────────────────────────
 

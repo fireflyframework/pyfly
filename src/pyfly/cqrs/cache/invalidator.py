@@ -58,6 +58,14 @@ class EventDrivenCacheInvalidator:
 
         def _replace(match: re.Match[str]) -> str:
             field_name = match.group(1)
-            return str(getattr(event, field_name, match.group(0)))
+            value = getattr(event, field_name, None)
+            if value is None:
+                _logger.warning(
+                    "Cache invalidation pattern field '%s' not found on event %s",
+                    field_name,
+                    type(event).__name__,
+                )
+                return match.group(0)
+            return str(value)
 
         return re.sub(r"\{(\w+)\}", _replace, pattern)

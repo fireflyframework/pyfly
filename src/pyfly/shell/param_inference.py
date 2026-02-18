@@ -30,23 +30,20 @@ def _unwrap_optional(tp: Any) -> tuple[Any, bool]:
 
     Returns a ``(inner_type, was_optional)`` tuple.  If *tp* is not an
     optional wrapper the original type is returned unchanged.
+
+    Handles nested generics like ``Optional[List[str]]`` and PEP 604
+    unions like ``List[str] | None``.
     """
+    # Both ``types.UnionType`` (PEP 604) and ``typing.Union`` are handled
+    # uniformly via get_origin/get_args.
     origin = typing.get_origin(tp)
 
-    # PEP 604 – ``T | None`` surfaces as ``types.UnionType`` on 3.10+.
-    if isinstance(tp, types.UnionType):
+    if origin is Union or isinstance(tp, types.UnionType):
         args = typing.get_args(tp)
         non_none = [a for a in args if a is not type(None)]
-        if len(non_none) == 1 and len(args) == 2:
+        if len(non_none) == 1 and type(None) in args:
             return non_none[0], True
         return tp, False
-
-    # ``typing.Optional[T]`` / ``Union[T, None]``
-    if origin is Union:
-        args = typing.get_args(tp)
-        non_none = [a for a in args if a is not type(None)]
-        if len(non_none) == 1 and len(args) == 2:
-            return non_none[0], True
 
     return tp, False
 

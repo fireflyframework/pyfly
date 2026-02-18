@@ -21,6 +21,7 @@ from collections.abc import Sequence
 from starlette.requests import Request
 from starlette.responses import Response
 
+from pyfly.kernel.exceptions import SecurityException
 from pyfly.security.context import SecurityContext
 from pyfly.security.jwt import JWTService
 from pyfly.web.filters import OncePerRequestFilter
@@ -51,7 +52,7 @@ class SecurityFilter(OncePerRequestFilter):
             token = auth_header[7:]  # len("Bearer ") == 7
             try:
                 security_context = self._jwt_service.to_security_context(token)
-            except Exception:
+            except SecurityException:
                 logger.debug("Invalid JWT token, using anonymous context")
                 security_context = SecurityContext.anonymous()
         else:

@@ -232,10 +232,12 @@ class TestDefaultQueryBus:
         cache = FakeCacheAdapter()
         bus = DefaultQueryBus(registry=registry, cache_adapter=cache)
 
-        await bus.query(GetOrderQuery(order_id="ord-evict"))
+        query = GetOrderQuery(order_id="ord-evict")
+        await bus.query(query)
         assert handler.call_count == 1
 
-        await bus.clear_cache(":cqrs:GetOrderQuery")
+        cache_key = f":cqrs:{query.get_cache_key()}"
+        await bus.clear_cache(cache_key)
 
         await bus.query(GetOrderQuery(order_id="ord-evict"))
         assert handler.call_count == 2

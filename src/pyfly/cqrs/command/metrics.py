@@ -51,6 +51,7 @@ class CqrsMetricsService:
                 "firefly_cqrs_command_processing_time_seconds", "Command processing duration"
             )
             self._qry_processed = registry.counter("firefly_cqrs_query_processed", "Successful queries")
+            self._qry_failed = registry.counter("firefly_cqrs_query_failed", "Failed queries")
             self._qry_time = registry.histogram(
                 "firefly_cqrs_query_processing_time_seconds", "Query processing duration"
             )
@@ -60,6 +61,7 @@ class CqrsMetricsService:
             self._cmd_validation_failed = None
             self._cmd_time = None
             self._qry_processed = None
+            self._qry_failed = None
             self._qry_time = None
 
     # ── command metrics ────────────────────────────────────────
@@ -100,6 +102,8 @@ class CqrsMetricsService:
             self._qry_time.observe(duration_s)
 
     def record_query_failure(self, query: Any, error: Exception, duration_s: float) -> None:
+        if self._qry_failed:
+            self._qry_failed.inc()
         if self._qry_time:
             self._qry_time.observe(duration_s)
 

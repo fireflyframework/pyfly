@@ -15,11 +15,14 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from pyfly.data.document.mongodb.query_compiler import MongoQueryMethodCompiler
 from pyfly.data.document.mongodb.repository import MongoRepository
 from pyfly.data.post_processor import BaseRepositoryPostProcessor
+
+logger = logging.getLogger(__name__)
 
 
 class MongoRepositoryBeanPostProcessor(BaseRepositoryPostProcessor):
@@ -53,3 +56,16 @@ class MongoRepositoryBeanPostProcessor(BaseRepositoryPostProcessor):
             return await compiled_fn(self_arg._model, *args)
 
         return wrapper
+
+    def _process_query_decorated(
+        self, bean: Any, cls: type, attr_name: str, attr: Any, entity: Any
+    ) -> bool:
+        """Log a warning when ``@query``-decorated methods are found on a MongoDB repository."""
+        if hasattr(attr, "__pyfly_query__"):
+            logger.warning(
+                "@query decorator is not yet supported for MongoDB repositories"
+                " — method '%s' will use derived query compilation instead",
+                attr_name,
+            )
+            return False
+        return False

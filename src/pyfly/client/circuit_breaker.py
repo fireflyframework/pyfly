@@ -92,6 +92,11 @@ class CircuitBreaker:
 
     def _on_failure(self) -> None:
         """Record a failure and potentially open the circuit."""
+        if self._state == CircuitState.HALF_OPEN:
+            self._failure_count = self._failure_threshold
+            self._state = CircuitState.OPEN
+            self._last_failure_time = time.monotonic()
+            return
         self._failure_count += 1
         self._last_failure_time = time.monotonic()
         if self._failure_count >= self._failure_threshold:

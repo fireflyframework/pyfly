@@ -15,8 +15,10 @@
 
 from __future__ import annotations
 
+import asyncio
 import functools
 import inspect
+import warnings
 from collections.abc import Callable
 from typing import Any, TypeVar
 
@@ -108,6 +110,12 @@ def event_listener(
     """
 
     def decorator(func: F) -> F:
+        if not asyncio.iscoroutinefunction(func):
+            warnings.warn(
+                f"Event listener '{func.__name__}' is not async — it will be called in the event loop thread. "
+                "Consider making it async for proper concurrency.",
+                stacklevel=2,
+            )
         for pattern in event_types:
             bus.subscribe(pattern, func)
         return func

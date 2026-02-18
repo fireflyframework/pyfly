@@ -215,15 +215,25 @@ class TestQuery:
         query.set_cacheable(False)
         assert query.is_cacheable() is False
 
-    def test_get_cache_key_returns_class_name_by_default(self) -> None:
+    def test_get_cache_key_includes_class_name(self) -> None:
         query = GetOrderQuery()
-        assert query.get_cache_key() == "GetOrderQuery"
+        assert query.get_cache_key().startswith("GetOrderQuery:")
 
     def test_get_cache_key_differs_by_subclass(self) -> None:
         q1 = GetOrderQuery()
         q2 = ListOrdersQuery()
         assert q1.get_cache_key() != q2.get_cache_key()
-        assert q2.get_cache_key() == "ListOrdersQuery"
+        assert q2.get_cache_key().startswith("ListOrdersQuery:")
+
+    def test_get_cache_key_differs_by_field_values(self) -> None:
+        q1 = GetOrderQuery(order_id="order-1")
+        q2 = GetOrderQuery(order_id="order-2")
+        assert q1.get_cache_key() != q2.get_cache_key()
+
+    def test_get_cache_key_same_for_same_fields(self) -> None:
+        q1 = GetOrderQuery(order_id="order-1")
+        q2 = GetOrderQuery(order_id="order-1")
+        assert q1.get_cache_key() == q2.get_cache_key()
 
     @pytest.mark.asyncio
     async def test_validate_returns_success_by_default(self) -> None:

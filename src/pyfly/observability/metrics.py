@@ -15,6 +15,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import functools
 import time
 from collections.abc import Callable
@@ -76,15 +77,26 @@ def timed(registry: MetricsRegistry, name: str, description: str) -> Callable[[F
     def decorator(func: F) -> F:
         histogram = registry.histogram(name, description)
 
+        if asyncio.iscoroutinefunction(func):
+            @functools.wraps(func)
+            async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+                start = time.perf_counter()
+                try:
+                    return await func(*args, **kwargs)
+                finally:
+                    histogram.observe(time.perf_counter() - start)
+
+            return async_wrapper  # type: ignore[return-value]
+
         @functools.wraps(func)
-        async def wrapper(*args: Any, **kwargs: Any) -> Any:
+        def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
             start = time.perf_counter()
             try:
-                return await func(*args, **kwargs)
+                return func(*args, **kwargs)
             finally:
                 histogram.observe(time.perf_counter() - start)
 
-        return wrapper  # type: ignore[return-value]
+        return sync_wrapper  # type: ignore[return-value]
 
     return decorator
 
@@ -100,11 +112,19 @@ def counted(registry: MetricsRegistry, name: str, description: str) -> Callable[
     def decorator(func: F) -> F:
         counter = registry.counter(name, description)
 
-        @functools.wraps(func)
-        async def wrapper(*args: Any, **kwargs: Any) -> Any:
-            counter.inc()
-            return await func(*args, **kwargs)
+        if asyncio.iscoroutinefunction(func):
+            @functools.wraps(func)
+            async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+                counter.inc()
+                return await func(*args, **kwargs)
 
-        return wrapper  # type: ignore[return-value]
+            return async_wrapper  # type: ignore[return-value]
+
+        @functools.wraps(func)
+        def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
+            counter.inc()
+            return func(*args, **kwargs)
+
+        return sync_wrapper  # type: ignore[return-value]
 
     return decorator

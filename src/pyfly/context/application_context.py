@@ -653,7 +653,7 @@ class ApplicationContext:
                 async def async_wrapper(*args: Any, _orig: Any = original, **kwargs: Any) -> Any:
                     loop = asyncio.get_event_loop()
                     if inspect.iscoroutinefunction(_orig):
-                        return asyncio.ensure_future(_orig(*args, **kwargs))
+                        return await _orig(*args, **kwargs)
                     return await loop.run_in_executor(None, functools.partial(_orig, *args, **kwargs))
 
                 setattr(reg.instance, attr_name, async_wrapper)

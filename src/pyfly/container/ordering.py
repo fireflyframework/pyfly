@@ -15,6 +15,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import TypeVar
 
 T = TypeVar("T", bound=type)
@@ -23,7 +24,7 @@ HIGHEST_PRECEDENCE: int = -(2**31)
 LOWEST_PRECEDENCE: int = 2**31 - 1
 
 
-def order(value: int) -> callable:
+def order(value: int) -> Callable[[T], T]:
     """Set the initialization order for a bean class.
 
     Lower value = higher priority (initialized first).

@@ -36,6 +36,7 @@ class TestInMemoryMessageBroker:
             received.append(msg)
 
         await broker.subscribe("orders", handler)
+        await broker.start()
         await broker.publish("orders", b"order-1")
 
         assert len(received) == 1
@@ -51,6 +52,7 @@ class TestInMemoryMessageBroker:
             received.append(msg)
 
         await broker.subscribe("events", handler)
+        await broker.start()
         await broker.publish(
             "events",
             b"payload",
@@ -76,6 +78,7 @@ class TestInMemoryMessageBroker:
 
         await broker.subscribe("topic", handler_a)
         await broker.subscribe("topic", handler_b)
+        await broker.start()
         await broker.publish("topic", b"data")
 
         assert len(received_a) == 1
@@ -90,6 +93,7 @@ class TestInMemoryMessageBroker:
             received.append(msg)
 
         await broker.subscribe("topic-a", handler)
+        await broker.start()
         await broker.publish("topic-b", b"data")
 
         assert len(received) == 0
@@ -108,10 +112,17 @@ class TestInMemoryMessageBroker:
 
         await broker.subscribe("orders", handler_a, group="workers")
         await broker.subscribe("orders", handler_b, group="workers")
+        await broker.start()
         await broker.publish("orders", b"msg-1")
 
         total = len(received_a) + len(received_b)
         assert total == 1, "Exactly one handler in the group should receive the message"
+
+    async def test_publish_before_start_raises(self) -> None:
+        """Publishing before start() should raise RuntimeError."""
+        broker = InMemoryMessageBroker()
+        with pytest.raises(RuntimeError, match="Broker is not running"):
+            await broker.publish("topic", b"data")
 
     async def test_start_and_stop_lifecycle(self) -> None:
         """start() and stop() should toggle the running state."""

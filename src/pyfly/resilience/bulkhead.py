@@ -37,23 +37,26 @@ class Bulkhead:
     def __init__(self, max_concurrent: int = 10) -> None:
         self._max_concurrent = max_concurrent
         self._semaphore = asyncio.Semaphore(max_concurrent)
+        self._active = 0
 
     async def acquire(self) -> None:
         """Try to acquire a slot. Raises BulkheadException if at capacity."""
-        if self._semaphore._value <= 0:  # Check without blocking
+        if self._semaphore.locked():
             raise BulkheadException(
                 f"Bulkhead at capacity ({self._max_concurrent} concurrent calls)"
             )
         await self._semaphore.acquire()
+        self._active += 1
 
     def release(self) -> None:
         """Release a slot."""
+        self._active -= 1
         self._semaphore.release()
 
     @property
     def available_slots(self) -> int:
         """Number of available concurrent slots."""
-        return self._semaphore._value
+        return self._max_concurrent - self._active
 
     @property
     def max_concurrent(self) -> int:

@@ -159,7 +159,7 @@ class QueryMethodCompiler:
             stmt = delete(entity)
             stmt = self._apply_where(stmt, parsed, entity, args)
             result = await session.execute(stmt)
-            return result.rowcount  # type: ignore[return-value]
+            return result.rowcount or 0
 
         return _execute
 

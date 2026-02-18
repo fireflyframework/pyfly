@@ -111,7 +111,8 @@ class TestOverviewProvider:
 class TestEnvProvider:
     async def test_get_env(self):
         ctx = _make_mock_context()
-        ctx.config._data = {"pyfly": {"web": {"port": 8080}, "cache": {"enabled": True}}}
+        data = {"pyfly": {"web": {"port": 8080}, "cache": {"enabled": True}}}
+        ctx.config.to_dict.return_value = data
         ctx.config.loaded_sources = ["pyfly-defaults.yaml", "pyfly.yaml"]
         provider = EnvProvider(ctx)
         result = await provider.get_env()
@@ -272,12 +273,13 @@ class TestCacheProvider:
 class TestConfigProvider:
     async def test_get_config_grouped(self):
         ctx = _make_mock_context()
-        ctx.config._data = {
+        data = {
             "pyfly": {
                 "web": {"port": 8080, "adapter": "auto"},
                 "cache": {"enabled": False, "provider": "memory"},
             }
         }
+        ctx.config.to_dict.return_value = data
         provider = ConfigProvider(ctx)
         result = await provider.get_config()
         assert "groups" in result

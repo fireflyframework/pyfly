@@ -95,6 +95,6 @@ class CrudRepository(Protocol[T, ID]):
 class PagingRepository(CrudRepository[T, ID], Protocol[T, ID]):
     """CrudRepository with pagination support."""
 
-    async def find_all_paged(
+    async def find_paginated(
         self, page: int = 1, size: int = 20, sort: list[str] | None = None
     ) -> Page[T]: ...

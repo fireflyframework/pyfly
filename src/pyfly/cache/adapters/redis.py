@@ -16,8 +16,11 @@
 from __future__ import annotations
 
 import json
+import logging
 from datetime import timedelta
 from typing import Any
+
+_logger = logging.getLogger(__name__)
 
 
 class RedisCacheAdapter:
@@ -35,7 +38,11 @@ class RedisCacheAdapter:
         raw = await self._client.get(key)
         if raw is None:
             return None
-        return json.loads(raw)
+        try:
+            return json.loads(raw)
+        except (json.JSONDecodeError, TypeError):
+            _logger.warning("Failed to deserialize cached value for key '%s'", key)
+            return None
 
     async def put(self, key: str, value: Any, ttl: timedelta | None = None) -> None:
         """Serialize and store a value with optional TTL."""

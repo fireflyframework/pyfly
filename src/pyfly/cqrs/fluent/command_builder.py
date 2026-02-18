@@ -98,6 +98,8 @@ class CommandBuilder(Generic[C, R]):
             command.set_correlation_id(self._correlation_id)
         if self._initiated_by:
             command.set_initiated_by(self._initiated_by)
+        if self._timestamp is not None:
+            object.__setattr__(command, "_cqrs_timestamp", self._timestamp)
         for k, v in self._metadata.items():
             command.set_metadata(k, v)
         return command

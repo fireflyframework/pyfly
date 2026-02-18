@@ -28,7 +28,7 @@ class ConfigProvider:
         self._context = context
 
     async def get_config(self) -> dict[str, Any]:
-        raw = self._context.config._data
+        raw = self._context.config.to_dict()
         groups: dict[str, Any] = {}
 
         pyfly_config = raw.get("pyfly", {})

@@ -102,6 +102,14 @@ class QueryBuilder(Generic[Q, R]):
             query.set_correlation_id(self._correlation_id)
         if self._cacheable is not None:
             query.set_cacheable(self._cacheable)
+        if self._cache_key is not None:
+
+            def _override_cache_key() -> str:
+                return self._cache_key  # type: ignore[return-value]
+
+            object.__setattr__(query, "get_cache_key", _override_cache_key)
+        if self._timestamp is not None:
+            object.__setattr__(query, "_cqrs_timestamp", self._timestamp)
         for k, v in self._metadata.items():
             query.get_metadata()[k] = v
         return query

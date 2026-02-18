@@ -181,11 +181,19 @@ class AdminRouteBuilder:
     async def _handle_loggers(self, request: Request) -> JSONResponse:
         return JSONResponse(await self._loggers.get_loggers())
 
+    _VALID_LOG_LEVELS = frozenset({
+        "TRACE", "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL", "OFF",
+    })
+
     async def _handle_set_logger(self, request: Request) -> JSONResponse:
         name = request.path_params["name"]
         body = await request.body()
         payload = json.loads(body) if body else {}
-        level = payload.get("level", "INFO")
+        level = payload.get("level", "INFO").upper()
+        if level not in self._VALID_LOG_LEVELS:
+            return JSONResponse(
+                {"error": f"Invalid log level: {level}"}, status_code=400,
+            )
         result = await self._loggers.set_level(name, level)
         if "error" in result:
             return JSONResponse(result, status_code=400)

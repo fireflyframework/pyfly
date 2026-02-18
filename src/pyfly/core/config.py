@@ -67,6 +67,10 @@ class Config:
         """List of config file paths that were loaded, in merge order."""
         return list(self._loaded_sources)
 
+    def to_dict(self) -> dict[str, Any]:
+        """Return a shallow copy of the raw configuration data."""
+        return dict(self._data)
+
     @classmethod
     def from_sources(
         cls,

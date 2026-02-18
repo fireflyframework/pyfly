@@ -34,6 +34,8 @@ class InMemoryMessageBroker:
         key: bytes | None = None,
         headers: dict[str, str] | None = None,
     ) -> None:
+        if not self._running:
+            raise RuntimeError("Broker is not running")
         msg = Message(topic=topic, value=value, key=key, headers=headers or {})
         subs = self._subscriptions.get(topic, [])
         delivered_groups: set[str] = set()

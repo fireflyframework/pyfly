@@ -36,6 +36,8 @@ from pyfly.cqrs.types import Query
 
 _logger = logging.getLogger(__name__)
 
+_CACHE_MISS = object()
+
 
 @runtime_checkable
 class QueryBus(Protocol):
@@ -135,7 +137,7 @@ class DefaultQueryBus:
 
             # 5. Cache check
             cached_result = await self._try_cache_get(query, handler)
-            if cached_result is not None:
+            if cached_result is not _CACHE_MISS:
                 duration = self._metrics.now() - start
                 self._metrics.record_query_success(query, duration)
                 _logger.debug("Query %s served from cache in %.3fs", query_name, duration)
@@ -170,21 +172,24 @@ class DefaultQueryBus:
 
     # ── caching helpers ────────────────────────────────────────
 
-    async def _try_cache_get(self, query: Query[Any], handler: QueryHandler[Any, Any]) -> Any | None:
+    async def _try_cache_get(self, query: Query[Any], handler: QueryHandler[Any, Any]) -> Any:
         if not self._cache:
-            return None
+            return _CACHE_MISS
         if not query.is_cacheable():
-            return None
+            return _CACHE_MISS
         if not handler.supports_caching():
-            return None
+            return _CACHE_MISS
         cache_key = self._build_cache_key(query)
         if cache_key is None:
-            return None
+            return _CACHE_MISS
         try:
-            return await self._cache.get(cache_key)
+            result = await self._cache.get(cache_key)
+            if result is None:
+                return _CACHE_MISS
+            return result
         except Exception as exc:
             _logger.warning("Cache get failed for %s: %s", cache_key, exc)
-            return None
+            return _CACHE_MISS
 
     async def _try_cache_put(self, query: Query[Any], handler: QueryHandler[Any, Any], result: Any) -> None:
         if not self._cache:

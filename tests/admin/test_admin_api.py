@@ -50,7 +50,8 @@ def log_handler():
 @pytest.fixture
 def admin_client(log_handler):
     ctx = _make_mock_context()
-    ctx.config._data = {"pyfly": {"app": {"name": "test"}, "web": {"port": 8080}}}
+    data = {"pyfly": {"app": {"name": "test"}, "web": {"port": 8080}}}
+    ctx.config.to_dict.return_value = data
     ctx.config.loaded_sources = []
 
     # Register the log handler in the mock context so LogfileProvider can find it
@@ -115,7 +116,8 @@ class TestAdminAPI:
         from pyfly.actuator.health import HealthAggregator
 
         ctx = _make_mock_context()
-        ctx.config._data = {"pyfly": {"app": {"name": "test"}, "web": {"port": 8080}}}
+        data = {"pyfly": {"app": {"name": "test"}, "web": {"port": 8080}}}
+        ctx.config.to_dict.return_value = data
         ctx.config.loaded_sources = []
 
         agg = HealthAggregator()

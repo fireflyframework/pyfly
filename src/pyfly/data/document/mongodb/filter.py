@@ -92,7 +92,7 @@ class MongoFilterOperator:
                 parts.append(re.escape(char))
         regex = "^" + "".join(parts) + "$"
         return MongoSpecification(
-            lambda root, q, _f=field, _r=regex: {_f: {"$regex": _r}}
+            lambda root, q, _f=field, _r=regex: {_f: {"$regex": _r, "$options": "i"}}
         )
 
     @staticmethod

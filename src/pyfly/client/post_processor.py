@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import inspect
+import json
 from collections.abc import Callable
 from datetime import timedelta
 from typing import Any
@@ -184,6 +185,9 @@ class HttpClientBeanPostProcessor:
                 request_kwargs["params"] = remaining
 
             response = await client.request(http_method, path, **request_kwargs)
-            return response.json()
+            try:
+                return response.json()
+            except (json.JSONDecodeError, ValueError):
+                return response.text
 
         return implementation

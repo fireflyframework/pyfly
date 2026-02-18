@@ -48,7 +48,14 @@ def fallback(
                 return await func(*args, **kwargs)
             except on as exc:
                 if fallback_method is not None:
-                    result = fallback_method(*args, exc=exc, **kwargs)
+                    try:
+                        result = fallback_method(*args, exc=exc, **kwargs)
+                    except TypeError as te:
+                        if "exc" in str(te):
+                            raise TypeError(
+                                f"Fallback method '{fallback_method.__name__}' must accept an 'exc' keyword argument"
+                            ) from te
+                        raise
                     if inspect.isawaitable(result):
                         return await result
                     return result

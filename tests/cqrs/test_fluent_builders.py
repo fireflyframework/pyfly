@@ -114,6 +114,16 @@ class TestCommandBuilder:
         now = datetime.now(timezone.utc)
         assert (now - ts).total_seconds() < 2
 
+    def test_at_sets_timestamp(self) -> None:
+        ts = datetime(2025, 6, 15, 12, 0, 0, tzinfo=timezone.utc)
+        cmd = (
+            CommandBuilder.create(CreateOrderCommand)
+            .with_field("customer_id", "c1")
+            .at(ts)
+            .build()
+        )
+        assert cmd.get_timestamp() == ts
+
     async def test_execute_with_builds_and_sends(self) -> None:
         mock_bus = AsyncMock()
         mock_bus.send.return_value = "order-123"
@@ -255,6 +265,25 @@ class TestQueryBuilder:
         builder = QueryBuilder.create(GetOrderQuery)
         result = builder.with_cache_key("my-key")
         assert result is builder
+
+    def test_with_cache_key_overrides_get_cache_key(self) -> None:
+        query = (
+            QueryBuilder.create(GetOrderQuery)
+            .with_field("order_id", "o1")
+            .with_cache_key("custom-key")
+            .build()
+        )
+        assert query.get_cache_key() == "custom-key"
+
+    def test_at_sets_timestamp(self) -> None:
+        ts = datetime(2025, 6, 15, 12, 0, 0, tzinfo=timezone.utc)
+        query = (
+            QueryBuilder.create(GetOrderQuery)
+            .with_field("order_id", "o1")
+            .at(ts)
+            .build()
+        )
+        assert query.get_timestamp() == ts
 
     def test_default_cacheable_is_true(self) -> None:
         query = (

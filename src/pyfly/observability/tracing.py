@@ -15,6 +15,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import functools
 from collections.abc import Callable
 from typing import Any, TypeVar
@@ -27,7 +28,7 @@ _tracer = trace.get_tracer("pyfly")
 
 
 def span(name: str) -> Callable[[F], F]:
-    """Decorator that wraps an async function in an OpenTelemetry span.
+    """Decorator that wraps a function in an OpenTelemetry span.
 
     Usage:
         @span("process-order")
@@ -35,12 +36,26 @@ def span(name: str) -> Callable[[F], F]:
     """
 
     def decorator(func: F) -> F:
+        if asyncio.iscoroutinefunction(func):
+            @functools.wraps(func)
+            async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+                with _tracer.start_as_current_span(name) as current_span:
+                    try:
+                        return await func(*args, **kwargs)
+                    except Exception as exc:
+                        current_span.set_status(
+                            trace.Status(trace.StatusCode.ERROR, str(exc))
+                        )
+                        current_span.record_exception(exc)
+                        raise
+
+            return async_wrapper  # type: ignore[return-value]
+
         @functools.wraps(func)
-        async def wrapper(*args: Any, **kwargs: Any) -> Any:
+        def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
             with _tracer.start_as_current_span(name) as current_span:
                 try:
-                    result = await func(*args, **kwargs)
-                    return result
+                    return func(*args, **kwargs)
                 except Exception as exc:
                     current_span.set_status(
                         trace.Status(trace.StatusCode.ERROR, str(exc))
@@ -48,6 +63,6 @@ def span(name: str) -> Callable[[F], F]:
                     current_span.record_exception(exc)
                     raise
 
-        return wrapper  # type: ignore[return-value]
+        return sync_wrapper  # type: ignore[return-value]
 
     return decorator

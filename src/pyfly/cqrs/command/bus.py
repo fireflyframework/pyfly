@@ -153,8 +153,12 @@ class DefaultCommandBus:
             return
         events = getattr(result, "domain_events", None) or getattr(command, "domain_events", None)
         if events:
+            failed_events = []
             for event in events:
                 try:
                     await publisher.publish(event)
                 except Exception as exc:
-                    _logger.warning("Failed to publish domain event: %s", exc)
+                    _logger.error("Failed to publish domain event %s: %s", type(event).__name__, exc)
+                    failed_events.append(event)
+            if failed_events:
+                _logger.error("%d domain event(s) failed to publish", len(failed_events))

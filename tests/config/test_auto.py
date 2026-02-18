@@ -44,9 +44,9 @@ class TestAutoConfiguration:
 
 
 class TestDiscoverAutoConfigurations:
-    def test_returns_all_eight_classes(self):
+    def test_returns_all_ten_classes(self):
         classes = discover_auto_configurations()
-        assert len(classes) == 8
+        assert len(classes) == 10
 
     def test_all_classes_have_auto_configuration_marker(self):
         for cls in discover_auto_configurations():
@@ -68,14 +68,16 @@ class TestDiscoverAutoConfigurations:
     def test_contains_expected_class_names(self):
         names = {cls.__name__ for cls in discover_auto_configurations()}
         assert names == {
-            "WebAutoConfiguration",
+            "AdminAutoConfiguration",
             "CacheAutoConfiguration",
-            "CqrsAutoConfiguration",
-            "MessagingAutoConfiguration",
             "ClientAutoConfiguration",
+            "CqrsAutoConfiguration",
             "DocumentAutoConfiguration",
+            "MessagingAutoConfiguration",
             "RelationalAutoConfiguration",
             "ShellAutoConfiguration",
+            "TransactionalEngineAutoConfiguration",
+            "WebAutoConfiguration",
         }
 
 

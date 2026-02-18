@@ -67,10 +67,10 @@ class TestCrudRepository:
 
 
 class TestPagingRepository:
-    def test_defines_find_all_paged(self) -> None:
-        """PagingRepository must expose find_all_paged."""
-        assert hasattr(PagingRepository, "find_all_paged")
-        assert callable(getattr(PagingRepository, "find_all_paged", None))
+    def test_defines_find_paginated(self) -> None:
+        """PagingRepository must expose find_paginated."""
+        assert hasattr(PagingRepository, "find_paginated")
+        assert callable(getattr(PagingRepository, "find_paginated", None))
 
     def test_is_runtime_checkable(self) -> None:
         """PagingRepository should be runtime_checkable as well."""
@@ -87,6 +87,6 @@ class TestPagingRepository:
             async def find_all_by_ids(self, ids): ...
             async def delete_all(self, ids): ...
             async def delete_all_entities(self, entities): ...
-            async def find_all_paged(self, page=1, size=20, sort=None): ...
+            async def find_paginated(self, page=1, size=20, sort=None): ...
 
         assert isinstance(_PagingDummy(), PagingRepository)

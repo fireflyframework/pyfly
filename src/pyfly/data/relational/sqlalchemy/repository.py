@@ -70,6 +70,14 @@ class Repository(Generic[T, ID]):
             )
         self._session = session
 
+    def _require_session(self) -> AsyncSession:
+        """Return the session or raise if none is configured."""
+        if self._session is None:
+            raise RuntimeError(
+                "No AsyncSession configured — ensure a session bean is registered"
+            )
+        return self._session
+
     def _apply_sort(self, stmt: Select, pageable: Pageable) -> Select:
         """Apply sort orders from a Pageable to a SELECT statement."""
         for order in pageable.sort.orders:
@@ -79,29 +87,33 @@ class Repository(Generic[T, ID]):
 
     async def save(self, entity: T) -> T:
         """Persist an entity (insert or update)."""
-        self._session.add(entity)
-        await self._session.flush()
-        await self._session.refresh(entity)
+        session = self._require_session()
+        session.add(entity)
+        await session.flush()
+        await session.refresh(entity)
         return entity
 
     async def find_by_id(self, id: ID) -> T | None:
         """Find an entity by its primary key."""
-        return await self._session.get(self._model, id)
+        session = self._require_session()
+        return await session.get(self._model, id)
 
     async def find_all(self, **filters: Any) -> list[T]:
         """Find all entities, optionally filtered by column values."""
+        session = self._require_session()
         stmt = select(self._model)
         for key, value in filters.items():
             stmt = stmt.where(getattr(self._model, key) == value)
-        result = await self._session.execute(stmt)
+        result = await session.execute(stmt)
         return list(result.scalars().all())
 
     async def delete(self, id: ID) -> None:
         """Delete an entity by its primary key."""
+        session = self._require_session()
         entity = await self.find_by_id(id)
         if entity is not None:
-            await self._session.delete(entity)
-            await self._session.flush()
+            await session.delete(entity)
+            await session.flush()
 
     async def find_paginated(
         self, page: int = 1, size: int = 20, pageable: Pageable | None = None
@@ -117,13 +129,14 @@ class Repository(Generic[T, ID]):
         Returns:
             A Page[T] containing the results and pagination metadata.
         """
+        session = self._require_session()
         if pageable is not None:
             page = pageable.page
             size = pageable.size
 
         # Count total
         count_stmt = select(func.count()).select_from(self._model)
-        total_result = await self._session.execute(count_stmt)
+        total_result = await session.execute(count_stmt)
         total = total_result.scalar_one()
 
         # Fetch page
@@ -135,27 +148,29 @@ class Repository(Generic[T, ID]):
             stmt = self._apply_sort(stmt, pageable)
 
         stmt = stmt.offset(offset).limit(size)
-        result = await self._session.execute(stmt)
+        result = await session.execute(stmt)
         items = list(result.scalars().all())
 
         return Page(items=items, total=total, page=page, size=size)
 
     async def find_all_by_spec(self, spec: Specification[T]) -> list[T]:
         """Find all entities matching the specification."""
+        session = self._require_session()
         stmt = select(self._model)
         stmt = spec.to_predicate(self._model, stmt)
-        result = await self._session.execute(stmt)
+        result = await session.execute(stmt)
         return list(result.scalars().all())
 
     async def find_all_by_spec_paged(
         self, spec: Specification[T], pageable: Pageable
     ) -> Page[T]:
         """Find entities matching the specification with pagination and sorting."""
+        session = self._require_session()
         # Count with spec
         base = select(self._model)
         filtered = spec.to_predicate(self._model, base)
         count_stmt = select(func.count()).select_from(filtered.subquery())
-        total_result = await self._session.execute(count_stmt)
+        total_result = await session.execute(count_stmt)
         total = total_result.scalar_one()
 
         # Apply sorting from Pageable.sort
@@ -163,15 +178,16 @@ class Repository(Generic[T, ID]):
 
         # Apply pagination
         stmt = stmt.offset(pageable.offset).limit(pageable.size)
-        result = await self._session.execute(stmt)
+        result = await session.execute(stmt)
         items = list(result.scalars().all())
 
         return Page(items=items, total=total, page=pageable.page, size=pageable.size)
 
     async def count(self) -> int:
         """Return the total number of entities."""
+        session = self._require_session()
         stmt = select(func.count()).select_from(self._model)
-        result = await self._session.execute(stmt)
+        result = await session.execute(stmt)
         return result.scalar_one()
 
     async def exists(self, id: ID) -> bool:
@@ -181,39 +197,43 @@ class Repository(Generic[T, ID]):
 
     async def save_all(self, entities: list[T]) -> list[T]:
         """Persist multiple entities in a single batch."""
-        self._session.add_all(entities)
-        await self._session.flush()
+        session = self._require_session()
+        session.add_all(entities)
+        await session.flush()
         for entity in entities:
-            await self._session.refresh(entity)
+            await session.refresh(entity)
         return entities
 
     async def find_all_by_ids(self, ids: list[ID]) -> list[T]:
         """Find all entities with IDs in the given list."""
         if not ids:
             return []
+        session = self._require_session()
         stmt = select(self._model).where(
             self._model.id.in_(ids)
         )
-        result = await self._session.execute(stmt)
+        result = await session.execute(stmt)
         return list(result.scalars().all())
 
     async def delete_all(self, ids: list[ID]) -> int:
         """Delete all entities with IDs in the given list. Returns count deleted."""
         if not ids:
             return 0
+        session = self._require_session()
         from sqlalchemy import delete as sa_delete
         stmt = sa_delete(self._model).where(
             self._model.id.in_(ids)
         )
-        result = await self._session.execute(stmt)
-        await self._session.flush()
+        result = await session.execute(stmt)
+        await session.flush()
         return result.rowcount
 
     async def delete_all_entities(self, entities: list[T]) -> int:
         """Delete all given entity instances. Returns count deleted."""
+        session = self._require_session()
         count = 0
         for entity in entities:
-            await self._session.delete(entity)
+            await session.delete(entity)
             count += 1
-        await self._session.flush()
+        await session.flush()
         return count

@@ -32,7 +32,7 @@ class EnvProvider:
         sources = getattr(self._context.config, "loaded_sources", [])
 
         # Flatten config into dot-notation key-value pairs
-        properties = self._flatten(self._context.config._data)
+        properties = self._flatten(self._context.config.to_dict())
 
         return {
             "active_profiles": profiles,
