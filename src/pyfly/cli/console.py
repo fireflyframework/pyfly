@@ -37,14 +37,15 @@ def print_banner() -> None:
 
     banner = (
         "[pyfly]"
-        "    ____        ________\n"
-        "   / __ \\__  __/ ____/ /_  __\n"
-        "  / /_/ / / / / /_  / / / / /\n"
-        " / ____/ /_/ / __/ / / /_/ /\n"
-        "/_/    \\__, /_/   /_/\\__, /\n"
-        "      /____/        /____/[/pyfly]"
+        r"                _____.__" "\n"
+        r"______ ___.__._/ ____\  | ___.__." "\n"
+        r"\____ <   |  |\   __\|  |<   |  |" "\n"
+        r"|  |_> >___  | |  |  |  |_\___  |" "\n"
+        r"|   __// ____| |__|  |____/ ____|" "\n"
+        r"|__|   \/                 \/" "[/pyfly]"
     )
     console.print(banner)
+    console.print()
     console.print(f"  [dim]:: PyFly Framework :: (v{__version__})[/dim]")
     console.print("  [dim]Copyright 2026 Firefly Software Solutions Inc. | Apache 2.0 License[/dim]\n")
 

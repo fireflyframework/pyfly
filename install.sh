@@ -84,14 +84,14 @@ prompt_read() {
 banner() {
     printf "${MAGENTA}"
     cat << 'BANNER'
-    ____        ________
-   / __ \__  __/ ____/ /_  __
-  / /_/ / / / / /_  / / / / /
- / ____/ /_/ / __/ / / /_/ /
-/_/    \__, /_/   /_/\__, /
-      /____/        /____/
+                _____.__
+______ ___.__._/ ____\  | ___.__.
+\____ <   |  |\   __\|  |<   |  |
+|  |_> >___  | |  |  |  |_\___  |
+|   __// ____| |__|  |____/ ____|
+|__|   \/                 \/
 BANNER
-    printf "${RESET}"
+    printf "${RESET}\n"
     printf "  ${DIM}:: PyFly Framework Installer :: (v%s)${RESET}\n" "$PYFLY_VERSION"
     printf "  ${DIM}Copyright 2026 Firefly Software Solutions Inc. | Apache 2.0 License${RESET}\n\n"
 }
