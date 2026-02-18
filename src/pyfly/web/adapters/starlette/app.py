@@ -208,10 +208,16 @@ def create_app(
                 view_registry.discover_from_context(context)
                 break
 
-        # Reuse health aggregator if actuator created one
-        health_agg = None
-        if actuator_enabled:
-            health_agg = agg
+        # Reuse health aggregator from actuator, or create one for admin
+        health_agg = agg
+        if health_agg is None:
+            from pyfly.actuator.health import HealthAggregator, HealthIndicator
+
+            health_agg = HealthAggregator()
+            for cls, reg in context.container._registrations.items():
+                if reg.instance is not None and isinstance(reg.instance, HealthIndicator):
+                    indicator_name = reg.name or cls.__name__
+                    health_agg.add_indicator(indicator_name, reg.instance)
 
         admin_builder = AdminRouteBuilder(
             properties=admin_props,

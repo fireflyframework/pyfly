@@ -84,6 +84,39 @@ class TestAdminAPI:
         resp = admin_client.get("/admin/api/health")
         assert resp.status_code == 200
 
+    def test_health_status_up_with_aggregator(self):
+        """Health returns UP (not UNKNOWN) when a HealthAggregator is provided."""
+        from pyfly.actuator.health import HealthAggregator
+
+        ctx = _make_mock_context()
+        ctx.config._data = {"pyfly": {"app": {"name": "test"}, "web": {"port": 8080}}}
+        ctx.config.loaded_sources = []
+
+        agg = HealthAggregator()
+        builder = AdminRouteBuilder(
+            properties=AdminProperties(),
+            overview=OverviewProvider(ctx, agg),
+            beans=BeansProvider(ctx),
+            health=HealthProvider(agg),
+            env=EnvProvider(ctx),
+            config=ConfigProvider(ctx),
+            loggers=LoggersProvider(),
+            metrics=MetricsProvider(),
+            scheduled=ScheduledProvider(ctx),
+            mappings=MappingsProvider(ctx),
+            caches=CacheProvider(ctx),
+            cqrs=CqrsProvider(ctx),
+            transactions=TransactionsProvider(ctx),
+            traces=TracesProvider(None),
+            view_registry=AdminViewRegistry(),
+        )
+        app = Starlette(routes=builder.build_routes())
+        client = TestClient(app)
+
+        resp = client.get("/admin/api/health")
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "UP"
+
     def test_loggers(self, admin_client):
         resp = admin_client.get("/admin/api/loggers")
         assert resp.status_code == 200
