@@ -123,8 +123,39 @@ class TestAdminLogHandler:
             assert record["level"] == "ERROR"
             assert record["logger"] == "test.format"
             assert record["message"] == "kaboom"
+            assert record["context"] == ""
             assert isinstance(record["id"], int)
             # Timestamp should be ISO format with timezone
             assert "T" in record["timestamp"]
         finally:
             logger.removeHandler(handler)
+
+    def test_parse_structlog_format(self):
+        """Structlog console output is parsed into event + context."""
+        result = AdminLogHandler._parse_message(
+            '2026-02-18T08:36:15.594605Z [info     ] bean_summary'
+            '                   [pyfly.core] total=40 services=1'
+        )
+        assert result["event"] == "bean_summary"
+        assert "total=40" in result["context"]
+        assert "services=1" in result["context"]
+
+    def test_parse_strips_ansi(self):
+        """ANSI escape codes from ConsoleRenderer are stripped."""
+        raw = (
+            '\x1b[2m2026-02-18T08:00:00Z\x1b[0m '
+            '[\x1b[32minfo     \x1b[0m] '
+            '\x1b[1mhttp_request\x1b[0m '
+            '[\x1b[34mpyfly.web\x1b[0m] '
+            'method=GET path=/health'
+        )
+        result = AdminLogHandler._parse_message(raw)
+        assert result["event"] == "http_request"
+        assert result["context"] == "method=GET path=/health"
+        assert "\x1b" not in result["event"]
+
+    def test_parse_plain_message(self):
+        """Plain (non-structlog) messages are kept as-is."""
+        result = AdminLogHandler._parse_message("just a simple log line")
+        assert result["event"] == "just a simple log line"
+        assert result["context"] == ""

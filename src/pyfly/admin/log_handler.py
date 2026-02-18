@@ -16,9 +16,19 @@
 from __future__ import annotations
 
 import logging
+import re
 from collections import deque
 from datetime import datetime, timezone
 from typing import Any
+
+# Strip ANSI escape codes produced by structlog's ConsoleRenderer
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
+
+# Parse structlog console format:
+#   TIMESTAMP [level    ] event_name                     [logger] key=value ...
+_STRUCTLOG_RE = re.compile(
+    r"^(\S+)\s+\[(\w+)\s*\]\s+(.*?)\s+\[([^\]]+)\]\s*(.*)$"
+)
 
 
 class AdminLogHandler(logging.Handler):
@@ -33,14 +43,28 @@ class AdminLogHandler(logging.Handler):
         self._records: deque[dict[str, Any]] = deque(maxlen=max_records)
         self._counter: int = 0
 
+    @staticmethod
+    def _parse_message(raw: str) -> dict[str, str]:
+        """Strip ANSI codes and extract structlog event/context if possible."""
+        clean = _ANSI_RE.sub("", raw).strip()
+        m = _STRUCTLOG_RE.match(clean)
+        if m:
+            return {
+                "event": m.group(3).strip(),
+                "context": m.group(5).strip(),
+            }
+        return {"event": clean, "context": ""}
+
     def emit(self, record: logging.LogRecord) -> None:
         self._counter += 1
+        parsed = self._parse_message(self.format(record))
         self._records.append({
             "id": self._counter,
             "timestamp": datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat(),
             "level": record.levelname,
             "logger": record.name,
-            "message": self.format(record),
+            "message": parsed["event"],
+            "context": parsed["context"],
             "thread": record.threadName,
         })
 

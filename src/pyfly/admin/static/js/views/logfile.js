@@ -16,14 +16,13 @@ import { sse } from '../sse.js';
 
 /* ── Helpers ──────────────────────────────────────────────────── */
 
-function levelClass(level) {
+function levelBadgeClass(level) {
     switch ((level || '').toUpperCase()) {
-        case 'ERROR':   return 'log-level-error';
-        case 'CRITICAL':return 'log-level-error';
-        case 'WARNING': return 'log-level-warning';
-        case 'INFO':    return 'log-level-info';
-        case 'DEBUG':   return 'log-level-debug';
-        default:        return 'log-level-debug';
+        case 'ERROR':   case 'CRITICAL': return 'log-badge-error';
+        case 'WARNING': return 'log-badge-warning';
+        case 'INFO':    return 'log-badge-info';
+        case 'DEBUG':   return 'log-badge-debug';
+        default:        return 'log-badge-debug';
     }
 }
 
@@ -42,10 +41,40 @@ function formatTimestamp(ts) {
 
 function createLogLine(record) {
     const div = document.createElement('div');
-    div.className = `log-line ${levelClass(record.level)}`;
-    const time = formatTimestamp(record.timestamp);
-    const level = (record.level || 'INFO').padEnd(8);
-    div.textContent = `${time} ${level} ${record.logger} — ${record.message}`;
+    div.className = 'log-line';
+
+    // Timestamp
+    const timeSpan = document.createElement('span');
+    timeSpan.className = 'log-timestamp';
+    timeSpan.textContent = formatTimestamp(record.timestamp);
+    div.appendChild(timeSpan);
+
+    // Level badge
+    const levelSpan = document.createElement('span');
+    levelSpan.className = `log-badge ${levelBadgeClass(record.level)}`;
+    levelSpan.textContent = (record.level || 'INFO');
+    div.appendChild(levelSpan);
+
+    // Logger name
+    const loggerSpan = document.createElement('span');
+    loggerSpan.className = 'log-logger';
+    loggerSpan.textContent = record.logger || '';
+    div.appendChild(loggerSpan);
+
+    // Event / message
+    const eventSpan = document.createElement('span');
+    eventSpan.className = 'log-event';
+    eventSpan.textContent = record.message || '';
+    div.appendChild(eventSpan);
+
+    // Context (key=value pairs)
+    if (record.context) {
+        const ctxSpan = document.createElement('span');
+        ctxSpan.className = 'log-context';
+        ctxSpan.textContent = record.context;
+        div.appendChild(ctxSpan);
+    }
+
     return div;
 }
 
