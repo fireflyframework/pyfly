@@ -37,6 +37,7 @@ if TYPE_CHECKING:
     from pyfly.admin.providers.mappings_provider import MappingsProvider
     from pyfly.admin.providers.metrics_provider import MetricsProvider
     from pyfly.admin.providers.overview_provider import OverviewProvider
+    from pyfly.admin.providers.runtime_provider import RuntimeProvider
     from pyfly.admin.providers.scheduled_provider import ScheduledProvider
     from pyfly.admin.providers.traces_provider import TracesProvider
     from pyfly.admin.providers.transactions_provider import TransactionsProvider
@@ -67,6 +68,7 @@ class AdminRouteBuilder:
         view_registry: AdminViewRegistry,
         trace_collector: TraceCollectorFilter | None = None,
         logfile: LogfileProvider | None = None,
+        runtime: RuntimeProvider | None = None,
         instance_registry: InstanceRegistry | None = None,
     ) -> None:
         self._props = properties
@@ -86,6 +88,7 @@ class AdminRouteBuilder:
         self._view_registry = view_registry
         self._trace_collector = trace_collector
         self._logfile = logfile
+        self._runtime = runtime
         self._instance_registry = instance_registry
 
     def build_routes(self) -> list[Route | Mount]:
@@ -100,6 +103,7 @@ class AdminRouteBuilder:
             [
                 Route(f"{api}/overview", self._handle_overview, methods=["GET"]),
                 Route(f"{api}/beans", self._handle_beans, methods=["GET"]),
+                Route(f"{api}/beans/graph", self._handle_bean_graph, methods=["GET"]),
                 Route(f"{api}/beans/{{name}}", self._handle_bean_detail, methods=["GET"]),
                 Route(f"{api}/health", self._handle_health, methods=["GET"]),
                 Route(f"{api}/env", self._handle_env, methods=["GET"]),
@@ -118,6 +122,7 @@ class AdminRouteBuilder:
                 Route(f"{api}/traces", self._handle_traces, methods=["GET"]),
                 Route(f"{api}/logfile", self._handle_logfile, methods=["GET"]),
                 Route(f"{api}/logfile/clear", self._handle_logfile_clear, methods=["POST"]),
+                Route(f"{api}/runtime", self._handle_runtime, methods=["GET"]),
                 Route(f"{api}/views", self._handle_views, methods=["GET"]),
                 Route(f"{api}/settings", self._handle_settings, methods=["GET"]),
             ]
@@ -130,6 +135,7 @@ class AdminRouteBuilder:
                 Route(f"{api}/sse/metrics", self._handle_sse_metrics, methods=["GET"]),
                 Route(f"{api}/sse/traces", self._handle_sse_traces, methods=["GET"]),
                 Route(f"{api}/sse/logfile", self._handle_sse_logfile, methods=["GET"]),
+                Route(f"{api}/sse/runtime", self._handle_sse_runtime, methods=["GET"]),
             ]
         )
 
@@ -165,6 +171,9 @@ class AdminRouteBuilder:
 
     async def _handle_beans(self, request: Request) -> JSONResponse:
         return JSONResponse(await self._beans.get_beans())
+
+    async def _handle_bean_graph(self, request: Request) -> JSONResponse:
+        return JSONResponse(await self._beans.get_bean_graph())
 
     async def _handle_bean_detail(self, request: Request) -> JSONResponse:
         name = request.path_params["name"]
@@ -267,6 +276,11 @@ class AdminRouteBuilder:
             return JSONResponse(result, status_code=400)
         return JSONResponse(result)
 
+    async def _handle_runtime(self, request: Request) -> JSONResponse:
+        if self._runtime is None:
+            return JSONResponse({"available": False})
+        return JSONResponse(await self._runtime.get_runtime())
+
     async def _handle_views(self, request: Request) -> JSONResponse:
         extensions = self._view_registry.get_extensions()
         views = [{"id": ext.view_id, "name": ext.display_name, "icon": ext.icon} for ext in extensions.values()]
@@ -332,6 +346,14 @@ class AdminRouteBuilder:
 
         handler = self._logfile.handler if self._logfile is not None else None
         return make_sse_response(logfile_stream(handler))
+
+    async def _handle_sse_runtime(self, request: Request) -> StreamingResponse:
+        from pyfly.admin.api.sse import make_sse_response, runtime_stream
+
+        if self._runtime is None:
+            return JSONResponse({"available": False})
+        interval = self._props.refresh_interval / 1000
+        return make_sse_response(runtime_stream(self._runtime, interval))
 
     async def _handle_spa(self, request: Request) -> Response:
         """Serve index.html for SPA client-side routing."""
