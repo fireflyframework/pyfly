@@ -460,7 +460,7 @@ PyFly Doctor
     ✓ mypy — Type checker
 
   PyFly packages:
-    ✓ pyfly v0.1.0
+    ✓ pyfly v0.1.0-M6
 
   All checks passed!
 ```

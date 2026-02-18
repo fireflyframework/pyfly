@@ -626,7 +626,7 @@ Missing optional tools are shown with a `-` dash indicator (dimmed), while missi
 Verifies that PyFly itself is importable and displays the installed version:
 
 ```
-✓ pyfly v0.1.0
+✓ pyfly v0.1.0-M6
 ```
 
 ### Summary
