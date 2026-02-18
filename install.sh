@@ -26,7 +26,7 @@ set -euo pipefail
 
 # ── Constants ──────────────────────────────────────────────────────────────────
 
-PYFLY_VERSION="0.1.0-M6"
+PYFLY_VERSION="0.2.0-M1"
 PYFLY_REPO="https://github.com/fireflyframework/pyfly.git"
 DEFAULT_INSTALL_DIR="$HOME/.pyfly"
 MIN_PYTHON_MAJOR=3
@@ -249,33 +249,43 @@ prompt_install_dir() {
 prompt_extras() {
     if [ "$IS_INTERACTIVE" = true ] && [ -z "${PYFLY_EXTRAS:-}" ]; then
         printf "\n${BOLD}Available extras:${RESET}\n"
-        printf "  ${CYAN} 1${RESET}) full             — All modules (recommended)\n"
-        printf "  ${CYAN} 2${RESET}) web              — Web framework (Starlette, uvicorn, admin dashboard)\n"
-        printf "  ${CYAN} 3${RESET}) data-relational  — SQL databases (SQLAlchemy, Alembic, SQLite default)\n"
-        printf "  ${CYAN} 4${RESET}) data-document    — Document databases (MongoDB, Beanie ODM)\n"
-        printf "  ${CYAN} 5${RESET}) eda              — Event-Driven Architecture (Kafka, RabbitMQ, in-memory)\n"
-        printf "  ${CYAN} 6${RESET}) cache            — Caching (Redis, in-memory)\n"
-        printf "  ${CYAN} 7${RESET}) client           — HTTP client (HTTPX, circuit breaker, retry)\n"
-        printf "  ${CYAN} 8${RESET}) security         — Auth & JWT (PyJWT, bcrypt)\n"
-        printf "  ${CYAN} 9${RESET}) scheduling       — Cron jobs and scheduled tasks\n"
-        printf "  ${CYAN}10${RESET}) observability    — Prometheus metrics, OpenTelemetry tracing\n"
-        printf "  ${CYAN}11${RESET}) shell            — CLI commands (Click, interactive REPL)\n"
-        printf "  ${CYAN}12${RESET}) custom           — Enter comma-separated extras\n"
+        printf "  ${CYAN} 1${RESET}) full             — All modules incl. Granian + FastAPI (recommended)\n"
+        printf "  ${CYAN} 2${RESET}) web              — Web framework (Starlette + Uvicorn; see web-fast for Granian)\n"
+        printf "  ${CYAN} 3${RESET}) web-fast         — High-performance web (Starlette + Granian + uvloop)\n"
+        printf "  ${CYAN} 4${RESET}) web-fastapi      — FastAPI web framework (FastAPI + Granian + uvloop)\n"
+        printf "  ${CYAN} 5${RESET}) fastapi          — FastAPI adapter only\n"
+        printf "  ${CYAN} 6${RESET}) data-relational  — SQL databases (SQLAlchemy, Alembic, SQLite default)\n"
+        printf "  ${CYAN} 7${RESET}) data-document    — Document databases (MongoDB, Beanie ODM)\n"
+        printf "  ${CYAN} 8${RESET}) eda              — Event-Driven Architecture (Kafka, RabbitMQ, in-memory)\n"
+        printf "  ${CYAN} 9${RESET}) cache            — Caching (Redis, in-memory)\n"
+        printf "  ${CYAN}10${RESET}) client           — HTTP client (HTTPX, circuit breaker, retry)\n"
+        printf "  ${CYAN}11${RESET}) security         — Auth & JWT (PyJWT, bcrypt)\n"
+        printf "  ${CYAN}12${RESET}) scheduling       — Cron jobs and scheduled tasks\n"
+        printf "  ${CYAN}13${RESET}) observability    — Prometheus metrics, OpenTelemetry tracing\n"
+        printf "  ${CYAN}14${RESET}) shell            — CLI commands (Click, interactive REPL)\n"
+        printf "  ${CYAN}15${RESET}) granian          — Granian ASGI server (Rust/tokio, ~3x faster than Uvicorn)\n"
+        printf "  ${CYAN}16${RESET}) hypercorn        — Hypercorn ASGI server (HTTP/2 and HTTP/3 support)\n"
+        printf "  ${CYAN}17${RESET}) custom           — Enter comma-separated extras\n"
         printf "\n${BOLD}Select extras${RESET} ${DIM}[1]${RESET}: "
         prompt_read choice
         case "${choice:-1}" in
             1)  EXTRAS="full" ;;
             2)  EXTRAS="web" ;;
-            3)  EXTRAS="data-relational" ;;
-            4)  EXTRAS="data-document" ;;
-            5)  EXTRAS="eda" ;;
-            6)  EXTRAS="cache" ;;
-            7)  EXTRAS="client" ;;
-            8)  EXTRAS="security" ;;
-            9)  EXTRAS="scheduling" ;;
-            10) EXTRAS="observability" ;;
-            11) EXTRAS="shell" ;;
-            12)
+            3)  EXTRAS="web-fast" ;;
+            4)  EXTRAS="web-fastapi" ;;
+            5)  EXTRAS="fastapi" ;;
+            6)  EXTRAS="data-relational" ;;
+            7)  EXTRAS="data-document" ;;
+            8)  EXTRAS="eda" ;;
+            9)  EXTRAS="cache" ;;
+            10) EXTRAS="client" ;;
+            11) EXTRAS="security" ;;
+            12) EXTRAS="scheduling" ;;
+            13) EXTRAS="observability" ;;
+            14) EXTRAS="shell" ;;
+            15) EXTRAS="granian" ;;
+            16) EXTRAS="hypercorn" ;;
+            17)
                 printf "${BOLD}Enter extras${RESET} ${DIM}(comma-separated, e.g. web,data-relational,cache,security)${RESET}: "
                 prompt_read custom_extras
                 EXTRAS="${custom_extras:-full}"

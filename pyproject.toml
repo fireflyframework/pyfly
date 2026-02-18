@@ -107,8 +107,16 @@ cli = [
 shell = [
     "click>=8.1",
 ]
+web-fast = [
+    "pyfly[web,granian]",
+    "uvloop>=0.21; sys_platform != 'win32'",
+]
+web-fastapi = [
+    "pyfly[fastapi,granian]",
+    "uvloop>=0.21; sys_platform != 'win32'",
+]
 full = [
-    "pyfly[web,data-relational,data-document,postgresql,eda,cqrs,cache,client,observability,security,scheduling,cli,shell,kafka,rabbitmq,redis,testing,granian]",
+    "pyfly[web,data-relational,data-document,postgresql,eda,cqrs,cache,client,observability,security,scheduling,cli,shell,kafka,rabbitmq,redis,testing,granian,fastapi,hypercorn]",
 ]
 dev = [
     "pyfly[full]",
