@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Server subsystem auto-configuration."""
+
 from __future__ import annotations
 
 from pyfly.container.bean import bean

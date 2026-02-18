@@ -17,6 +17,7 @@ Verifies that all available server and event loop adapters satisfy their
 respective port protocols, produce correct metadata, and that the
 auto-configuration layer is properly wired.
 """
+
 from __future__ import annotations
 
 from importlib import import_module
@@ -78,18 +79,14 @@ class TestServerResolution:
     def test_all_available_adapters_implement_protocol(self):
         """Every importable server adapter must satisfy ApplicationServerPort."""
         for class_name, instance in _available_server_adapters():
-            assert isinstance(instance, ApplicationServerPort), (
-                f"{class_name} does not implement ApplicationServerPort"
-            )
+            assert isinstance(instance, ApplicationServerPort), f"{class_name} does not implement ApplicationServerPort"
 
     def test_all_adapters_provide_server_info(self):
         """Every available server adapter must expose a valid ServerInfo."""
         valid_names = {name for _, _, name in _SERVER_ADAPTERS}
         for class_name, instance in _available_server_adapters():
             info = instance.server_info  # type: ignore[union-attr]
-            assert isinstance(info, ServerInfo), (
-                f"{class_name}.server_info is not a ServerInfo instance"
-            )
+            assert isinstance(info, ServerInfo), f"{class_name}.server_info is not a ServerInfo instance"
             assert info.name in valid_names, (
                 f"{class_name}.server_info.name={info.name!r} is not a recognized server name"
             )
@@ -98,12 +95,8 @@ class TestServerResolution:
         """Every server adapter should report a non-empty version string."""
         for class_name, instance in _available_server_adapters():
             info = instance.server_info  # type: ignore[union-attr]
-            assert isinstance(info.version, str), (
-                f"{class_name}.server_info.version is not a string"
-            )
-            assert len(info.version) > 0, (
-                f"{class_name}.server_info.version is empty"
-            )
+            assert isinstance(info.version, str), f"{class_name}.server_info.version is not a string"
+            assert len(info.version) > 0, f"{class_name}.server_info.version is empty"
 
 
 class TestEventLoopResolution:
@@ -125,9 +118,7 @@ class TestEventLoopResolution:
     def test_all_available_event_loops_implement_protocol(self):
         """Every importable event loop adapter must satisfy EventLoopPort."""
         for class_name, instance in _available_event_loop_adapters():
-            assert isinstance(instance, EventLoopPort), (
-                f"{class_name} does not implement EventLoopPort"
-            )
+            assert isinstance(instance, EventLoopPort), f"{class_name} does not implement EventLoopPort"
 
     def test_all_event_loops_have_name(self):
         """Every event loop adapter must report a recognized name."""
@@ -176,9 +167,13 @@ class TestServerInfoImmutability:
     def test_is_frozen(self):
         """ServerInfo fields should not be reassignable."""
         info = ServerInfo(
-            name="test", version="1.0", workers=1,
-            event_loop="asyncio", http_protocol="h1",
-            host="localhost", port=8000,
+            name="test",
+            version="1.0",
+            workers=1,
+            event_loop="asyncio",
+            http_protocol="h1",
+            host="localhost",
+            port=8000,
         )
         with pytest.raises(AttributeError):
             info.name = "other"  # type: ignore[misc]
@@ -186,18 +181,26 @@ class TestServerInfoImmutability:
     def test_equality(self):
         """Two ServerInfo instances with the same fields should be equal."""
         kwargs = dict(
-            name="test", version="1.0", workers=1,
-            event_loop="asyncio", http_protocol="h1",
-            host="localhost", port=8000,
+            name="test",
+            version="1.0",
+            workers=1,
+            event_loop="asyncio",
+            http_protocol="h1",
+            host="localhost",
+            port=8000,
         )
         assert ServerInfo(**kwargs) == ServerInfo(**kwargs)
 
     def test_all_fields_accessible(self):
         """All declared fields should be readable."""
         info = ServerInfo(
-            name="test", version="1.0", workers=4,
-            event_loop="uvloop", http_protocol="h2",
-            host="127.0.0.1", port=9000,
+            name="test",
+            version="1.0",
+            workers=4,
+            event_loop="uvloop",
+            http_protocol="h2",
+            host="127.0.0.1",
+            port=9000,
         )
         assert info.name == "test"
         assert info.version == "1.0"

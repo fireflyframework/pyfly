@@ -12,12 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Tests for ApplicationServerPort and EventLoopPort protocols."""
+
 from __future__ import annotations
 
 import pytest
 
-from pyfly.server.ports.outbound import ApplicationServerPort
 from pyfly.server.ports.event_loop import EventLoopPort
+from pyfly.server.ports.outbound import ApplicationServerPort
 from pyfly.server.types import ServerInfo
 
 
@@ -36,9 +37,13 @@ class _FakeServer:
     @property
     def server_info(self) -> ServerInfo:
         return ServerInfo(
-            name="fake", version="1.0.0", workers=1,
-            event_loop="asyncio", http_protocol="h1",
-            host="0.0.0.0", port=8000,
+            name="fake",
+            version="1.0.0",
+            workers=1,
+            event_loop="asyncio",
+            http_protocol="h1",
+            host="0.0.0.0",
+            port=8000,
         )
 
 
@@ -76,9 +81,13 @@ class TestEventLoopPort:
 class TestServerInfo:
     def test_server_info_is_frozen(self):
         info = ServerInfo(
-            name="granian", version="2.7.1", workers=4,
-            event_loop="uvloop", http_protocol="auto",
-            host="0.0.0.0", port=8000,
+            name="granian",
+            version="2.7.1",
+            workers=4,
+            event_loop="uvloop",
+            http_protocol="auto",
+            host="0.0.0.0",
+            port=8000,
         )
         assert info.name == "granian"
         with pytest.raises(AttributeError):

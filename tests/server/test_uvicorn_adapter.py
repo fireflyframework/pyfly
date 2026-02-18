@@ -12,16 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Tests for UvicornServerAdapter."""
+
 from __future__ import annotations
 
 from unittest.mock import patch
 
-import pytest
-
+from pyfly.config.properties.server import ServerProperties
 from pyfly.server.adapters.uvicorn.adapter import UvicornServerAdapter
 from pyfly.server.ports.outbound import ApplicationServerPort
 from pyfly.server.types import ServerInfo
-from pyfly.config.properties.server import ServerProperties
 
 
 class TestUvicornServerAdapter:

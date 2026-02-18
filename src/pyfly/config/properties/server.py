@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Application server configuration properties."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

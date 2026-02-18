@@ -12,32 +12,30 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Tests for HypercornServerAdapter."""
+
 from __future__ import annotations
 
-from unittest.mock import patch, MagicMock
+from importlib.util import find_spec
 
 import pytest
-
-try:
-    import hypercorn
-    HAS_HYPERCORN = True
-except ImportError:
-    HAS_HYPERCORN = False
 
 from pyfly.server.ports.outbound import ApplicationServerPort
 from pyfly.server.types import ServerInfo
 
+HAS_HYPERCORN = find_spec("hypercorn") is not None
 pytestmark = pytest.mark.skipif(not HAS_HYPERCORN, reason="hypercorn not installed")
 
 
 class TestHypercornServerAdapter:
     def test_is_application_server_port(self):
         from pyfly.server.adapters.hypercorn.adapter import HypercornServerAdapter
+
         adapter = HypercornServerAdapter()
         assert isinstance(adapter, ApplicationServerPort)
 
     def test_server_info(self):
         from pyfly.server.adapters.hypercorn.adapter import HypercornServerAdapter
+
         adapter = HypercornServerAdapter()
         info = adapter.server_info
         assert isinstance(info, ServerInfo)
@@ -45,5 +43,6 @@ class TestHypercornServerAdapter:
 
     def test_shutdown_does_not_raise(self):
         from pyfly.server.adapters.hypercorn.adapter import HypercornServerAdapter
+
         adapter = HypercornServerAdapter()
         adapter.shutdown()

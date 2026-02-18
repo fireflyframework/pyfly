@@ -71,7 +71,10 @@ def run_command(
 
     # Resolve server and event loop
     server_adapter, event_loop_adapter, config = _resolve_server_adapter(
-        server_type, host, port, workers,
+        server_type,
+        host,
+        port,
+        workers,
     )
 
     if event_loop_adapter is not None:
@@ -96,8 +99,6 @@ def _resolve_server_adapter(
     workers: int | None,
 ) -> tuple:
     """Build a (server_adapter, event_loop_adapter, config) triple."""
-    from pyfly.config.properties.server import ServerProperties  # noqa: F811
-
     config = _load_server_properties()
     if server_type:
         config.type = server_type
@@ -181,12 +182,13 @@ def _load_server_properties():  # noqa: ANN201
             with open(config_path) as f:
                 data = yaml.safe_load(f) or {}
             server_data = (data.get("pyfly", {}) or {}).get("server", {}) or {}
-            return ServerProperties(**{
-                k.replace("-", "_"): v
-                for k, v in server_data.items()
-                if k.replace("-", "_") in ServerProperties.__dataclass_fields__
-                and not isinstance(v, dict)
-            })
+            return ServerProperties(
+                **{
+                    k.replace("-", "_"): v
+                    for k, v in server_data.items()
+                    if k.replace("-", "_") in ServerProperties.__dataclass_fields__ and not isinstance(v, dict)
+                }
+            )
     except Exception:
         pass
     return ServerProperties()

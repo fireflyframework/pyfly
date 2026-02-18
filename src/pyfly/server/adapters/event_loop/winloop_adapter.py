@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """winloop event loop adapter — high-performance loop for Windows."""
+
 from __future__ import annotations
 
 
@@ -21,6 +22,7 @@ class WinloopEventLoopAdapter:
     def install(self) -> None:
         """Install winloop as the default asyncio event loop policy."""
         import winloop
+
         winloop.install()
 
     @property

@@ -12,9 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Tests for ServerProperties configuration dataclass."""
-from __future__ import annotations
 
-import pytest
+from __future__ import annotations
 
 from pyfly.config.properties.server import GranianProperties, ServerProperties
 

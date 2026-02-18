@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Granian ASGI server adapter — Rust/tokio-based, highest performance."""
+
 from __future__ import annotations
 
 import os
@@ -34,7 +35,7 @@ class GranianServerAdapter:
     def serve(self, app: str | Any, config: Any) -> None:
         """Start Granian (blocking)."""
         from granian import Granian
-        from granian.constants import HTTPModes, Interfaces
+        from granian.constants import Interfaces
 
         workers = config.workers if config.workers > 0 else (os.cpu_count() or 1)
         event_loop = config.event_loop if config.event_loop != "auto" else "auto"

@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Hypercorn ASGI server adapter — HTTP/2 and HTTP/3 support."""
+
 from __future__ import annotations
 
 import asyncio
@@ -98,6 +99,7 @@ class HypercornServerAdapter:
     def _get_version() -> str:
         try:
             from importlib.metadata import version
+
             return version("hypercorn")
         except Exception:
             return "unknown"

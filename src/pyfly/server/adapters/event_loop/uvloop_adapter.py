@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """uvloop event loop adapter — high-performance libuv-based loop for Linux/macOS."""
+
 from __future__ import annotations
 
 
@@ -21,6 +22,7 @@ class UvloopEventLoopAdapter:
     def install(self) -> None:
         """Install uvloop as the default asyncio event loop policy."""
         import uvloop
+
         uvloop.install()
 
     @property

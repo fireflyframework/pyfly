@@ -12,32 +12,31 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Tests for GranianServerAdapter."""
+
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from importlib.util import find_spec
+from unittest.mock import patch
 
 import pytest
-
-try:
-    import granian
-    HAS_GRANIAN = True
-except ImportError:
-    HAS_GRANIAN = False
 
 from pyfly.server.ports.outbound import ApplicationServerPort
 from pyfly.server.types import ServerInfo
 
+HAS_GRANIAN = find_spec("granian") is not None
 pytestmark = pytest.mark.skipif(not HAS_GRANIAN, reason="granian not installed")
 
 
 class TestGranianServerAdapter:
     def test_is_application_server_port(self):
         from pyfly.server.adapters.granian.adapter import GranianServerAdapter
+
         adapter = GranianServerAdapter()
         assert isinstance(adapter, ApplicationServerPort)
 
     def test_server_info(self):
         from pyfly.server.adapters.granian.adapter import GranianServerAdapter
+
         adapter = GranianServerAdapter()
         info = adapter.server_info
         assert isinstance(info, ServerInfo)
@@ -45,8 +44,8 @@ class TestGranianServerAdapter:
 
     @patch("granian.Granian")
     def test_serve_creates_granian_with_config(self, mock_granian_cls):
-        from pyfly.server.adapters.granian.adapter import GranianServerAdapter
         from pyfly.config.properties.server import ServerProperties
+        from pyfly.server.adapters.granian.adapter import GranianServerAdapter
 
         adapter = GranianServerAdapter()
         config = ServerProperties(type="granian", workers=2)
@@ -63,5 +62,6 @@ class TestGranianServerAdapter:
 
     def test_shutdown_does_not_raise(self):
         from pyfly.server.adapters.granian.adapter import GranianServerAdapter
+
         adapter = GranianServerAdapter()
         adapter.shutdown()

@@ -13,15 +13,10 @@
 # limitations under the License.
 """Tests for FastAPI web adapter."""
 
+from importlib.util import find_spec
+
 import pytest
 from pydantic import BaseModel
-
-try:
-    import fastapi
-
-    HAS_FASTAPI = True
-except ImportError:
-    HAS_FASTAPI = False
 
 from pyfly.container.stereotypes import rest_controller, service
 from pyfly.web.exception_handler import exception_handler
@@ -29,6 +24,7 @@ from pyfly.web.mappings import delete_mapping, get_mapping, post_mapping, reques
 from pyfly.web.params import Body, PathVar, QueryParam
 from pyfly.web.ports.outbound import WebServerPort
 
+HAS_FASTAPI = find_spec("fastapi") is not None
 pytestmark = pytest.mark.skipif(not HAS_FASTAPI, reason="fastapi not installed")
 
 
