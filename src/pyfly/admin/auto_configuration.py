@@ -18,6 +18,7 @@ from __future__ import annotations
 from pyfly.admin.config import AdminClientProperties, AdminProperties
 from pyfly.admin.log_handler import AdminLogHandler
 from pyfly.admin.middleware.trace_collector import TraceCollectorFilter
+from pyfly.admin.providers.runtime_provider import RuntimeProvider
 from pyfly.admin.registry import AdminViewRegistry
 from pyfly.admin.server.client_registration import AdminClientRegistration
 from pyfly.container.bean import bean
@@ -42,6 +43,10 @@ class AdminAutoConfiguration:
     @bean
     def admin_view_registry(self) -> AdminViewRegistry:
         return AdminViewRegistry()
+
+    @bean
+    def runtime_provider(self) -> RuntimeProvider:
+        return RuntimeProvider()
 
     @bean
     def admin_trace_collector(self) -> TraceCollectorFilter:

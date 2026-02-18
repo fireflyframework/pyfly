@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import difflib
 import inspect
+import time
 import types
 import typing
 from typing import Annotated, Any, TypeVar, Union, cast, get_args, get_origin
@@ -28,6 +29,7 @@ from pyfly.container.exceptions import (
     NoSuchBeanError,
     NoUniqueBeanError,
 )
+from pyfly.container.metrics import BeanMetrics
 from pyfly.container.registry import Registration
 from pyfly.container.types import Scope
 
@@ -49,6 +51,7 @@ class Container:
         self._named: dict[str, Registration] = {}
         self._bindings: dict[type, list[type]] = {}
         self._resolving: dict[type, None] = {}  # insertion-ordered, O(1) lookup
+        self._metrics: dict[type, BeanMetrics] = {}
 
     def register(
         self,
@@ -124,16 +127,20 @@ class Container:
     def _resolve_registration(self, reg: Registration) -> Any:
         """Resolve a single registration, handling scope."""
         if reg.scope == Scope.SINGLETON and reg.instance is not None:
+            self._ensure_metrics(reg.impl_type).resolution_count += 1
             return reg.instance
 
         if reg.scope == Scope.REQUEST:
-            return self._resolve_request_scoped(reg)
+            instance = self._resolve_request_scoped(reg)
+            self._ensure_metrics(reg.impl_type).resolution_count += 1
+            return instance
 
         instance = self._create_instance(reg)
 
         if reg.scope == Scope.SINGLETON:
             reg.instance = instance
 
+        self._ensure_metrics(reg.impl_type).resolution_count += 1
         return instance
 
     def _resolve_request_scoped(self, reg: Registration) -> Any:
@@ -164,6 +171,8 @@ class Container:
             raise BeanCurrentlyInCreationError(chain=chain, current=reg.impl_type)
         self._resolving[reg.impl_type] = None
         try:
+            start = time.perf_counter_ns()
+
             init = reg.impl_type.__init__  # type: ignore[misc]
             if init is object.__init__:
                 instance = reg.impl_type()
@@ -193,6 +202,12 @@ class Container:
                 instance = reg.impl_type(**kwargs)
 
             self._inject_autowired_fields(instance)
+
+            elapsed = time.perf_counter_ns() - start
+            metrics = self._ensure_metrics(reg.impl_type)
+            metrics.creation_time_ns = elapsed
+            metrics.created_at = time.time()
+
             return instance
         finally:
             self._resolving.pop(reg.impl_type, None)
@@ -262,6 +277,20 @@ class Container:
                         ) from None
 
             setattr(instance, attr_name, value)
+
+    def _ensure_metrics(self, cls: type) -> BeanMetrics:
+        """Return the metrics for *cls*, creating a new entry if needed."""
+        if cls not in self._metrics:
+            self._metrics[cls] = BeanMetrics()
+        return self._metrics[cls]
+
+    def get_bean_metrics(self, cls: type) -> BeanMetrics | None:
+        """Return collected metrics for a single bean, or ``None`` if never resolved."""
+        return self._metrics.get(cls)
+
+    def get_all_metrics(self) -> dict[type, BeanMetrics]:
+        """Return a snapshot of metrics for every resolved bean."""
+        return dict(self._metrics)
 
     def _get_similar_type_names(self, name: str) -> list[str]:
         """Return registered type names similar to *name* using fuzzy matching."""
