@@ -65,9 +65,7 @@ class WebFilterChainMiddleware:
 
             await self.app(scope, receive, _intercept)
 
-            response = Response(
-                content=b"".join(body_parts), status_code=status_code
-            )
+            response = Response(content=b"".join(body_parts), status_code=status_code)
             response.raw_headers[:] = raw_headers
             return response
 

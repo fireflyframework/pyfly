@@ -54,13 +54,15 @@ def _collect_builtin_metrics() -> list[dict[str, Any]]:
 
     def _add(name: str, value: Any) -> None:
         desc, unit = _METRIC_DESCRIPTIONS.get(name, ("", ""))
-        metrics.append({
-            "name": name,
-            "value": value,
-            "description": desc,
-            "unit": unit,
-            "source": "builtin",
-        })
+        metrics.append(
+            {
+                "name": name,
+                "value": value,
+                "description": desc,
+                "unit": unit,
+                "source": "builtin",
+            }
+        )
 
     # Process metrics
     try:
@@ -119,9 +121,7 @@ class MetricsProvider:
         try:
             from prometheus_client import REGISTRY
 
-            prometheus_names = sorted({
-                sample.name for metric in REGISTRY.collect() for sample in metric.samples
-            })
+            prometheus_names = sorted({sample.name for metric in REGISTRY.collect() for sample in metric.samples})
             has_prometheus = True
         except ImportError:
             pass
@@ -146,11 +146,13 @@ class MetricsProvider:
                         "description": m["description"],
                         "unit": m["unit"],
                         "source": "builtin",
-                        "measurements": [{
-                            "statistic": "value",
-                            "value": m["value"],
-                            "tags": {},
-                        }],
+                        "measurements": [
+                            {
+                                "statistic": "value",
+                                "value": m["value"],
+                                "tags": {},
+                            }
+                        ],
                     }
 
         # Fall back to Prometheus

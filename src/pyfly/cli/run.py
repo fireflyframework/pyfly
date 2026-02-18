@@ -123,7 +123,7 @@ def _print_cli_banner(config: Any, host: str, port: int) -> None:
         if config_path.exists():
             with open(config_path) as f:
                 data = yaml.safe_load(f) or {}
-            pyfly_section = (data.get("pyfly", {}) or {})
+            pyfly_section = data.get("pyfly", {}) or {}
             app_section = pyfly_section.get("app", {}) or {}
             app_name = str(app_section.get("name", "pyfly-app"))
             app_version = str(app_section.get("version", "0.1.0"))

@@ -292,9 +292,7 @@ class BeansProvider:
 
         return None
 
-    def _find_matching_bean(
-        self, target_type: type, registered_names: dict[type, str]
-    ) -> str | None:
+    def _find_matching_bean(self, target_type: type, registered_names: dict[type, str]) -> str | None:
         """Find a registered bean matching *target_type* (direct or subclass)."""
         if target_type in registered_names:
             return registered_names[target_type]
