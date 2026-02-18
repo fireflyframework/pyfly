@@ -25,8 +25,10 @@ from starlette.responses import StreamingResponse
 if TYPE_CHECKING:
     from pyfly.admin.log_handler import AdminLogHandler
     from pyfly.admin.middleware.trace_collector import TraceCollectorFilter
+    from pyfly.admin.providers.beans_provider import BeansProvider
     from pyfly.admin.providers.health_provider import HealthProvider
     from pyfly.admin.providers.metrics_provider import MetricsProvider
+    from pyfly.admin.providers.runtime_provider import RuntimeProvider
 
 
 def _sse_event(data: Any, event: str | None = None) -> str:
@@ -91,6 +93,35 @@ async def logfile_stream(
             for record in records:
                 yield _sse_event(record, event="log")
                 last_id = record["id"]
+        await asyncio.sleep(interval)
+
+
+async def runtime_stream(
+    runtime_provider: RuntimeProvider,
+    interval: float = 5.0,
+) -> AsyncGenerator[str, None]:
+    while True:
+        data = await runtime_provider.get_runtime()
+        yield _sse_event(data, event="runtime")
+        await asyncio.sleep(interval)
+
+
+async def beans_stream(
+    beans_provider: BeansProvider,
+    interval: float = 10.0,
+) -> AsyncGenerator[str, None]:
+    last_counts: dict[str, int] = {}
+    while True:
+        data = await beans_provider.get_beans()
+        updates = []
+        for bean in data.get("beans", []):
+            name = bean["name"]
+            count = bean.get("resolution_count", 0)
+            if count != last_counts.get(name, 0):
+                updates.append({"name": name, "resolution_count": count})
+                last_counts[name] = count
+        if updates:
+            yield _sse_event({"updates": updates}, event="beans")
         await asyncio.sleep(interval)
 
 
