@@ -357,7 +357,7 @@ class AdminRouteBuilder:
         handler = self._logfile.handler if self._logfile is not None else None
         return make_sse_response(logfile_stream(handler))
 
-    async def _handle_sse_runtime(self, request: Request) -> StreamingResponse:
+    async def _handle_sse_runtime(self, request: Request) -> Response:
         from pyfly.admin.api.sse import make_sse_response, runtime_stream
 
         if self._runtime is None:
@@ -365,7 +365,7 @@ class AdminRouteBuilder:
         interval = self._props.refresh_interval / 1000
         return make_sse_response(runtime_stream(self._runtime, interval))
 
-    async def _handle_sse_server(self, request: Request) -> StreamingResponse:
+    async def _handle_sse_server(self, request: Request) -> Response:
         from pyfly.admin.api.sse import make_sse_response, server_stream
 
         if self._server is None:

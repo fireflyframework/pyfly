@@ -39,8 +39,8 @@ class HypercornServerAdapter:
 
     async def serve_async(self, app: str | Any, config: Any) -> None:
         """Start Hypercorn (async)."""
-        from hypercorn.asyncio import serve
-        from hypercorn.config import Config as HypercornConfig
+        from hypercorn.asyncio import serve  # type: ignore[import-not-found]
+        from hypercorn.config import Config as HypercornConfig  # type: ignore[import-not-found]
 
         workers = config.workers if config.workers > 0 else (os.cpu_count() or 1)
         host = getattr(config, "host", None) or "0.0.0.0"

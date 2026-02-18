@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from typing import Any
 
 import click
 
@@ -97,7 +98,7 @@ def _resolve_server_adapter(
     host: str,
     port: int,
     workers: int | None,
-) -> tuple:
+) -> tuple[Any, Any, Any]:
     """Build a (server_adapter, event_loop_adapter, config) triple."""
     config = _load_server_properties()
     if server_type:
@@ -109,7 +110,7 @@ def _resolve_server_adapter(
     return server_adapter, event_loop_adapter, config
 
 
-def _create_server_adapter(server_type: str):  # noqa: ANN201
+def _create_server_adapter(server_type: str) -> Any:
     """Create server adapter by type or auto-detect best available."""
     if server_type in ("granian", "auto"):
         try:
@@ -145,7 +146,7 @@ def _create_server_adapter(server_type: str):  # noqa: ANN201
     raise SystemExit(1)
 
 
-def _create_event_loop_adapter(event_loop: str):  # noqa: ANN201
+def _create_event_loop_adapter(event_loop: str) -> Any:
     """Create event loop adapter by name or auto-detect."""
     if event_loop in ("uvloop", "auto"):
         try:
@@ -170,12 +171,12 @@ def _create_event_loop_adapter(event_loop: str):  # noqa: ANN201
     return AsyncioEventLoopAdapter()
 
 
-def _load_server_properties():  # noqa: ANN201
+def _load_server_properties() -> Any:
     """Load ServerProperties from pyfly.yaml, falling back to defaults."""
     from pyfly.config.properties.server import ServerProperties
 
     try:
-        import yaml
+        import yaml  # type: ignore[import-untyped]
 
         config_path = Path("pyfly.yaml")
         if config_path.exists():
@@ -211,7 +212,7 @@ def _run_with_uvicorn_reload(app_path: str, host: str, port: int) -> None:
 
 def _read_port_from_config() -> int | None:
     """Read the web port from pyfly.yaml if available."""
-    import yaml  # type: ignore[import-untyped]
+    import yaml
 
     config_path = Path("pyfly.yaml")
     if not config_path.exists():

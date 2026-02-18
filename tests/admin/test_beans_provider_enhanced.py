@@ -23,10 +23,10 @@ from pyfly.container.autowired import Autowired
 from pyfly.container.metrics import BeanMetrics
 from pyfly.container.types import Scope
 
-
 # ---------------------------------------------------------------------------
 # Sample classes used across tests
 # ---------------------------------------------------------------------------
+
 
 class Repository:
     """A sample repository bean."""
@@ -102,6 +102,7 @@ class BeanMethodBean:
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_reg(
     cls: type,
     name: str = "",
@@ -139,6 +140,7 @@ def _make_context(
 # ===================================================================
 # Tests for get_beans()
 # ===================================================================
+
 
 class TestGetBeansMetrics:
     """get_beans() must include creation_time_ms, resolution_count, created_at."""
@@ -197,6 +199,7 @@ class TestGetBeansMetrics:
 # ===================================================================
 # Tests for get_bean_detail()
 # ===================================================================
+
 
 class TestGetBeanDetail:
     """get_bean_detail() must include enriched information."""
@@ -330,6 +333,7 @@ class TestGetBeanDetail:
 # ===================================================================
 # Tests for get_bean_graph()
 # ===================================================================
+
 
 class TestGetBeanGraph:
     """get_bean_graph() must return {nodes, edges}."""

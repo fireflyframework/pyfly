@@ -21,7 +21,7 @@ class WinloopEventLoopAdapter:
 
     def install(self) -> None:
         """Install winloop as the default asyncio event loop policy."""
-        import winloop
+        import winloop  # type: ignore[import-not-found]
 
         winloop.install()
 

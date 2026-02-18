@@ -45,13 +45,10 @@ class RuntimeProvider:
         usage = resource.getrusage(resource.RUSAGE_SELF)
         rss_bytes = usage.ru_maxrss
         # macOS reports in bytes, Linux in KB
-        if platform.system() == "Darwin":
-            rss_mb = rss_bytes / (1024 * 1024)
-        else:
-            rss_mb = rss_bytes / 1024
+        rss_mb = rss_bytes / (1024 * 1024) if platform.system() == "Darwin" else rss_bytes / 1024
         result: dict[str, Any] = {"rss_mb": round(rss_mb, 2)}
         try:
-            import psutil
+            import psutil  # type: ignore[import-untyped]
 
             proc = psutil.Process(os.getpid())
             mem = proc.memory_info()

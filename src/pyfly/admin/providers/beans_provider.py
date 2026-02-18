@@ -73,8 +73,7 @@ class BeansProvider:
     def _build_deps_list(self, cls: type) -> list[dict[str, str]]:
         """Build the flat dependency list used by ``get_beans``."""
         return [
-            {"name": name, "type": self._type_name(hint)}
-            for name, hint in self._get_constructor_hints(cls).items()
+            {"name": name, "type": self._type_name(hint)} for name, hint in self._get_constructor_hints(cls).items()
         ]
 
     # ------------------------------------------------------------------
@@ -134,9 +133,7 @@ class BeansProvider:
                 passed = True
             # Build a serialisable copy (skip the callable ``check`` key).
             entry: dict[str, Any] = {
-                k: (v.__name__ if isinstance(v, type) else v)
-                for k, v in cond.items()
-                if k != "check"
+                k: (v.__name__ if isinstance(v, type) else v) for k, v in cond.items() if k != "check"
             }
             entry["passed"] = passed
             result.append(entry)
