@@ -6,6 +6,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## v0.2.0-M4 (2026-02-18)
+
+### Added
+
+- **Pure ASGI middleware**: Rewrote `WebFilterChainMiddleware`, `SecurityMiddleware`, `SecurityHeadersMiddleware`, and `RequestLoggingMiddleware` as pure ASGI middleware classes, eliminating the `BaseHTTPMiddleware` dependency. Fixes `ModuleNotFoundError: No module named 'anyio._backends'` when running with Granian
+- **Built-in process metrics**: `MetricsProvider` now collects CPU time (user/system), memory RSS, PID, thread count, uptime, open file descriptors, GC stats per generation, and Python version/implementation without requiring `prometheus_client`. Prometheus metrics are included when available
+- **Bean category inference**: Beans without an explicit `@stereotype` decorator are classified by class name suffix (AutoConfiguration, Adapter, Provider, Filter, Middleware, Handler, Factory, Listener) or as "component" instead of "none"
+- **Mapping detail panel**: Mappings view shows handler parameters (with types and path/query/body kind), return type, docstring, and response model via `inspect.signature()` extraction. Method breakdown stat cards added
+- **Logger descriptions**: 25+ known logger prefixes mapped to human-readable descriptions (e.g., `pyfly.web` → "Web layer (HTTP, routing, filters)"). Reset button returns loggers to NOTSET. Level changes re-fetch to verify
+- **Trace detail panel**: Traces now capture query string, client host, content type, user agent, and response content-length. Click-to-detail panel and status code filter pills (All, 2xx, 3xx, 4xx, 5xx) added
+- **Wallboard subtitles**: Each tile shows a contextual subtitle (e.g., health component count, top bean stereotype, heap percentage, server version)
+
+### Changed
+
+- **Admin sidebar**: Logo increased from 26px to 36px, vertical divider added, text changed from "Admin" to "Admin Dashboard"
+- **Wallboard health tile**: Color is now dynamic based on status (UP → green, DOWN → red, DEGRADED → warning, UNKNOWN → muted) instead of always green
+- **Wallboard beans tile**: Shows just the total count instead of verbose stereotype breakdown
+- **Wallboard requests tile**: Now displays live trace count from the trace collector instead of "--"
+- **Configuration view**: Exposes all top-level config namespaces (e.g., `myapp.*`, `redis.*`), not just `pyfly.*`
+- **Metrics view**: Shows built-in/Prometheus source breakdown and metric descriptions
+
+---
+
 ## v0.2.0-M3 (2026-02-18)
 
 ### Added

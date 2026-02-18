@@ -227,24 +227,24 @@ stream for live updates.
 
 | View | Sidebar ID | Description |
 |------|-----------|-------------|
-| **Beans** | `beans` | Lists all registered DI beans with stereotype, scope, and class name. Click a bean for dependency detail. |
+| **Beans** | `beans` | Lists all registered DI beans with stereotype, scope, class name, and inferred category. Beans without an explicit stereotype are classified by class name suffix (e.g., Adapter, Provider, Filter) instead of "none". Click a bean for dependency detail. |
 | **Environment** | `env` | Active profiles, system properties, and environment variables (sensitive values masked). |
-| **Configuration** | `config` | Resolved `pyfly.*` configuration tree with source tracking. |
-| **Loggers** | `loggers` | Lists all loggers with current log levels. Allows runtime log level changes via POST. |
+| **Configuration** | `config` | Resolved configuration tree for all namespaces (not just `pyfly.*`) with source tracking. User-defined config namespaces are included. |
+| **Loggers** | `loggers` | Lists all loggers with current log levels and inferred descriptions. Allows runtime log level changes via POST with re-fetch verification. Reset button returns loggers to NOTSET (inherit from parent). |
 
 ### Monitoring
 
 | View | Sidebar ID | Description |
 |------|-----------|-------------|
-| **Metrics** | `metrics` | Available metric names with drill-down to individual metric values. Real-time SSE updates. |
+| **Metrics** | `metrics` | Built-in process metrics (CPU, memory, threads, GC, uptime) always available without external dependencies. Optional Prometheus metrics included when `prometheus_client` is installed. Drill-down to individual values with descriptions and units. Real-time SSE updates. |
 | **Scheduled Tasks** | `scheduled` | All `@scheduled` tasks with cron expressions, fixed-rate/delay configuration, and execution status. |
-| **HTTP Traces** | `traces` | Recent HTTP request/response traces captured by `TraceCollectorFilter`. Shows method, path, status code, and duration. Real-time SSE for new traces. Ring buffer of 500 entries. |
+| **HTTP Traces** | `traces` | Recent HTTP request/response traces captured by `TraceCollectorFilter`. Shows method, path, status code, duration, query string, client host, content type, user agent, and response content-length. Click-to-detail panel. Status code filter pills (All, 2xx, 3xx, 4xx, 5xx). Real-time SSE for new traces. Ring buffer of 500 entries. |
 
 ### Infrastructure
 
 | View | Sidebar ID | Description |
 |------|-----------|-------------|
-| **Mappings** | `mappings` | All registered HTTP route mappings with methods, paths, and handler references. |
+| **Mappings** | `mappings` | All registered HTTP route mappings with methods, paths, handler references, parameters (with types and path/query/body kind), return type, docstring, and response model. Click-to-detail panel. Method breakdown stat cards. |
 | **Caches** | `caches` | Cache adapter type, entry count, key listing with search, per-key eviction, and bulk evict-all. Introspects `InMemoryCache` and `RedisCacheAdapter` via duck-typed `get_stats()` / `get_keys()`. |
 | **CQRS** | `cqrs` | Registered command and query handlers with bus pipeline introspection (validation, authorization, metrics, event publishing). |
 | **Transactions** | `transactions` | Saga definitions with step DAGs, TCC transactions with participant phase coverage, and in-flight execution count. |

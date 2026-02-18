@@ -37,7 +37,7 @@ The WebFilter chain replaces direct middleware registration:
 Request
    |
    v
-WebFilterChainMiddleware (single Starlette BaseHTTPMiddleware)
+WebFilterChainMiddleware (pure ASGI middleware)
    |
    +-- TransactionIdFilter  (@order HIGHEST_PRECEDENCE + 100)
    +-- RequestLoggingFilter (@order HIGHEST_PRECEDENCE + 200)
@@ -375,16 +375,36 @@ The filter will be automatically included in the chain.
 
 ## WebFilterChainMiddleware Internals
 
-`WebFilterChainMiddleware` wraps all `WebFilter` instances into a single Starlette
-`BaseHTTPMiddleware`. The chain is built at request time from right to left:
+`WebFilterChainMiddleware` is a pure ASGI middleware (not Starlette's
+`BaseHTTPMiddleware`). This avoids the anyio dependency that caused
+`ModuleNotFoundError` with Granian. The chain is built at request time from right
+to left:
 
 ```python
-class WebFilterChainMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request, call_next):
-        chain = call_next
+class WebFilterChainMiddleware:
+    def __init__(self, app: ASGIApp, filters: Sequence[WebFilter] = ()) -> None:
+        self.app = app
+        self._filters = list(filters)
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        request = Request(scope, receive, send)
+
+        async def _call_app(req: Any) -> Response:
+            # Intercept ASGI send to capture status, headers, and body
+            ...
+            await self.app(scope, receive, _intercept)
+            response = Response(content=..., status_code=status_code)
+            response.raw_headers[:] = raw_headers
+            return response
+
+        chain: CallNext = _call_app
         for f in reversed(self._filters):
             chain = _wrap(f, chain)
-        return await chain(request)
+        response = await chain(request)
+        await response(scope, receive, send)
 
 def _wrap(web_filter, next_call):
     async def _inner(request):
@@ -393,6 +413,11 @@ def _wrap(web_filter, next_call):
         return await web_filter.do_filter(request, next_call)
     return _inner
 ```
+
+The terminal `_call_app` function captures the downstream ASGI response by
+intercepting `send` calls, buffering body parts, and reconstructing a Starlette
+`Response` object. This preserves the `call_next(request) -> Response` contract
+that `WebFilter.do_filter()` expects.
 
 The reversed iteration means the first filter in the sorted list becomes the
 outermost wrapper, executing first on the request and last on the response.
