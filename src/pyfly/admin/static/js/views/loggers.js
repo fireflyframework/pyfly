@@ -11,6 +11,7 @@
  */
 
 import { showToast } from '../components/toast.js';
+import { createFilterToolbar } from '../components/filter-toolbar.js';
 
 /* ── Helpers ──────────────────────────────────────────────────── */
 
@@ -46,35 +47,6 @@ function createLevelLabel(level) {
     }
 
     return span;
-}
-
-/**
- * Create a search icon SVG.
- * @returns {SVGElement}
- */
-function createSearchIcon() {
-    const svgNS = 'http://www.w3.org/2000/svg';
-    const svg = document.createElementNS(svgNS, 'svg');
-    svg.setAttribute('width', '16');
-    svg.setAttribute('height', '16');
-    svg.setAttribute('viewBox', '0 0 24 24');
-    svg.setAttribute('fill', 'none');
-    svg.setAttribute('stroke', 'currentColor');
-    svg.setAttribute('stroke-width', '2');
-    svg.setAttribute('stroke-linecap', 'round');
-    svg.setAttribute('stroke-linejoin', 'round');
-    const circle = document.createElementNS(svgNS, 'circle');
-    circle.setAttribute('cx', '11');
-    circle.setAttribute('cy', '11');
-    circle.setAttribute('r', '8');
-    svg.appendChild(circle);
-    const line = document.createElementNS(svgNS, 'line');
-    line.setAttribute('x1', '21');
-    line.setAttribute('y1', '21');
-    line.setAttribute('x2', '16.65');
-    line.setAttribute('y2', '16.65');
-    svg.appendChild(line);
-    return svg;
 }
 
 /* ── Render ───────────────────────────────────────────────────── */
@@ -141,6 +113,24 @@ export async function render(container, api) {
         effectiveLevel: info.effectiveLevel || info.effective_level || '--',
     }));
 
+    // ── Filter toolbar ───────────────────────────────────────
+    const toolbar = createFilterToolbar({
+        placeholder: 'Filter loggers by name...',
+        pills: [
+            { label: 'All', value: '' },
+            { label: 'DEBUG', value: 'DEBUG' },
+            { label: 'INFO', value: 'INFO' },
+            { label: 'WARNING', value: 'WARNING' },
+            { label: 'ERROR', value: 'ERROR' },
+            { label: 'CRITICAL', value: 'CRITICAL' },
+        ],
+        onFilter: ({ search, pill }) => {
+            renderTableBody(search, pill);
+        },
+        totalCount: loggerEntries.length,
+    });
+    wrapper.appendChild(toolbar);
+
     // ── Stat cards ───────────────────────────────────────────
     const statsRow = document.createElement('div');
     statsRow.className = 'grid-3 mb-lg';
@@ -204,19 +194,6 @@ export async function render(container, api) {
     tableBody.className = 'admin-card-body';
     tableBody.style.padding = '12px 20px 0';
 
-    // Search bar
-    const searchWrap = document.createElement('div');
-    searchWrap.className = 'search-input';
-    searchWrap.style.marginBottom = '12px';
-    searchWrap.appendChild(createSearchIcon());
-
-    const searchInput = document.createElement('input');
-    searchInput.type = 'text';
-    searchInput.className = 'input';
-    searchInput.placeholder = 'Filter loggers by name\u2026';
-    searchWrap.appendChild(searchInput);
-    tableBody.appendChild(searchWrap);
-
     // Table container
     const tableWrap = document.createElement('div');
     tableWrap.className = 'admin-table-wrapper';
@@ -241,15 +218,20 @@ export async function render(container, api) {
     table.appendChild(tbody);
 
     /**
-     * Render the table body based on the current filter.
-     * @param {string} filter
+     * Render the table body based on the current search text and pill filter.
+     * @param {string} search  Lowercase search string for logger name.
+     * @param {string} pill    Level pill value (e.g. "DEBUG") or "" for all.
      */
-    function renderTableBody(filter) {
+    function renderTableBody(search, pill) {
         tbody.replaceChildren();
 
-        const filtered = filter
-            ? loggerEntries.filter((e) => e.name.toLowerCase().includes(filter))
-            : loggerEntries;
+        const filtered = loggerEntries.filter((e) => {
+            const matchesSearch = !search || e.name.toLowerCase().includes(search);
+            const matchesPill = !pill || e.effectiveLevel.toUpperCase() === pill.toUpperCase();
+            return matchesSearch && matchesPill;
+        });
+
+        toolbar.updateCount(filtered.length, loggerEntries.length);
 
         if (filtered.length === 0) {
             const tr = document.createElement('tr');
@@ -258,7 +240,7 @@ export async function render(container, api) {
             td.style.textAlign = 'center';
             td.style.padding = '32px 16px';
             td.style.color = 'var(--admin-text-muted)';
-            td.textContent = filter ? 'No loggers match the filter' : 'No loggers found';
+            td.textContent = (search || pill) ? 'No loggers match the filter' : 'No loggers found';
             tr.appendChild(td);
             tbody.appendChild(tr);
             return;
@@ -342,13 +324,8 @@ export async function render(container, api) {
         }
     }
 
-    // Wire up search filtering
-    searchInput.addEventListener('input', () => {
-        renderTableBody(searchInput.value.toLowerCase());
-    });
-
     // Initial render
-    renderTableBody('');
+    renderTableBody('', '');
 
     tableWrap.appendChild(table);
     tableBody.appendChild(tableWrap);

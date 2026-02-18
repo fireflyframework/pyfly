@@ -2,11 +2,13 @@
  * PyFly Admin — Configuration View.
  *
  * Displays application configuration properties grouped by prefix
- * using collapsible accordion sections.
+ * using collapsible accordion sections with search filtering.
  *
  * Data source:  GET /admin/api/config
  *   -> { groups: { "pyfly.web": { port: 8080, adapter: "auto" }, ... } }
  */
+
+import { createFilterToolbar } from '../components/filter-toolbar.js';
 
 /* ── Helpers ──────────────────────────────────────────────────── */
 
@@ -140,6 +142,94 @@ function buildAccordionSection(prefix, props, startExpanded) {
     return card;
 }
 
+/**
+ * Filter accordion sections by search term.
+ *
+ * If a group name matches the search, all its properties are shown.
+ * If a property key or value matches, that group is shown with only
+ * matching rows visible. Matching sections are auto-expanded;
+ * non-matching sections are collapsed and hidden.
+ *
+ * @param {Array<{element: HTMLElement, prefix: string, props: object}>} sections
+ * @param {string} search  Lowercase search term
+ * @returns {number} Number of matching properties across all visible groups
+ */
+function filterAccordions(sections, search) {
+    if (!search) {
+        // No filter — show all sections, collapse all except the first
+        let matchingProps = 0;
+        for (let i = 0; i < sections.length; i++) {
+            const sec = sections[i];
+            sec.element.style.display = '';
+            matchingProps += Object.keys(sec.props).length;
+
+            // Reset rows visibility
+            const rows = sec.element.querySelectorAll('.kv-table tbody tr');
+            for (const row of rows) {
+                row.style.display = '';
+            }
+
+            // Restore first-expanded state
+            const header = sec.element.querySelector('.collapsible-header');
+            const content = sec.element.querySelector('.collapsible-content');
+            if (i === 0) {
+                header.classList.add('expanded');
+                content.classList.add('expanded');
+            } else {
+                header.classList.remove('expanded');
+                content.classList.remove('expanded');
+            }
+        }
+        return matchingProps;
+    }
+
+    let totalMatchingProps = 0;
+
+    for (const sec of sections) {
+        const groupNameMatches = sec.prefix.toLowerCase().includes(search);
+        let sectionHasMatch = groupNameMatches;
+        let matchingPropsInGroup = 0;
+
+        // Check each property row
+        const rows = sec.element.querySelectorAll('.kv-table tbody tr');
+        for (const row of rows) {
+            const th = row.querySelector('th');
+            const td = row.querySelector('td');
+            const keyText = th ? th.textContent.toLowerCase() : '';
+            const valText = td ? td.textContent.toLowerCase() : '';
+
+            if (groupNameMatches || keyText.includes(search) || valText.includes(search)) {
+                row.style.display = '';
+                matchingPropsInGroup++;
+                sectionHasMatch = true;
+            } else {
+                row.style.display = 'none';
+            }
+        }
+
+        if (sectionHasMatch) {
+            sec.element.style.display = '';
+            totalMatchingProps += matchingPropsInGroup;
+
+            // Auto-expand matching sections
+            const header = sec.element.querySelector('.collapsible-header');
+            const content = sec.element.querySelector('.collapsible-content');
+            header.classList.add('expanded');
+            content.classList.add('expanded');
+        } else {
+            sec.element.style.display = 'none';
+
+            // Collapse hidden sections
+            const header = sec.element.querySelector('.collapsible-header');
+            const content = sec.element.querySelector('.collapsible-content');
+            header.classList.remove('expanded');
+            content.classList.remove('expanded');
+        }
+    }
+
+    return totalMatchingProps;
+}
+
 /* ── Render ───────────────────────────────────────────────────── */
 
 /**
@@ -211,6 +301,37 @@ export async function render(container, api) {
         return;
     }
 
+    // ── Count total properties ──────────────────────────────────
+    let totalProps = 0;
+    for (const name of groupNames) {
+        totalProps += Object.keys(groups[name]).length;
+    }
+
+    // ── Build accordion sections (store references for filtering) ──
+    const accordionSections = [];
+    const accordionContainer = document.createElement('div');
+
+    for (let i = 0; i < groupNames.length; i++) {
+        const name = groupNames[i];
+        const props = groups[name];
+        const section = buildAccordionSection(name, props, i === 0);
+        accordionSections.push({ element: section, prefix: name, props });
+        accordionContainer.appendChild(section);
+    }
+
+    // ── Filter toolbar ──────────────────────────────────────────
+    const toolbar = createFilterToolbar({
+        placeholder: 'Search configuration...',
+        pills: [],
+        onFilter: ({ search }) => {
+            const matchCount = filterAccordions(accordionSections, search);
+            toolbar.updateCount(matchCount, totalProps);
+        },
+        totalCount: totalProps,
+    });
+
+    wrapper.appendChild(toolbar);
+
     // ── Stat row ─────────────────────────────────────────────
     const statsRow = document.createElement('div');
     statsRow.className = 'grid-3 mb-lg';
@@ -232,10 +353,6 @@ export async function render(container, api) {
     statsRow.appendChild(totalGroupCard);
 
     // Total properties
-    let totalProps = 0;
-    for (const name of groupNames) {
-        totalProps += Object.keys(groups[name]).length;
-    }
     const totalPropsCard = document.createElement('div');
     totalPropsCard.className = 'stat-card';
     const propsContent = document.createElement('div');
@@ -254,13 +371,5 @@ export async function render(container, api) {
     wrapper.appendChild(statsRow);
 
     // ── Accordion sections ───────────────────────────────────
-    const accordionContainer = document.createElement('div');
-
-    for (let i = 0; i < groupNames.length; i++) {
-        const name = groupNames[i];
-        const section = buildAccordionSection(name, groups[name], i === 0);
-        accordionContainer.appendChild(section);
-    }
-
     wrapper.appendChild(accordionContainer);
 }

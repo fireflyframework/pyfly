@@ -2,12 +2,12 @@
  * PyFly Admin — Overview View.
  *
  * Dashboard landing page showing health status, bean statistics,
- * stereotype breakdown chart, wiring summary, and quick-link cards.
+ * stereotype donut chart, wiring breakdown, app info, and quick links.
  *
  * Data source: GET /admin/api/overview
  */
 
-import { BarChart } from '../charts.js';
+import { DonutChart, GaugeChart } from '../charts.js';
 import { createStatusBadge } from '../components/status-badge.js';
 
 /* ── Helpers ──────────────────────────────────────────────────── */
@@ -22,23 +22,19 @@ function formatUptime(seconds) {
     const d = Math.floor(seconds / 86400);
     const h = Math.floor((seconds % 86400) / 3600);
     const m = Math.floor((seconds % 3600) / 60);
+    const s = Math.floor(seconds % 60);
     const parts = [];
     if (d > 0) parts.push(`${d}d`);
     if (h > 0 || d > 0) parts.push(`${h}h`);
     parts.push(`${m}m`);
+    if (d === 0 && h === 0) parts.push(`${s}s`);
     return parts.join(' ');
 }
 
 /**
  * Create a stat card element.
- *
- * @param {object}      opts
- * @param {string}      opts.label
- * @param {string|Node} opts.value     Text or DOM node for the value area.
- * @param {string}      opts.iconClass One of: primary, success, warning, danger, info.
- * @returns {HTMLElement}
  */
-function createStatCard({ label, value, iconClass = 'primary' }) {
+function createStatCard({ label, value, subtitle, iconClass = 'primary' }) {
     const card = document.createElement('div');
     card.className = 'stat-card';
 
@@ -59,6 +55,15 @@ function createStatCard({ label, value, iconClass = 'primary' }) {
     labelEl.textContent = label;
     content.appendChild(labelEl);
 
+    if (subtitle) {
+        const subEl = document.createElement('div');
+        subEl.style.fontSize = '0.7rem';
+        subEl.style.color = 'var(--admin-text-muted)';
+        subEl.style.marginTop = '2px';
+        subEl.textContent = subtitle;
+        content.appendChild(subEl);
+    }
+
     card.appendChild(content);
 
     const icon = document.createElement('div');
@@ -69,35 +74,43 @@ function createStatCard({ label, value, iconClass = 'primary' }) {
 }
 
 /**
- * Build a key-value table from an object.
- * @param {Object<string, string|number>} data
- * @returns {HTMLTableElement}
+ * Build a wiring progress bar item.
  */
-function buildKvTable(data) {
-    const table = document.createElement('table');
-    table.className = 'kv-table';
-    const tbody = document.createElement('tbody');
-    for (const [key, val] of Object.entries(data)) {
-        const tr = document.createElement('tr');
-        const th = document.createElement('th');
-        th.textContent = key;
-        const td = document.createElement('td');
-        td.textContent = val != null ? String(val) : '--';
-        tr.appendChild(th);
-        tr.appendChild(td);
-        tbody.appendChild(tr);
-    }
-    table.appendChild(tbody);
-    return table;
+function buildWiringItem(label, count, maxCount, color) {
+    const item = document.createElement('div');
+    item.className = 'wiring-item';
+
+    const labelEl = document.createElement('div');
+    labelEl.className = 'wiring-item-label';
+    labelEl.textContent = label;
+    item.appendChild(labelEl);
+
+    const bar = document.createElement('div');
+    bar.className = 'wiring-item-bar';
+    const fill = document.createElement('div');
+    fill.className = 'wiring-item-fill';
+    fill.style.width = maxCount > 0 ? `${(count / maxCount) * 100}%` : '0%';
+    fill.style.background = `var(${color})`;
+    bar.appendChild(fill);
+    item.appendChild(bar);
+
+    const countEl = document.createElement('div');
+    countEl.className = 'wiring-item-count';
+    countEl.textContent = String(count);
+    item.appendChild(countEl);
+
+    return item;
 }
 
 /* ── Quick-link definitions ───────────────────────────────────── */
 
 const QUICK_LINKS = [
-    { label: 'Beans',   route: 'beans',   description: 'Explore registered components' },
-    { label: 'Health',  route: 'health',  description: 'Service health checks' },
-    { label: 'Loggers', route: 'loggers', description: 'Runtime log-level control' },
-    { label: 'Metrics', route: 'metrics', description: 'Application metrics' },
+    { label: 'Beans',       route: 'beans',       description: 'Explore registered components' },
+    { label: 'Health',      route: 'health',      description: 'Service health checks' },
+    { label: 'Loggers',     route: 'loggers',     description: 'Runtime log-level control' },
+    { label: 'Metrics',     route: 'metrics',     description: 'Application metrics' },
+    { label: 'Environment', route: 'env',         description: 'Profiles & properties' },
+    { label: 'Traces',      route: 'traces',      description: 'Request traces' },
 ];
 
 /* ── Render ───────────────────────────────────────────────────── */
@@ -116,18 +129,23 @@ export async function render(container, api) {
     // Page header
     const header = document.createElement('div');
     header.className = 'page-header';
+    const headerLeft = document.createElement('div');
     const h1 = document.createElement('h1');
     h1.textContent = 'Overview';
-    header.appendChild(h1);
+    headerLeft.appendChild(h1);
+    const sub = document.createElement('div');
+    sub.className = 'page-subtitle';
+    sub.textContent = 'application.dashboard';
+    headerLeft.appendChild(sub);
+    header.appendChild(headerLeft);
     wrapper.appendChild(header);
 
-    // Show loading spinner while fetching
+    // Loading
     const loader = document.createElement('div');
     loader.className = 'loading-spinner';
     wrapper.appendChild(loader);
     container.appendChild(wrapper);
 
-    // Fetch overview data
     let data;
     try {
         data = await api.get('/overview');
@@ -150,7 +168,6 @@ export async function render(container, api) {
         return;
     }
 
-    // Remove loader
     wrapper.removeChild(loader);
 
     const app = data.app || {};
@@ -162,43 +179,41 @@ export async function render(container, api) {
     const statsRow = document.createElement('div');
     statsRow.className = 'grid-4 mb-lg';
 
-    // 1) Health status badge + label
+    // 1) Health status
     const healthBadge = createStatusBadge(health.status || 'UNKNOWN');
-    const healthCard = createStatCard({ label: 'Health Status', value: healthBadge, iconClass: 'success' });
-    statsRow.appendChild(healthCard);
+    statsRow.appendChild(createStatCard({ label: 'Health Status', value: healthBadge, iconClass: 'success' }));
 
-    // 2) Total beans count
-    const beansCard = createStatCard({
+    // 2) Total beans
+    statsRow.appendChild(createStatCard({
         label: 'Total Beans',
         value: String(beans.total != null ? beans.total : 0),
         iconClass: 'primary',
-    });
-    statsRow.appendChild(beansCard);
+    }));
 
     // 3) Uptime
-    const uptimeCard = createStatCard({
+    statsRow.appendChild(createStatCard({
         label: 'Uptime',
         value: formatUptime(app.uptime_seconds),
+        subtitle: `Port ${app.web_port || 8080}`,
         iconClass: 'info',
-    });
-    statsRow.appendChild(uptimeCard);
+    }));
 
     // 4) Active profiles
     const profiles = app.profiles || [];
-    const profilesCard = createStatCard({
+    statsRow.appendChild(createStatCard({
         label: 'Active Profiles',
         value: profiles.length > 0 ? profiles.join(', ') : 'default',
+        subtitle: `Python ${app.python_version || ''}`,
         iconClass: 'warning',
-    });
-    statsRow.appendChild(profilesCard);
+    }));
 
     wrapper.appendChild(statsRow);
 
-    // ── Two-column layout: chart + wiring ─────────────────────
+    // ── Two-column layout: donut chart + wiring ──────────────
     const midRow = document.createElement('div');
     midRow.className = 'grid-2 mb-lg';
 
-    // Stereotype breakdown bar chart
+    // Stereotype donut chart
     const stereotypes = beans.stereotypes || {};
     const chartCard = document.createElement('div');
     chartCard.className = 'admin-card';
@@ -208,6 +223,10 @@ export async function render(container, api) {
     const chartTitle = document.createElement('h3');
     chartTitle.textContent = 'Beans by Stereotype';
     chartHeader.appendChild(chartTitle);
+    const chartSubtitle = document.createElement('span');
+    chartSubtitle.className = 'card-subtitle';
+    chartSubtitle.textContent = `${beans.total || 0} total`;
+    chartHeader.appendChild(chartSubtitle);
     chartCard.appendChild(chartHeader);
 
     const chartBody = document.createElement('div');
@@ -217,21 +236,59 @@ export async function render(container, api) {
     const stereotypeValues = Object.values(stereotypes);
 
     if (stereotypeLabels.length > 0) {
+        const chartRow = document.createElement('div');
+        chartRow.style.display = 'flex';
+        chartRow.style.alignItems = 'center';
+        chartRow.style.gap = '24px';
+
         const chartContainer = document.createElement('div');
-        chartContainer.className = 'chart-container';
+        chartContainer.style.flexShrink = '0';
         const canvas = document.createElement('canvas');
         chartContainer.appendChild(canvas);
-        chartBody.appendChild(chartContainer);
+        chartRow.appendChild(chartContainer);
+
+        // Legend
+        const legend = document.createElement('div');
+        legend.className = 'donut-legend';
+        legend.style.flex = '1';
+
+        chartRow.appendChild(legend);
+        chartBody.appendChild(chartRow);
         chartCard.appendChild(chartBody);
         midRow.appendChild(chartCard);
 
-        // Render chart after DOM insertion so getBoundingClientRect works.
         requestAnimationFrame(() => {
-            new BarChart(canvas, {
+            const donut = new DonutChart(canvas, {
                 data: stereotypeValues,
                 labels: stereotypeLabels,
-                height: 220,
+                size: 170,
+                centerValue: String(beans.total || 0),
+                centerLabel: 'BEANS',
             });
+
+            // Build legend with resolved colours
+            const colors = donut.getColors();
+            for (let i = 0; i < stereotypeLabels.length; i++) {
+                const item = document.createElement('div');
+                item.className = 'donut-legend-item';
+
+                const dot = document.createElement('div');
+                dot.className = 'donut-legend-dot';
+                dot.style.background = colors[i];
+                item.appendChild(dot);
+
+                const label = document.createElement('span');
+                label.className = 'donut-legend-label';
+                label.textContent = stereotypeLabels[i];
+                item.appendChild(label);
+
+                const val = document.createElement('span');
+                val.className = 'donut-legend-value';
+                val.textContent = String(stereotypeValues[i]);
+                item.appendChild(val);
+
+                legend.appendChild(item);
+            }
         });
     } else {
         const noData = document.createElement('div');
@@ -242,37 +299,68 @@ export async function render(container, api) {
         midRow.appendChild(chartCard);
     }
 
-    // Wiring summary card
+    // Wiring summary card with progress bars
     const wiringCard = document.createElement('div');
     wiringCard.className = 'admin-card';
 
     const wiringHeader = document.createElement('div');
     wiringHeader.className = 'admin-card-header';
     const wiringTitle = document.createElement('h3');
-    wiringTitle.textContent = 'Wiring Summary';
+    wiringTitle.textContent = 'Wiring & Configuration';
     wiringHeader.appendChild(wiringTitle);
     wiringCard.appendChild(wiringHeader);
 
     const wiringBody = document.createElement('div');
     wiringBody.className = 'admin-card-body';
 
-    const wiringData = {
-        'Event Listeners': wiring.event_listeners != null ? wiring.event_listeners : 0,
-        'Scheduled Tasks': wiring.scheduled != null ? wiring.scheduled : 0,
-    };
-    wiringBody.appendChild(buildKvTable(wiringData));
+    // Wiring progress bars
+    const wiringItems = [
+        { label: 'Event Listeners', key: 'event_listeners', color: '--admin-primary' },
+        { label: 'Message Listeners', key: 'message_listeners', color: '--admin-info' },
+        { label: 'CQRS Handlers', key: 'cqrs_handlers', color: '--admin-success' },
+        { label: 'Scheduled Tasks', key: 'scheduled', color: '--admin-warning' },
+        { label: 'Async Methods', key: 'async_methods', color: '--admin-danger' },
+        { label: 'Post Processors', key: 'post_processors', color: '--admin-text-muted' },
+    ];
 
-    // Also show app meta info
-    if (app.name || app.version) {
-        const appSection = document.createElement('div');
-        appSection.className = 'mt-lg';
-        const appMeta = {};
-        if (app.name) appMeta['Application'] = app.name;
-        if (app.version) appMeta['Version'] = app.version;
-        if (app.description) appMeta['Description'] = app.description;
-        appSection.appendChild(buildKvTable(appMeta));
-        wiringBody.appendChild(appSection);
+    const maxWiring = Math.max(1, ...wiringItems.map((w) => wiring[w.key] || 0));
+    const wiringList = document.createElement('div');
+    for (const w of wiringItems) {
+        const count = wiring[w.key] || 0;
+        wiringList.appendChild(buildWiringItem(w.label, count, maxWiring, w.color));
     }
+    wiringBody.appendChild(wiringList);
+
+    // App info section
+    const appInfoSection = document.createElement('div');
+    appInfoSection.style.marginTop = '20px';
+    appInfoSection.style.paddingTop = '16px';
+    appInfoSection.style.borderTop = '1px solid var(--admin-border-subtle)';
+
+    const appMeta = [];
+    if (app.name) appMeta.push(['Application', app.name]);
+    if (app.version) appMeta.push(['Version', app.version]);
+    if (app.framework_version) appMeta.push(['Framework', `PyFly ${app.framework_version}`]);
+    if (app.python_version) appMeta.push(['Python', app.python_version]);
+    if (app.platform) appMeta.push(['Platform', app.platform]);
+    if (app.description) appMeta.push(['Description', app.description]);
+
+    const metaTable = document.createElement('table');
+    metaTable.className = 'kv-table';
+    const metaTbody = document.createElement('tbody');
+    for (const [key, val] of appMeta) {
+        const tr = document.createElement('tr');
+        const th = document.createElement('th');
+        th.textContent = key;
+        const td = document.createElement('td');
+        td.textContent = val;
+        tr.appendChild(th);
+        tr.appendChild(td);
+        metaTbody.appendChild(tr);
+    }
+    metaTable.appendChild(metaTbody);
+    appInfoSection.appendChild(metaTable);
+    wiringBody.appendChild(appInfoSection);
 
     wiringCard.appendChild(wiringBody);
     midRow.appendChild(wiringCard);
@@ -291,7 +379,7 @@ export async function render(container, api) {
     linksSection.appendChild(linksHeader);
 
     const linksGrid = document.createElement('div');
-    linksGrid.className = 'grid-4';
+    linksGrid.className = 'grid-3';
 
     for (const link of QUICK_LINKS) {
         const card = document.createElement('div');

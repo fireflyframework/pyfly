@@ -162,7 +162,15 @@ export function renderSidebar(container, currentRoute, options = {}) {
     // Footer
     const footer = document.createElement('div');
     footer.className = 'admin-sidebar-footer';
-    footer.textContent = 'pyfly.admin';
+
+    const footerLine1 = document.createElement('div');
+    footerLine1.textContent = '\u00A9 2026 Firefly Software Solutions Inc.';
+    footer.appendChild(footerLine1);
+
+    const footerLine2 = document.createElement('div');
+    footerLine2.textContent = 'Licensed under Apache 2.0';
+    footer.appendChild(footerLine2);
+
     container.appendChild(footer);
 }
 

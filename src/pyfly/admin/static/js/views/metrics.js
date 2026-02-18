@@ -9,6 +9,8 @@
  *   GET /admin/api/metrics/{name}   -> { name, measurements: [{statistic, value, tags}, ...] }
  */
 
+import { createFilterToolbar } from '../components/filter-toolbar.js';
+
 /* ── Helpers ──────────────────────────────────────────────────── */
 
 /**
@@ -162,6 +164,44 @@ export async function render(container, api) {
         return;
     }
 
+    // ── Filter toolbar ──────────────────────────────────────────
+    const toolbar = createFilterToolbar({
+        placeholder: 'Search metrics...',
+        pills: [
+            { label: 'All', value: '' },
+            { label: 'HTTP', value: 'http' },
+            { label: 'System', value: 'system' },
+            { label: 'Process', value: 'process' },
+            { label: 'Custom', value: 'custom' },
+        ],
+        onFilter: ({ search, pill }) => {
+            renderMetricList(search, pill);
+        },
+        totalCount: names.length,
+    });
+    wrapper.appendChild(toolbar);
+
+    // ── Stat cards row ──────────────────────────────────────────
+    const statsRow = document.createElement('div');
+    statsRow.className = 'grid-4 mb-lg';
+
+    const totalCard = document.createElement('div');
+    totalCard.className = 'stat-card';
+    const totalContent = document.createElement('div');
+    totalContent.className = 'stat-card-content';
+    const totalVal = document.createElement('div');
+    totalVal.className = 'stat-card-value';
+    totalVal.textContent = String(names.length);
+    totalContent.appendChild(totalVal);
+    const totalLabel = document.createElement('div');
+    totalLabel.className = 'stat-card-label';
+    totalLabel.textContent = 'Total Metrics';
+    totalContent.appendChild(totalLabel);
+    totalCard.appendChild(totalContent);
+    statsRow.appendChild(totalCard);
+
+    wrapper.appendChild(statsRow);
+
     // ── Split layout ────────────────────────────────────────────
     const splitLayout = document.createElement('div');
     splitLayout.style.display = 'flex';
@@ -189,41 +229,6 @@ export async function render(container, api) {
     const leftBody = document.createElement('div');
     leftBody.style.padding = '12px';
 
-    // Search input for metrics
-    const searchWrap = document.createElement('div');
-    searchWrap.className = 'search-input';
-    searchWrap.style.marginBottom = '8px';
-
-    const svgNS = 'http://www.w3.org/2000/svg';
-    const searchSvg = document.createElementNS(svgNS, 'svg');
-    searchSvg.setAttribute('width', '16');
-    searchSvg.setAttribute('height', '16');
-    searchSvg.setAttribute('viewBox', '0 0 24 24');
-    searchSvg.setAttribute('fill', 'none');
-    searchSvg.setAttribute('stroke', 'currentColor');
-    searchSvg.setAttribute('stroke-width', '2');
-    searchSvg.setAttribute('stroke-linecap', 'round');
-    searchSvg.setAttribute('stroke-linejoin', 'round');
-    const circle = document.createElementNS(svgNS, 'circle');
-    circle.setAttribute('cx', '11');
-    circle.setAttribute('cy', '11');
-    circle.setAttribute('r', '8');
-    searchSvg.appendChild(circle);
-    const line = document.createElementNS(svgNS, 'line');
-    line.setAttribute('x1', '21');
-    line.setAttribute('y1', '21');
-    line.setAttribute('x2', '16.65');
-    line.setAttribute('y2', '16.65');
-    searchSvg.appendChild(line);
-    searchWrap.appendChild(searchSvg);
-
-    const searchInput = document.createElement('input');
-    searchInput.type = 'text';
-    searchInput.className = 'input';
-    searchInput.placeholder = 'Search metrics\u2026';
-    searchWrap.appendChild(searchInput);
-    leftBody.appendChild(searchWrap);
-
     // Metric list container (scrollable)
     const metricList = document.createElement('div');
     metricList.style.maxHeight = '520px';
@@ -232,14 +237,28 @@ export async function render(container, api) {
     let activeItem = null;
 
     /**
-     * Build and render metric name items, optionally filtered.
-     * @param {string} filter
+     * Build and render metric name items, filtered by search text and pill.
+     * @param {string} search  Lowercase search text.
+     * @param {string} pill    Pill value (prefix filter).
      */
-    function renderMetricList(filter) {
+    function renderMetricList(search, pill) {
         metricList.replaceChildren();
-        const filtered = filter
-            ? names.filter((n) => n.toLowerCase().includes(filter))
-            : names;
+        activeItem = null;
+
+        const filtered = names.filter((n) => {
+            const lower = n.toLowerCase();
+            // Pill filter: metric name must start with the pill value
+            if (pill && !lower.startsWith(pill)) return false;
+            // Search filter: metric name must include the search text
+            if (search && !lower.includes(search)) return false;
+            return true;
+        });
+
+        // Update toolbar count
+        toolbar.updateCount(filtered.length, names.length);
+
+        // Update left panel badge count
+        countBadge.textContent = String(filtered.length);
 
         if (filtered.length === 0) {
             const noMatch = document.createElement('div');
@@ -288,11 +307,7 @@ export async function render(container, api) {
         }
     }
 
-    searchInput.addEventListener('input', () => {
-        renderMetricList(searchInput.value.toLowerCase());
-    });
-
-    renderMetricList('');
+    renderMetricList('', '');
     leftBody.appendChild(metricList);
     leftPanel.appendChild(leftBody);
     splitLayout.appendChild(leftPanel);

@@ -315,6 +315,108 @@ export class BarChart {
     }
 }
 
+/* ── DonutChart ───────────────────────────────────────────────── */
+
+export class DonutChart {
+    /**
+     * @param {HTMLCanvasElement} canvas
+     * @param {object} options
+     * @param {number[]}  options.data     Values (proportional slices)
+     * @param {string[]}  options.labels   Slice labels
+     * @param {string[]}  [options.colors] Per-slice CSS var names or hex colours
+     * @param {number}    [options.size]   Canvas logical size (default 180)
+     * @param {string}    [options.centerLabel]  Text in the centre
+     * @param {string}    [options.centerValue]  Large value in the centre
+     */
+    constructor(canvas, options = {}) {
+        this.canvas = canvas;
+        this.options = Object.assign({
+            data: [],
+            labels: [],
+            colors: [
+                '--admin-primary', '--admin-success', '--admin-warning',
+                '--admin-info', '--admin-danger', '--admin-text-muted',
+            ],
+            size: 180,
+            centerLabel: '',
+            centerValue: '',
+        }, options);
+        this.draw();
+    }
+
+    draw() {
+        const { data, labels, colors, size, centerLabel, centerValue } = this.options;
+        if (!data.length) return;
+
+        const ctx = setupCanvas(this.canvas, size, size);
+        const total = data.reduce((a, b) => a + b, 0);
+        if (total <= 0) return;
+
+        const cx = size / 2;
+        const cy = size / 2;
+        const outerRadius = (size - 16) / 2;
+        const innerRadius = outerRadius * 0.62;
+
+        const textColor = cssVar('--admin-text') || '#e2e8f0';
+        const mutedColor = cssVar('--admin-text-muted') || '#64748b';
+
+        const defaultColors = [
+            '--admin-primary', '--admin-success', '--admin-warning',
+            '--admin-info', '--admin-danger', '--admin-text-muted',
+        ];
+
+        let startAngle = -Math.PI / 2;
+
+        for (let i = 0; i < data.length; i++) {
+            const sliceAngle = (data[i] / total) * Math.PI * 2;
+            const endAngle = startAngle + sliceAngle;
+
+            const colorVar = colors[i] || defaultColors[i % defaultColors.length];
+            const color = colorVar.startsWith('#')
+                ? colorVar
+                : (cssVar(colorVar) || cssVar(defaultColors[i % defaultColors.length]));
+
+            ctx.beginPath();
+            ctx.arc(cx, cy, outerRadius, startAngle, endAngle);
+            ctx.arc(cx, cy, innerRadius, endAngle, startAngle, true);
+            ctx.closePath();
+            ctx.fillStyle = color;
+            ctx.fill();
+
+            startAngle = endAngle;
+        }
+
+        // Centre text
+        if (centerValue) {
+            ctx.fillStyle = textColor;
+            ctx.font = `700 ${Math.round(size * 0.17)}px ${cssVar('--admin-font-mono') || 'monospace'}`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(centerValue, cx, centerLabel ? cy - 6 : cy);
+        }
+
+        if (centerLabel) {
+            ctx.fillStyle = mutedColor;
+            ctx.font = `500 ${Math.round(size * 0.065)}px ${cssVar('--admin-font-sans') || 'sans-serif'}`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(centerLabel, cx, cy + size * 0.12);
+        }
+    }
+
+    /** Get resolved colour values for building a legend. */
+    getColors() {
+        const defaultColors = [
+            '--admin-primary', '--admin-success', '--admin-warning',
+            '--admin-info', '--admin-danger', '--admin-text-muted',
+        ];
+        return this.options.data.map((_, i) => {
+            const cv = this.options.colors[i] || defaultColors[i % defaultColors.length];
+            return cv.startsWith('#') ? cv : (cssVar(cv) || '#3b82f6');
+        });
+    }
+}
+
 /* ── GaugeChart ───────────────────────────────────────────────── */
 
 export class GaugeChart {

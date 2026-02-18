@@ -1376,3 +1376,173 @@ a:hover {
 .progress-bar-fill.success { background: var(--admin-success); }
 .progress-bar-fill.warning { background: var(--admin-warning); }
 .progress-bar-fill.danger { background: var(--admin-danger); }
+
+/* ── Filter Toolbar ────────────────────────────────────────────── */
+.filter-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 20px;
+    background: var(--admin-surface);
+    border: 1px solid var(--admin-border);
+    border-radius: var(--admin-radius-lg);
+    margin-bottom: 16px;
+    box-shadow: var(--admin-shadow);
+}
+
+.filter-toolbar-search {
+    flex: 1;
+    max-width: 400px;
+}
+
+.filter-toolbar-search .search-input {
+    margin-bottom: 0;
+}
+
+.filter-toolbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-shrink: 0;
+}
+
+.filter-pills {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+
+.filter-pill {
+    padding: 4px 12px;
+    border: 1px solid var(--admin-border);
+    border-radius: 9999px;
+    background: transparent;
+    color: var(--admin-text-muted);
+    font-family: var(--admin-font-mono);
+    font-size: 0.7rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--admin-transition);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+}
+
+.filter-pill:hover {
+    background: var(--admin-surface-hover);
+    color: var(--admin-text);
+    border-color: var(--admin-text-muted);
+}
+
+.filter-pill.active {
+    background: var(--admin-primary);
+    border-color: var(--admin-primary);
+    color: #fff;
+}
+
+.filter-count {
+    font-family: var(--admin-font-mono);
+    font-size: 0.75rem;
+    color: var(--admin-text-muted);
+    white-space: nowrap;
+}
+
+/* ── Donut Chart Legend ─────────────────────────────────────────── */
+.donut-legend {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px 0;
+}
+
+.donut-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.85rem;
+}
+
+.donut-legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.donut-legend-label {
+    flex: 1;
+    color: var(--admin-text-secondary);
+    font-size: 0.8rem;
+}
+
+.donut-legend-value {
+    font-family: var(--admin-font-mono);
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--admin-text);
+}
+
+/* ── Wiring Progress Bars ──────────────────────────────────────── */
+.wiring-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0;
+}
+
+.wiring-item-label {
+    width: 140px;
+    font-size: 0.8rem;
+    color: var(--admin-text-secondary);
+    flex-shrink: 0;
+}
+
+.wiring-item-bar {
+    flex: 1;
+    height: 8px;
+    background: var(--admin-bg-subtle);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.wiring-item-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.6s ease;
+}
+
+.wiring-item-count {
+    font-family: var(--admin-font-mono);
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--admin-text);
+    min-width: 28px;
+    text-align: right;
+}
+
+/* ── Footer ────────────────────────────────────────────────────── */
+.admin-sidebar-footer {
+    padding: 12px 20px;
+    border-top: 1px solid var(--admin-border-subtle);
+    font-family: var(--admin-font-mono);
+    font-size: 0.65rem;
+    color: var(--admin-text-muted);
+    line-height: 1.6;
+}
+
+@media (max-width: 768px) {
+    .filter-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+    }
+
+    .filter-toolbar-search {
+        max-width: none;
+    }
+
+    .filter-toolbar-actions {
+        flex-wrap: wrap;
+    }
+}

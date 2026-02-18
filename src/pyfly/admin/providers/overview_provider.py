@@ -15,6 +15,8 @@
 
 from __future__ import annotations
 
+import platform
+import sys
 import time
 from typing import TYPE_CHECKING, Any
 
@@ -45,7 +47,17 @@ class OverviewProvider:
             "description": self._context.config.get("pyfly.app.description", ""),
             "profiles": self._context.environment.active_profiles,
             "uptime_seconds": round(time.monotonic() - _start_time, 1),
+            "python_version": platform.python_version(),
+            "platform": platform.system(),
+            "web_port": int(self._context.config.get("pyfly.web.port", 8080)),
         }
+
+        # Framework version
+        try:
+            from pyfly import __version__
+            app_info["framework_version"] = __version__
+        except (ImportError, AttributeError):
+            app_info["framework_version"] = "0.1.0"
 
         # Health
         health_data: dict[str, Any] = {"status": "UNKNOWN", "components": {}}

@@ -1,7 +1,7 @@
 /**
  * PyFly Admin — Environment View.
  *
- * Displays active profiles, config sources, and a searchable
+ * Displays active profiles, config sources, and a filterable
  * properties table with type-aware value styling.
  *
  * Data source:  GET /admin/api/env
@@ -9,6 +9,7 @@
  */
 
 import { createTable } from '../components/table.js';
+import { createFilterToolbar } from '../components/filter-toolbar.js';
 
 /* ── Helpers ──────────────────────────────────────────────────── */
 
@@ -73,6 +74,31 @@ function flattenProperties(obj, prefix = '') {
     return entries;
 }
 
+/**
+ * Filter properties by search text and type pill.
+ * @param {Array<{key: string, value: *}>} data
+ * @param {string} search  Lowercase search term.
+ * @param {string} pill    Type filter: "" | "boolean" | "number" | "string".
+ * @returns {Array<{key: string, value: *}>}
+ */
+function filterProperties(data, search, pill) {
+    return data.filter((entry) => {
+        // Pill type filter
+        if (pill && valueType(entry.value) !== pill) {
+            return false;
+        }
+        // Search filter (match key or value)
+        if (search) {
+            const keyStr = entry.key.toLowerCase();
+            const valStr = entry.value != null ? String(entry.value).toLowerCase() : '';
+            if (!keyStr.includes(search) && !valStr.includes(search)) {
+                return false;
+            }
+        }
+        return true;
+    });
+}
+
 /* ── Render ───────────────────────────────────────────────────── */
 
 /**
@@ -130,6 +156,27 @@ export async function render(container, api) {
     const activeProfiles = envData.active_profiles || [];
     const properties = envData.properties || {};
     const sources = envData.sources || [];
+
+    // ── Flatten properties for table and toolbar ─────────────
+    const propsFlat = flattenProperties(properties);
+
+    // ── Filter Toolbar ──────────────────────────────────────
+    const toolbar = createFilterToolbar({
+        placeholder: 'Search properties...',
+        pills: [
+            { label: 'All', value: '' },
+            { label: 'Boolean', value: 'boolean' },
+            { label: 'Number', value: 'number' },
+            { label: 'String', value: 'string' },
+        ],
+        onFilter: ({ search, pill }) => {
+            const filtered = filterProperties(propsFlat, search, pill);
+            tableEl.updateData(filtered);
+            toolbar.updateCount(filtered.length, propsFlat.length);
+        },
+        totalCount: propsFlat.length,
+    });
+    wrapper.appendChild(toolbar);
 
     // ── Active Profiles card ─────────────────────────────────
     const profileCard = document.createElement('div');
@@ -223,8 +270,6 @@ export async function render(container, api) {
     }
 
     // ── Properties table ─────────────────────────────────────
-    const propsFlat = flattenProperties(properties);
-
     const propsCard = document.createElement('div');
     propsCard.className = 'admin-card';
 
@@ -264,7 +309,7 @@ export async function render(container, api) {
             },
         ],
         data: propsFlat,
-        searchable: true,
+        searchable: false,
         sortable: true,
         emptyText: 'No properties found',
     });
