@@ -100,14 +100,6 @@ function renderNavbar() {
     });
     left.appendChild(mobileToggle);
 
-    const logo = document.createElement('img');
-    logo.src = 'static/assets/pyfly-logo.png';
-    logo.alt = 'PyFly';
-    logo.className = 'navbar-logo';
-    logo.width = 28;
-    logo.height = 28;
-    left.appendChild(logo);
-
     const title = document.createElement('span');
     title.className = 'admin-navbar-title';
     title.textContent = settings.title;

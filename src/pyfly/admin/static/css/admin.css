@@ -93,9 +93,9 @@ a:hover {
 }
 
 .admin-sidebar-brand img {
-    width: 32px;
-    height: 32px;
-    border-radius: var(--admin-radius-sm);
+    height: 26px;
+    width: auto;
+    object-fit: contain;
 }
 
 .admin-sidebar-brand span {
@@ -208,12 +208,6 @@ a:hover {
     display: flex;
     align-items: center;
     gap: 12px;
-}
-
-.admin-navbar-left .navbar-logo {
-    width: 28px;
-    height: 28px;
-    border-radius: var(--admin-radius-sm);
 }
 
 .admin-navbar-title {

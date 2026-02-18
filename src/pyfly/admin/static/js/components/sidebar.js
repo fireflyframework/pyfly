@@ -102,8 +102,6 @@ export function renderSidebar(container, currentRoute, options = {}) {
     const logo = document.createElement('img');
     logo.src = 'static/assets/pyfly-logo.png';
     logo.alt = 'PyFly';
-    logo.width = 32;
-    logo.height = 32;
     brand.appendChild(logo);
 
     const brandText = document.createElement('span');
