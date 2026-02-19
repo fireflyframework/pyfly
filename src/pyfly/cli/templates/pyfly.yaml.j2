@@ -55,6 +55,7 @@ pyfly:
     relational:
       enabled: true
       url: sqlite+aiosqlite:///{{ package_name }}.db
+      ddl-auto: create  # create | create-drop | none
 {% endif %}
 {% if has_mongodb %}
 

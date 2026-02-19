@@ -14,6 +14,13 @@
 """PyFly Logging — hexagonal logging port and adapters."""
 
 from pyfly.logging.port import LoggingPort
-from pyfly.logging.structlog_adapter import StructlogAdapter
+from pyfly.logging.stdlib_adapter import StdlibLoggingAdapter
 
-__all__ = ["LoggingPort", "StructlogAdapter"]
+__all__ = ["LoggingPort", "StdlibLoggingAdapter"]
+
+try:
+    from pyfly.logging.structlog_adapter import StructlogAdapter
+
+    __all__ += ["StructlogAdapter"]
+except ImportError:
+    pass

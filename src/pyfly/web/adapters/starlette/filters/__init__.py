@@ -14,13 +14,18 @@
 """Built-in WebFilter implementations for Starlette."""
 
 from pyfly.web.adapters.starlette.filters.request_logging_filter import RequestLoggingFilter
-from pyfly.web.adapters.starlette.filters.security_filter import SecurityFilter
 from pyfly.web.adapters.starlette.filters.security_headers_filter import SecurityHeadersFilter
 from pyfly.web.adapters.starlette.filters.transaction_id_filter import TransactionIdFilter
 
 __all__ = [
     "RequestLoggingFilter",
-    "SecurityFilter",
     "SecurityHeadersFilter",
     "TransactionIdFilter",
 ]
+
+try:
+    from pyfly.web.adapters.starlette.filters.security_filter import SecurityFilter
+
+    __all__ += ["SecurityFilter"]
+except ImportError:
+    pass

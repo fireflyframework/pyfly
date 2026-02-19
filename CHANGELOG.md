@@ -6,6 +6,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## v0.2.0-M5 (2026-02-19)
+
+### Added
+
+- **Auto-configuration audit**: 8 new auto-configuration classes bring total to 20, completing Spring Boot-style auto-wiring for all applicable modules
+  - `JwtAutoConfiguration` — auto-wires `JWTService` when `pyjwt` is installed and `pyfly.security.enabled=true`
+  - `PasswordEncoderAutoConfiguration` — auto-wires `BcryptPasswordEncoder` when `bcrypt` is installed and `pyfly.security.enabled=true`
+  - `SchedulingAutoConfiguration` — auto-wires `TaskScheduler` when `croniter` is installed
+  - `MetricsAutoConfiguration` — auto-wires `MetricsRegistry` when `prometheus_client` is installed
+  - `TracingAutoConfiguration` — auto-wires `TracerProvider` when `opentelemetry` is installed
+  - `ActuatorAutoConfiguration` — auto-wires `ActuatorRegistry` and `HealthAggregator` when `pyfly.web.actuator.enabled=true`
+  - `MetricsActuatorAutoConfiguration` — auto-wires `MetricsEndpoint` and `PrometheusEndpoint` when actuator is enabled and `prometheus_client` is installed
+  - `AopAutoConfiguration` — auto-wires `AspectBeanPostProcessor` unconditionally (always active)
+- **Stdlib logging fallback**: `StdlibLoggingAdapter` provides zero-dependency logging when `structlog` is not installed, eliminating the hard `structlog` import in `application.py`
+- **Post-processor deduplication**: `ApplicationContext._discover_post_processors()` now performs type-level deduplication, preventing double-weaving when both manual and auto-config post processors exist
+- **Container-managed scheduler**: `_wire_scheduled()` now prefers a container-managed `TaskScheduler` bean from auto-configuration before creating one ad-hoc
+
+### Changed
+
+- **MongoDB guarded imports**: `pyfly.data.document.mongodb.__init__` wraps all beanie/motor imports in `try/except ImportError`, preventing crashes when optional dependencies aren't installed
+
+### Fixed
+
+- **Hard import crash**: `pyfly.core.application` no longer crashes with `ImportError` when `structlog` is not installed
+
 ## v0.2.0-M4 (2026-02-18)
 
 ### Added

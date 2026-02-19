@@ -49,6 +49,10 @@ and the full reference of framework defaults.
     - [Cache](#cache-defaults)
     - [Messaging](#messaging-defaults)
     - [Client](#client-defaults)
+    - [Server](#server-defaults)
+    - [Admin](#admin-defaults)
+    - [Security](#security-defaults)
+    - [Observability](#observability-defaults)
 11. [Complete Example: Multi-Environment Setup](#complete-example-multi-environment-setup)
 
 ---
@@ -728,6 +732,46 @@ Every key can be overridden in your config file or via environment variables.
 | `pyfly.client.circuit-breaker.failure-threshold` | `5` | Failures before the circuit opens. |
 | `pyfly.client.circuit-breaker.recovery-timeout` | `30` | Seconds before attempting recovery. |
 
+### Server Defaults
+
+| Key | Default | Description |
+|---|---|---|
+| `pyfly.server.type` | `"auto"` | Server type: `auto`, `granian`, `uvicorn`, or `hypercorn`. |
+| `pyfly.server.event-loop` | `"auto"` | Event loop: `auto`, `uvloop`, `winloop`, or `asyncio`. |
+| `pyfly.server.workers` | `0` | Number of worker processes (0 = CPU count). |
+| `pyfly.server.backlog` | `1024` | TCP connection backlog. |
+| `pyfly.server.graceful-timeout` | `30` | Graceful shutdown timeout in seconds. |
+| `pyfly.server.http` | `"auto"` | HTTP implementation: `auto`, `h11`, `httptools`. |
+| `pyfly.server.keep-alive-timeout` | `5` | Keep-alive timeout in seconds. |
+
+### Admin Defaults
+
+| Key | Default | Description |
+|---|---|---|
+| `pyfly.admin.enabled` | `true` | Enable the admin dashboard. |
+| `pyfly.admin.path` | `"/admin"` | URL path for the admin dashboard. |
+| `pyfly.admin.title` | `"PyFly Admin"` | Dashboard title. |
+| `pyfly.admin.theme` | `"auto"` | Theme: `auto`, `light`, or `dark`. |
+| `pyfly.admin.require-auth` | `false` | Require authentication for admin access. |
+| `pyfly.admin.refresh-interval` | `5000` | SSE refresh interval in milliseconds. |
+
+### Security Defaults
+
+| Key | Default | Description |
+|---|---|---|
+| `pyfly.security.enabled` | `false` | Enable the security module. |
+| `pyfly.security.jwt.secret` | `"change-me-in-production"` | JWT signing secret. **Must be changed in production.** |
+| `pyfly.security.jwt.algorithm` | `"HS256"` | JWT signing algorithm. |
+| `pyfly.security.password.bcrypt-rounds` | `12` | Bcrypt hashing rounds. |
+
+### Observability Defaults
+
+| Key | Default | Description |
+|---|---|---|
+| `pyfly.observability.metrics.enabled` | `true` | Enable metrics collection. |
+| `pyfly.observability.tracing.enabled` | `true` | Enable distributed tracing. |
+| `pyfly.observability.tracing.service-name` | `"${pyfly.app.name}"` | OpenTelemetry service name (defaults to app name). |
+
 ### Full YAML Reference
 
 ```yaml
@@ -753,23 +797,31 @@ pyfly:
       enabled: true
     actuator:
       enabled: false
+  server:
+    type: "auto"
+    event-loop: "auto"
+    workers: 0
+    backlog: 1024
+    graceful-timeout: 30
+    http: "auto"
+    keep-alive-timeout: 5
+    granian:
+      runtime-threads: 1
+      runtime-mode: "auto"
+      respawn-failed-workers: true
   data:
     enabled: false
     url: "sqlite+aiosqlite:///pyfly.db"
     echo: false
     pool-size: 5
+    relational:
+      ddl-auto: "create"
   cache:
     enabled: false
     provider: "memory"
-    redis:
-      url: "redis://localhost:6379/0"
     ttl: 300
   messaging:
     provider: "memory"
-    kafka:
-      bootstrap-servers: "localhost:9092"
-    rabbitmq:
-      url: "amqp://guest:guest@localhost/"
   client:
     timeout: 30
     retry:
@@ -778,6 +830,35 @@ pyfly:
     circuit-breaker:
       failure-threshold: 5
       recovery-timeout: 30
+  admin:
+    enabled: true
+    path: "/admin"
+    title: "PyFly Admin"
+    theme: "auto"
+    require-auth: false
+    refresh-interval: 5000
+  security:
+    enabled: false
+    jwt:
+      secret: "change-me-in-production"
+      algorithm: "HS256"
+    password:
+      bcrypt-rounds: 12
+  observability:
+    metrics:
+      enabled: true
+    tracing:
+      enabled: true
+      service-name: "${pyfly.app.name}"
+  transactional:
+    enabled: false
+    saga:
+      compensation_policy: STRICT_SEQUENTIAL
+      default_timeout_ms: 300000
+    tcc:
+      default_timeout_ms: 30000
+      retry_enabled: true
+      max_retries: 3
 ```
 
 ---

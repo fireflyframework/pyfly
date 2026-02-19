@@ -50,6 +50,7 @@ The `pyfly.core` module provides three concerns that every application needs:
 | **Configuration** | `Config`, `@config_properties` | Load, layer, and access configuration from YAML/TOML files, profiles, and environment variables. |
 | **Banner** | `BannerMode`, `BannerPrinter` | Render a startup banner to stdout (ASCII art, minimal one-liner, or off). |
 | **Lifecycle** | `Lifecycle` protocol | Unified `start()`/`stop()` contract for all infrastructure adapters. |
+| **Logging Fallback** | `StdlibLoggingAdapter` | Zero-dependency fallback when `structlog` is not installed. Wraps stdlib `logging` with structlog-style key-value API. |
 
 All public symbols are re-exported from `pyfly.core`:
 
@@ -146,7 +147,7 @@ When the constructor runs it performs these steps:
 1. **Resolves the config file** -- either the explicit path or auto-discovery.
 2. **Resolves active profiles early** -- reads `PYFLY_PROFILES_ACTIVE` env var, then falls back to `pyfly.profiles.active` inside the base config file.
 3. **Loads configuration** via `Config.from_file()`, which merges framework defaults, the user config, and profile overlays.
-4. **Configures structured logging** using the `StructlogAdapter`.
+4. **Configures structured logging** — uses `StructlogAdapter` when `structlog` is installed, or falls back to `StdlibLoggingAdapter` (zero-dependency stdlib `logging` wrapper) when it is not.
 5. **Creates the `ApplicationContext`** (DI container, environment, event bus).
 6. **Scans packages** listed in `scan_packages`, registering all discovered stereotype-decorated classes into the container.
 
@@ -535,7 +536,7 @@ class BannerMode(enum.Enum):
 | Mode | Behavior |
 |---|---|
 | `TEXT` | Full ASCII art banner (default) with a framework version line. |
-| `MINIMAL` | Single line: `:: PyFly :: (v0.2.0-M4)` |
+| `MINIMAL` | Single line: `:: PyFly :: (v0.2.0-M5)` |
 | `OFF` | No banner output at all. |
 
 ### BannerPrinter Class
@@ -576,7 +577,7 @@ ______ ___.__._/ ____\  | ___.__.
 |   __// ____| |__|  |____/ ____|
 |__|   \/                 \/
 
-:: PyFly Framework :: (v0.2.0-M4)
+:: PyFly Framework :: (v0.2.0-M5)
 ```
 
 ### Custom Banner Files

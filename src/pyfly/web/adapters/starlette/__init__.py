@@ -24,7 +24,6 @@ from pyfly.web.adapters.starlette.errors import global_exception_handler
 from pyfly.web.adapters.starlette.filter_chain import WebFilterChainMiddleware
 from pyfly.web.adapters.starlette.filters import (
     RequestLoggingFilter,
-    SecurityFilter,
     SecurityHeadersFilter,
     TransactionIdFilter,
 )
@@ -38,7 +37,6 @@ __all__ = [
     "ParameterResolver",
     "RequestLoggingFilter",
     "RequestLoggingMiddleware",
-    "SecurityFilter",
     "SecurityHeadersFilter",
     "SecurityHeadersMiddleware",
     "TransactionIdFilter",
@@ -50,3 +48,10 @@ __all__ = [
     "make_redoc_endpoint",
     "make_swagger_ui_endpoint",
 ]
+
+try:
+    from pyfly.web.adapters.starlette.filters import SecurityFilter
+
+    __all__ += ["SecurityFilter"]
+except ImportError:
+    pass

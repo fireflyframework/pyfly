@@ -38,6 +38,7 @@
     --admin-shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.4);
     --admin-font-sans: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
     --admin-font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+    --admin-card-bg: #1a2744;
     --admin-transition: 150ms ease;
 }
 
@@ -70,5 +71,6 @@
     --admin-sidebar-active: #1e293b;
     --admin-sidebar-accent: #3b82f6;
     --admin-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+    --admin-card-bg: #ffffff;
     --admin-shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.1);
 }

@@ -24,7 +24,11 @@ from pyfly.container.exceptions import BeanCreationException
 from pyfly.container.scanner import scan_package
 from pyfly.core.banner import BannerPrinter
 from pyfly.core.config import Config
-from pyfly.logging.structlog_adapter import StructlogAdapter
+
+try:
+    from pyfly.logging.structlog_adapter import StructlogAdapter as _DefaultLoggingAdapter
+except ImportError:
+    from pyfly.logging.stdlib_adapter import StdlibLoggingAdapter as _DefaultLoggingAdapter  # type: ignore[assignment]
 
 if TYPE_CHECKING:
     from pyfly.context.application_context import ApplicationContext
@@ -83,7 +87,7 @@ class PyFlyApplication:
             self.config._loaded_sources = ["pyfly-defaults.yaml (framework defaults)"]
 
         # 2. Configure logging
-        self._logging = StructlogAdapter()
+        self._logging = _DefaultLoggingAdapter()
         self._logging.configure(self.config)
         self._logger = self._logging.get_logger("pyfly.core")
 

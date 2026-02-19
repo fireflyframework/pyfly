@@ -19,15 +19,19 @@ Import concrete adapter types from the adapter package::
     from pyfly.scheduling.adapters.thread_executor import ThreadPoolTaskExecutor
 """
 
-from pyfly.scheduling.cron import CronExpression
 from pyfly.scheduling.decorators import async_method, scheduled
 from pyfly.scheduling.ports.outbound import TaskExecutorPort
-from pyfly.scheduling.task_scheduler import TaskScheduler
 
 __all__ = [
-    "CronExpression",
     "TaskExecutorPort",
-    "TaskScheduler",
     "async_method",
     "scheduled",
 ]
+
+try:
+    from pyfly.scheduling.cron import CronExpression
+    from pyfly.scheduling.task_scheduler import TaskScheduler
+
+    __all__ += ["CronExpression", "TaskScheduler"]
+except ImportError:
+    pass

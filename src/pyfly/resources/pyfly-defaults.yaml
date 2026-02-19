@@ -37,6 +37,8 @@ pyfly:
     url: "sqlite+aiosqlite:///pyfly.db"
     echo: false
     pool-size: 5
+    relational:
+      ddl-auto: "create"
   cache:
     enabled: false
     provider: "memory"
@@ -58,6 +60,19 @@ pyfly:
     theme: "auto"
     require-auth: false
     refresh-interval: 5000
+  security:
+    enabled: false
+    jwt:
+      secret: "change-me-in-production"
+      algorithm: "HS256"
+    password:
+      bcrypt-rounds: 12
+  observability:
+    metrics:
+      enabled: true
+    tracing:
+      enabled: true
+      service-name: "${pyfly.app.name}"
   transactional:
     enabled: false
     saga:

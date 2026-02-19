@@ -21,7 +21,15 @@ import time
 from collections.abc import Callable
 from typing import Any, TypeVar
 
-from prometheus_client import Counter, Gauge, Histogram
+try:
+    from prometheus_client import Counter, Gauge, Histogram
+
+    _HAS_PROMETHEUS = True
+except ImportError:
+    _HAS_PROMETHEUS = False
+    Counter = None  # type: ignore[assignment,misc]
+    Gauge = None  # type: ignore[assignment,misc]
+    Histogram = None  # type: ignore[assignment,misc]
 
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -34,6 +42,10 @@ class MetricsRegistry:
     """
 
     def __init__(self) -> None:
+        if not _HAS_PROMETHEUS:
+            raise ImportError(
+                "prometheus_client is required for metrics. Install it with: pip install pyfly[observability]"
+            )
         self._counters: dict[str, Counter] = {}
         self._histograms: dict[str, Histogram] = {}
         self._gauges: dict[str, Gauge] = {}

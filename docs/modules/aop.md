@@ -35,8 +35,9 @@ module.
    - [Async Methods](#async-methods)
    - [Sync Methods](#sync-methods)
    - [The Advice Chain](#the-advice-chain)
-10. [Ordering Aspects](#ordering-aspects)
-11. [Complete Examples](#complete-examples)
+10. [Auto-Configuration](#auto-configuration)
+11. [Ordering Aspects](#ordering-aspects)
+12. [Complete Examples](#complete-examples)
     - [Logging Aspect](#logging-aspect)
     - [Performance Monitoring Aspect](#performance-monitoring-aspect)
     - [Audit Trail Aspect](#audit-trail-aspect)
@@ -537,6 +538,8 @@ This means aspects must be initialized before the beans they advise. PyFly's
 container processes beans in order, and aspects (as singletons) are typically
 initialized early.
 
+> **Note:** As of v0.2.0-M5, `AspectBeanPostProcessor` is automatically registered as a container bean via `AopAutoConfiguration`. You no longer need to manually create or register it — the framework handles this during context startup.
+
 ---
 
 ## weave_bean()
@@ -594,6 +597,35 @@ When multiple advice bindings match a method, they execute in this order:
     v  (always)
 @after (all, in aspect_order)
 ```
+
+---
+
+## Auto-Configuration
+
+The `AopAutoConfiguration` class automatically registers an `AspectBeanPostProcessor` bean in the DI container. This is the only unconditional auto-configuration in PyFly — AOP support is always active because `@aspect` classes rely on the post-processor to discover and weave advice at startup.
+
+### AopAutoConfiguration
+
+**Conditions:** None (always active).
+
+| Bean | Type | Description |
+|------|------|-------------|
+| `aspect_post_processor` | `AspectBeanPostProcessor` | Discovers `@aspect` beans and weaves advice into matching target beans |
+
+### How It Works
+
+During context startup, the `AspectBeanPostProcessor` (now auto-registered as a container bean):
+
+1. Scans all beans for the `@aspect` decorator
+2. Registers aspect beans with the `AspectRegistry`
+3. For each non-aspect bean, checks if any pointcut expression matches
+4. Wraps matching methods with the advice chain via `weave_bean()`
+
+### Deduplication
+
+If you manually register an `AspectBeanPostProcessor` (e.g., in tests or custom configurations), the framework detects the duplicate at the type level and ensures only one instance processes beans. This prevents double-weaving.
+
+**Source:** `src/pyfly/aop/auto_configuration.py`
 
 ---
 

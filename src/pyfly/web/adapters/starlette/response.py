@@ -39,4 +39,7 @@ def handle_return_value(result: Any, status_code: int = 200) -> Response:
     if isinstance(result, BaseModel):
         return JSONResponse(result.model_dump(mode="json"), status_code=status_code)
 
+    if isinstance(result, list) and result and isinstance(result[0], BaseModel):
+        return JSONResponse([item.model_dump(mode="json") for item in result], status_code=status_code)
+
     return JSONResponse(result, status_code=status_code)

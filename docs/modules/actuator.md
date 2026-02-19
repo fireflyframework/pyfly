@@ -48,8 +48,9 @@ automatically discovered from the DI container.
 17. [Metrics Endpoint](#metrics-endpoint)
 18. [Custom Actuator Endpoints](#custom-actuator-endpoints)
 19. [make_starlette_actuator_routes()](#make_starlette_actuator_routes)
-20. [Configuration](#configuration)
-21. [Complete Example](#complete-example)
+20. [Auto-Configuration](#auto-configuration)
+21. [Configuration](#configuration)
+22. [Complete Example](#complete-example)
 
 ---
 
@@ -1033,6 +1034,61 @@ routes = make_starlette_actuator_routes(registry)
     returns a 200 JSON response.
 
 **Source:** `src/pyfly/actuator/adapters/starlette.py`
+
+---
+
+## Auto-Configuration
+
+When actuator is enabled in configuration, PyFly automatically registers all actuator beans through two auto-configuration classes. This replaces the need for manual setup in `create_app()`.
+
+### ActuatorAutoConfiguration
+
+**Conditions:** `pyfly.web.actuator.enabled=true`.
+
+| Bean | Type | Description |
+|------|------|-------------|
+| `actuator_registry` | `ActuatorRegistry` | Central registry for all actuator endpoints |
+| `health_aggregator` | `HealthAggregator` | Collects and aggregates health indicator results |
+
+### MetricsActuatorAutoConfiguration
+
+**Conditions:** `pyfly.web.actuator.enabled=true` AND `prometheus_client` library installed.
+
+| Bean | Type | Description |
+|------|------|-------------|
+| `metrics_endpoint` | `MetricsEndpoint` | `/actuator/metrics` endpoint for metrics data |
+| `prometheus_endpoint` | `PrometheusEndpoint` | `/actuator/prometheus` endpoint for Prometheus scraping |
+
+### Configuration
+
+```yaml
+pyfly:
+  web:
+    actuator:
+      enabled: true   # Default: false
+```
+
+When enabled, the auto-configuration registers the `ActuatorRegistry`, `HealthAggregator`, and (if `prometheus_client` is installed) the metrics-related endpoints. The web adapter then discovers these beans and mounts the actuator routes automatically.
+
+### Overriding Auto-Configured Beans
+
+You can provide your own `ActuatorRegistry` or `HealthAggregator` via `@configuration` + `@bean`, and the auto-configured versions will be skipped:
+
+```python
+from pyfly.container.bean import bean
+from pyfly.container import configuration
+from pyfly.actuator import ActuatorRegistry, HealthAggregator
+
+@configuration
+class MyActuatorConfig:
+    @bean
+    def health_aggregator(self) -> HealthAggregator:
+        agg = HealthAggregator()
+        # Add custom indicators...
+        return agg
+```
+
+**Source:** `src/pyfly/actuator/auto_configuration.py`
 
 ---
 

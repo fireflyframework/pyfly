@@ -513,18 +513,23 @@ class ApplicationContext:
     def _discover_post_processors(self) -> None:
         """Scan registered beans for BeanPostProcessor implementations and auto-register them."""
         count = 0
+        registered_types = {type(pp) for pp in self._post_processors}
         for cls, reg in list(self._container._registrations.items()):
-            if isinstance(reg.instance, BeanPostProcessor) and reg.instance not in self._post_processors:
+            if isinstance(reg.instance, BeanPostProcessor) and type(reg.instance) not in registered_types:
                 self._post_processors.append(reg.instance)
+                registered_types.add(type(reg.instance))
                 count += 1
             elif reg.instance is None and isinstance(cls, type) and issubclass(cls, BeanPostProcessor):
+                if cls in registered_types:
+                    continue
                 try:
                     instance = self._container.resolve(cls)
                 except BeanCreationException as exc:
                     logger.debug("deferred_post_processor", extra={"bean": cls.__name__, "reason": str(exc)})
                     continue
-                if instance not in self._post_processors:
+                if type(instance) not in registered_types:
                     self._post_processors.append(instance)
+                    registered_types.add(type(instance))
                     count += 1
         self._wiring_counts["post_processors"] = count
         if count:
@@ -628,10 +633,21 @@ class ApplicationContext:
 
     def _wire_scheduled(self) -> None:
         """Discover @scheduled methods and start the TaskScheduler."""
+        try:
+            from pyfly.scheduling.task_scheduler import TaskScheduler
+        except ImportError:
+            return
         beans = [reg.instance for reg in self._container._registrations.values() if reg.instance is not None]
-        from pyfly.scheduling.task_scheduler import TaskScheduler
 
-        scheduler = TaskScheduler()
+        # Prefer a container-managed TaskScheduler bean (from auto-config)
+        scheduler = None
+        for reg in self._container._registrations.values():
+            if isinstance(reg.instance, TaskScheduler):
+                scheduler = reg.instance
+                break
+        if scheduler is None:
+            scheduler = TaskScheduler()
+
         count = scheduler.discover(beans)
         self._wiring_counts["scheduled"] = count
         if count:

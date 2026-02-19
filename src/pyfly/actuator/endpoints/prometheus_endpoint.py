@@ -17,7 +17,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+try:
+    from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+except ImportError:
+    CONTENT_TYPE_LATEST = ""
+    generate_latest = None  # type: ignore[assignment]
 
 
 class PrometheusEndpoint:

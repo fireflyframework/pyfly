@@ -44,9 +44,9 @@ class TestAutoConfiguration:
 
 
 class TestDiscoverAutoConfigurations:
-    def test_returns_all_twelve_classes(self):
+    def test_returns_all_auto_config_classes(self):
         classes = discover_auto_configurations()
-        assert len(classes) == 12
+        assert len(classes) == 20
 
     def test_all_classes_have_auto_configuration_marker(self):
         for cls in discover_auto_configurations():
@@ -61,23 +61,35 @@ class TestDiscoverAutoConfigurations:
             )
 
     def test_all_classes_have_conditions(self):
+        # AopAutoConfiguration is unconditional (always active) — skip it
+        unconditional = {"AopAutoConfiguration"}
         for cls in discover_auto_configurations():
+            if cls.__name__ in unconditional:
+                continue
             conditions = getattr(cls, "__pyfly_conditions__", [])
             assert len(conditions) > 0, f"{cls.__name__} has no conditions"
 
     def test_contains_expected_class_names(self):
         names = {cls.__name__ for cls in discover_auto_configurations()}
         assert names == {
+            "ActuatorAutoConfiguration",
             "AdminAutoConfiguration",
+            "AopAutoConfiguration",
             "CacheAutoConfiguration",
             "ClientAutoConfiguration",
             "CqrsAutoConfiguration",
             "DocumentAutoConfiguration",
             "EventLoopAutoConfiguration",
+            "JwtAutoConfiguration",
             "MessagingAutoConfiguration",
+            "MetricsActuatorAutoConfiguration",
+            "MetricsAutoConfiguration",
+            "PasswordEncoderAutoConfiguration",
             "RelationalAutoConfiguration",
+            "SchedulingAutoConfiguration",
             "ServerAutoConfiguration",
             "ShellAutoConfiguration",
+            "TracingAutoConfiguration",
             "TransactionalEngineAutoConfiguration",
             "WebAutoConfiguration",
         }

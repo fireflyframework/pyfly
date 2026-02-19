@@ -11,17 +11,20 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""PyFly Observability — Metrics and tracing decorators."""
+"""AOP auto-configuration — AspectBeanPostProcessor bean."""
 
-from pyfly.observability.tracing import span
+# NOTE: No `from __future__ import annotations` — typing.get_type_hints()
+# must resolve return types at runtime for @bean method registration.
 
-__all__ = [
-    "span",
-]
+from pyfly.aop.post_processor import AspectBeanPostProcessor
+from pyfly.container.bean import bean
+from pyfly.context.conditions import auto_configuration
 
-try:
-    from pyfly.observability.metrics import MetricsRegistry, counted, timed
 
-    __all__ += ["MetricsRegistry", "counted", "timed"]
-except ImportError:
-    pass
+@auto_configuration
+class AopAutoConfiguration:
+    """Auto-configures the AspectBeanPostProcessor for AOP weaving."""
+
+    @bean
+    def aspect_post_processor(self) -> AspectBeanPostProcessor:
+        return AspectBeanPostProcessor()

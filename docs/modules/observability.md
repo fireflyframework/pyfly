@@ -30,10 +30,11 @@ logging -- along with a health check system for readiness and liveness probes.
    - [HealthChecker](#healthchecker)
    - [HealthStatus Enum](#healthstatus-enum)
    - [HealthResult Dataclass](#healthresult-dataclass)
-6. [Configuration](#configuration)
+6. [Auto-Configuration](#auto-configuration)
+7. [Configuration](#configuration)
    - [Logging Settings](#logging-settings)
    - [Metrics and Actuator Settings](#metrics-and-actuator-settings)
-7. [Complete Example](#complete-example)
+8. [Complete Example](#complete-example)
 
 ---
 
@@ -673,6 +674,72 @@ Note that this is the observability module's `HealthResult`. The actuator module
 its own `HealthResult` with additional fields like `components` and a `to_dict()`
 method. See the [Actuator Guide](actuator.md) for the production-oriented health
 check system.
+
+---
+
+## Auto-Configuration
+
+PyFly auto-configures observability infrastructure when the required libraries are installed. No manual bean registration is needed.
+
+### MetricsAutoConfiguration
+
+**Conditions:** `prometheus_client` library installed.
+
+| Bean | Type | Description |
+|------|------|-------------|
+| `metrics_registry` | `MetricsRegistry` | Singleton registry for creating counters and histograms |
+
+```yaml
+pyfly:
+  observability:
+    metrics:
+      enabled: true   # Default: true
+```
+
+With auto-configuration, you can inject `MetricsRegistry` directly into your services:
+
+```python
+@service
+class OrderService:
+    def __init__(self, registry: MetricsRegistry) -> None:
+        self._counter = registry.counter("orders_total", "Total orders placed")
+```
+
+### TracingAutoConfiguration
+
+**Conditions:** `opentelemetry` libraries installed (`opentelemetry-api`, `opentelemetry-sdk`).
+
+| Bean | Type | Config Keys |
+|------|------|-------------|
+| `tracer_provider` | `TracerProvider` | `pyfly.observability.tracing.service-name` |
+
+```yaml
+pyfly:
+  observability:
+    tracing:
+      enabled: true                        # Default: true
+      service-name: "${pyfly.app.name}"    # Inherits app name by default
+```
+
+The auto-configured `TracerProvider` creates an OpenTelemetry `TracerProvider` with a `Resource` containing the service name, and sets it as the global tracer provider.
+
+### Overriding Auto-Configured Beans
+
+Provide your own beans via `@configuration` + `@bean` to override the auto-configured versions:
+
+```python
+from pyfly.container.bean import bean
+from pyfly.container import configuration
+from pyfly.observability.metrics import MetricsRegistry
+
+@configuration
+class MyObservabilityConfig:
+    @bean
+    def metrics_registry(self) -> MetricsRegistry:
+        return MetricsRegistry()  # Custom configuration
+```
+
+**Source:** `src/pyfly/observability/auto_configuration.py`
 
 ---
 

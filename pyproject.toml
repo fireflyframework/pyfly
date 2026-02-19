@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pyfly"
-version = "0.2.0a4"
+version = "0.2.0a5"
 description = "The official Python implementation of the Firefly Framework — DI, CQRS, EDA, hexagonal architecture, and more."
 readme = "README.md"
 license = "Apache-2.0"
@@ -141,6 +141,14 @@ admin = "pyfly.admin.auto_configuration:AdminAutoConfiguration"
 transactional = "pyfly.transactional.auto_configuration:TransactionalEngineAutoConfiguration"
 server = "pyfly.server.auto_configuration:ServerAutoConfiguration"
 event-loop = "pyfly.server.auto_configuration:EventLoopAutoConfiguration"
+security-jwt = "pyfly.security.auto_configuration:JwtAutoConfiguration"
+security-password = "pyfly.security.auto_configuration:PasswordEncoderAutoConfiguration"
+scheduling = "pyfly.scheduling.auto_configuration:SchedulingAutoConfiguration"
+metrics = "pyfly.observability.auto_configuration:MetricsAutoConfiguration"
+tracing = "pyfly.observability.auto_configuration:TracingAutoConfiguration"
+actuator = "pyfly.actuator.auto_configuration:ActuatorAutoConfiguration"
+actuator-metrics = "pyfly.actuator.auto_configuration:MetricsActuatorAutoConfiguration"
+aop = "pyfly.aop.auto_configuration:AopAutoConfiguration"
 
 [project.scripts]
 pyfly = "pyfly.cli.main:cli"

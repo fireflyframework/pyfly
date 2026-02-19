@@ -18,7 +18,12 @@ from __future__ import annotations
 import time
 from typing import Any
 
-from prometheus_client import Counter, Gauge, Histogram
+try:
+    from prometheus_client import Counter, Gauge, Histogram
+except ImportError:
+    Counter = None  # type: ignore[assignment,misc]
+    Gauge = None  # type: ignore[assignment,misc]
+    Histogram = None  # type: ignore[assignment,misc]
 
 from pyfly.web.filters import OncePerRequestFilter
 from pyfly.web.ports.filter import CallNext

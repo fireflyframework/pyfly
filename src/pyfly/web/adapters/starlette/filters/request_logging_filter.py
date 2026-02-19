@@ -15,10 +15,10 @@
 
 from __future__ import annotations
 
+import logging
 import time
 from typing import cast
 
-import structlog
 from starlette.requests import Request
 from starlette.responses import Response
 
@@ -26,7 +26,12 @@ from pyfly.container.ordering import HIGHEST_PRECEDENCE, order
 from pyfly.web.filters import OncePerRequestFilter
 from pyfly.web.ports.filter import CallNext
 
-logger = structlog.get_logger("pyfly.web")
+try:
+    import structlog
+
+    logger = structlog.get_logger("pyfly.web")
+except ImportError:
+    logger = logging.getLogger("pyfly.web")
 
 
 @order(HIGHEST_PRECEDENCE + 200)

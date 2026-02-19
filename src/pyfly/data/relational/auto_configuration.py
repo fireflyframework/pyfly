@@ -44,22 +44,44 @@ _logger = logging.getLogger(__name__)
 
 
 class EngineLifecycle:
-    """Lifecycle wrapper that disposes the SQLAlchemy engine on shutdown.
+    """Lifecycle wrapper for the SQLAlchemy async engine.
 
     Implements ``start()`` / ``stop()`` so the ``ApplicationContext``
-    auto-discovers it as an infrastructure adapter and calls ``stop()``
-    during graceful shutdown.
+    auto-discovers it as an infrastructure adapter.
+
+    On ``start()``, applies the ``ddl-auto`` schema strategy:
+
+    * ``create`` — create tables that don't exist (safe, idempotent)
+    * ``create-drop`` — create on start, drop on shutdown
+    * ``none`` — skip DDL (for Alembic-managed databases)
     """
 
-    def __init__(self, engine: AsyncEngine, session: AsyncSession) -> None:
+    _VALID_DDL_MODES = {"none", "create", "create-drop"}
+
+    def __init__(self, engine: AsyncEngine, session: AsyncSession, *, ddl_auto: str = "create") -> None:
         self._engine = engine
         self._session = session
+        self._ddl_auto = ddl_auto if ddl_auto in self._VALID_DDL_MODES else "create"
 
     async def start(self) -> None:
-        """No-op — engine is ready after creation."""
+        """Apply DDL strategy — create tables from Base.metadata when configured."""
+        if self._ddl_auto in ("create", "create-drop"):
+            from pyfly.data.relational.sqlalchemy.entity import Base
+
+            _logger.info("Initializing database schema (ddl-auto=%s)", self._ddl_auto)
+            async with self._engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+            _logger.info("Database schema initialized (%d tables)", len(Base.metadata.tables))
 
     async def stop(self) -> None:
         """Dispose engine connection pool and close the shared session."""
+        if self._ddl_auto == "create-drop":
+            from pyfly.data.relational.sqlalchemy.entity import Base
+
+            _logger.info("Dropping database schema (ddl-auto=create-drop)")
+            async with self._engine.begin() as conn:
+                await conn.run_sync(Base.metadata.drop_all)
+
         try:
             await self._session.close()
         except Exception:
@@ -94,9 +116,12 @@ class RelationalAutoConfiguration:
         return factory()
 
     @bean
-    def engine_lifecycle(self, async_engine: AsyncEngine, async_session: AsyncSession) -> EngineLifecycle:
-        """Lifecycle bean that disposes the engine on shutdown."""
-        return EngineLifecycle(async_engine, async_session)
+    def engine_lifecycle(
+        self, async_engine: AsyncEngine, async_session: AsyncSession, config: Config
+    ) -> EngineLifecycle:
+        """Lifecycle bean — creates tables on startup based on ``ddl-auto`` config."""
+        ddl_auto = str(config.get("pyfly.data.relational.ddl-auto", "create"))
+        return EngineLifecycle(async_engine, async_session, ddl_auto=ddl_auto)
 
     @bean
     def repository_post_processor(self) -> RepositoryBeanPostProcessor:

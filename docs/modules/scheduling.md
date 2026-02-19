@@ -30,7 +30,8 @@ PyFly scheduling module.
 7. [ThreadPoolTaskExecutor](#threadpooltaskexecutor)
 8. [The @async_method Decorator](#the-async_method-decorator)
 9. [Configuration](#configuration)
-10. [Complete Example](#complete-example)
+10. [Auto-Configuration](#auto-configuration)
+11. [Complete Example](#complete-example)
 
 ---
 
@@ -460,6 +461,78 @@ expression parsing)
 
 ---
 
+## Auto-Configuration
+
+When `croniter` is installed, PyFly automatically registers a `TaskScheduler` bean through the `SchedulingAutoConfiguration` class. This eliminates the need to manually create and manage a `TaskScheduler` instance.
+
+### SchedulingAutoConfiguration
+
+**Conditions:** `croniter` library installed.
+
+| Bean | Type | Description |
+|------|------|-------------|
+| `task_scheduler` | `TaskScheduler` | Container-managed scheduler that discovers and runs `@scheduled` methods |
+
+With auto-configuration, you no longer need a `SchedulerManager` service. The `ApplicationContext` automatically:
+
+1. Creates a `TaskScheduler` bean (from auto-config, or uses one you provide)
+2. Discovers all `@scheduled` methods across all beans
+3. Starts the scheduler during context startup
+4. Stops the scheduler during context shutdown
+
+### Before Auto-Configuration (Manual)
+
+```python
+@service
+class SchedulerManager:
+    def __init__(self, sync_service: DataSyncService):
+        self._scheduler = TaskScheduler()  # Manual creation
+        self._beans = [sync_service]
+
+    @post_construct
+    async def start(self):
+        self._scheduler.discover(self._beans)
+        await self._scheduler.start()
+
+    @pre_destroy
+    async def stop(self):
+        await self._scheduler.stop()
+```
+
+### After Auto-Configuration (Automatic)
+
+```python
+# Just declare your scheduled beans — no SchedulerManager needed!
+@service
+class DataSyncService:
+    @scheduled(fixed_rate=timedelta(minutes=5))
+    async def sync(self):
+        ...
+```
+
+The `TaskScheduler` is auto-wired as a container bean and the `ApplicationContext` handles discovery and lifecycle.
+
+### Overriding the Auto-Configured Scheduler
+
+Provide your own `TaskScheduler` bean to override the auto-configured one:
+
+```python
+from pyfly.container.bean import bean
+from pyfly.container import configuration
+from pyfly.scheduling import TaskScheduler
+from pyfly.scheduling.adapters.thread_executor import ThreadPoolTaskExecutor
+
+@configuration
+class MySchedulingConfig:
+    @bean
+    def task_scheduler(self) -> TaskScheduler:
+        return TaskScheduler(executor=ThreadPoolTaskExecutor(max_workers=4))
+```
+
+**Source:** `src/pyfly/scheduling/auto_configuration.py`
+
+---
+
 ## Complete Example
 
 Below is a full example that demonstrates all three trigger types working
@@ -513,9 +586,14 @@ class HealthMonitor:
         print("Heartbeat: OK")
 
 
+# With auto-configuration (recommended), no SchedulerManager is needed.
+# The ApplicationContext automatically discovers @scheduled methods
+# and manages the TaskScheduler lifecycle.
+#
+# If you need a manual SchedulerManager (e.g., for custom executor):
 @service
 class SchedulerManager:
-    """Manages the lifecycle of the TaskScheduler."""
+    """Manages the lifecycle of the TaskScheduler (manual approach)."""
 
     def __init__(
         self,

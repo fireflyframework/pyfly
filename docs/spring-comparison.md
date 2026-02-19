@@ -1133,6 +1133,14 @@ A complete mapping of Spring Boot concepts to PyFly equivalents:
 | Tomcat (default) | Granian (default) | Highest-priority embedded server |
 | Jetty (fallback) | Uvicorn (fallback) | Ecosystem-standard fallback |
 | Undertow (alternative) | Hypercorn (alternative) | Advanced protocol support |
+| `@EnableScheduling` | `SchedulingAutoConfiguration` | Auto-enabled when `croniter` is installed |
+| `TaskScheduler` | `TaskScheduler` | Auto-configured bean |
+| `@EnableAspectJAutoProxy` | `AopAutoConfiguration` | Always active, no opt-in needed |
+| `SecurityAutoConfiguration` | `JwtAutoConfiguration` + `PasswordEncoderAutoConfiguration` | Split by optional dependency |
+| `MetricsAutoConfiguration` | `MetricsAutoConfiguration` | Auto-configured when `prometheus_client` is installed |
+| `TracingAutoConfiguration` | `TracingAutoConfiguration` | Auto-configured when `opentelemetry` is installed |
+| `ActuatorAutoConfiguration` | `ActuatorAutoConfiguration` + `MetricsActuatorAutoConfiguration` | Split by optional dependency |
+| `WebServerFactoryAutoConfiguration` | `ServerAutoConfiguration` | Auto-detects Granian > Uvicorn > Hypercorn |
 
 ---
 

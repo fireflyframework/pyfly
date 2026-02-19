@@ -51,6 +51,7 @@ The PyFly security module provides a complete authentication and authorization s
   - [TokenStore Protocol](#tokenstore-protocol)
   - [Error Codes](#error-codes)
 - [Exception Hierarchy](#exception-hierarchy)
+- [Auto-Configuration](#auto-configuration)
 - [Putting It All Together](#putting-it-all-together)
   - [Configuration Layer](#configuration-layer)
   - [User Entity and Repository](#user-entity-and-repository)
@@ -956,6 +957,65 @@ The security module uses exceptions from `pyfly.kernel.exceptions`:
 | `ForbiddenException`   | 403         | Authenticated but lacks permission                 |
 
 The `@secure` decorator raises `SecurityException` directly with appropriate codes. The `JWTService.decode()` method raises `SecurityException` with code `"INVALID_TOKEN"` for any token validation failure.
+
+---
+
+## Auto-Configuration
+
+When `pyfly.security.enabled` is set to `true` in your configuration, PyFly automatically wires the security beans through two auto-configuration classes. No manual bean registration is needed.
+
+### JwtAutoConfiguration
+
+**Conditions:** `pyfly.security.enabled=true` AND `pyjwt` library installed.
+
+| Bean | Type | Config Keys |
+|------|------|-------------|
+| `jwt_service` | `JWTService` | `pyfly.security.jwt.secret`, `pyfly.security.jwt.algorithm` |
+
+The auto-configured `JWTService` reads its secret and algorithm from the configuration:
+
+```yaml
+pyfly:
+  security:
+    enabled: true
+    jwt:
+      secret: "my-production-secret"   # REQUIRED: change from default
+      algorithm: "HS256"               # Default: HS256
+```
+
+### PasswordEncoderAutoConfiguration
+
+**Conditions:** `pyfly.security.enabled=true` AND `bcrypt` library installed.
+
+| Bean | Type | Config Keys |
+|------|------|-------------|
+| `password_encoder` | `BcryptPasswordEncoder` | `pyfly.security.password.bcrypt-rounds` |
+
+```yaml
+pyfly:
+  security:
+    enabled: true
+    password:
+      bcrypt-rounds: 12   # Default: 12
+```
+
+### Overriding Auto-Configured Beans
+
+Both auto-configuration classes use `@conditional_on_missing_bean`, so providing your own `JWTService` or `BcryptPasswordEncoder` via a `@configuration` + `@bean` method silently skips the auto-configured version:
+
+```python
+from pyfly.container.bean import bean
+from pyfly.container import configuration
+from pyfly.security import JWTService
+
+@configuration
+class MySecurityConfig:
+    @bean
+    def jwt_service(self) -> JWTService:
+        return JWTService(secret="custom-secret", algorithm="RS256")
+```
+
+**Source:** `src/pyfly/security/auto_configuration.py`
 
 ---
 

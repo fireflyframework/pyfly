@@ -591,7 +591,7 @@ Auto-configuration classes:
 - Have `__pyfly_auto_configuration__ = True`, `__pyfly_injectable__ = True`, and
   `__pyfly_stereotype__ = "configuration"` set by the decorator.
 
-The six built-in auto-configuration classes are:
+The twenty built-in auto-configuration classes are:
 
 | Auto-Configuration Class | Module | Port/Bean | Conditions |
 |---|---|---|---|
@@ -600,11 +600,24 @@ The six built-in auto-configuration classes are:
 | `GranianServerAutoConfiguration` | `pyfly.server.auto_configuration` | `ApplicationServerPort` | `@conditional_on_class("granian")`, `@conditional_on_missing_bean(ApplicationServerPort)` |
 | `UvicornServerAutoConfiguration` | `pyfly.server.auto_configuration` | `ApplicationServerPort` | `@conditional_on_class("uvicorn")`, `@conditional_on_missing_bean(ApplicationServerPort)` |
 | `HypercornServerAutoConfiguration` | `pyfly.server.auto_configuration` | `ApplicationServerPort` | `@conditional_on_class("hypercorn")`, `@conditional_on_missing_bean(ApplicationServerPort)` |
+| `EventLoopAutoConfiguration` | `pyfly.server.auto_configuration` | `EventLoopPort` | `@conditional_on_class("uvloop")` |
 | `CacheAutoConfiguration` | `pyfly.cache.auto_configuration` | `CacheAdapter` | `@conditional_on_property("pyfly.cache.enabled")`, `@conditional_on_missing_bean(CacheAdapter)` |
 | `MessagingAutoConfiguration` | `pyfly.messaging.auto_configuration` | `MessageBrokerPort` | `@conditional_on_property("pyfly.messaging.provider")`, `@conditional_on_missing_bean(MessageBrokerPort)` |
 | `ClientAutoConfiguration` | `pyfly.client.auto_configuration` | `HttpClientPort` | `@conditional_on_class("httpx")`, `@conditional_on_missing_bean(HttpClientPort)` |
-| `DocumentAutoConfiguration` | `pyfly.data.document.auto_configuration` | `AsyncIOMotorClient`, `BeanieInitializer`, `MongoRepositoryBeanPostProcessor` | `@conditional_on_class("beanie")`, `@conditional_on_property("pyfly.data.document.enabled")` |
+| `DocumentAutoConfiguration` | `pyfly.data.document.auto_configuration` | `AsyncIOMotorClient`, `MongoRepositoryBeanPostProcessor` | `@conditional_on_class("beanie")`, `@conditional_on_property("pyfly.data.document.enabled")` |
 | `RelationalAutoConfiguration` | `pyfly.data.relational.auto_configuration` | `RepositoryBeanPostProcessor` | `@conditional_on_class("sqlalchemy")`, `@conditional_on_property("pyfly.data.relational.enabled")` |
+| `ShellAutoConfiguration` | `pyfly.shell.auto_configuration` | `ShellRunnerPort` | `@conditional_on_class("click")` |
+| `CqrsAutoConfiguration` | `pyfly.cqrs.config.auto_configuration` | CQRS handlers | (unconditional) |
+| `AdminAutoConfiguration` | `pyfly.admin.auto_configuration` | Admin dashboard | `@conditional_on_property("pyfly.admin.enabled")` |
+| `TransactionalEngineAutoConfiguration` | `pyfly.transactional.auto_configuration` | Saga/TCC engines | `@conditional_on_property("pyfly.transactional.enabled")` |
+| `JwtAutoConfiguration` | `pyfly.security.auto_configuration` | `JWTService` | `@conditional_on_property("pyfly.security.enabled")`, `@conditional_on_class("jwt")` |
+| `PasswordEncoderAutoConfiguration` | `pyfly.security.auto_configuration` | `BcryptPasswordEncoder` | `@conditional_on_property("pyfly.security.enabled")`, `@conditional_on_class("bcrypt")` |
+| `SchedulingAutoConfiguration` | `pyfly.scheduling.auto_configuration` | `TaskScheduler` | `@conditional_on_class("croniter")` |
+| `MetricsAutoConfiguration` | `pyfly.observability.auto_configuration` | `MetricsRegistry` | `@conditional_on_class("prometheus_client")` |
+| `TracingAutoConfiguration` | `pyfly.observability.auto_configuration` | `TracerProvider` | `@conditional_on_class("opentelemetry")` |
+| `ActuatorAutoConfiguration` | `pyfly.actuator.auto_configuration` | `ActuatorRegistry`, `HealthAggregator` | `@conditional_on_property("pyfly.web.actuator.enabled")` |
+| `MetricsActuatorAutoConfiguration` | `pyfly.actuator.auto_configuration` | `MetricsEndpoint`, `PrometheusEndpoint` | `@conditional_on_property("pyfly.web.actuator.enabled")`, `@conditional_on_class("prometheus_client")` |
+| `AopAutoConfiguration` | `pyfly.aop.auto_configuration` | `AspectBeanPostProcessor` | (unconditional — always active) |
 
 ### Decentralized Auto-Configuration via Entry Points
 
@@ -629,6 +642,20 @@ messaging        = "pyfly.messaging.auto_configuration:MessagingAutoConfiguratio
 client           = "pyfly.client.auto_configuration:ClientAutoConfiguration"
 document         = "pyfly.data.document.auto_configuration:DocumentAutoConfiguration"
 relational       = "pyfly.data.relational.auto_configuration:RelationalAutoConfiguration"
+shell            = "pyfly.shell.auto_configuration:ShellAutoConfiguration"
+cqrs             = "pyfly.cqrs.config.auto_configuration:CqrsAutoConfiguration"
+admin            = "pyfly.admin.auto_configuration:AdminAutoConfiguration"
+transactional    = "pyfly.transactional.auto_configuration:TransactionalEngineAutoConfiguration"
+server           = "pyfly.server.auto_configuration:ServerAutoConfiguration"
+event-loop       = "pyfly.server.auto_configuration:EventLoopAutoConfiguration"
+security-jwt     = "pyfly.security.auto_configuration:JwtAutoConfiguration"
+security-password = "pyfly.security.auto_configuration:PasswordEncoderAutoConfiguration"
+scheduling       = "pyfly.scheduling.auto_configuration:SchedulingAutoConfiguration"
+metrics          = "pyfly.observability.auto_configuration:MetricsAutoConfiguration"
+tracing          = "pyfly.observability.auto_configuration:TracingAutoConfiguration"
+actuator         = "pyfly.actuator.auto_configuration:ActuatorAutoConfiguration"
+actuator-metrics = "pyfly.actuator.auto_configuration:MetricsActuatorAutoConfiguration"
+aop              = "pyfly.aop.auto_configuration:AopAutoConfiguration"
 ```
 
 Each `@auto_configuration` class uses `@conditional_on_class`, `@conditional_on_property`,

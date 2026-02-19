@@ -17,7 +17,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from prometheus_client import REGISTRY
+try:
+    from prometheus_client import REGISTRY
+except ImportError:
+    REGISTRY = None  # type: ignore[assignment]
 
 
 class MetricsEndpoint:

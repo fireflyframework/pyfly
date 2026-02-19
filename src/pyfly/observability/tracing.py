@@ -20,20 +20,34 @@ import functools
 from collections.abc import Callable
 from typing import Any, TypeVar
 
-from opentelemetry import trace
+try:
+    from opentelemetry import trace
+
+    _HAS_OTEL = True
+    _tracer = trace.get_tracer("pyfly")
+except ImportError:
+    _HAS_OTEL = False
+    trace = None  # type: ignore[assignment]
+    _tracer = None  # type: ignore[assignment]
 
 F = TypeVar("F", bound=Callable[..., Any])
-
-_tracer = trace.get_tracer("pyfly")
 
 
 def span(name: str) -> Callable[[F], F]:
     """Decorator that wraps a function in an OpenTelemetry span.
 
+    No-op when opentelemetry is not installed.
+
     Usage:
         @span("process-order")
         async def process_order(order_id: str) -> dict: ...
     """
+    if not _HAS_OTEL:
+
+        def noop_decorator(func: F) -> F:
+            return func
+
+        return noop_decorator
 
     def decorator(func: F) -> F:
         if asyncio.iscoroutinefunction(func):
