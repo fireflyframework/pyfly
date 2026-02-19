@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## v0.2.0-M6 (2026-02-19)
+
+### Fixed
+
+- **ASGI pathsend extension**: `WebFilterChainMiddleware` now handles the ASGI `http.response.pathsend` extension correctly when running under Granian
+
+---
+
 ## v0.2.0-M5 (2026-02-19)
 
 ### Added

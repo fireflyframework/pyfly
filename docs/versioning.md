@@ -12,7 +12,7 @@ All PyFly versions follow the `MAJOR.MINOR.PATCH` scheme:
 - **MINOR** — New functionality in a backward-compatible manner
 - **PATCH** — Backward-compatible bug fixes
 
-Pre-release versions append a stage suffix: `0.2.0-M5`, `0.2.0-RC1`.
+Pre-release versions append a stage suffix: `0.2.0-M6`, `0.2.0-RC1`.
 
 ---
 
@@ -40,7 +40,7 @@ SNAPSHOT versions represent the bleeding edge of development. They are rebuilt f
 
 | | |
 |-|-|
-| **Format** | `X.Y.Z-MN` (e.g., `0.1.0-M1`, `0.2.0-M5`) |
+| **Format** | `X.Y.Z-MN` (e.g., `0.1.0-M1`, `0.2.0-M6`) |
 | **Stability** | Pre-release — APIs may still change |
 | **Purpose** | Feature previews and early feedback |
 | **Audience** | Developers evaluating upcoming features |
@@ -78,11 +78,11 @@ Python packaging standards ([PEP 440](https://peps.python.org/pep-0440/)) use a 
 | PyFly (Spring Boot Style) | PEP 440 (`pyproject.toml`) | Example |
 |---------------------------|---------------------------|---------|
 | `0.2.0-SNAPSHOT` | `0.2.0.dev1` | Development |
-| `0.2.0-M5` | `0.2.0a5` | Milestone 5 |
+| `0.2.0-M6` | `0.2.0a6` | Milestone 6 |
 | `0.2.0-RC1` | `0.2.0rc1` | Release Candidate 1 |
 | `0.2.0` (GA) | `0.2.0` | General Availability |
 
-The display version (`__version__` in `pyfly/__init__.py`) uses the Spring Boot format (`0.2.0-M5`), which is what you see in the startup banner, CLI output, and admin dashboard. The `pyproject.toml` version uses PEP 440 format for compatibility with Python packaging tools (pip, uv, hatchling).
+The display version (`__version__` in `pyfly/__init__.py`) uses the Spring Boot format (`0.2.0-M6`), which is what you see in the startup banner, CLI output, and admin dashboard. The `pyproject.toml` version uses PEP 440 format for compatibility with Python packaging tools (pip, uv, hatchling).
 
 ---
 
@@ -90,6 +90,7 @@ The display version (`__version__` in `pyfly/__init__.py`) uses the Spring Boot 
 
 | Version | Date | Stage | Highlights |
 |---------|------|-------|------------|
+| `0.2.0-M6` | 2026-02-19 | Milestone | ASGI pathsend extension fix for Granian |
 | `0.2.0-M5` | 2026-02-19 | Milestone | Auto-configuration audit (8 new auto-config classes), stdlib logging fallback, post-processor deduplication |
 | `0.2.0-M4` | 2026-02-18 | Milestone | Admin dashboard overhaul, pure ASGI middleware (anyio fix), built-in metrics, bean categories, mapping/trace/logger enhancements |
 | `0.2.0-M3` | 2026-02-18 | Milestone | Clean server startup, graceful shutdown, admin dashboard enhancements, mypy strict compliance |
@@ -111,7 +112,7 @@ See **[CHANGELOG.md](../CHANGELOG.md)** for detailed release notes.
 
 ```python
 import pyfly
-print(pyfly.__version__)  # e.g., "0.2.0-M5"
+print(pyfly.__version__)  # e.g., "0.2.0-M6"
 ```
 
 **CLI:**
@@ -130,7 +131,7 @@ ______ ___.__._/ ____\  | ___.__.
 |   __// ____| |__|  |____/ ____|
 |__|   \/                 \/
 
-:: PyFly Framework :: (v0.2.0-M5) (Python 3.13.9)
+:: PyFly Framework :: (v0.2.0-M6) (Python 3.13.9)
 Copyright 2026 Firefly Software Solutions Inc. | Apache License 2.0
 ```
 

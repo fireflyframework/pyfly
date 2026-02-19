@@ -472,7 +472,7 @@ PyFly Doctor
     ✓ mypy — Type checker
 
   PyFly packages:
-    ✓ pyfly v0.2.0-M5
+    ✓ pyfly v0.2.0-M6
 
   All checks passed!
 ```

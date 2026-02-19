@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pyfly"
-version = "0.2.0a5"
+version = "0.2.0a6"
 description = "The official Python implementation of the Firefly Framework — DI, CQRS, EDA, hexagonal architecture, and more."
 readme = "README.md"
 license = "Apache-2.0"
