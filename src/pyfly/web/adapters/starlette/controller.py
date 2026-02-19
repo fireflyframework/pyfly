@@ -77,9 +77,14 @@ class ControllerRegistrar:
     3. Builds a ParameterResolver for each handler
     4. Collects @exception_handler methods
     5. Creates Starlette Route objects that dispatch requests
+
+    Also collects ``@controller_advice`` beans for global exception handling.
     """
 
     _CONTROLLER_STEREOTYPES = ("rest_controller", "controller")
+
+    def __init__(self) -> None:
+        self._global_exception_handlers: dict[type[Exception], Any] | None = None
 
     def collect_routes(self, ctx: Any) -> list[Route]:
         """Collect all routes from ``@rest_controller`` and ``@controller`` beans.
@@ -302,6 +307,28 @@ class ControllerRegistrar:
                 handlers[exc_type] = method
         return dict(sorted(handlers.items(), key=lambda item: len(item[0].__mro__), reverse=True))
 
+    def _collect_global_advice_handlers(self, ctx: Any) -> dict[type[Exception], Any]:
+        """Collect @exception_handler methods from all @controller_advice beans.
+
+        Handlers are sorted by MRO depth (most specific first). Controller-local
+        handlers always take priority over global advice.
+        """
+        handlers: dict[type[Exception], Any] = {}
+        for cls, reg in ctx.container._registrations.items():
+            if getattr(cls, "__pyfly_stereotype__", "") != "controller_advice":
+                continue
+            instance = reg.instance
+            if instance is None:
+                instance = ctx.get_bean(cls)
+            handlers.update(self._collect_exception_handlers(instance))
+        return dict(sorted(handlers.items(), key=lambda item: len(item[0].__mro__), reverse=True))
+
+    def _get_global_advice_handlers(self, ctx: Any) -> dict[type[Exception], Any]:
+        """Return cached global advice handlers, collecting on first call."""
+        if self._global_exception_handlers is None:
+            self._global_exception_handlers = self._collect_global_advice_handlers(ctx)
+        return self._global_exception_handlers
+
     def _make_lazy_handler(
         self,
         ctx: Any,
@@ -319,17 +346,28 @@ class ControllerRegistrar:
                 bound_method = getattr(_cache["instance"], method_name)
                 _cache["resolver"] = ParameterResolver(bound_method)
                 _cache["method"] = bound_method
+
+            accept = request.headers.get("accept")
+
             try:
                 kwargs = await _cache["resolver"].resolve(request)
                 result = await _maybe_await(_cache["method"](**kwargs))
-                return handle_return_value(result, status_code)
+                return handle_return_value(result, status_code, accept=accept)
             except Exception as exc:
+                # 1. Check controller-local exception handlers
                 for exc_type, handler in _cache["exc_handlers"].items():
                     if isinstance(exc, exc_type):
                         result = await _maybe_await(handler(exc))
                         if isinstance(result, tuple) and len(result) == 2:
                             return JSONResponse(result[1], status_code=result[0])
-                        return handle_return_value(result)
+                        return handle_return_value(result, accept=accept)
+                # 2. Check global @controller_advice exception handlers
+                for exc_type, handler in self._get_global_advice_handlers(ctx).items():
+                    if isinstance(exc, exc_type):
+                        result = await _maybe_await(handler(exc))
+                        if isinstance(result, tuple) and len(result) == 2:
+                            return JSONResponse(result[1], status_code=result[0])
+                        return handle_return_value(result, accept=accept)
                 raise
 
         return lazy_endpoint

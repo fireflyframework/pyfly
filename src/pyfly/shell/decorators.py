@@ -94,6 +94,40 @@ def shell_option(
     return decorator
 
 
+def shell_method_availability(
+    checker: str,
+) -> Callable[[F], F]:
+    """Link a shell command to an availability checker method.
+
+    The *checker* is the name of a method on the same ``@shell_component``
+    class that returns ``""`` (available) or a reason string (unavailable).
+    When unavailable, the command is hidden from help and blocked from execution.
+
+    Usage::
+
+        @shell_component
+        class AdminCommands:
+            def __init__(self, security: SecurityContext):
+                self._security = security
+
+            def admin_available(self) -> str:
+                if self._security.has_role("ADMIN"):
+                    return ""
+                return "Requires ADMIN role"
+
+            @shell_method(key="reset-db", help="Reset the database")
+            @shell_method_availability("admin_available")
+            async def reset_db(self) -> str:
+                return "Database reset!"
+    """
+
+    def decorator(func: F) -> F:
+        func.__pyfly_shell_availability__ = checker  # type: ignore[attr-defined]
+        return func
+
+    return decorator
+
+
 def shell_argument(
     name: str,
     *,

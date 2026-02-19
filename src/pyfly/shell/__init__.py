@@ -18,7 +18,7 @@ with full dependency injection, interactive REPL, and CommandLineRunner support.
 """
 
 from pyfly.container.stereotypes import shell_component
-from pyfly.shell.decorators import shell_argument, shell_method, shell_option
+from pyfly.shell.decorators import shell_argument, shell_method, shell_method_availability, shell_option
 from pyfly.shell.ports.outbound import ShellRunnerPort
 from pyfly.shell.result import CommandResult, ShellParam
 from pyfly.shell.runner import ApplicationArguments, ApplicationRunner, CommandLineRunner
@@ -33,5 +33,6 @@ __all__ = [
     "shell_argument",
     "shell_component",
     "shell_method",
+    "shell_method_availability",
     "shell_option",
 ]

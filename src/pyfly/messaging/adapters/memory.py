@@ -15,6 +15,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import itertools
 
 from pyfly.messaging.ports.outbound import MessageHandler
@@ -26,6 +27,7 @@ class InMemoryMessageBroker:
         self._subscriptions: dict[str, list[tuple[MessageHandler, str | None]]] = {}
         self._group_iterators: dict[tuple[str, str], itertools.cycle[MessageHandler]] = {}
         self._running = False
+        self._lock = asyncio.Lock()
 
     async def publish(
         self,
@@ -38,18 +40,20 @@ class InMemoryMessageBroker:
         if not self._running:
             raise RuntimeError("Broker is not running")
         msg = Message(topic=topic, value=value, key=key, headers=headers or {})
-        subs = self._subscriptions.get(topic, [])
+        async with self._lock:
+            subs = list(self._subscriptions.get(topic, []))
         delivered_groups: set[str] = set()
         for handler, group in subs:
             if group is None:
                 await handler(msg)
             elif group not in delivered_groups:
                 delivered_groups.add(group)
-                rr_key = (topic, group)
-                if rr_key not in self._group_iterators:
-                    group_handlers = [h for h, g in subs if g == group]
-                    self._group_iterators[rr_key] = itertools.cycle(group_handlers)
-                selected = next(self._group_iterators[rr_key])
+                async with self._lock:
+                    rr_key = (topic, group)
+                    if rr_key not in self._group_iterators:
+                        group_handlers = [h for h, g in subs if g == group]
+                        self._group_iterators[rr_key] = itertools.cycle(group_handlers)
+                    selected = next(self._group_iterators[rr_key])
                 await selected(msg)
 
     async def subscribe(
@@ -58,12 +62,13 @@ class InMemoryMessageBroker:
         handler: MessageHandler,
         group: str | None = None,
     ) -> None:
-        if topic not in self._subscriptions:
-            self._subscriptions[topic] = []
-        self._subscriptions[topic].append((handler, group))
-        if group is not None:
-            rr_key = (topic, group)
-            self._group_iterators.pop(rr_key, None)
+        async with self._lock:
+            if topic not in self._subscriptions:
+                self._subscriptions[topic] = []
+            self._subscriptions[topic].append((handler, group))
+            if group is not None:
+                rr_key = (topic, group)
+                self._group_iterators.pop(rr_key, None)
 
     async def start(self) -> None:
         self._running = True

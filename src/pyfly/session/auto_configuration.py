@@ -1,0 +1,63 @@
+# Copyright 2026 Firefly Software Solutions Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+"""Session subsystem auto-configuration."""
+
+from __future__ import annotations
+
+from pyfly.config.auto import AutoConfiguration
+from pyfly.container.bean import bean
+from pyfly.context.conditions import (
+    auto_configuration,
+    conditional_on_missing_bean,
+    conditional_on_property,
+)
+from pyfly.core.config import Config
+from pyfly.session.filter import SessionFilter
+from pyfly.session.ports.outbound import SessionStore
+
+
+@auto_configuration
+@conditional_on_property("pyfly.session.enabled", having_value="true")
+@conditional_on_missing_bean(SessionStore)
+class SessionStoreAutoConfiguration:
+    """Auto-configures the session store based on provider detection."""
+
+    @bean
+    def session_store(self, config: Config) -> SessionStore:
+        store_type = str(config.get("pyfly.session.store", "memory"))
+
+        if store_type == "redis" and AutoConfiguration.is_available("redis.asyncio"):
+            import redis.asyncio as aioredis
+
+            from pyfly.session.adapters.redis import RedisSessionStore
+
+            url = str(config.get("pyfly.session.redis.url", "redis://localhost:6379/0"))
+            client = aioredis.from_url(url)  # type: ignore[no-untyped-call,unused-ignore]
+            return RedisSessionStore(client=client)
+
+        from pyfly.session.adapters.memory import InMemorySessionStore
+
+        return InMemorySessionStore()
+
+
+@auto_configuration
+@conditional_on_property("pyfly.session.enabled", having_value="true")
+class SessionFilterAutoConfiguration:
+    """Auto-configures the SessionFilter when sessions are enabled."""
+
+    @bean
+    def session_filter(self, config: Config, session_store: SessionStore) -> SessionFilter:
+        cookie_name = str(config.get("pyfly.session.cookie-name", "PYFLY_SESSION"))
+        ttl = int(config.get("pyfly.session.ttl", 1800))
+        return SessionFilter(store=session_store, cookie_name=cookie_name, ttl=ttl)

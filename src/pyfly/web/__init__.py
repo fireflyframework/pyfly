@@ -19,6 +19,8 @@ Import concrete adapter types from the adapter package::
     from pyfly.web.adapters.starlette import create_app
 """
 
+# Re-export controller_advice from container for convenience
+from pyfly.container.stereotypes import controller_advice
 from pyfly.web.cors import CORSConfig
 from pyfly.web.exception_handler import exception_handler
 from pyfly.web.filters import OncePerRequestFilter
@@ -37,6 +39,7 @@ from pyfly.web.security_headers import SecurityHeadersConfig
 __all__ = [
     "Body",
     "CORSConfig",
+    "controller_advice",
     "Cookie",
     "File",
     "Header",

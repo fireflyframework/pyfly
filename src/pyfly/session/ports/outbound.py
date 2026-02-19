@@ -11,19 +11,24 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""PyFly Core — Application bootstrap and configuration."""
+"""Session store protocol."""
 
-from pyfly.core.application import PyFlyApplication, pyfly_application
-from pyfly.core.banner import BannerMode, BannerPrinter
-from pyfly.core.config import Config, config_properties
-from pyfly.core.value import Value
+from __future__ import annotations
 
-__all__ = [
-    "BannerMode",
-    "BannerPrinter",
-    "Config",
-    "PyFlyApplication",
-    "Value",
-    "config_properties",
-    "pyfly_application",
-]
+from typing import Any, Protocol, runtime_checkable
+
+
+@runtime_checkable
+class SessionStore(Protocol):
+    """Abstract session persistence interface.
+
+    All session backends (in-memory, Redis, etc.) must implement this protocol.
+    """
+
+    async def get(self, session_id: str) -> dict[str, Any] | None: ...
+
+    async def save(self, session_id: str, data: dict[str, Any], ttl: int) -> None: ...
+
+    async def delete(self, session_id: str) -> None: ...
+
+    async def exists(self, session_id: str) -> bool: ...

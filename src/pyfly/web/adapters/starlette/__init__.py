@@ -55,3 +55,10 @@ try:
     __all__ += ["SecurityFilter"]
 except ImportError:
     pass
+
+try:
+    from pyfly.web.adapters.starlette.filters import OAuth2ResourceServerFilter
+
+    __all__ += ["OAuth2ResourceServerFilter"]
+except ImportError:
+    pass

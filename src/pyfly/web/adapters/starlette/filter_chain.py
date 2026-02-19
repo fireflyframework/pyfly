@@ -64,12 +64,19 @@ class WebFilterChainMiddleware:
                         body_parts.append(body)
                 elif message["type"] == "http.response.pathsend":
                     # ASGI pathsend extension (Granian zero-copy file serving).
-                    # Read the file into body_parts so filters can process it.
+                    # Stream the file in chunks to avoid OOM on large files.
                     from pathlib import Path
 
                     path = message.get("path", "")
                     if path:
-                        body_parts.append(Path(path).read_bytes())
+                        file_path = Path(path)
+                        chunk_size = 64 * 1024  # 64 KB chunks
+                        with file_path.open("rb") as fh:
+                            while True:
+                                chunk = fh.read(chunk_size)
+                                if not chunk:
+                                    break
+                                body_parts.append(chunk)
 
             await self.app(scope, receive, _intercept)
 

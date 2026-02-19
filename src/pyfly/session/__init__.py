@@ -11,19 +11,20 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""PyFly Core — Application bootstrap and configuration."""
+"""PyFly Session — Server-side session management with pluggable stores.
 
-from pyfly.core.application import PyFlyApplication, pyfly_application
-from pyfly.core.banner import BannerMode, BannerPrinter
-from pyfly.core.config import Config, config_properties
-from pyfly.core.value import Value
+Import concrete store types from the adapter package::
+
+    from pyfly.session.adapters.memory import InMemorySessionStore
+    from pyfly.session.adapters.redis import RedisSessionStore
+"""
+
+from pyfly.session.filter import SessionFilter
+from pyfly.session.ports.outbound import SessionStore
+from pyfly.session.session import HttpSession
 
 __all__ = [
-    "BannerMode",
-    "BannerPrinter",
-    "Config",
-    "PyFlyApplication",
-    "Value",
-    "config_properties",
-    "pyfly_application",
+    "HttpSession",
+    "SessionFilter",
+    "SessionStore",
 ]

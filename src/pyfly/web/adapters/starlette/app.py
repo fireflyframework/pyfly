@@ -38,6 +38,7 @@ from pyfly.web.adapters.starlette.filters import (
 )
 from pyfly.web.openapi import OpenAPIGenerator
 from pyfly.web.ports.filter import WebFilter
+from pyfly.websocket.adapters.starlette import WebSocketRegistrar
 
 if TYPE_CHECKING:
     from pyfly.context.application_context import ApplicationContext
@@ -59,8 +60,8 @@ def create_app(
     """Create a Starlette application with PyFly enterprise middleware.
 
     When ``context`` is provided, auto-discovers all ``@rest_controller`` beans
-    and mounts their routes.  Also auto-discovers user ``WebFilter`` and
-    ``ActuatorEndpoint`` beans.
+    and mounts their routes.  Also auto-discovers user ``WebFilter``,
+    ``ActuatorEndpoint``, and ``@websocket_mapping`` beans.
 
     Includes:
     - WebFilter chain (transaction ID, request logging, security headers, + user filters)
@@ -68,6 +69,7 @@ def create_app(
     - OpenAPI spec, Swagger UI, and ReDoc (when docs_enabled)
     - Actuator endpoints (when actuator_enabled)
     - CORS support (when cors is provided)
+    - WebSocket routes (auto-discovered from @websocket_mapping)
     """
     # --- Build the WebFilter chain ---
     filters: list[WebFilter] = [
@@ -117,6 +119,11 @@ def create_app(
     # Auto-discover controller routes from ApplicationContext
     if context is not None:
         routes.extend(registrar.collect_routes(context))
+
+    # Auto-discover WebSocket routes from ApplicationContext
+    if context is not None:
+        ws_registrar = WebSocketRegistrar()
+        routes.extend(ws_registrar.collect_routes(context))  # type: ignore[arg-type]
 
     # Append caller-supplied routes (e.g. test helpers)
     if extra_routes:

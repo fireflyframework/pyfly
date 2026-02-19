@@ -11,19 +11,23 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""PyFly Core — Application bootstrap and configuration."""
+"""PyFly I18n — Internationalisation with pluggable message sources.
 
-from pyfly.core.application import PyFlyApplication, pyfly_application
-from pyfly.core.banner import BannerMode, BannerPrinter
-from pyfly.core.config import Config, config_properties
-from pyfly.core.value import Value
+Import concrete adapter types from the adapter package::
+
+    from pyfly.i18n.adapters.resource_bundle import ResourceBundleMessageSource
+"""
+
+from pyfly.i18n.locale import (
+    AcceptHeaderLocaleResolver,
+    FixedLocaleResolver,
+    LocaleResolver,
+)
+from pyfly.i18n.ports.outbound import MessageSource
 
 __all__ = [
-    "BannerMode",
-    "BannerPrinter",
-    "Config",
-    "PyFlyApplication",
-    "Value",
-    "config_properties",
-    "pyfly_application",
+    "AcceptHeaderLocaleResolver",
+    "FixedLocaleResolver",
+    "LocaleResolver",
+    "MessageSource",
 ]

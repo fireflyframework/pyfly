@@ -11,18 +11,22 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Exception converter system — chain of responsibility for exception translation.
+"""Converter utilities — exception translation and data format conversion.
 
-Converts external library exceptions (Pydantic, JSON, SQLAlchemy, etc.)
-into PyFly exceptions for consistent error handling.
+Exception converters: chain of responsibility for translating external library
+exceptions (Pydantic, JSON, SQLAlchemy, etc.) into PyFly exceptions.
+
+XML converters: dict/BaseModel to XML string and XML string to dict using
+Python's stdlib ``xml.etree.ElementTree`` (no extra dependencies).
 """
 
 from __future__ import annotations
 
 import json
-from typing import Protocol
+import xml.etree.ElementTree as ET
+from typing import Any, Protocol
 
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from pyfly.kernel.exceptions import (
     InvalidRequestException,
@@ -86,3 +90,82 @@ class JSONExceptionConverter:
             code="INVALID_JSON",
             context={"position": exc.pos},
         )
+
+
+# ---------------------------------------------------------------------------
+# XML data conversion utilities
+# ---------------------------------------------------------------------------
+
+
+def _build_element(parent: ET.Element, key: str, value: Any) -> None:
+    """Recursively attach *value* to *parent* as a child element named *key*."""
+    if isinstance(value, BaseModel):
+        _build_element(parent, key, value.model_dump(mode="json"))
+    elif isinstance(value, dict):
+        child = ET.SubElement(parent, key)
+        for k, v in value.items():
+            _build_element(child, k, v)
+    elif isinstance(value, list):
+        for item in value:
+            _build_element(parent, key, item)
+    elif value is None:
+        child = ET.SubElement(parent, key)
+    else:
+        child = ET.SubElement(parent, key)
+        child.text = str(value)
+
+
+def dict_to_xml(data: Any, root_tag: str = "response") -> str:
+    """Convert a dict, list, BaseModel, or primitive to an XML string.
+
+    - ``BaseModel`` instances are converted via ``model_dump(mode="json")``.
+    - ``list`` values produce repeated sibling elements named ``<item>``.
+    - ``None`` produces an empty element.
+    - Primitives are rendered as text content of the root element.
+    """
+    if isinstance(data, BaseModel):
+        data = data.model_dump(mode="json")
+
+    root = ET.Element(root_tag)
+
+    if isinstance(data, dict):
+        for key, value in data.items():
+            _build_element(root, key, value)
+    elif isinstance(data, list):
+        for item in data:
+            _build_element(root, "item", item)
+    else:
+        root.text = str(data)
+
+    return ET.tostring(root, encoding="unicode", xml_declaration=True)
+
+
+def _element_to_dict(element: ET.Element) -> dict[str, Any] | str | None:
+    """Recursively convert an XML element to a dict, string, or None."""
+    children = list(element)
+    if not children:
+        return element.text
+
+    result: dict[str, Any] = {}
+    for child in children:
+        child_value = _element_to_dict(child)
+        tag = child.tag
+        if tag in result:
+            existing = result[tag]
+            if isinstance(existing, list):
+                existing.append(child_value)
+            else:
+                result[tag] = [existing, child_value]
+        else:
+            result[tag] = child_value
+    return result
+
+
+def xml_to_dict(xml_string: str) -> dict[str, Any]:
+    """Parse an XML string and return a dict representation.
+
+    The root element becomes the single top-level key.  Repeated sibling
+    elements with the same tag name are collected into a list.
+    """
+    root = ET.fromstring(xml_string)
+    return {root.tag: _element_to_dict(root)}

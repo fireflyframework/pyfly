@@ -21,6 +21,7 @@ implementation.  The full pipeline is:
 
 from __future__ import annotations
 
+import enum
 import logging
 from typing import Any, Protocol, TypeVar, runtime_checkable
 
@@ -37,6 +38,16 @@ from pyfly.cqrs.types import Command
 R = TypeVar("R")
 
 _logger = logging.getLogger(__name__)
+
+
+class EventFailureStrategy(enum.Enum):
+    """Strategy for handling domain event publishing failures."""
+
+    LOG = "log"
+    """Log failures and continue (default). Command succeeds even if events fail."""
+
+    RAISE = "raise"
+    """Raise a CommandProcessingException if any event fails to publish."""
 
 
 @runtime_checkable
@@ -73,12 +84,14 @@ class DefaultCommandBus:
         authorization: AuthorizationService | None = None,
         metrics: CqrsMetricsService | None = None,
         event_publisher: Any | None = None,
+        event_failure_strategy: EventFailureStrategy = EventFailureStrategy.LOG,
     ) -> None:
         self._registry = registry
         self._validation = validation
         self._authorization = authorization
         self._metrics = metrics or CqrsMetricsService()
         self._event_publisher = event_publisher
+        self._event_failure_strategy = event_failure_strategy
 
     # ── CommandBus protocol ────────────────────────────────────
 
@@ -153,12 +166,22 @@ class DefaultCommandBus:
             return
         events = getattr(result, "domain_events", None) or getattr(command, "domain_events", None)
         if events:
-            failed_events = []
+            failed_events: list[tuple[Any, Exception]] = []
             for event in events:
                 try:
                     await publisher.publish(event)
                 except Exception as exc:
                     _logger.error("Failed to publish domain event %s: %s", type(event).__name__, exc)
-                    failed_events.append(event)
-            if failed_events:
+                    failed_events.append((event, exc))
+            if failed_events and self._event_failure_strategy == EventFailureStrategy.RAISE:
+                first_event, first_exc = failed_events[0]
+                raise CommandProcessingException(
+                    message=(
+                        f"{len(failed_events)} domain event(s) failed to publish "
+                        f"for {type(command).__name__}; first failure: {first_exc}"
+                    ),
+                    command_type=type(command),
+                    cause=first_exc,
+                ) from first_exc
+            elif failed_events:
                 _logger.error("%d domain event(s) failed to publish", len(failed_events))

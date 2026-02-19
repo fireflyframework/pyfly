@@ -20,6 +20,7 @@ configured.  **All state is lost on process restart.**
 
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -44,6 +45,7 @@ class InMemoryPersistenceAdapter:
 
     def __init__(self) -> None:
         self._store: dict[str, dict[str, Any]] = {}
+        self._lock = asyncio.Lock()
 
     # -- persist / retrieve -------------------------------------------------
 
@@ -57,11 +59,13 @@ class InMemoryPersistenceAdapter:
         correlation_id: str = state["correlation_id"]
         state.setdefault("status", "IN_FLIGHT")
         state.setdefault("started_at", datetime.now(UTC))
-        self._store[correlation_id] = state
+        async with self._lock:
+            self._store[correlation_id] = state
 
     async def get_state(self, correlation_id: str) -> dict[str, Any] | None:
         """Return the persisted state for *correlation_id*, or ``None``."""
-        return self._store.get(correlation_id)
+        async with self._lock:
+            return self._store.get(correlation_id)
 
     # -- step-level updates -------------------------------------------------
 
@@ -71,29 +75,33 @@ class InMemoryPersistenceAdapter:
         Initialises the ``"steps"`` dict and/or the individual step entry if
         they do not yet exist.
         """
-        state = self._store[correlation_id]
-        steps: dict[str, dict[str, Any]] = state.setdefault("steps", {})
-        step = steps.setdefault(step_id, {})
-        step["status"] = status
+        async with self._lock:
+            state = self._store[correlation_id]
+            steps: dict[str, dict[str, Any]] = state.setdefault("steps", {})
+            step = steps.setdefault(step_id, {})
+            step["status"] = status
 
     # -- completion ---------------------------------------------------------
 
     async def mark_completed(self, correlation_id: str, successful: bool) -> None:
         """Mark the transaction as ``COMPLETED`` or ``FAILED``."""
-        state = self._store[correlation_id]
-        state["status"] = "COMPLETED" if successful else "FAILED"
-        state["successful"] = successful
-        state["completed_at"] = datetime.now(UTC)
+        async with self._lock:
+            state = self._store[correlation_id]
+            state["status"] = "COMPLETED" if successful else "FAILED"
+            state["successful"] = successful
+            state["completed_at"] = datetime.now(UTC)
 
     # -- queries ------------------------------------------------------------
 
     async def get_in_flight(self) -> list[dict[str, Any]]:
         """Return all transactions whose status is ``IN_FLIGHT``."""
-        return [s for s in self._store.values() if s.get("status") == "IN_FLIGHT"]
+        async with self._lock:
+            return [s for s in self._store.values() if s.get("status") == "IN_FLIGHT"]
 
     async def get_stale(self, before: datetime) -> list[dict[str, Any]]:
         """Return transactions whose ``started_at`` is older than *before*."""
-        return [s for s in self._store.values() if s.get("started_at") is not None and s["started_at"] < before]
+        async with self._lock:
+            return [s for s in self._store.values() if s.get("started_at") is not None and s["started_at"] < before]
 
     # -- maintenance --------------------------------------------------------
 
@@ -103,15 +111,16 @@ class InMemoryPersistenceAdapter:
         Returns the number of records deleted.
         """
         cutoff = datetime.now(UTC) - older_than
-        to_remove: list[str] = []
-        for cid, state in self._store.items():
-            if state.get("status") in ("COMPLETED", "FAILED"):
-                completed_at = state.get("completed_at")
-                if completed_at is not None and completed_at < cutoff:
-                    to_remove.append(cid)
+        async with self._lock:
+            to_remove: list[str] = []
+            for cid, state in self._store.items():
+                if state.get("status") in ("COMPLETED", "FAILED"):
+                    completed_at = state.get("completed_at")
+                    if completed_at is not None and completed_at < cutoff:
+                        to_remove.append(cid)
 
-        for cid in to_remove:
-            del self._store[cid]
+            for cid in to_remove:
+                del self._store[cid]
 
         return len(to_remove)
 

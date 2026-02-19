@@ -69,6 +69,7 @@ class ApplicationContext:
         self._started = False
         self._infrastructure_adapters: list[Any] = []
         self._task_scheduler: Any | None = None
+        self._background_tasks: list[asyncio.Task[Any]] = []
         self._wiring_counts: dict[str, int] = {}
 
         # Register config and container as singleton beans (injectable like Spring's ApplicationContext)
@@ -235,6 +236,14 @@ class ApplicationContext:
         cannot block the entire shutdown sequence.
         """
         shutdown_timeout = float(self._config.get("pyfly.context.shutdown-timeout", 30))
+
+        # Cancel tracked background tasks
+        for task in self._background_tasks:
+            if not task.done():
+                task.cancel()
+        if self._background_tasks:
+            await asyncio.gather(*self._background_tasks, return_exceptions=True)
+            self._background_tasks.clear()
 
         # Stop task scheduler
         if self._task_scheduler is not None:
@@ -594,7 +603,8 @@ class ApplicationContext:
                 topic = getattr(method, "__pyfly_listener_topic__", "")
                 group = getattr(method, "__pyfly_listener_group__", None)
                 # MessageBrokerPort.subscribe is async; defer via create_task
-                asyncio.get_event_loop().create_task(broker.subscribe(topic, method, group=group))
+                task = asyncio.get_event_loop().create_task(broker.subscribe(topic, method, group=group))
+                self._background_tasks.append(task)
                 count += 1
         self._wiring_counts["message_listeners"] = count
         if count:
@@ -652,7 +662,8 @@ class ApplicationContext:
         self._wiring_counts["scheduled"] = count
         if count:
             self._task_scheduler = scheduler
-            asyncio.get_event_loop().create_task(scheduler.start())
+            task = asyncio.get_event_loop().create_task(scheduler.start())
+            self._background_tasks.append(task)
             logger.debug("Discovered %d @scheduled method(s)", count)
 
     def _wire_async_methods(self) -> None:
@@ -715,6 +726,20 @@ class ApplicationContext:
                     continue
                 if not getattr(method, "__pyfly_shell_method__", False):
                     continue
+
+                # Check @shell_method_availability
+                availability_checker_name = getattr(method, "__pyfly_shell_availability__", None)
+                if availability_checker_name:
+                    checker = getattr(reg.instance, availability_checker_name, None)
+                    if checker is not None:
+                        reason = checker()
+                        if reason:
+                            logger.debug(
+                                "Shell command '%s' unavailable: %s",
+                                getattr(method, "__pyfly_shell_key__", attr_name),
+                                reason,
+                            )
+                            continue
 
                 from pyfly.shell.param_inference import infer_params
 

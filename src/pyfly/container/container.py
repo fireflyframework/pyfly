@@ -248,7 +248,9 @@ class Container:
         return self.resolve(param_type)
 
     def _inject_autowired_fields(self, instance: Any) -> None:
-        """Inject dependencies into fields marked with Autowired()."""
+        """Inject dependencies into fields marked with Autowired() or Value()."""
+        from pyfly.core.value import Value
+
         try:
             hints = typing.get_type_hints(type(instance), include_extras=True)
         except Exception:
@@ -256,6 +258,21 @@ class Container:
 
         for attr_name, attr_type in hints.items():
             default = getattr(type(instance), attr_name, None)
+
+            # Handle @Value("${key}") field descriptors
+            if isinstance(default, Value):
+                from pyfly.core.config import Config
+
+                config_reg = self._registrations.get(Config)
+                if config_reg is None or config_reg.instance is None:
+                    raise RuntimeError(
+                        f"Cannot resolve @Value for {type(instance).__qualname__}.{attr_name}: "
+                        f"Config bean not registered"
+                    )
+                resolved = default.resolve(config_reg.instance)
+                setattr(instance, attr_name, resolved)
+                continue
+
             if not isinstance(default, Autowired):
                 continue
 
