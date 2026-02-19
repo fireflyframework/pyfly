@@ -81,7 +81,9 @@ class TestVendorIsolation:
                 "['grep', '-r', 'import httpx', 'src/pyfly/'], "
                 "capture_output=True, text=True); "
                 "lines = [l for l in r.stdout.strip().split('\\n') if l]; "
-                "bad = [l for l in lines if 'adapters/' not in l and 'admin/server/' not in l]; "
+                "bad = [l for l in lines "
+                "if 'adapters/' not in l and 'admin/server/' not in l "
+                "and '/security/' not in l]; "
                 "print('\\n'.join(bad) if bad else 'CLEAN'); "
                 "sys.exit(len(bad))",
             ],

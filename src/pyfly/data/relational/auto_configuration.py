@@ -36,6 +36,7 @@ from pyfly.context.conditions import (
     conditional_on_property,
 )
 from pyfly.core.config import Config
+from pyfly.data.relational.sqlalchemy.auditing import AuditingEntityListener
 from pyfly.data.relational.sqlalchemy.post_processor import (
     RepositoryBeanPostProcessor,
 )
@@ -126,3 +127,10 @@ class RelationalAutoConfiguration:
     @bean
     def repository_post_processor(self) -> RepositoryBeanPostProcessor:
         return RepositoryBeanPostProcessor()
+
+    @bean
+    def auditing_entity_listener(self) -> AuditingEntityListener:
+        """Registers SQLAlchemy ORM events for automatic audit field population."""
+        listener = AuditingEntityListener()
+        listener.register()
+        return listener

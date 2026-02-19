@@ -19,6 +19,7 @@ try:
     from pyfly.data.document.mongodb.document import BaseDocument
     from pyfly.data.document.mongodb.filter import MongoFilterOperator, MongoFilterUtils
     from pyfly.data.document.mongodb.post_processor import MongoRepositoryBeanPostProcessor
+    from pyfly.data.document.mongodb.query import MongoQueryExecutor
     from pyfly.data.document.mongodb.query_compiler import MongoQueryMethodCompiler
     from pyfly.data.document.mongodb.repository import MongoRepository
     from pyfly.data.document.mongodb.specification import MongoSpecification
@@ -28,6 +29,7 @@ try:
         "BaseDocument",
         "MongoFilterOperator",
         "MongoFilterUtils",
+        "MongoQueryExecutor",
         "MongoQueryMethodCompiler",
         "MongoRepository",
         "MongoRepositoryBeanPostProcessor",

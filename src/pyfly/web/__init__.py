@@ -35,6 +35,7 @@ from pyfly.web.mappings import (
 from pyfly.web.params import Body, Cookie, File, Header, PathVar, QueryParam, UploadedFile, Valid
 from pyfly.web.ports.filter import WebFilter
 from pyfly.web.security_headers import SecurityHeadersConfig
+from pyfly.web.sse import sse_mapping
 
 __all__ = [
     "Body",
@@ -57,4 +58,5 @@ __all__ = [
     "post_mapping",
     "put_mapping",
     "request_mapping",
+    "sse_mapping",
 ]

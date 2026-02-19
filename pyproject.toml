@@ -155,6 +155,7 @@ aop = "pyfly.aop.auto_configuration:AopAutoConfiguration"
 i18n = "pyfly.i18n.auto_configuration:I18nAutoConfiguration"
 session = "pyfly.session.auto_configuration:SessionStoreAutoConfiguration"
 session-filter = "pyfly.session.auto_configuration:SessionFilterAutoConfiguration"
+oauth2-login = "pyfly.security.auto_configuration:OAuth2LoginAutoConfiguration"
 
 [project.scripts]
 pyfly = "pyfly.cli.main:cli"

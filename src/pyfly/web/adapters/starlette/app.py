@@ -61,7 +61,7 @@ def create_app(
 
     When ``context`` is provided, auto-discovers all ``@rest_controller`` beans
     and mounts their routes.  Also auto-discovers user ``WebFilter``,
-    ``ActuatorEndpoint``, and ``@websocket_mapping`` beans.
+    ``ActuatorEndpoint``, ``@websocket_mapping``, and ``@sse_mapping`` beans.
 
     Includes:
     - WebFilter chain (transaction ID, request logging, security headers, + user filters)
@@ -70,6 +70,7 @@ def create_app(
     - Actuator endpoints (when actuator_enabled)
     - CORS support (when cors is provided)
     - WebSocket routes (auto-discovered from @websocket_mapping)
+    - SSE routes (auto-discovered from @sse_mapping)
     """
     # --- Build the WebFilter chain ---
     filters: list[WebFilter] = [
@@ -124,6 +125,22 @@ def create_app(
     if context is not None:
         ws_registrar = WebSocketRegistrar()
         routes.extend(ws_registrar.collect_routes(context))  # type: ignore[arg-type]
+
+    # Auto-discover SSE routes from ApplicationContext
+    if context is not None:
+        from pyfly.web.sse.adapters.starlette import SSERegistrar
+
+        sse_registrar = SSERegistrar()
+        routes.extend(sse_registrar.collect_routes(context))
+
+    # Mount OAuth2 login routes when an OAuth2LoginHandler bean exists
+    if context is not None:
+        from pyfly.security.oauth2.login import OAuth2LoginHandler
+
+        for _cls, reg in context.container._registrations.items():
+            if reg.instance is not None and isinstance(reg.instance, OAuth2LoginHandler):
+                routes.extend(reg.instance.routes())
+                break
 
     # Append caller-supplied routes (e.g. test helpers)
     if extra_routes:

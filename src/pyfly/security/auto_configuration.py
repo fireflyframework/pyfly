@@ -46,6 +46,16 @@ except ImportError:
     ClientRegistration = object  # type: ignore[misc,assignment]
     InMemoryClientRegistrationRepository = object  # type: ignore[misc,assignment]
 
+try:
+    from pyfly.security.oauth2.login import OAuth2LoginHandler
+except ImportError:
+    OAuth2LoginHandler = object  # type: ignore[misc,assignment]
+
+try:
+    from pyfly.security.oauth2.session_security_filter import OAuth2SessionSecurityFilter
+except ImportError:
+    OAuth2SessionSecurityFilter = object  # type: ignore[misc,assignment]
+
 from pyfly.container.bean import bean
 from pyfly.context.conditions import (
     auto_configuration,
@@ -215,3 +225,32 @@ class OAuth2ClientAutoConfiguration:
                 )
 
         return InMemoryClientRegistrationRepository(*registrations)
+
+
+# ---------------------------------------------------------------------------
+# OAuth2 Login (authorization_code flow)
+# ---------------------------------------------------------------------------
+
+
+@auto_configuration
+@conditional_on_property("pyfly.security.oauth2.login.enabled", having_value="true")
+class OAuth2LoginAutoConfiguration:
+    """Auto-configures OAuth2LoginHandler and OAuth2SessionSecurityFilter.
+
+    Activated when ``pyfly.security.oauth2.login.enabled=true``.  Requires
+    an ``InMemoryClientRegistrationRepository`` bean (typically provided by
+    ``OAuth2ClientAutoConfiguration``).
+    """
+
+    @bean
+    @conditional_on_missing_bean(OAuth2LoginHandler)
+    def oauth2_login_handler(
+        self,
+        client_registration_repository: InMemoryClientRegistrationRepository,
+    ) -> OAuth2LoginHandler:
+        return OAuth2LoginHandler(client_repository=client_registration_repository)
+
+    @bean
+    @conditional_on_missing_bean(OAuth2SessionSecurityFilter)
+    def oauth2_session_security_filter(self) -> OAuth2SessionSecurityFilter:
+        return OAuth2SessionSecurityFilter()

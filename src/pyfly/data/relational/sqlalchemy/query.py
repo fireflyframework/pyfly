@@ -11,15 +11,20 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Custom query decorator and executor for Spring Data-style ``@Query`` support.
+"""SQLAlchemy ``@Query`` executor and JPQL transpiler.
 
-Provides the :func:`query` decorator to attach custom SQL or JPQL-like query
-strings to repository methods, and :class:`QueryExecutor` to compile those
-decorated methods into executable async callables backed by SQLAlchemy.
+Provides :class:`QueryExecutor` to compile ``@query``-decorated repository
+methods into executable async callables backed by SQLAlchemy.
+
+The :func:`query` decorator itself is backend-neutral and lives in
+:mod:`pyfly.data.query`.  It is re-exported here for backward compatibility::
+
+    from pyfly.data.relational.sqlalchemy.query import query   # still works
+    from pyfly.data.query import query                         # preferred
 
 Usage::
 
-    from pyfly.data.relational.sqlalchemy.query import query
+    from pyfly.data.query import query
 
     class UserRepository(Repository[User]):
 
@@ -42,33 +47,11 @@ from typing import Any, TypeVar
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from pyfly.data.query import query
+
 T = TypeVar("T")
 
-
-def query(sql: str, *, native: bool = False) -> Callable[..., Any]:
-    """Mark a repository method with a custom query.
-
-    The query string uses named parameters (```:param_name```) that map to
-    method parameter names.
-
-    Args:
-        sql: The query string.  Can be:
-            - Native SQL: ``"SELECT * FROM users WHERE email = :email"``
-            - JPQL-like: ``"SELECT u FROM User u WHERE u.email = :email"``
-        native: If ``True``, treat *sql* as raw SQL.  If ``False`` (default),
-                transpile JPQL-like syntax to SQL before execution.
-
-    Returns:
-        A decorator that stores query metadata on the wrapped function via
-        ``__pyfly_query__`` and ``__pyfly_query_native__`` attributes.
-    """
-
-    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
-        func.__pyfly_query__ = sql  # type: ignore[attr-defined]
-        func.__pyfly_query_native__ = native  # type: ignore[attr-defined]
-        return func
-
-    return decorator
+__all__ = ["QueryExecutor", "query"]
 
 
 class QueryExecutor:

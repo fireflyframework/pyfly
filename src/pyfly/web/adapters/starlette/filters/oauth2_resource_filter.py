@@ -23,6 +23,7 @@ from starlette.requests import Request
 from starlette.responses import Response
 
 from pyfly.container.ordering import HIGHEST_PRECEDENCE, order
+from pyfly.context.request_context import RequestContext
 from pyfly.kernel.exceptions import SecurityException
 from pyfly.security.context import SecurityContext
 from pyfly.security.oauth2.resource_server import JWKSTokenValidator
@@ -62,4 +63,7 @@ class OAuth2ResourceServerFilter(OncePerRequestFilter):
             security_context = SecurityContext.anonymous()
 
         request.state.security_context = security_context
+        req_ctx = RequestContext.current()
+        if req_ctx is not None:
+            req_ctx.security_context = security_context
         return cast(Response, await call_next(request))

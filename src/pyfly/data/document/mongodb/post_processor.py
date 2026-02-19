@@ -18,6 +18,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from pyfly.data.document.mongodb.query import MongoQueryExecutor
 from pyfly.data.document.mongodb.query_compiler import MongoQueryMethodCompiler
 from pyfly.data.document.mongodb.repository import MongoRepository
 from pyfly.data.post_processor import BaseRepositoryPostProcessor
@@ -28,7 +29,9 @@ logger = logging.getLogger(__name__)
 class MongoRepositoryBeanPostProcessor(BaseRepositoryPostProcessor):
     """Replaces stub methods on :class:`MongoRepository` subclasses with real query implementations.
 
-    For each derived query stub (methods starting with ``find_by_``,
+    For each method decorated with ``@query``, compiles the annotated JSON
+    filter or aggregation pipeline into an executable async callable.  For
+    each derived query stub (methods starting with ``find_by_``,
     ``count_by_``, ``exists_by_``, or ``delete_by_``), parses the method
     name and compiles a corresponding MongoDB query.
     """
@@ -36,6 +39,7 @@ class MongoRepositoryBeanPostProcessor(BaseRepositoryPostProcessor):
     def __init__(self) -> None:
         super().__init__()
         self._query_compiler = MongoQueryMethodCompiler()
+        self._query_executor = MongoQueryExecutor()
 
     # ------------------------------------------------------------------
     # Hook implementations
@@ -56,12 +60,23 @@ class MongoRepositoryBeanPostProcessor(BaseRepositoryPostProcessor):
         return wrapper
 
     def _process_query_decorated(self, bean: Any, cls: type, attr_name: str, attr: Any, entity: Any) -> bool:
-        """Log a warning when ``@query``-decorated methods are found on a MongoDB repository."""
+        """Compile and bind ``@query``-decorated methods on MongoDB repositories."""
         if hasattr(attr, "__pyfly_query__"):
-            logger.warning(
-                "@query decorator is not yet supported for MongoDB repositories"
-                " — method '%s' will use derived query compilation instead",
-                attr_name,
-            )
-            return False
+            compiled_fn = self._query_executor.compile_query_method(attr, entity)
+            wrapper = self._wrap_query_method(compiled_fn)
+            setattr(bean, attr_name, wrapper.__get__(bean, cls))
+            return True
         return False
+
+    # ------------------------------------------------------------------
+    # Wrapper factories
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _wrap_query_method(compiled_fn: Any) -> Any:
+        """Wrap a ``@query``-compiled function to inject ``bean._model``."""
+
+        async def wrapper(self_arg: Any, **kwargs: Any) -> Any:
+            return await compiled_fn(self_arg._model, **kwargs)
+
+        return wrapper
