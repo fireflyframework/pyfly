@@ -41,6 +41,11 @@ PyFly Data Relational implements the Repository pattern with Spring Data-style d
   - [Paginated Queries](#paginated-queries)
   - [Paginated Specification Queries](#paginated-specification-queries)
 - [Transaction Management](#transaction-management)
+- [Data Auditing](#data-auditing)
+  - [AuditingEntityListener](#auditingentitylistener)
+  - [How Auditing Works](#how-auditing-works)
+  - [Resolving the Current User](#resolving-the-current-user)
+  - [Registering the Listener](#registering-the-listener)
 - [RepositoryBeanPostProcessor](#repositorybeanpostprocessor)
   - [How It Works](#how-it-works)
   - [Stub Detection](#stub-detection)
@@ -556,6 +561,100 @@ async def transfer_funds(session: AsyncSession, from_id: str, to_id: str, amount
 # Call it without the session argument:
 await transfer_funds("acc-1", "acc-2", 100.0)
 ```
+
+---
+
+## Data Auditing
+
+PyFly provides automatic entity auditing through the `AuditingEntityListener`. It auto-populates the `created_at`, `updated_at`, `created_by`, and `updated_by` fields on `BaseEntity` subclasses via SQLAlchemy ORM events, so you never need to set these fields manually.
+
+### AuditingEntityListener
+
+```python
+from pyfly.data.relational.sqlalchemy.auditing import AuditingEntityListener
+```
+
+The `AuditingEntityListener` registers SQLAlchemy `before_insert` and `before_update` event listeners on `BaseEntity`. Because the listeners use `propagate=True`, they automatically apply to all subclasses of `BaseEntity`.
+
+### How Auditing Works
+
+| Event | Fields Set | Behavior |
+|---|---|---|
+| `before_insert` | `created_at`, `updated_at`, `created_by`, `updated_by` | Sets both timestamps to `datetime.now(UTC)`. Sets both user fields to the current authenticated user (if available). |
+| `before_update` | `updated_at`, `updated_by` | Sets `updated_at` to `datetime.now(UTC)`. Sets `updated_by` to the current authenticated user (if available). |
+
+**Example:**
+
+```python
+from pyfly.data.relational.sqlalchemy import BaseEntity
+from sqlalchemy import String
+from sqlalchemy.orm import Mapped, mapped_column
+
+
+class Order(BaseEntity):
+    __tablename__ = "orders"
+    customer_id: Mapped[str] = mapped_column(String(255))
+    status: Mapped[str] = mapped_column(String(50))
+
+# When you save a new Order, the audit fields are populated automatically:
+order = Order(customer_id="abc", status="PENDING")
+saved = await repo.save(order)
+# saved.created_at = 2026-02-20T10:30:00+00:00
+# saved.updated_at = 2026-02-20T10:30:00+00:00
+# saved.created_by = "user-123"  (from SecurityContext)
+# saved.updated_by = "user-123"
+
+# On subsequent updates, only updated_at and updated_by change:
+saved.status = "SHIPPED"
+updated = await repo.save(saved)
+# updated.created_at = 2026-02-20T10:30:00+00:00  (unchanged)
+# updated.updated_at = 2026-02-20T10:35:00+00:00  (new timestamp)
+# updated.created_by = "user-123"                  (unchanged)
+# updated.updated_by = "admin-456"                 (new user)
+```
+
+### Resolving the Current User
+
+The `AuditingEntityListener` resolves the current authenticated user from the `RequestContext`:
+
+1. Calls `RequestContext.current()` to get the current request context.
+2. If a `RequestContext` is available, reads the `security_context` attribute.
+3. If the `SecurityContext` is authenticated (`is_authenticated` is `True`), uses `user_id` as the value for `created_by` / `updated_by`.
+4. If there is no `RequestContext` or the user is not authenticated, the user fields are left unchanged (they remain `None` for new entities).
+
+This means auditing works transparently in HTTP request handlers (where the `SecurityMiddleware` or `SecurityFilter` populates the `SecurityContext`) and degrades gracefully in background tasks or CLI scripts where no request context is available.
+
+### Registering the Listener
+
+The `AuditingEntityListener` must be registered once at application startup. Call `register()` to attach the ORM event listeners:
+
+```python
+from pyfly.data.relational.sqlalchemy.auditing import AuditingEntityListener
+
+listener = AuditingEntityListener()
+listener.register()
+```
+
+When using auto-configuration, the listener is registered automatically by `RelationalAutoConfiguration` when `pyfly.data.relational.enabled` is `true`. No manual registration is needed in that case.
+
+You can also register it in a custom `@configuration` class:
+
+```python
+from pyfly.container import configuration, bean
+from pyfly.data.relational.sqlalchemy.auditing import AuditingEntityListener
+
+
+@configuration
+class DataConfig:
+
+    @bean
+    def auditing_listener(self) -> AuditingEntityListener:
+        listener = AuditingEntityListener()
+        listener.register()
+        return listener
+```
+
+**Source:** `src/pyfly/data/relational/sqlalchemy/auditing.py`
 
 ---
 

@@ -6,6 +6,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## v0.2.0-M8 (2026-02-20)
+
+### Added
+
+- **HttpSecurity DSL**: Fluent builder for URL-level access control — `http_security.authorize_requests().request_matchers("/api/**").authenticated()` with `AccessRule` types (PERMIT_ALL, DENY_ALL, AUTHENTICATED, HAS_ROLE, HAS_ANY_ROLE, HAS_PERMISSION) and RFC 7807 problem+json error responses
+- **HttpSecurityFilter**: New WebFilter at HP+350 that evaluates `SecurityRule` chains, reads `SecurityContext` from `request.state`, and returns 401/403 on access denial
+- **OAuth2 authorization_code login flow**: `OAuth2LoginHandler` with 3 routes — authorization redirect, callback/code exchange, and session logout — with CSRF state validation and automatic `SecurityContext` persistence in session
+- **OAuth2SessionSecurityFilter**: WebFilter at HP+225 that restores `SecurityContext` from session on each request
+- **OAuth2LoginAutoConfiguration**: Auto-configures `OAuth2LoginHandler` and `OAuth2SessionSecurityFilter` when `pyfly.security.oauth2.login.enabled=true`
+- **Data auditing**: `AuditingEntityListener` wires SQLAlchemy ORM `before_insert`/`before_update` events on `BaseEntity` (with `propagate=True`) to auto-populate `created_at`, `updated_at`, `created_by`, and `updated_by` fields from `RequestContext`
+- **`@query` for MongoDB**: `MongoQueryExecutor` compiles `@query`-decorated repository methods into Beanie `find()` or `aggregate()` operations with `:param` placeholder substitution
+- **Shared `@query` decorator**: Extracted backend-neutral `@query` decorator to `pyfly.data.query` (re-exported by both SQLAlchemy and MongoDB modules)
+- **`@sse_mapping` decorator**: Controller-driven Server-Sent Events — `@sse_mapping("/prices")` on async generator methods, auto-discovered by `SSERegistrar`
+- **`SseEmitter`**: High-level SSE emitter with `send()` / `close()` API and async iteration support
+- **`format_sse_event()`**: SSE event formatter supporting Pydantic models, dicts, lists, and raw strings with `event:`, `id:`, `retry:` fields
+
+### Changed
+
+- **SecurityFilter ordering**: Moved from default 0 to `HIGHEST_PRECEDENCE + 220` to ensure proper filter chain ordering
+- **SecurityContext in RequestContext**: Security filters now write `SecurityContext` into `RequestContext` ContextVar (in addition to `request.state`) for access by data auditing listeners
+- **Hexagonal architecture test**: Added `/security/` exemption for httpx imports (required for OAuth2 token exchange)
+
+---
+
 ## v0.2.0-M7 (2026-02-19)
 
 ### Added

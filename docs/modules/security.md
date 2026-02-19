@@ -41,6 +41,11 @@ The PyFly security module provides a complete authentication and authorization s
   - [CSRF Utilities](#csrf-utilities)
   - [CsrfFilter](#csrffilter)
   - [JavaScript Integration](#javascript-integration)
+- [HttpSecurity DSL](#httpsecurity-dsl)
+  - [Building URL-Level Access Rules](#building-url-level-access-rules)
+  - [Access Rule Types](#access-rule-types)
+  - [HttpSecurityFilter](#httpsecurityfilter)
+  - [Integration with create_app()](#integration-with-create_app-1)
 - [OAuth2](#oauth2)
   - [OAuth2 Resource Server (JWKS)](#oauth2-resource-server-jwks)
   - [OAuth2 Client Registration](#oauth2-client-registration)
@@ -50,6 +55,10 @@ The PyFly security module provides a complete authentication and authorization s
   - [Issuing Tokens](#issuing-tokens)
   - [TokenStore Protocol](#tokenstore-protocol)
   - [Error Codes](#error-codes)
+  - [OAuth2 Login Flow](#oauth2-login-flow)
+  - [OAuth2LoginHandler](#oauth2loginhandler)
+  - [OAuth2SessionSecurityFilter](#oauth2sessionsecurityfilter)
+  - [Login Flow Configuration Example](#login-flow-configuration-example)
 - [Exception Hierarchy](#exception-hierarchy)
 - [Auto-Configuration](#auto-configuration)
 - [Putting It All Together](#putting-it-all-together)
@@ -79,6 +88,10 @@ The security module consists of the following components:
 | `JWKSTokenValidator`   | `pyfly.security.oauth2.resource_server` | RS256 JWT validation via remote JWKS |
 | `ClientRegistration`   | `pyfly.security.oauth2.client` | OAuth2 provider configuration dataclass        |
 | `AuthorizationServer`  | `pyfly.security.oauth2.authorization_server` | Token issuance and refresh token management |
+| `HttpSecurity`         | `pyfly.security.http_security`    | URL-level access control builder (DSL)       |
+| `HttpSecurityFilter`   | `pyfly.web.adapters.starlette.filters.http_security_filter` | Evaluates HttpSecurity rules at filter layer |
+| `OAuth2LoginHandler`   | `pyfly.security.oauth2.login`     | Browser-facing authorization_code login flow |
+| `OAuth2SessionSecurityFilter` | `pyfly.security.oauth2.session_security_filter` | Restores SecurityContext from HTTP session |
 
 All components are exported from the top-level `pyfly.security` package:
 
@@ -680,6 +693,109 @@ fetch('/api/orders', {
 
 ---
 
+## HttpSecurity DSL
+
+The `HttpSecurity` builder provides a fluent API for defining URL-level access control rules. Instead of scattering `@secure` decorators on every handler, you declare authorization rules centrally and the `HttpSecurityFilter` enforces them at the filter layer -- before the route handler is reached.
+
+```python
+from pyfly.security.http_security import HttpSecurity
+```
+
+### Building URL-Level Access Rules
+
+`HttpSecurity` follows a builder pattern inspired by Spring Security's `HttpSecurity`:
+
+```python
+from pyfly.security.http_security import HttpSecurity
+
+http_security = HttpSecurity()
+http_security.authorize_requests() \
+    .request_matchers("/api/admin/**").has_role("ADMIN") \
+    .request_matchers("/api/**").authenticated() \
+    .request_matchers("/health", "/docs", "/openapi.json").permit_all() \
+    .any_request().deny_all()
+
+# Build the filter
+http_security_filter = http_security.build()
+```
+
+The builder chain works as follows:
+
+1. `authorize_requests()` -- returns an `_AuthorizeRequestsBuilder` to start defining rules.
+2. `request_matchers(*patterns)` -- begins a rule for one or more URL glob patterns (fnmatch-style).
+3. A terminal method (`permit_all()`, `authenticated()`, `has_role()`, etc.) -- sets the access rule for the matched patterns and returns back to the builder for chaining.
+4. `any_request()` -- a catch-all that matches any path not matched by previous rules. Should be the last rule in the chain.
+5. `build()` -- creates an `HttpSecurityFilter` configured with all accumulated rules.
+
+Rules are evaluated **in declaration order** -- first match wins. If no rule matches a given request path, the request is allowed through (open by default).
+
+### Access Rule Types
+
+| Terminal Method | Rule Type | Description |
+|---|---|---|
+| `permit_all()` | `PERMIT_ALL` | Allow all requests (no authentication required) |
+| `deny_all()` | `DENY_ALL` | Reject all requests with HTTP 403 |
+| `authenticated()` | `AUTHENTICATED` | Require an authenticated user (any role) |
+| `has_role(role)` | `HAS_ROLE` | Require the user to have the specified role |
+| `has_any_role(roles)` | `HAS_ANY_ROLE` | Require the user to have at least one of the listed roles |
+| `has_permission(perm)` | `HAS_PERMISSION` | Require the user to have the specified permission |
+
+### HttpSecurityFilter
+
+The `HttpSecurityFilter` is an `OncePerRequestFilter` ordered at `HIGHEST_PRECEDENCE + 350`. It runs **after** authentication filters (SecurityFilter at +250, OAuth2SessionSecurityFilter at +225) and **before** the route handler. This means the `SecurityContext` is already populated on `request.state` when the rules are evaluated.
+
+```python
+from pyfly.web.adapters.starlette.filters.http_security_filter import HttpSecurityFilter
+```
+
+**Evaluation logic:**
+
+1. For each incoming request, the filter iterates through the rules in order.
+2. The first rule whose URL patterns match the request path is applied.
+3. If the rule requires authentication or specific roles/permissions and the user does not satisfy the requirement, the filter returns an RFC 7807 problem-detail JSON response (HTTP 401 or 403).
+4. If no rule matches, the request passes through.
+
+**Error responses** follow RFC 7807 with `Content-Type: application/problem+json`:
+
+```json
+{
+  "type": "about:blank",
+  "title": "Forbidden",
+  "status": 403,
+  "detail": "Required role 'ADMIN' is not granted.",
+  "instance": "/api/admin/users"
+}
+```
+
+### Integration with create_app()
+
+Register the `HttpSecurityFilter` as a DI bean so it is auto-discovered by `create_app()`:
+
+```python
+from pyfly.container import configuration, bean
+from pyfly.security.http_security import HttpSecurity
+
+
+@configuration
+class SecurityConfig:
+
+    @bean
+    def http_security_filter(self):
+        http_security = HttpSecurity()
+        http_security.authorize_requests() \
+            .request_matchers("/api/admin/**").has_role("ADMIN") \
+            .request_matchers("/api/**").authenticated() \
+            .request_matchers("/health", "/docs", "/redoc", "/openapi.json").permit_all() \
+            .any_request().permit_all()
+        return http_security.build()
+```
+
+The filter is automatically included in the WebFilter chain and sorted by its `@order` value (`HIGHEST_PRECEDENCE + 350`).
+
+**Source:** `src/pyfly/security/http_security.py`, `src/pyfly/web/adapters/starlette/filters/http_security_filter.py`
+
+---
+
 ## OAuth2
 
 PyFly provides a complete OAuth2 implementation following hexagonal architecture. The module includes a Resource Server for validating external tokens, Client Registration for connecting to OAuth2 providers, and an Authorization Server for issuing tokens.
@@ -943,6 +1059,151 @@ class TokenStore(Protocol):
 | `INVALID_GRANT` | Invalid, expired, or mismatched refresh token |
 
 **Source:** `src/pyfly/security/oauth2/authorization_server.py`
+
+### OAuth2 Login Flow
+
+The `OAuth2LoginHandler` implements the full browser-facing OAuth2 `authorization_code` flow. It creates Starlette routes that handle the redirect-to-provider, callback-with-code, and logout steps. The `OAuth2SessionSecurityFilter` complements it by restoring the `SecurityContext` from the HTTP session on subsequent requests.
+
+```python
+from pyfly.security.oauth2.login import OAuth2LoginHandler
+from pyfly.security.oauth2.session_security_filter import OAuth2SessionSecurityFilter
+```
+
+#### OAuth2LoginHandler
+
+`OAuth2LoginHandler` creates three routes:
+
+| Route | Method | Description |
+|---|---|---|
+| `/oauth2/authorization/{registration_id}` | GET | Redirects the browser to the OAuth2 provider's authorization endpoint with a CSRF `state` parameter |
+| `/login/oauth2/code/{registration_id}` | GET | Handles the provider callback: validates state, exchanges the authorization code for tokens, fetches user info, builds a `SecurityContext`, and stores it in the session |
+| `/logout` | POST | Invalidates the HTTP session and redirects to `/` |
+
+**Constructor parameters:**
+
+| Parameter | Type | Description |
+|---|---|---|
+| `client_repository` | `ClientRegistrationRepository` | Repository to look up OAuth2 client registrations |
+
+**Authorization flow:**
+
+1. The user visits `/oauth2/authorization/google` (or any registration ID).
+2. The handler looks up the `ClientRegistration`, generates a random `state` token, stores it in the session, and redirects the browser to the provider's `authorization_uri` with `response_type=code`, `client_id`, `redirect_uri`, `scope`, and `state` parameters.
+3. The provider authenticates the user and redirects back to `/login/oauth2/code/google?code=...&state=...`.
+4. The callback handler validates the `state` parameter (CSRF protection), exchanges the authorization code for tokens via the provider's `token_uri`, fetches user info from `user_info_uri`, builds a `SecurityContext`, and stores it in the session.
+5. The user is redirected to the original page (or `/`).
+
+```python
+from pyfly.security.oauth2 import (
+    ClientRegistrationRepository,
+    InMemoryClientRegistrationRepository,
+    google,
+)
+from pyfly.security.oauth2.login import OAuth2LoginHandler
+
+# Set up client registrations
+google_reg = google(
+    client_id="your-google-client-id",
+    client_secret="your-google-client-secret",
+    redirect_uri="http://localhost:8080/login/oauth2/code/google",
+)
+client_repo = InMemoryClientRegistrationRepository(google_reg)
+
+# Create the login handler
+login_handler = OAuth2LoginHandler(client_repository=client_repo)
+
+# Get the routes for mounting in create_app()
+oauth2_routes = login_handler.routes()
+```
+
+**Source:** `src/pyfly/security/oauth2/login.py`
+
+#### OAuth2SessionSecurityFilter
+
+The `OAuth2SessionSecurityFilter` is a `OncePerRequestFilter` that restores the `SecurityContext` from the HTTP session on every request. It runs at `HIGHEST_PRECEDENCE + 225`, which is **before** the JWT-based `SecurityFilter` (at +250), ensuring session-based authentication takes priority over token-based authentication.
+
+```python
+from pyfly.security.oauth2.session_security_filter import OAuth2SessionSecurityFilter
+```
+
+**Behavior:**
+
+1. Reads the session from `request.state.session`.
+2. If a `SECURITY_CONTEXT` attribute is stored in the session (set by `OAuth2LoginHandler` during login), restores it to `request.state.security_context`.
+3. If no session-based context is found and no `security_context` has been set by an earlier filter, sets an anonymous context.
+
+This filter is complementary to the JWT `SecurityFilter`. In applications that use both OAuth2 login (session-based) and API tokens (JWT-based), the session filter runs first. If the user has an active session, the session context is used. If not, the JWT `SecurityFilter` gets its turn to check for a Bearer token.
+
+| Property | Value |
+|---|---|
+| `__pyfly_order__` | `HIGHEST_PRECEDENCE + 225` |
+| Runs before | `SecurityFilter` (HP+250), `HttpSecurityFilter` (HP+350) |
+
+**Source:** `src/pyfly/security/oauth2/session_security_filter.py`
+
+#### Login Flow Configuration Example
+
+A complete example wiring OAuth2 login into a PyFly application:
+
+```python
+from pyfly.container import configuration, bean
+from pyfly.security.oauth2 import (
+    InMemoryClientRegistrationRepository,
+    google, github,
+)
+from pyfly.security.oauth2.login import OAuth2LoginHandler
+from pyfly.security.oauth2.session_security_filter import OAuth2SessionSecurityFilter
+from pyfly.security.http_security import HttpSecurity
+
+
+@configuration
+class OAuth2Config:
+
+    @bean
+    def client_repository(self) -> InMemoryClientRegistrationRepository:
+        return InMemoryClientRegistrationRepository(
+            google(
+                client_id="google-client-id",
+                client_secret="google-client-secret",
+                redirect_uri="http://localhost:8080/login/oauth2/code/google",
+            ),
+            github(
+                client_id="github-client-id",
+                client_secret="github-client-secret",
+                redirect_uri="http://localhost:8080/login/oauth2/code/github",
+            ),
+        )
+
+    @bean
+    def oauth2_login_handler(self, client_repository: InMemoryClientRegistrationRepository) -> OAuth2LoginHandler:
+        return OAuth2LoginHandler(client_repository=client_repository)
+
+    @bean
+    def oauth2_session_filter(self) -> OAuth2SessionSecurityFilter:
+        return OAuth2SessionSecurityFilter()
+
+    @bean
+    def http_security_filter(self):
+        http_security = HttpSecurity()
+        http_security.authorize_requests() \
+            .request_matchers("/oauth2/**", "/login/**", "/logout").permit_all() \
+            .request_matchers("/api/**").authenticated() \
+            .any_request().permit_all()
+        return http_security.build()
+```
+
+Then mount the OAuth2 routes via `extra_routes` in `create_app()`:
+
+```python
+from pyfly.web.adapters.starlette import create_app
+
+login_handler = context.get_bean(OAuth2LoginHandler)
+app = create_app(
+    title="My App",
+    context=context,
+    extra_routes=login_handler.routes(),
+)
+```
 
 ---
 

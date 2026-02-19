@@ -17,7 +17,9 @@ overhead and enabling centralized ordering and URL-pattern matching.
    - [RequestLoggingFilter](#requestloggingfilter)
    - [SecurityHeadersFilter](#securityheadersfilter)
    - [CsrfFilter](#csrffilter)
+   - [OAuth2SessionSecurityFilter](#oauth2sessionsecurityfilter)
    - [SecurityFilter](#securityfilter)
+   - [HttpSecurityFilter](#httpsecurityfilter)
 5. [Filter Ordering with @order](#filter-ordering-with-order)
 6. [URL Pattern Matching](#url-pattern-matching)
 7. [Creating Custom Filters](#creating-custom-filters)
@@ -39,10 +41,13 @@ Request
    v
 WebFilterChainMiddleware (pure ASGI middleware)
    |
-   +-- TransactionIdFilter  (@order HIGHEST_PRECEDENCE + 100)
-   +-- RequestLoggingFilter (@order HIGHEST_PRECEDENCE + 200)
-   +-- SecurityHeadersFilter(@order HIGHEST_PRECEDENCE + 300)
-   +-- CsrfFilter           (__pyfly_order__ = -50)
+   +-- TransactionIdFilter           (@order HIGHEST_PRECEDENCE + 100)
+   +-- RequestLoggingFilter          (@order HIGHEST_PRECEDENCE + 200)
+   +-- SecurityHeadersFilter         (@order HIGHEST_PRECEDENCE + 300)
+   +-- CsrfFilter                    (__pyfly_order__ = -50)
+   +-- OAuth2SessionSecurityFilter   (__pyfly_order__ = HIGHEST_PRECEDENCE + 225)
+   +-- SecurityFilter                (authentication — JWT Bearer token)
+   +-- HttpSecurityFilter            (@order HIGHEST_PRECEDENCE + 350)
    +-- [User WebFilter beans, sorted by @order]
    |
    v
@@ -219,6 +224,36 @@ After successful validation on unsafe methods, the token is rotated — a fresh 
 
 **Source:** `src/pyfly/web/adapters/starlette/filters/csrf_filter.py`
 
+### OAuth2SessionSecurityFilter
+
+Restores a `SecurityContext` from the HTTP session for OAuth2 login-based authentication.
+
+```python
+from pyfly.security.oauth2.session_security_filter import OAuth2SessionSecurityFilter
+
+class OAuth2SessionSecurityFilter(OncePerRequestFilter):
+    __pyfly_order__ = HIGHEST_PRECEDENCE + 225
+
+    async def do_filter(self, request, call_next):
+        session = request.state.session
+        stored_ctx = session.get_attribute("SECURITY_CONTEXT")
+        if isinstance(stored_ctx, SecurityContext) and stored_ctx.is_authenticated:
+            request.state.security_context = stored_ctx
+            return await call_next(request)
+        # No session context — set anonymous if no other filter has set one
+        if not hasattr(request.state, "security_context"):
+            request.state.security_context = SecurityContext.anonymous()
+        return await call_next(request)
+```
+
+- Runs at `HIGHEST_PRECEDENCE + 225`, **before** the JWT `SecurityFilter` (at +250).
+- Reads the `SECURITY_CONTEXT` attribute from the HTTP session (stored by `OAuth2LoginHandler` during login).
+- If a valid authenticated context is found, sets it on `request.state.security_context`.
+- Otherwise, sets an anonymous context so downstream filters always have a context available.
+- Used in applications with browser-based OAuth2 login flows (authorization_code grant).
+
+**Source:** `src/pyfly/security/oauth2/session_security_filter.py`
+
 ### SecurityFilter
 
 Extracts JWT Bearer tokens and populates `request.state.security_context`.
@@ -244,6 +279,47 @@ Uses `exclude_patterns` to skip public endpoints (e.g., `/actuator/*`, `/docs`).
 
 **Source:** `src/pyfly/web/adapters/starlette/filters/security_filter.py`
 
+### HttpSecurityFilter
+
+Enforces URL-pattern authorization rules configured via the `HttpSecurity` DSL. Returns RFC 7807 problem-detail responses for unauthorized or forbidden requests.
+
+```python
+from pyfly.web.adapters.starlette.filters.http_security_filter import HttpSecurityFilter
+
+@order(HIGHEST_PRECEDENCE + 350)
+class HttpSecurityFilter(OncePerRequestFilter):
+    def __init__(self, rules: Sequence[SecurityRule]) -> None:
+        self._rules = list(rules)
+
+    async def do_filter(self, request, call_next):
+        path = request.url.path
+        security_context = getattr(request.state, "security_context", SecurityContext.anonymous())
+        for rule in self._rules:
+            if _matches(path, rule.patterns):
+                # Evaluate rule type: PERMIT_ALL, DENY_ALL, AUTHENTICATED, HAS_ROLE, etc.
+                ...
+        # No rule matched — allow through
+        return await call_next(request)
+```
+
+- Runs at `HIGHEST_PRECEDENCE + 350`, **after** all authentication filters (SecurityFilter, OAuth2SessionSecurityFilter).
+- Evaluates rules in declaration order; **first match wins**.
+- If no rule matches, the request is allowed through (open by default).
+- Constructed via `HttpSecurity.build()` rather than directly.
+
+**Rule evaluation:**
+
+| Rule Type | Unauthenticated | Authenticated (no matching role/perm) | Authenticated (matching) |
+|---|---|---|---|
+| `PERMIT_ALL` | 200 (pass) | 200 (pass) | 200 (pass) |
+| `DENY_ALL` | 403 | 403 | 403 |
+| `AUTHENTICATED` | 401 | 200 (pass) | 200 (pass) |
+| `HAS_ROLE` | 401 | 403 | 200 (pass) |
+| `HAS_ANY_ROLE` | 401 | 403 | 200 (pass) |
+| `HAS_PERMISSION` | 401 | 403 | 200 (pass) |
+
+**Source:** `src/pyfly/web/adapters/starlette/filters/http_security_filter.py`
+
 ---
 
 ## Filter Ordering with @order
@@ -255,9 +331,12 @@ Filters execute in `@order` value order (lower = runs first). Built-in filters u
 from pyfly.container.ordering import order, HIGHEST_PRECEDENCE
 
 # Built-in order values:
-# TransactionIdFilter:   HIGHEST_PRECEDENCE + 100
-# RequestLoggingFilter:  HIGHEST_PRECEDENCE + 200
-# SecurityHeadersFilter: HIGHEST_PRECEDENCE + 300
+# TransactionIdFilter:           HIGHEST_PRECEDENCE + 100
+# RequestLoggingFilter:          HIGHEST_PRECEDENCE + 200
+# OAuth2SessionSecurityFilter:   HIGHEST_PRECEDENCE + 225
+# SecurityFilter:                (opt-in, authentication)
+# SecurityHeadersFilter:         HIGHEST_PRECEDENCE + 300
+# HttpSecurityFilter:            HIGHEST_PRECEDENCE + 350
 
 # User filters default to order 0 (run after built-ins)
 
@@ -471,10 +550,12 @@ class RequestTimingFilter(OncePerRequestFilter):
 With these beans registered, `create_app()` produces this filter chain:
 
 ```
-TransactionIdFilter  (HIGHEST_PRECEDENCE + 100)
-RequestLoggingFilter (HIGHEST_PRECEDENCE + 200)
-SecurityHeadersFilter(HIGHEST_PRECEDENCE + 300)
-CsrfFilter           (-50)
-TenantFilter         (10)
-RequestTimingFilter  (50)
+TransactionIdFilter           (HIGHEST_PRECEDENCE + 100)
+RequestLoggingFilter          (HIGHEST_PRECEDENCE + 200)
+OAuth2SessionSecurityFilter   (HIGHEST_PRECEDENCE + 225)   [if registered]
+SecurityHeadersFilter         (HIGHEST_PRECEDENCE + 300)
+HttpSecurityFilter            (HIGHEST_PRECEDENCE + 350)   [if registered]
+CsrfFilter                    (-50)
+TenantFilter                  (10)
+RequestTimingFilter           (50)
 ```

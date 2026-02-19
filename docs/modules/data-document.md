@@ -29,6 +29,11 @@ PyFly Data Document provides a document-oriented data access layer that implemen
   - [Connectors](#connectors)
   - [Ordering](#ordering)
   - [Complete Derived Query Examples](#complete-derived-query-examples)
+- [Custom Queries with @query](#custom-queries-with-query)
+  - [Find Filter Queries](#find-filter-queries)
+  - [Aggregation Pipelines](#aggregation-pipelines)
+  - [Parameter Substitution](#parameter-substitution)
+  - [MongoQueryExecutor Internals](#mongoqueryexecutor-internals)
 - [Configuration](#configuration)
   - [DocumentProperties](#documentproperties)
   - [pyfly.yaml Keys](#pyflyyaml-keys)
@@ -488,6 +493,99 @@ class OrderRepository(MongoRepository[OrderDocument, PydanticObjectId]):
 Each method body should be a stub (`...` or `pass`). The `MongoRepositoryBeanPostProcessor` detects them and replaces them with real implementations at startup.
 
 Source file: `src/pyfly/data/document/mongodb/query_compiler.py`
+
+---
+
+## Custom Queries with @query
+
+For queries that cannot be expressed through method naming conventions, the `@query` decorator lets you write MongoDB filter documents or aggregation pipelines directly as JSON strings with named parameter substitution.
+
+```python
+from pyfly.data.relational.sqlalchemy import query  # shared @query decorator
+```
+
+The `@query` decorator is shared between the relational and document adapters. For MongoDB, the `MongoQueryExecutor` compiles the decorated methods into async callables that execute against Beanie document models.
+
+### Find Filter Queries
+
+A query string that starts with `{` is treated as a MongoDB **find filter**:
+
+```python
+@repo_stereotype
+class UserRepository(MongoRepository[UserDocument, str]):
+
+    @query('{"email": ":email"}')
+    async def find_by_email_exact(self, email: str) -> list[UserDocument]: ...
+
+    @query('{"active": true, "role": ":role"}')
+    async def find_active_by_role(self, role: str) -> list[UserDocument]: ...
+
+    @query('{"age": {"$gte": ":min_age", "$lte": ":max_age"}}')
+    async def find_by_age_range(self, min_age: int, max_age: int) -> list[UserDocument]: ...
+```
+
+The compiled query calls `model.find(filter_doc).to_list()` and returns `list[entity]`.
+
+### Aggregation Pipelines
+
+A query string that starts with `[` is treated as a MongoDB **aggregation pipeline**:
+
+```python
+@repo_stereotype
+class OrderRepository(MongoRepository[OrderDocument, str]):
+
+    @query('[{"$match": {"status": ":status"}}, {"$group": {"_id": "$category", "total": {"$sum": "$amount"}}}]')
+    async def total_by_category(self, status: str) -> list[dict]: ...
+
+    @query('[{"$match": {"customer_id": ":customer_id"}}, {"$sort": {"created_at": -1}}, {"$limit": 10}]')
+    async def recent_orders(self, customer_id: str) -> list[dict]: ...
+```
+
+Aggregation pipeline queries use the underlying Motor collection directly (via `get_pymongo_collection()`) and return `list[dict]` rather than document instances.
+
+### Parameter Substitution
+
+Named parameters use the `:param_name` convention inside JSON string values. During execution, the `MongoQueryExecutor` substitutes parameter values while preserving Python types:
+
+| Placeholder in JSON | Method Parameter | Substituted Value |
+|---|---|---|
+| `":email"` (exact match) | `email="alice@example.com"` | `"alice@example.com"` (str) |
+| `":min_age"` (exact match) | `min_age=18` | `18` (int, not string) |
+| `":active"` (exact match) | `active=True` | `True` (bool) |
+| `"prefix_:name_suffix"` (embedded) | `name="alice"` | `"prefix_alice_suffix"` (str interpolation) |
+
+**Substitution rules:**
+
+- If the entire JSON string value is a single `:param_name` placeholder, it is replaced by the actual Python value, preserving the type (int, bool, list, etc.).
+- If `:param_name` appears within a larger string, it is replaced via string interpolation with `str(value)`.
+- Dicts and lists are recursed into.
+- Non-string values (int, float, bool, None) pass through unchanged.
+
+```python
+# The filter {"age": ":min_age"} with min_age=18
+# becomes {"age": 18}  (int, not "18")
+
+# The filter {"name": {"$regex": ".*:pattern.*"}} with pattern="alice"
+# becomes {"name": {"$regex": ".*alice.*"}}  (string interpolation)
+```
+
+### MongoQueryExecutor Internals
+
+The `MongoQueryExecutor` is used by the `MongoRepositoryBeanPostProcessor` to compile `@query`-decorated methods at startup:
+
+1. **Validation:** Checks that the method has a `__pyfly_query__` attribute (set by the `@query` decorator).
+2. **JSON parsing:** Parses the query string once at compile time to validate it and detect whether it is a find filter (JSON object) or an aggregation pipeline (JSON array).
+3. **Template compilation:** Stores the parsed template and creates an async callable that substitutes parameters at execution time.
+
+```python
+from pyfly.data.document.mongodb.query import MongoQueryExecutor
+
+executor = MongoQueryExecutor()
+compiled_fn = executor.compile_query_method(method, entity_type)
+# compiled_fn(model=UserDocument, email="alice@example.com") -> list[UserDocument]
+```
+
+**Source:** `src/pyfly/data/document/mongodb/query.py`
 
 ---
 

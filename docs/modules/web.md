@@ -57,6 +57,12 @@ The PyFly web layer provides enterprise-grade HTTP routing, controller registrat
   - [Filter Ordering with @order](#filter-ordering-with-order)
   - [Auto-Discovery of User Filters](#auto-discovery-of-user-filters)
   - [Creating Custom Filters](#creating-custom-filters)
+- [Server-Sent Events (SSE)](#server-sent-events-sse)
+  - [@sse_mapping Decorator](#sse_mapping-decorator)
+  - [format_sse_event()](#format_sse_event)
+  - [SseEmitter](#sseemitter)
+  - [SSE Route Discovery](#sse-route-discovery)
+  - [Complete SSE Example](#complete-sse-example)
 - [CORS Configuration](#cors-configuration)
 - [Security Headers](#security-headers)
 - [OpenAPI and Swagger Documentation](#openapi-and-swagger-documentation)
@@ -1197,6 +1203,218 @@ class CustomFilter:
     def should_not_filter(self, request) -> bool:
         # Custom skip logic
         return request.url.path.startswith("/internal/")
+```
+
+---
+
+## Server-Sent Events (SSE)
+
+PyFly provides built-in support for Server-Sent Events, allowing controllers to stream real-time data to clients over HTTP. The SSE module follows the same decorator-driven approach as HTTP mappings and integrates with the controller auto-discovery system.
+
+```python
+from pyfly.web.sse import SseEmitter, format_sse_event, sse_mapping
+```
+
+### @sse_mapping Decorator
+
+The `@sse_mapping(path)` decorator marks a controller method as an SSE endpoint. The decorated method should be an async generator that yields data objects. Each yielded value is automatically formatted as an SSE event and streamed to the client.
+
+```python
+import asyncio
+from pyfly.container import rest_controller
+from pyfly.web import request_mapping
+from pyfly.web.sse import sse_mapping
+
+
+@rest_controller
+@request_mapping("/events")
+class StockController:
+
+    @sse_mapping("/prices")
+    async def stream_prices(self):
+        while True:
+            yield {"symbol": "AAPL", "price": 150.25}
+            await asyncio.sleep(1)
+```
+
+The path is appended to the controller's `@request_mapping` base path, so the full SSE endpoint in this example is `GET /events/prices`.
+
+**How it works internally:**
+
+1. The `@sse_mapping` decorator stores `__pyfly_sse_mapping__ = {"path": path}` on the method.
+2. The `SSERegistrar` discovers these methods during `create_app()` and creates Starlette `Route` objects.
+3. At request time, the handler method is called, its async generator output is wrapped in a `StreamingResponse` with `Content-Type: text/event-stream`, and data is streamed to the client.
+
+Yields that are already formatted SSE strings are passed through unchanged. All other yields (dicts, Pydantic models, lists, etc.) are auto-wrapped with `format_sse_event()`.
+
+**Source:** `src/pyfly/web/sse/decorators.py`
+
+### format_sse_event()
+
+The `format_sse_event()` function formats a single Server-Sent Event according to the SSE specification:
+
+```python
+from pyfly.web.sse import format_sse_event
+
+# Basic event with dict data
+event = format_sse_event({"price": 42.0})
+# "data: {\"price\": 42.0}\n\n"
+
+# Named event with ID
+event = format_sse_event({"price": 42.0}, event="tick", id="123")
+# "id: 123\nevent: tick\ndata: {\"price\": 42.0}\n\n"
+
+# With retry interval
+event = format_sse_event("reconnect", retry=5000)
+# "retry: 5000\ndata: reconnect\n\n"
+```
+
+**Parameters:**
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `data` | `Any` | required | Event payload. Pydantic models are serialized via `model_dump_json()`, dicts/lists via `json.dumps()`, and other types via `str()`. |
+| `event` | `str \| None` | `None` | Optional event type name (maps to the `event:` SSE field) |
+| `id` | `str \| None` | `None` | Optional event ID (maps to the `id:` SSE field) |
+| `retry` | `int \| None` | `None` | Optional reconnection time in milliseconds (maps to the `retry:` SSE field) |
+
+The function returns a fully-formed SSE event string terminated by a double newline (`\n\n`), as required by the SSE specification.
+
+**Source:** `src/pyfly/web/sse/response.py`
+
+### SseEmitter
+
+The `SseEmitter` class provides a queue-based interface for building SSE events. It is itself an async iterable, making it suitable for passing to a streaming response:
+
+```python
+from pyfly.web.sse import SseEmitter
+
+emitter = SseEmitter()
+emitter.send({"price": 42.0}, event="tick")
+emitter.send({"price": 43.5}, event="tick", id="2")
+emitter.close()
+
+# Iterate over queued events
+async for chunk in emitter:
+    print(chunk)
+```
+
+**Methods:**
+
+| Method | Description |
+|---|---|
+| `send(data, event=None, id=None)` | Enqueue an SSE event. Ignored after `close()`. |
+| `close()` | Mark the emitter as closed. No further events are accepted. |
+| `__aiter__()` | Iterate over all queued events as formatted SSE strings. |
+
+The `SseEmitter` is useful when you need to build up a batch of events before streaming, or when you want to encapsulate SSE event creation in a service layer.
+
+**Source:** `src/pyfly/web/sse/response.py`
+
+### SSE Route Discovery
+
+SSE routes are automatically discovered by the `SSERegistrar` during `create_app()`. The registrar scans all `@rest_controller` and `@controller` beans for methods decorated with `@sse_mapping` and creates Starlette `Route` objects.
+
+The route creation follows the same lazy-resolution pattern used for HTTP and WebSocket routes:
+
+1. The controller bean is resolved from the `ApplicationContext` on the first request.
+2. A `ParameterResolver` is built for the handler method, enabling parameter binding (e.g., `QueryParam`, `PathVar`).
+3. The handler's async generator output is wrapped in a `StreamingResponse` with SSE headers.
+
+**SSE response headers:**
+
+| Header | Value | Purpose |
+|---|---|---|
+| `Content-Type` | `text/event-stream` | Identifies the response as an SSE stream |
+| `Cache-Control` | `no-cache` | Prevents caching of the event stream |
+| `Connection` | `keep-alive` | Keeps the connection open for streaming |
+| `X-Accel-Buffering` | `no` | Disables proxy buffering (nginx, etc.) |
+
+**Source:** `src/pyfly/web/sse/adapters/starlette.py`
+
+### Complete SSE Example
+
+A full example demonstrating SSE streaming with a controller, including typed events and parameter binding:
+
+```python
+import asyncio
+from pydantic import BaseModel
+
+from pyfly.container import rest_controller, service
+from pyfly.web import request_mapping, QueryParam
+from pyfly.web.sse import sse_mapping, format_sse_event
+
+
+class PriceUpdate(BaseModel):
+    symbol: str
+    price: float
+    volume: int
+
+
+@service
+class MarketDataService:
+    async def stream_prices(self, symbol: str):
+        """Simulate a real-time price feed."""
+        import random
+        price = 150.0
+        while True:
+            price += random.uniform(-1.0, 1.0)
+            yield PriceUpdate(
+                symbol=symbol,
+                price=round(price, 2),
+                volume=random.randint(100, 10000),
+            )
+            await asyncio.sleep(0.5)
+
+
+@rest_controller
+@request_mapping("/api/market")
+class MarketController:
+
+    def __init__(self, market_service: MarketDataService) -> None:
+        self._service = market_service
+
+    @sse_mapping("/prices")
+    async def stream_prices(self, symbol: QueryParam[str] = "AAPL"):
+        """Stream real-time price updates for a given symbol.
+
+        Connect via: GET /api/market/prices?symbol=AAPL
+        """
+        async for update in self._service.stream_prices(symbol):
+            yield update  # Auto-formatted as SSE via format_sse_event()
+
+    @sse_mapping("/heartbeat")
+    async def heartbeat(self):
+        """Simple heartbeat stream for connection health monitoring."""
+        counter = 0
+        while True:
+            # Yield a pre-formatted SSE string
+            yield format_sse_event(
+                {"seq": counter, "status": "alive"},
+                event="heartbeat",
+                id=str(counter),
+            )
+            counter += 1
+            await asyncio.sleep(5)
+```
+
+**Client-side JavaScript:**
+
+```javascript
+const eventSource = new EventSource('/api/market/prices?symbol=AAPL');
+
+eventSource.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    console.log(`${data.symbol}: $${data.price} (vol: ${data.volume})`);
+};
+
+eventSource.addEventListener('heartbeat', (event) => {
+    console.log('Heartbeat:', JSON.parse(event.data));
+});
+
+eventSource.onerror = () => {
+    console.log('Connection lost, reconnecting...');
+};
 ```
 
 ---

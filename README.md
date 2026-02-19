@@ -11,7 +11,7 @@
   <a href="https://github.com/fireflyframework"><img src="https://img.shields.io/badge/Firefly_Framework-official-ff6600?logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0id2hpdGUiIGQ9Ik0xMiAyQzYuNDggMiAyIDYuNDggMiAxMnM0LjQ4IDEwIDEwIDEwIDEwLTQuNDggMTAtMTBTMTcuNTIgMiAxMiAyeiIvPjwvc3ZnPg==" alt="Firefly Framework"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.12%2B-blue?logo=python&logoColor=white" alt="Python 3.12+"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-green" alt="License: Apache 2.0"></a>
-  <a href="#"><img src="https://img.shields.io/badge/version-0.2.0--M7-yellow" alt="Version: 0.2.0-M7"></a>
+  <a href="#"><img src="https://img.shields.io/badge/version-0.2.0--M7-yellow" alt="Version: 0.2.0-M8"></a>
   <a href="#"><img src="https://img.shields.io/badge/type--checked-mypy%20strict-blue?logo=python&logoColor=white" alt="Type Checked: mypy strict"></a>
   <a href="#"><img src="https://img.shields.io/badge/code%20style-ruff-purple?logo=ruff&logoColor=white" alt="Code Style: Ruff"></a>
   <a href="#"><img src="https://img.shields.io/badge/async-first-brightgreen" alt="Async First"></a>
@@ -304,13 +304,13 @@ my-addon = "my_package.auto_configuration:MyAutoConfiguration"
 
 ```bash
 # Install the latest release
-pip install "pyfly @ https://github.com/fireflyframework/pyfly/releases/latest/download/pyfly-0.2.0a7-py3-none-any.whl"
+pip install "pyfly @ https://github.com/fireflyframework/pyfly/releases/latest/download/pyfly-0.2.0a8-py3-none-any.whl"
 
 # Install with specific extras
-pip install "pyfly[web,data-relational,cache] @ https://github.com/fireflyframework/pyfly/releases/latest/download/pyfly-0.2.0a7-py3-none-any.whl"
+pip install "pyfly[web,data-relational,cache] @ https://github.com/fireflyframework/pyfly/releases/latest/download/pyfly-0.2.0a8-py3-none-any.whl"
 
 # Or with uv
-uv pip install "pyfly @ https://github.com/fireflyframework/pyfly/releases/latest/download/pyfly-0.2.0a7-py3-none-any.whl"
+uv pip install "pyfly @ https://github.com/fireflyframework/pyfly/releases/latest/download/pyfly-0.2.0a8-py3-none-any.whl"
 ```
 
 ### One-Line Install (CLI + Framework)
@@ -592,13 +592,13 @@ PyFly follows the same versioning system as Spring Boot, based on **Semantic Ver
 | Stage | Format | Description |
 |-------|--------|-------------|
 | **SNAPSHOT** | `0.2.0-SNAPSHOT` | Active development build. Unstable, changes daily. |
-| **Milestone** | `0.2.0-M7` | Pre-release feature preview. New functionality available for early feedback. |
+| **Milestone** | `0.2.0-M8` | Pre-release feature preview. New functionality available for early feedback. |
 | **Release Candidate** | `0.2.0-RC1` | Feature-complete. Only bug fixes from this point. |
 | **GA** | `0.2.0` | General Availability. Production-ready, fully tested and stable. |
 
 **Release lifecycle:** `SNAPSHOT` → `M1` → `M2` → ... → `RC1` → `RC2` → ... → `GA`
 
-For Python packaging (PEP 440), milestone versions map to alpha pre-releases (`0.2.0a7`), release candidates map to `rc` (`0.2.0rc1`), and GA is the final release (`0.2.0`). See [docs/versioning.md](docs/versioning.md) for full details.
+For Python packaging (PEP 440), milestone versions map to alpha pre-releases (`0.2.0a8`), release candidates map to `rc` (`0.2.0rc1`), and GA is the final release (`0.2.0`). See [docs/versioning.md](docs/versioning.md) for full details.
 
 ---
 
@@ -606,7 +606,7 @@ For Python packaging (PEP 440), milestone versions map to alpha pre-releases (`0
 
 See **[CHANGELOG.md](CHANGELOG.md)** for detailed release notes.
 
-**Current:** 0.2.0-M7 (2026-02-19) — Comprehensive audit: bug fixes, WebSocket, OAuth2, session management, i18n, XML serialization.
+**Current:** 0.2.0-M8 (2026-02-20) — HttpSecurity DSL, OAuth2 login flow, data auditing, @query for MongoDB, SSE support.
 
 ---
 
