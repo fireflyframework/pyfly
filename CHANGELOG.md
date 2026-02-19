@@ -6,6 +6,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## v0.2.0-M7 (2026-02-19)
+
+### Added
+
+- **WebSocket support**: New `pyfly.websocket` module with `@websocket_mapping` decorator, `WebSocketSession` wrapper, and auto-discovery in `create_app()` via `WebSocketRegistrar`
+- **OAuth2 auto-configuration**: Three new auto-configuration classes — `OAuth2ResourceServerAutoConfiguration` (JWKS-based Bearer validation), `OAuth2AuthorizationServerAutoConfiguration` (token endpoint with client_credentials/refresh_token grants), `OAuth2ClientAutoConfiguration` (client registrations from config)
+- **OAuth2ResourceServerFilter**: WebFilter for Bearer token validation using `JWKSTokenValidator`, with configurable exclude patterns
+- **Session management**: New `pyfly.session` module with `HttpSession`, `SessionStore` Protocol, `InMemorySessionStore`, `RedisSessionStore`, `SessionFilter` middleware, and auto-configuration
+- **i18n / locale support**: New `pyfly.i18n` module with `MessageSource` Protocol, `ResourceBundleMessageSource` (YAML/JSON), `AcceptHeaderLocaleResolver`, `FixedLocaleResolver`, and auto-configuration
+- **XML serialization**: `dict_to_xml()` / `xml_to_dict()` converters (stdlib xml.etree), `XMLResponse` class, and content negotiation via `Accept` header in controller dispatch
+- **`@controller_advice`**: New stereotype for global exception handling across all controllers, with MRO-sorted handler resolution
+- **`@shell_method_availability`**: Decorator for conditional shell command registration — unavailable commands are skipped during wiring
+- **`@Value` injection**: Existing `Value` descriptor now wired into `Container._inject_autowired_fields()` for config property injection
+- **`EventFailureStrategy`**: Configurable strategy (LOG/RAISE) for `CommandBus` event publishing failures
+
+### Fixed
+
+- **InMemoryMessageBroker race condition**: Added `asyncio.Lock` to protect subscriptions and group iterators from concurrent access
+- **InMemoryPersistenceAdapter race condition**: Added `asyncio.Lock` to protect saga state store from concurrent mutations
+- **Background task lifecycle**: Background tasks created during startup are now tracked and cancelled on `stop()`
+- **ASGI pathsend OOM risk**: Changed `read_bytes()` to chunked 64 KB streaming for large file responses
+
+---
+
 ## v0.2.0-M6 (2026-02-19)
 
 ### Fixed
