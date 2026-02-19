@@ -62,6 +62,14 @@ class WebFilterChainMiddleware:
                     body = message.get("body", b"")
                     if body:
                         body_parts.append(body)
+                elif message["type"] == "http.response.pathsend":
+                    # ASGI pathsend extension (Granian zero-copy file serving).
+                    # Read the file into body_parts so filters can process it.
+                    from pathlib import Path
+
+                    path = message.get("path", "")
+                    if path:
+                        body_parts.append(Path(path).read_bytes())
 
             await self.app(scope, receive, _intercept)
 

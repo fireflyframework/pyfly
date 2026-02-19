@@ -146,6 +146,54 @@ class TestFilterChainEmpty:
         assert resp.text == "OK"
 
 
+class TestFilterChainPathsend:
+    """Tests for ASGI pathsend extension (used by Granian for FileResponse)."""
+
+    @pytest.mark.asyncio
+    async def test_pathsend_file_content_captured(self, tmp_path):
+        """Middleware should read file content when receiving http.response.pathsend."""
+        file = tmp_path / "hello.txt"
+        file.write_text("file content here")
+
+        async def pathsend_app(scope, receive, send):
+            await send(
+                {
+                    "type": "http.response.start",
+                    "status": 200,
+                    "headers": [
+                        (b"content-type", b"text/plain"),
+                    ],
+                }
+            )
+            await send({"type": "http.response.pathsend", "path": str(file)})
+
+        mw = WebFilterChainMiddleware(app=pathsend_app, filters=[HeaderFilter()])
+
+        sent_messages: list[dict] = []
+
+        async def capture_send(message):
+            sent_messages.append(message)
+
+        scope = {"type": "http", "method": "GET", "path": "/file", "query_string": b"", "headers": []}
+
+        async def receive():
+            return {"type": "http.request", "body": b""}
+
+        await mw(scope, receive, capture_send)
+
+        start_msg = sent_messages[0]
+        assert start_msg["type"] == "http.response.start"
+        assert start_msg["status"] == 200
+
+        body_msg = sent_messages[1]
+        assert body_msg["type"] == "http.response.body"
+        assert body_msg["body"] == b"file content here"
+
+        # Verify filter headers were applied
+        headers = dict(start_msg["headers"])
+        assert headers[b"x-filter-a"] == b"applied"
+
+
 class TestFilterChainCustomDiscovery:
     @pytest.mark.asyncio
     async def test_custom_filter_auto_discovered_in_create_app(self):
