@@ -16,6 +16,9 @@
 from __future__ import annotations
 
 import pytest
+
+mongomock_motor = pytest.importorskip("mongomock_motor", reason="mongomock-motor not installed")
+
 from beanie import init_beanie
 from mongomock_motor import AsyncMongoMockClient
 

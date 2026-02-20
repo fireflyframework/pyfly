@@ -180,6 +180,9 @@ ignore = [
     "N818",    # PyFlyException naming is intentional
 ]
 
+[tool.ruff.lint.per-file-ignores]
+"tests/data/test_mongo_*.py" = ["E402"]  # pytest.importorskip must precede imports
+
 [tool.mypy]
 python_version = "3.12"
 strict = true

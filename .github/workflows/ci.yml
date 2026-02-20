@@ -64,6 +64,7 @@ jobs:
           --ignore=tests/data/test_mongo_document.py
           --ignore=tests/data/test_mongo_filter.py
           --ignore=tests/data/test_mongo_post_processor.py
+          --ignore=tests/data/test_mongo_query_decorator.py
           --ignore=tests/data/test_mongo_repository.py
           --ignore=tests/data/test_mongo_specification.py
           --ignore=tests/data/test_mongo_wiring.py
