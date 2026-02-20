@@ -26,6 +26,11 @@ try:
 except ImportError:
     TracerProvider = object  # type: ignore[misc,assignment]
 
+try:
+    from pyfly.web.ports.filter import WebFilter
+except ImportError:
+    WebFilter = object  # type: ignore[misc,assignment]
+
 from pyfly.container.bean import bean
 from pyfly.context.conditions import auto_configuration, conditional_on_class
 from pyfly.core.config import Config
@@ -39,6 +44,13 @@ class MetricsAutoConfiguration:
     @bean
     def metrics_registry(self) -> MetricsRegistry:
         return MetricsRegistry()
+
+    @bean
+    @conditional_on_class("starlette")
+    def metrics_filter(self) -> WebFilter:
+        from pyfly.web.adapters.starlette.filters.metrics_filter import MetricsFilter
+
+        return MetricsFilter()
 
 
 @auto_configuration

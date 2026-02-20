@@ -28,6 +28,28 @@ except ImportError:
 from pyfly.web.filters import OncePerRequestFilter
 from pyfly.web.ports.filter import CallNext
 
+# Module-level singletons — Prometheus collectors are registered globally,
+# so they must only be created once per process.
+_REQUESTS_TOTAL: Counter | None = None
+_REQUEST_DURATION: Histogram | None = None
+_ACTIVE_REQUESTS: Gauge | None = None
+
+if Counter is not None:
+    _REQUESTS_TOTAL = Counter(
+        "http_requests_total",
+        "Total HTTP requests",
+        ["method", "path", "status"],
+    )
+    _REQUEST_DURATION = Histogram(
+        "http_request_duration_seconds",
+        "HTTP request duration in seconds",
+        ["method", "path"],
+    )
+    _ACTIVE_REQUESTS = Gauge(
+        "http_active_requests",
+        "Number of in-flight HTTP requests",
+    )
+
 
 class MetricsFilter(OncePerRequestFilter):
     """Collects HTTP auto-instrumentation metrics.
@@ -43,20 +65,12 @@ class MetricsFilter(OncePerRequestFilter):
     exclude_patterns = ["/actuator/*", "/health", "/ready"]
 
     def __init__(self) -> None:
-        self._requests_total = Counter(
-            "http_requests_total",
-            "Total HTTP requests",
-            ["method", "path", "status"],
-        )
-        self._request_duration = Histogram(
-            "http_request_duration_seconds",
-            "HTTP request duration in seconds",
-            ["method", "path"],
-        )
-        self._active_requests = Gauge(
-            "http_active_requests",
-            "Number of in-flight HTTP requests",
-        )
+        assert _REQUESTS_TOTAL is not None, "prometheus_client is required for MetricsFilter"
+        assert _REQUEST_DURATION is not None, "prometheus_client is required for MetricsFilter"
+        assert _ACTIVE_REQUESTS is not None, "prometheus_client is required for MetricsFilter"
+        self._requests_total: Counter = _REQUESTS_TOTAL
+        self._request_duration: Histogram = _REQUEST_DURATION
+        self._active_requests: Gauge = _ACTIVE_REQUESTS
 
     async def do_filter(self, request: Any, call_next: CallNext) -> Any:
         method = request.method

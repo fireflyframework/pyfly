@@ -38,3 +38,10 @@ try:
     __all__ += ["OAuth2ResourceServerFilter"]
 except ImportError:
     pass
+
+try:
+    from pyfly.web.adapters.starlette.filters.metrics_filter import MetricsFilter
+
+    __all__ += ["MetricsFilter"]
+except ImportError:
+    pass

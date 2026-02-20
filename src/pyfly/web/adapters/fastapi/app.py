@@ -15,10 +15,12 @@
 
 from __future__ import annotations
 
+import contextlib
 from typing import TYPE_CHECKING
 
 from fastapi import FastAPI
 from starlette.middleware import Middleware
+from starlette.routing import Route
 
 from pyfly.container.ordering import get_order
 from pyfly.web.adapters.fastapi.controller import FastAPIControllerRegistrar
@@ -43,13 +45,16 @@ def create_app(
     debug: bool = False,
     context: ApplicationContext | None = None,
     docs_enabled: bool = True,
+    extra_routes: list[Route] | None = None,
+    actuator_enabled: bool = False,
     cors: CORSConfig | None = None,
     lifespan: object | None = None,
 ) -> FastAPI:
     """Create a FastAPI application with PyFly enterprise middleware.
 
     When ``context`` is provided, auto-discovers all ``@rest_controller`` beans
-    and mounts their routes.  Also auto-discovers user ``WebFilter`` beans.
+    and mounts their routes.  Also auto-discovers user ``WebFilter``,
+    ``ActuatorEndpoint``, ``@websocket_mapping``, and ``@sse_mapping`` beans.
 
     FastAPI provides built-in OpenAPI docs (Swagger UI at ``/docs``, ReDoc at
     ``/redoc``), so no custom OpenAPI generator is needed.
@@ -58,7 +63,11 @@ def create_app(
     - WebFilter chain (transaction ID, request logging, security headers, + user filters)
     - Global exception handler (RFC 7807 style)
     - Built-in Swagger UI and ReDoc (when docs_enabled)
+    - Actuator endpoints (when actuator_enabled)
+    - Admin dashboard (when pyfly.admin.enabled config is set)
     - CORS support (when cors is provided)
+    - WebSocket routes (auto-discovered from @websocket_mapping)
+    - SSE routes (auto-discovered from @sse_mapping)
     """
     # --- Build the WebFilter chain ---
     filters: list[WebFilter] = [
@@ -123,6 +132,169 @@ def create_app(
     if context is not None:
         registrar = FastAPIControllerRegistrar()
         registrar.register_controllers(app, context)
+
+    # Auto-discover WebSocket routes from ApplicationContext
+    if context is not None:
+        from pyfly.websocket.adapters.starlette import WebSocketRegistrar
+
+        ws_registrar = WebSocketRegistrar()
+        app.routes.extend(ws_registrar.collect_routes(context))
+
+    # Auto-discover SSE routes from ApplicationContext
+    if context is not None:
+        from pyfly.web.sse.adapters.starlette import SSERegistrar
+
+        sse_registrar = SSERegistrar()
+        app.routes.extend(sse_registrar.collect_routes(context))
+
+    # Mount OAuth2 login routes when an OAuth2LoginHandler bean exists
+    if context is not None:
+        from pyfly.security.oauth2.login import OAuth2LoginHandler
+
+        for _cls, reg in context.container._registrations.items():
+            if reg.instance is not None and isinstance(reg.instance, OAuth2LoginHandler):
+                app.routes.extend(reg.instance.routes())
+                break
+
+    # Append caller-supplied routes (e.g. test helpers)
+    if extra_routes:
+        app.routes.extend(extra_routes)
+
+    # Mount actuator endpoints when enabled
+    agg = None
+    if actuator_enabled:
+        from pyfly.actuator.adapters.starlette import make_starlette_actuator_routes
+        from pyfly.actuator.endpoints.beans_endpoint import BeansEndpoint
+        from pyfly.actuator.endpoints.env_endpoint import EnvEndpoint
+        from pyfly.actuator.endpoints.health_endpoint import HealthEndpoint
+        from pyfly.actuator.endpoints.info_endpoint import InfoEndpoint
+        from pyfly.actuator.endpoints.loggers_endpoint import LoggersEndpoint
+        from pyfly.actuator.endpoints.metrics_endpoint import MetricsEndpoint
+        from pyfly.actuator.health import HealthAggregator, HealthIndicator
+        from pyfly.actuator.registry import ActuatorRegistry
+
+        agg = HealthAggregator()
+
+        # Auto-discover HealthIndicator beans from context
+        if context is not None:
+            for cls, reg in context.container._registrations.items():
+                if reg.instance is not None and isinstance(reg.instance, HealthIndicator):
+                    indicator_name = reg.name or cls.__name__
+                    agg.add_indicator(indicator_name, reg.instance)
+
+        config = context.config if context is not None else None
+        registry = ActuatorRegistry(config=config)
+
+        # Register built-in endpoints
+        registry.register(HealthEndpoint(agg))
+        if context is not None:
+            registry.register(BeansEndpoint(context))
+            registry.register(EnvEndpoint(context))
+            registry.register(InfoEndpoint(context))
+        registry.register(LoggersEndpoint())
+        registry.register(MetricsEndpoint())
+
+        # Auto-discover custom ActuatorEndpoint beans from context
+        if context is not None:
+            registry.discover_from_context(context)
+
+        app.routes.extend(make_starlette_actuator_routes(registry))
+
+    # Mount admin dashboard when enabled
+    admin_enabled = False
+    if context is not None:
+        admin_enabled = str(context.config.get("pyfly.admin.enabled", "false")).lower() in (
+            "true",
+            "1",
+            "yes",
+        )
+
+    if admin_enabled and context is not None:
+        from pyfly.admin.adapters.starlette import AdminRouteBuilder
+        from pyfly.admin.config import AdminProperties
+        from pyfly.admin.middleware.trace_collector import TraceCollectorFilter
+        from pyfly.admin.providers.beans_provider import BeansProvider
+        from pyfly.admin.providers.cache_provider import CacheProvider
+        from pyfly.admin.providers.config_provider import ConfigProvider
+        from pyfly.admin.providers.cqrs_provider import CqrsProvider
+        from pyfly.admin.providers.env_provider import EnvProvider
+        from pyfly.admin.providers.health_provider import HealthProvider
+        from pyfly.admin.providers.logfile_provider import LogfileProvider
+        from pyfly.admin.providers.loggers_provider import LoggersProvider
+        from pyfly.admin.providers.mappings_provider import MappingsProvider
+        from pyfly.admin.providers.metrics_provider import MetricsProvider
+        from pyfly.admin.providers.overview_provider import OverviewProvider
+        from pyfly.admin.providers.runtime_provider import RuntimeProvider
+        from pyfly.admin.providers.scheduled_provider import ScheduledProvider
+        from pyfly.admin.providers.server_provider import ServerProvider
+        from pyfly.admin.providers.traces_provider import TracesProvider
+        from pyfly.admin.providers.transactions_provider import TransactionsProvider
+        from pyfly.admin.registry import AdminViewRegistry
+
+        admin_props = AdminProperties()
+        with contextlib.suppress(Exception):
+            admin_props = context.config.bind(AdminProperties)
+
+        # Find trace collector from context (registered by auto-config)
+        trace_collector = None
+        for _cls, reg in context.container._registrations.items():
+            if reg.instance is not None and isinstance(reg.instance, TraceCollectorFilter):
+                trace_collector = reg.instance
+                break
+
+        # Find view registry from context
+        view_registry = AdminViewRegistry()
+        for _cls, reg in context.container._registrations.items():
+            if reg.instance is not None and isinstance(reg.instance, AdminViewRegistry):
+                view_registry = reg.instance
+                view_registry.discover_from_context(context)
+                break
+
+        # Reuse health aggregator from actuator, or create one for admin
+        health_agg = agg
+        if health_agg is None:
+            from pyfly.actuator.health import HealthAggregator, HealthIndicator
+
+            health_agg = HealthAggregator()
+            for cls, reg in context.container._registrations.items():
+                if reg.instance is not None and isinstance(reg.instance, HealthIndicator):
+                    indicator_name = reg.name or cls.__name__
+                    health_agg.add_indicator(indicator_name, reg.instance)
+
+        # Find server adapter from context for admin dashboard
+        server_adapter = None
+        try:
+            from pyfly.server.ports.outbound import ApplicationServerPort
+
+            for _cls, reg in context.container._registrations.items():
+                if reg.instance is not None and isinstance(reg.instance, ApplicationServerPort):
+                    server_adapter = reg.instance
+                    break
+        except ImportError:
+            pass
+
+        admin_builder = AdminRouteBuilder(
+            properties=admin_props,
+            overview=OverviewProvider(context, health_agg),
+            beans=BeansProvider(context),
+            health=HealthProvider(health_agg),
+            env=EnvProvider(context),
+            config=ConfigProvider(context),
+            loggers=LoggersProvider(),
+            metrics=MetricsProvider(),
+            scheduled=ScheduledProvider(context),
+            mappings=MappingsProvider(context),
+            caches=CacheProvider(context),
+            cqrs=CqrsProvider(context),
+            transactions=TransactionsProvider(context),
+            traces=TracesProvider(trace_collector),
+            view_registry=view_registry,
+            trace_collector=trace_collector,
+            logfile=LogfileProvider(context),
+            runtime=RuntimeProvider(),
+            server=ServerProvider(server_adapter),
+        )
+        app.routes.extend(admin_builder.build_routes())
 
     # Register global exception handler
     register_exception_handlers(app)
