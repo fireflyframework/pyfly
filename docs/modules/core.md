@@ -420,6 +420,30 @@ environment variables (always strings), the `bind()` method coerces them:
 
 ---
 
+### Pydantic Configuration Properties
+
+In addition to dataclasses, `Config.bind()` supports Pydantic `BaseModel` subclasses for fail-fast validation with rich type coercion and constraint checking at startup.
+
+```python
+from pydantic import BaseModel, Field
+from pyfly.core.config import config_properties
+
+@config_properties(prefix="myapp.database")
+class DatabaseProperties(BaseModel):
+    url: str = "postgresql://localhost/mydb"
+    pool_size: int = Field(default=5, ge=1, le=100)
+    timeout: float = Field(default=30.0, gt=0)
+    ssl: bool = False
+```
+
+When `Config.bind(DatabaseProperties)` is called:
+- Pydantic's `model_validate()` handles type coercion, nested models, and constraint validation
+- `ValidationError` is raised at startup if any field fails validation (fail-fast)
+- Nested `BaseModel` fields are automatically constructed from nested config dicts
+- All Pydantic validators (`@field_validator`, `@model_validator`) are supported
+
+---
+
 ## Configuration Layering
 
 PyFly uses a four-layer configuration system. Each layer deeply merges into the previous
@@ -536,7 +560,7 @@ class BannerMode(enum.Enum):
 | Mode | Behavior |
 |---|---|
 | `TEXT` | Full ASCII art banner (default) with a framework version line. |
-| `MINIMAL` | Single line: `:: PyFly :: (v0.2.0-M8)` |
+| `MINIMAL` | Single line: `:: PyFly :: (v0.2.0-M9)` |
 | `OFF` | No banner output at all. |
 
 ### BannerPrinter Class
@@ -577,7 +601,7 @@ ______ ___.__._/ ____\  | ___.__.
 |   __// ____| |__|  |____/ ____|
 |__|   \/                 \/
 
-:: PyFly Framework :: (v0.2.0-M8)
+:: PyFly Framework :: (v0.2.0-M9)
 ```
 
 ### Custom Banner Files

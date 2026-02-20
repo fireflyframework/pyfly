@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## v0.2.0-M9 (2026-02-20)
+
+### Added
+- **Method-level security**: `@pre_authorize` and `@post_authorize` decorators with SpEL-style expressions (`hasRole`, `hasPermission`, `isAuthenticated`) evaluated against `RequestContext`
+- **DI-aware `@transactional`**: Full transaction management with `Propagation` enum (REQUIRED, REQUIRES_NEW, SUPPORTS, NOT_SUPPORTED, NEVER, MANDATORY) and `Isolation` enum, ContextVar-based session propagation, automatic Repository patching
+- **`async_sessionmaker` bean**: Exposed as injectable DI bean for `@transactional` and custom session management
+- **Kubernetes probes**: `ProbeGroup` enum (LIVENESS, READINESS), `/actuator/health/liveness` and `/actuator/health/readiness` endpoints with independent indicator grouping
+- **Pydantic `@config_properties`**: `Config.bind()` extended to support Pydantic `BaseModel` subclasses with `model_validate()` for fail-fast validation, type coercion, and nested model binding
+- **`SoftDeleteMixin`**: Opt-in `deleted_at` column with `is_deleted` property for soft delete support
+- **`VersionedMixin`**: Opt-in `version` column with SQLAlchemy `version_id_col` for automatic optimistic locking (`StaleDataError` on concurrent modification)
+- **`SoftDeleteRepository`**: Repository subclass with soft-delete-aware CRUD operations (`delete`, `find_all`, `restore`, `hard_delete`, `find_all_including_deleted`)
+
+### Changed
+- `RelationalAutoConfiguration`: Refactored to expose `async_session_factory` as a separate bean; `async_session` now depends on it
+- `HealthAggregator.add_indicator()`: Accepts optional `groups` parameter for probe group membership
+
+---
+
 ## v0.2.0-M8 (2026-02-20)
 
 ### Added

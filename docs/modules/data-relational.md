@@ -658,6 +658,99 @@ class DataConfig:
 
 ---
 
+### Transaction Management
+
+The `@transactional` decorator provides Spring-style declarative transaction management with propagation and isolation support.
+
+#### Basic Usage
+
+```python
+from pyfly.data.relational.sqlalchemy import transactional, Propagation, Isolation
+
+@service
+class OrderService:
+    _session_factory: async_sessionmaker  # injected by DI
+
+    @transactional()
+    async def create_order(self, order: Order) -> Order:
+        return await self.repo.save(order)
+
+    @transactional(propagation=Propagation.REQUIRES_NEW)
+    async def audit_log(self, message: str) -> None:
+        # Always opens a new transaction, even if called from within another
+        ...
+
+    @transactional(isolation=Isolation.SERIALIZABLE, read_only=True)
+    async def generate_report(self) -> Report:
+        ...
+```
+
+#### Propagation Types
+
+| Propagation | Behavior |
+|------------|----------|
+| `REQUIRED` (default) | Join existing transaction or start new |
+| `REQUIRES_NEW` | Always start a new transaction, suspending existing |
+| `SUPPORTS` | Run within transaction if one exists, or without |
+| `NOT_SUPPORTED` | Suspend any existing transaction |
+| `MANDATORY` | Require existing transaction, raise if none |
+| `NEVER` | Raise if a transaction exists |
+
+#### Isolation Levels
+
+`DEFAULT`, `READ_UNCOMMITTED`, `READ_COMMITTED`, `REPEATABLE_READ`, `SERIALIZABLE`
+
+The decorator resolves `async_sessionmaker` from `self._session_factory` and automatically patches Repository instances on the service with the transaction-scoped session.
+
+---
+
+### Soft Delete & Optimistic Locking
+
+PyFly provides opt-in mixins for soft delete and optimistic locking, mirroring JPA's `@SoftDelete` and `@Version` annotations.
+
+#### SoftDeleteMixin
+
+```python
+from pyfly.data.relational.sqlalchemy import BaseEntity, SoftDeleteMixin
+
+class Order(BaseEntity, SoftDeleteMixin):
+    __tablename__ = "orders"
+    name: Mapped[str] = mapped_column(String(255))
+```
+
+This adds a `deleted_at` column. Use `SoftDeleteRepository` for automatic soft-delete-aware CRUD:
+
+```python
+from pyfly.data.relational.sqlalchemy import SoftDeleteRepository
+
+class OrderRepository(SoftDeleteRepository[Order, UUID]):
+    pass  # delete() sets deleted_at, find methods exclude deleted entities
+```
+
+| Method | Behavior |
+|--------|----------|
+| `delete(id)` | Sets `deleted_at` (soft delete) |
+| `find_by_id(id)` | Excludes soft-deleted entities |
+| `find_all()` | Excludes soft-deleted entities |
+| `find_all_including_deleted()` | Includes soft-deleted entities |
+| `restore(id)` | Clears `deleted_at` |
+| `hard_delete(id)` | Permanently removes from DB |
+| `count()` | Counts only non-deleted entities |
+
+#### VersionedMixin (Optimistic Locking)
+
+```python
+from pyfly.data.relational.sqlalchemy import BaseEntity, VersionedMixin
+
+class Order(BaseEntity, VersionedMixin):
+    __tablename__ = "orders"
+    name: Mapped[str] = mapped_column(String(255))
+```
+
+This adds a `version` column. SQLAlchemy automatically appends `WHERE version = :old` to every UPDATE and raises `StaleDataError` on concurrent modification — the equivalent of JPA's `@Version`.
+
+---
+
 ## RepositoryBeanPostProcessor
 
 The `RepositoryBeanPostProcessor` is a `BeanPostProcessor` that runs after each repository bean is initialized. It scans the repository class for stub methods and replaces them with real query implementations.

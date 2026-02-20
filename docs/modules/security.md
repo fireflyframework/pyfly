@@ -796,6 +796,56 @@ The filter is automatically included in the WebFilter chain and sorted by its `@
 
 ---
 
+### Method-Level Security
+
+PyFly provides Spring Security-style method-level authorization via `@pre_authorize` and `@post_authorize` decorators. These evaluate SpEL-style security expressions against the current `RequestContext.security_context`.
+
+#### `@pre_authorize` — Check Before Execution
+
+```python
+from pyfly.security import pre_authorize
+
+@service
+class OrderService:
+
+    @pre_authorize("hasRole('ADMIN') or hasPermission('order:write')")
+    async def delete_order(self, order_id: str) -> None:
+        ...
+
+    @pre_authorize("isAuthenticated")
+    async def list_orders(self) -> list[Order]:
+        ...
+```
+
+#### `@post_authorize` — Check After Execution
+
+```python
+from pyfly.security import post_authorize
+
+@service
+class OrderService:
+
+    @post_authorize("hasPermission('order:read')")
+    async def get_order(self, order_id: str) -> Order:
+        # Method body runs first; authorization checked on return
+        return await self.repo.find_by_id(order_id)
+```
+
+#### Supported Expressions
+
+| Expression | Description |
+|-----------|-------------|
+| `isAuthenticated` | User is authenticated |
+| `hasRole('ADMIN')` | User has the ADMIN role |
+| `hasAnyRole('ADMIN', 'MANAGER')` | User has at least one role |
+| `hasPermission('order:read')` | User has the permission |
+| `and` / `or` / `not` | Boolean operators |
+| `(...)` | Grouping |
+
+Both decorators raise `UnauthorizedException` (401) when no `SecurityContext` is available, and `ForbiddenException` (403) when the expression evaluates to `False`.
+
+---
+
 ## OAuth2
 
 PyFly provides a complete OAuth2 implementation following hexagonal architecture. The module includes a Resource Server for validating external tokens, Client Registration for connecting to OAuth2 providers, and an Authorization Server for issuing tokens.

@@ -1538,6 +1538,57 @@ Source file: `src/pyfly/web/openapi.py`
 
 ---
 
+### Kubernetes Health Probes
+
+PyFly supports Kubernetes-style liveness and readiness probes via the actuator health endpoint.
+
+#### Endpoints
+
+| Endpoint | Purpose |
+|----------|---------|
+| `/actuator/health` | Overall application health |
+| `/actuator/health/liveness` | Liveness probe — is the app alive? |
+| `/actuator/health/readiness` | Readiness probe — is the app ready to serve traffic? |
+
+#### Probe Groups
+
+Health indicators can be assigned to probe groups:
+
+```python
+from pyfly.actuator import HealthAggregator, HealthIndicator, ProbeGroup
+
+aggregator.add_indicator("db", db_indicator, groups={ProbeGroup.READINESS})
+aggregator.add_indicator("disk", disk_indicator, groups={ProbeGroup.LIVENESS})
+aggregator.add_indicator("app", app_indicator)  # included in all probes
+```
+
+| Group Assignment | Liveness | Readiness | General Health |
+|-----------------|----------|-----------|----------------|
+| No groups (default) | Included | Included | Included |
+| `{LIVENESS}` only | Included | Excluded | Included |
+| `{READINESS}` only | Excluded | Included | Included |
+| `{LIVENESS, READINESS}` | Included | Included | Included |
+
+#### Kubernetes Configuration
+
+```yaml
+# kubernetes deployment
+livenessProbe:
+  httpGet:
+    path: /actuator/health/liveness
+    port: 8080
+  initialDelaySeconds: 10
+  periodSeconds: 15
+readinessProbe:
+  httpGet:
+    path: /actuator/health/readiness
+    port: 8080
+  initialDelaySeconds: 5
+  periodSeconds: 10
+```
+
+---
+
 ## Application Factory: create_app()
 
 The `create_app()` function is the primary entry point for building a PyFly web application:
