@@ -16,6 +16,7 @@
 from pyfly.security.context import SecurityContext
 from pyfly.security.decorators import secure
 from pyfly.security.http_security import AccessRule, AccessRuleType, HttpSecurity, SecurityRule
+from pyfly.security.method_security import post_authorize, pre_authorize
 from pyfly.security.middleware import SecurityMiddleware
 
 __all__ = [
@@ -25,6 +26,8 @@ __all__ = [
     "SecurityContext",
     "SecurityMiddleware",
     "SecurityRule",
+    "post_authorize",
+    "pre_authorize",
     "secure",
 ]
 

@@ -11,15 +11,23 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Health indicator protocol, status dataclasses, and aggregator."""
+"""Health indicator protocol, status dataclasses, aggregator, and probe groups."""
 
 from __future__ import annotations
 
+import enum
 import logging
 from dataclasses import dataclass, field
 from typing import Any, Protocol, runtime_checkable
 
 logger = logging.getLogger(__name__)
+
+
+class ProbeGroup(enum.Enum):
+    """Kubernetes-style probe groups for health indicators."""
+
+    LIVENESS = "liveness"
+    READINESS = "readiness"
 
 
 @dataclass
@@ -59,10 +67,17 @@ class HealthAggregator:
 
     def __init__(self) -> None:
         self._indicators: dict[str, HealthIndicator] = {}
+        self._groups: dict[str, set[ProbeGroup]] = {}
 
-    def add_indicator(self, name: str, indicator: HealthIndicator) -> None:
-        """Register a named health indicator."""
+    def add_indicator(
+        self,
+        name: str,
+        indicator: HealthIndicator,
+        groups: set[ProbeGroup] | None = None,
+    ) -> None:
+        """Register a named health indicator with optional probe group membership."""
         self._indicators[name] = indicator
+        self._groups[name] = groups if groups else set()
 
     async def check(self) -> HealthResult:
         """Run all indicators and return an aggregated health result.
@@ -72,13 +87,34 @@ class HealthAggregator:
         - If an indicator raises an exception, it is treated as DOWN.
         - If no indicators are registered, overall status is UP.
         """
-        if not self._indicators:
+        return await self._check_indicators(self._indicators)
+
+    async def check_liveness(self) -> HealthResult:
+        """Run only liveness-group indicators and return an aggregated result."""
+        filtered = {
+            name: ind
+            for name, ind in self._indicators.items()
+            if not self._groups[name] or ProbeGroup.LIVENESS in self._groups[name]
+        }
+        return await self._check_indicators(filtered)
+
+    async def check_readiness(self) -> HealthResult:
+        """Run only readiness-group indicators and return an aggregated result."""
+        filtered = {
+            name: ind
+            for name, ind in self._indicators.items()
+            if not self._groups[name] or ProbeGroup.READINESS in self._groups[name]
+        }
+        return await self._check_indicators(filtered)
+
+    async def _check_indicators(self, indicators: dict[str, HealthIndicator]) -> HealthResult:
+        if not indicators:
             return HealthResult(status="UP")
 
         components: dict[str, HealthStatus] = {}
         overall = "UP"
 
-        for name, indicator in self._indicators.items():
+        for name, indicator in indicators.items():
             try:
                 status = await indicator.health()
                 components[name] = status

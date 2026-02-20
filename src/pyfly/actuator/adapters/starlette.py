@@ -38,13 +38,16 @@ def make_starlette_actuator_routes(
         links: dict[str, dict[str, str]] = {"self": {"href": "/actuator"}}
         for eid in enabled:
             links[eid] = {"href": f"/actuator/{eid}"}
+        if "health" in enabled:
+            links["health/liveness"] = {"href": "/actuator/health/liveness"}
+            links["health/readiness"] = {"href": "/actuator/health/readiness"}
         return JSONResponse({"_links": links})
 
     routes.append(Route("/actuator", index_endpoint, methods=["GET"]))
 
     for eid, ep in enabled.items():
         if isinstance(ep, HealthEndpoint):
-            routes.append(_make_health_route(ep))
+            routes.extend(_make_health_routes(ep))
         elif isinstance(ep, LoggersEndpoint):
             routes.extend(_make_loggers_routes(ep))
         else:
@@ -53,7 +56,7 @@ def make_starlette_actuator_routes(
     return routes
 
 
-def _make_health_route(ep: HealthEndpoint) -> Route:
+def _make_health_routes(ep: HealthEndpoint) -> list[Route]:
     """Health endpoint returns dynamic status codes (200/503)."""
 
     async def handler(request: Request) -> JSONResponse:
@@ -61,7 +64,21 @@ def _make_health_route(ep: HealthEndpoint) -> Route:
         status_code = await ep.get_status_code()
         return JSONResponse(data, status_code=status_code)
 
-    return Route("/actuator/health", handler, methods=["GET"])
+    async def liveness_handler(request: Request) -> JSONResponse:
+        data = await ep.handle_liveness()
+        status_code = await ep.get_liveness_status_code()
+        return JSONResponse(data, status_code=status_code)
+
+    async def readiness_handler(request: Request) -> JSONResponse:
+        data = await ep.handle_readiness()
+        status_code = await ep.get_readiness_status_code()
+        return JSONResponse(data, status_code=status_code)
+
+    return [
+        Route("/actuator/health", handler, methods=["GET"]),
+        Route("/actuator/health/liveness", liveness_handler, methods=["GET"]),
+        Route("/actuator/health/readiness", readiness_handler, methods=["GET"]),
+    ]
 
 
 def _make_loggers_routes(ep: LoggersEndpoint) -> list[Route]:

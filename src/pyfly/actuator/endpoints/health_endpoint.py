@@ -42,3 +42,19 @@ class HealthEndpoint:
         """Return the HTTP status code based on health state."""
         result = await self._aggregator.check()
         return 503 if result.status == "DOWN" else 200
+
+    async def handle_liveness(self) -> dict[str, Any]:
+        result = await self._aggregator.check_liveness()
+        return result.to_dict()
+
+    async def handle_readiness(self) -> dict[str, Any]:
+        result = await self._aggregator.check_readiness()
+        return result.to_dict()
+
+    async def get_liveness_status_code(self) -> int:
+        result = await self._aggregator.check_liveness()
+        return 503 if result.status == "DOWN" else 200
+
+    async def get_readiness_status_code(self) -> int:
+        result = await self._aggregator.check_readiness()
+        return 503 if result.status == "DOWN" else 200

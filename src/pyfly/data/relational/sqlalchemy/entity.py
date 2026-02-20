@@ -17,13 +17,48 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
+from typing import Any
 
-from sqlalchemy import DateTime, String
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy import DateTime, Integer, String
+from sqlalchemy.orm import DeclarativeBase, Mapped, declared_attr, mapped_column
 
 
 class Base(DeclarativeBase):
     """SQLAlchemy declarative base for all PyFly entities."""
+
+
+class SoftDeleteMixin:
+    """Mixin that adds a ``deleted_at`` timestamp for soft-delete support.
+
+    Entities using this mixin are never physically removed by
+    :class:`SoftDeleteRepository`; instead their ``deleted_at`` column
+    is set to the current UTC time.
+    """
+
+    __abstract__ = True
+
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None, nullable=True)
+
+    @property
+    def is_deleted(self) -> bool:
+        return self.deleted_at is not None
+
+
+class VersionedMixin:
+    """Mixin that enables optimistic locking via a ``version`` column.
+
+    SQLAlchemy will automatically increment the version on every flush
+    and raise :class:`sqlalchemy.orm.exc.StaleDataError` when a
+    concurrent modification is detected.
+    """
+
+    __abstract__ = True
+
+    version: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+    @declared_attr  # type: ignore[arg-type]
+    def __mapper_args__(cls) -> dict[str, Any]:  # noqa: N805
+        return {"version_id_col": cls.version}
 
 
 class BaseEntity(Base):

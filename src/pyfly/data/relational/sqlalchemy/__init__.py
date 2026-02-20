@@ -14,14 +14,21 @@
 """SQLAlchemy data access adapter — default RepositoryPort implementation."""
 
 from pyfly.data.relational.sqlalchemy.auditing import AuditingEntityListener
-from pyfly.data.relational.sqlalchemy.entity import Base, BaseEntity
+from pyfly.data.relational.sqlalchemy.entity import Base, BaseEntity, SoftDeleteMixin, VersionedMixin
 from pyfly.data.relational.sqlalchemy.filter import FilterOperator, FilterUtils
 from pyfly.data.relational.sqlalchemy.post_processor import RepositoryBeanPostProcessor
 from pyfly.data.relational.sqlalchemy.query import QueryExecutor, query
 from pyfly.data.relational.sqlalchemy.query_compiler import QueryMethodCompiler
 from pyfly.data.relational.sqlalchemy.repository import Repository
+from pyfly.data.relational.sqlalchemy.soft_delete import SoftDeleteRepository
 from pyfly.data.relational.sqlalchemy.specification import Specification
-from pyfly.data.relational.sqlalchemy.transactional import reactive_transactional
+from pyfly.data.relational.sqlalchemy.transactional import (
+    Isolation,
+    Propagation,
+    _active_session_var,
+    reactive_transactional,
+    transactional,
+)
 
 __all__ = [
     "AuditingEntityListener",
@@ -29,11 +36,18 @@ __all__ = [
     "BaseEntity",
     "FilterOperator",
     "FilterUtils",
+    "Isolation",
+    "Propagation",
     "QueryExecutor",
     "QueryMethodCompiler",
     "Repository",
     "RepositoryBeanPostProcessor",
+    "SoftDeleteMixin",
+    "SoftDeleteRepository",
     "Specification",
+    "VersionedMixin",
+    "_active_session_var",
     "query",
     "reactive_transactional",
+    "transactional",
 ]

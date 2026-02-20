@@ -103,18 +103,21 @@ class RelationalAutoConfiguration:
         return create_async_engine(url, echo=echo)
 
     @bean
-    def async_session(self, async_engine: AsyncEngine) -> AsyncSession:
-        """Create an ``AsyncSession`` from the engine.
+    def async_session_factory(self, async_engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:
+        """Create an ``async_sessionmaker`` factory bound to the engine."""
+        return async_sessionmaker(async_engine, expire_on_commit=False)
+
+    @bean
+    def async_session(self, async_session_factory: async_sessionmaker[AsyncSession]) -> AsyncSession:
+        """Create an ``AsyncSession`` from the factory.
 
         .. warning::
             This bean returns a **single session instance** shared across
             injections.  In production you should manage session lifecycle
             per-request (e.g. via middleware or a request-scoped provider).
-            A dedicated PR should convert this to return an
-            ``async_sessionmaker`` factory for proper per-operation sessions.
         """
-        factory = async_sessionmaker(async_engine, expire_on_commit=False)
-        return factory()
+        session: AsyncSession = async_session_factory()
+        return session
 
     @bean
     def engine_lifecycle(

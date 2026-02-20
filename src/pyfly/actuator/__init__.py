@@ -13,7 +13,7 @@
 # limitations under the License.
 """Actuator — production-ready monitoring and management endpoints."""
 
-from pyfly.actuator.health import HealthAggregator, HealthIndicator, HealthResult, HealthStatus
+from pyfly.actuator.health import HealthAggregator, HealthIndicator, HealthResult, HealthStatus, ProbeGroup
 from pyfly.actuator.ports import ActuatorEndpoint
 from pyfly.actuator.registry import ActuatorRegistry
 
@@ -24,4 +24,5 @@ __all__ = [
     "HealthIndicator",
     "HealthResult",
     "HealthStatus",
+    "ProbeGroup",
 ]

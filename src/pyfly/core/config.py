@@ -34,13 +34,23 @@ _CONFIG_PROPERTIES_ATTR = "__pyfly_config_prefix__"
 
 
 def config_properties(prefix: str) -> Callable[[type[T]], type[T]]:
-    """Mark a dataclass as bindable to a configuration prefix.
+    """Mark a class as bindable to a configuration prefix.
+
+    Works with both dataclasses and Pydantic BaseModel subclasses.
+    When used with Pydantic models, Config.bind() uses model_validate()
+    for automatic type coercion, nested model support, and fail-fast
+    validation at startup.
 
     Usage:
         @config_properties(prefix="database")
         @dataclass
         class DatabaseConfig:
             url: str = "sqlite:///test.db"
+
+        @config_properties(prefix="myapp.server")
+        class ServerConfig(BaseModel):
+            host: str = "0.0.0.0"
+            port: int = Field(default=8080, ge=1, le=65535)
     """
 
     def decorator(cls: type[T]) -> type[T]:
@@ -295,20 +305,33 @@ class Config:
         return current if isinstance(current, dict) else {}
 
     def bind(self, config_cls: type[T]) -> T:
-        """Bind configuration to a @config_properties dataclass."""
+        """Bind configuration to a @config_properties dataclass or Pydantic model."""
         prefix = getattr(config_cls, _CONFIG_PROPERTIES_ATTR, None)
         if prefix is None:
             raise ValueError(f"{config_cls.__name__} is not decorated with @config_properties")
 
         section = self.get_section(prefix)
-        hints = get_type_hints(config_cls)
 
-        # Build kwargs from config, falling back to dataclass defaults
+        # Pydantic BaseModel path — fail-fast with ValidationError
+        try:
+            from pydantic import BaseModel, ValidationError
+
+            if isinstance(config_cls, type) and issubclass(config_cls, BaseModel):
+                try:
+                    return config_cls.model_validate(section)
+                except ValidationError as exc:
+                    raise ValueError(
+                        f"Configuration validation failed for '{config_cls.__name__}' (prefix='{prefix}'):\n{exc}"
+                    ) from exc
+        except ImportError:
+            pass
+
+        # Existing dataclass path (unchanged)
+        hints = get_type_hints(config_cls)
         kwargs: dict[str, Any] = {}
         for field in dataclasses.fields(config_cls):  # type: ignore[arg-type]
             if field.name in section:
                 value = section[field.name]
-                # Coerce type if needed
                 expected_type = hints.get(field.name)
                 if expected_type is int and isinstance(value, str):
                     value = int(value)
