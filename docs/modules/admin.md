@@ -41,7 +41,7 @@ The admin dashboard requires no additional dependencies beyond the `web` extra
 **1. Install PyFly with the web extra** (admin has no separate extra):
 
 ```bash
-pip install pyfly[web]
+uv add "pyfly[web]"
 ```
 
 **2. Enable the admin dashboard** in `pyfly.yaml`:
@@ -538,7 +538,7 @@ pyfly:
 Admin auto-configuration is activated when two conditions are met:
 
 1. `pyfly.admin.enabled` is set to `true` in configuration.
-2. Starlette is available on the classpath (satisfied by `pip install pyfly[web]`).
+2. Starlette is available on the classpath (satisfied by installing the `web` extra).
 
 The `AdminAutoConfiguration` class is discovered via the
 `pyfly.auto_configuration` entry-point group in `pyproject.toml`:

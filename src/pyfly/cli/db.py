@@ -90,7 +90,7 @@ def _require_alembic() -> tuple[Any, type]:
         from alembic.config import Config  # noqa: N812
     except ImportError:
         console.print("[error]\u2717 alembic is not installed.[/error]")
-        console.print("[dim]Install it with: pip install 'pyfly[data-relational]'[/dim]")
+        console.print("[dim]Install the data-relational extra: pyfly[data-relational][/dim]")
         raise SystemExit(1) from None
     return command, Config
 

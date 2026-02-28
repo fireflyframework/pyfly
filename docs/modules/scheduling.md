@@ -456,7 +456,7 @@ pyfly:
 When `enabled` is `false`, the `TaskScheduler` will not start any loops and
 `@scheduled` methods will be ignored.
 
-**Requires:** `pip install pyfly[scheduling]` (installs `croniter` for cron
+**Requires:** `uv add "pyfly[scheduling]"` (installs `croniter` for cron
 expression parsing)
 
 ---

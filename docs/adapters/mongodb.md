@@ -9,7 +9,7 @@
 ### Installation
 
 ```bash
-pip install pyfly[data-document]
+uv add "pyfly[data-document]"
 ```
 
 ### Minimal Configuration

@@ -32,7 +32,7 @@ Before you begin, make sure you have:
 
 - **Python 3.12 or later** -- PyFly uses modern Python features including type
   hints with generics, `match` statements, and `tomllib`.
-- **pip** package manager (included with Python).
+- **uv** package manager ([install uv](https://docs.astral.sh/uv/)) or **pip** (included with Python).
 - A **terminal** (macOS Terminal, Linux shell, or Windows PowerShell).
 - Optionally, a code editor like VS Code, PyCharm, or Neovim.
 
@@ -470,7 +470,7 @@ ______ ___.__._/ ____\  | ___.__.
 |   __// ____| |__|  |____/ ____|
 |__|   \/                 \/
 
-  PyFly v0.2.0-M9 | Python 3.12.0
+  PyFly v0.2.0-M10 | Python 3.12.0
 
 2026-01-15T10:30:00Z [info] starting_application  app=my-service version=0.1.0
 2026-01-15T10:30:00Z [info] no_active_profiles     message=No active profiles set, falling back to default

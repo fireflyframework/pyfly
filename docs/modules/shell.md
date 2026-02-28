@@ -429,7 +429,7 @@ The default adapter, backed by [Click](https://click.palletsprojects.com) 8.1+.
 It translates `ShellParam` descriptors into native Click parameters and manages
 a `click.Group` as the root command.
 
-**Install:** `pip install pyfly[shell]` (this pulls in `click`).
+**Install:** `uv add "pyfly[shell]"` (this pulls in `click`).
 
 #### Constructor
 

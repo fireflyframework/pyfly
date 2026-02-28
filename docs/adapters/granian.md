@@ -9,13 +9,13 @@
 ### Installation
 
 ```bash
-pip install 'pyfly[granian]'
+uv add "pyfly[granian]"
 ```
 
 Or install the full high-performance web stack (Starlette + Granian + uvloop):
 
 ```bash
-pip install 'pyfly[web-fast]'
+uv add "pyfly[web-fast]"
 ```
 
 ### Minimal Configuration

@@ -26,7 +26,7 @@ _MIN_PYTHON = (3, 12)
 
 _REQUIRED_TOOLS = [
     ("git", "Version control"),
-    ("pip", "Package manager"),
+    ("uv", "Package manager"),
 ]
 
 _OPTIONAL_TOOLS = [

@@ -9,10 +9,10 @@
 ### Installation
 
 ```bash
-pip install pyfly[cache]
+uv add "pyfly[cache]"
 
 # Or just the Redis client
-pip install pyfly[redis]
+uv add "pyfly[redis]"
 ```
 
 ### Minimal Configuration

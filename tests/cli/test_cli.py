@@ -1154,7 +1154,7 @@ class TestPostGenerationGuidance:
         result = runner.invoke(cli, ["new", "my-svc", "--directory", str(tmp_path)])
         assert result.exit_code == 0, result.output
         assert "Next steps" in result.output
-        assert "pip install" in result.output
+        assert "uv sync" in result.output
         assert "pyfly run" in result.output
 
     def test_data_feature_shows_tips(self, tmp_path: Path):

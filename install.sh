@@ -26,7 +26,7 @@ set -euo pipefail
 
 # ── Constants ──────────────────────────────────────────────────────────────────
 
-PYFLY_VERSION="0.2.0-M9"
+PYFLY_VERSION="0.2.0-M10"
 PYFLY_REPO="https://github.com/fireflyframework/pyfly.git"
 DEFAULT_INSTALL_DIR="$HOME/.pyfly"
 MIN_PYTHON_MAJOR=3
@@ -207,6 +207,14 @@ check_prerequisites() {
         fatal "ensurepip is required. Install it with: sudo apt install python3-venv (Debian/Ubuntu) or brew install python (macOS)"
     fi
 
+    if command -v uv &>/dev/null; then
+        HAS_UV=true
+        success "uv available (will use for faster installs)"
+    else
+        HAS_UV=false
+        info "uv not found — falling back to pip (install uv for faster installs: https://docs.astral.sh/uv/)"
+    fi
+
     if command -v git &>/dev/null; then
         success "git available"
     else
@@ -369,14 +377,19 @@ install_pyfly() {
     "$PYTHON_CMD" -m venv "$INSTALL_DIR/venv"
     success "Virtual environment created"
 
-    # Install PyFly
-    local pip_cmd="$INSTALL_DIR/venv/bin/pip"
-    info "Upgrading pip..."
-    "$pip_cmd" install --upgrade pip --quiet 2>&1 || warn "pip upgrade failed, continuing with existing version"
-
+    # Install PyFly — prefer uv if available
     info "Installing PyFly with extras: $EXTRAS ..."
-    if ! "$pip_cmd" install -e "$INSTALL_DIR/source[$EXTRAS]"; then
-        fatal "pip install failed. Check the output above for details."
+    if [ "$HAS_UV" = true ]; then
+        if ! uv pip install --python "$INSTALL_DIR/venv/bin/python" -e "$INSTALL_DIR/source[$EXTRAS]"; then
+            fatal "uv pip install failed. Check the output above for details."
+        fi
+    else
+        local pip_cmd="$INSTALL_DIR/venv/bin/pip"
+        info "Upgrading pip..."
+        "$pip_cmd" install --upgrade pip --quiet 2>&1 || warn "pip upgrade failed, continuing with existing version"
+        if ! "$pip_cmd" install -e "$INSTALL_DIR/source[$EXTRAS]"; then
+            fatal "pip install failed. Check the output above for details."
+        fi
     fi
     success "PyFly installed successfully"
 

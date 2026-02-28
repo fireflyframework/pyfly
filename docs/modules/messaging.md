@@ -267,7 +267,7 @@ The `KafkaAdapter` is the production adapter for Apache Kafka. It wraps the
 [aiokafka](https://github.com/aio-libs/aiokafka) library, managing producers
 and consumers internally.
 
-**Install:** `pip install pyfly[kafka]` (this pulls in `aiokafka`).
+**Install:** `uv add "pyfly[kafka]"` (this pulls in `aiokafka`).
 
 ```python
 from pyfly.messaging.adapters.kafka import KafkaAdapter
@@ -316,7 +316,7 @@ The `RabbitMQAdapter` is the production adapter for RabbitMQ. It wraps the
 [aio-pika](https://github.com/mosquito/aio-pika) library and uses a single
 direct exchange.
 
-**Install:** `pip install pyfly[rabbitmq]` (this pulls in `aio-pika`).
+**Install:** `uv add "pyfly[rabbitmq]"` (this pulls in `aio-pika`).
 
 ```python
 from pyfly.messaging.adapters.rabbitmq import RabbitMQAdapter

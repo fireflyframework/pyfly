@@ -11,7 +11,7 @@
   <a href="https://github.com/fireflyframework"><img src="https://img.shields.io/badge/Firefly_Framework-official-ff6600?logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0id2hpdGUiIGQ9Ik0xMiAyQzYuNDggMiAyIDYuNDggMiAxMnM0LjQ4IDEwIDEwIDEwIDEwLTQuNDggMTAtMTBTMTcuNTIgMiAxMiAyeiIvPjwvc3ZnPg==" alt="Firefly Framework"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.12%2B-blue?logo=python&logoColor=white" alt="Python 3.12+"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-green" alt="License: Apache 2.0"></a>
-  <a href="#"><img src="https://img.shields.io/badge/version-0.2.0--M7-yellow" alt="Version: 0.2.0-M9"></a>
+  <a href="#"><img src="https://img.shields.io/badge/version-0.2.0--M9-yellow" alt="Version: 0.2.0-M10"></a>
   <a href="#"><img src="https://img.shields.io/badge/type--checked-mypy%20strict-blue?logo=python&logoColor=white" alt="Type Checked: mypy strict"></a>
   <a href="#"><img src="https://img.shields.io/badge/code%20style-ruff-purple?logo=ruff&logoColor=white" alt="Code Style: Ruff"></a>
   <a href="#"><img src="https://img.shields.io/badge/async-first-brightgreen" alt="Async First"></a>
@@ -292,7 +292,7 @@ Third-party packages can register their own auto-configurations by adding entrie
 my-addon = "my_package.auto_configuration:MyAutoConfiguration"
 ```
 
-**The practical workflow:** During development, install `pip install pyfly[full]` and everything auto-wires. In production Docker images, install only the extras you need (e.g., `pip install pyfly[web,data-relational,cache]`) and the discovered auto-configurations bind exactly those adapters. You can always override any auto-configured adapter with explicit `provider` settings in `pyfly.yaml` or by registering your own bean.
+**The practical workflow:** During development, install `uv add "pyfly[full]"` (or `pip install pyfly[full]`) and everything auto-wires. In production Docker images, install only the extras you need (e.g., `pyfly[web,data-relational,cache]`) and the discovered auto-configurations bind exactly those adapters. You can always override any auto-configured adapter with explicit `provider` settings in `pyfly.yaml` or by registering your own bean.
 
 ---
 
@@ -303,14 +303,14 @@ my-addon = "my_package.auto_configuration:MyAutoConfiguration"
 ### Install from GitHub Release (Recommended)
 
 ```bash
-# Install the latest release
-pip install "pyfly @ https://github.com/fireflyframework/pyfly/releases/latest/download/pyfly-0.2.0a9-py3-none-any.whl"
+# Install the latest release (uv)
+uv add "pyfly @ https://github.com/fireflyframework/pyfly/releases/latest/download/pyfly-0.2.0a10-py3-none-any.whl"
 
 # Install with specific extras
-pip install "pyfly[web,data-relational,cache] @ https://github.com/fireflyframework/pyfly/releases/latest/download/pyfly-0.2.0a9-py3-none-any.whl"
+uv add "pyfly[web,data-relational,cache] @ https://github.com/fireflyframework/pyfly/releases/latest/download/pyfly-0.2.0a10-py3-none-any.whl"
 
-# Or with uv
-uv pip install "pyfly @ https://github.com/fireflyframework/pyfly/releases/latest/download/pyfly-0.2.0a9-py3-none-any.whl"
+# Or with pip
+pip install "pyfly @ https://github.com/fireflyframework/pyfly/releases/latest/download/pyfly-0.2.0a10-py3-none-any.whl"
 ```
 
 ### One-Line Install (CLI + Framework)
@@ -343,7 +343,10 @@ cd pyfly
 # Run the interactive installer
 bash install.sh
 
-# Or install manually with pip
+# Or install manually with uv
+uv sync --all-extras --group dev
+
+# Or with pip
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[full]"
 ```
@@ -592,13 +595,13 @@ PyFly follows the same versioning system as Spring Boot, based on **Semantic Ver
 | Stage | Format | Description |
 |-------|--------|-------------|
 | **SNAPSHOT** | `0.2.0-SNAPSHOT` | Active development build. Unstable, changes daily. |
-| **Milestone** | `0.2.0-M9` | Pre-release feature preview. New functionality available for early feedback. |
+| **Milestone** | `0.2.0-M10` | Pre-release feature preview. New functionality available for early feedback. |
 | **Release Candidate** | `0.2.0-RC1` | Feature-complete. Only bug fixes from this point. |
 | **GA** | `0.2.0` | General Availability. Production-ready, fully tested and stable. |
 
 **Release lifecycle:** `SNAPSHOT` → `M1` → `M2` → ... → `RC1` → `RC2` → ... → `GA`
 
-For Python packaging (PEP 440), milestone versions map to alpha pre-releases (`0.2.0a9`), release candidates map to `rc` (`0.2.0rc1`), and GA is the final release (`0.2.0`). See [docs/versioning.md](docs/versioning.md) for full details.
+For Python packaging (PEP 440), milestone versions map to alpha pre-releases (`0.2.0a10`), release candidates map to `rc` (`0.2.0rc1`), and GA is the final release (`0.2.0`). See [docs/versioning.md](docs/versioning.md) for full details.
 
 ---
 
@@ -606,7 +609,7 @@ For Python packaging (PEP 440), milestone versions map to alpha pre-releases (`0
 
 See **[CHANGELOG.md](CHANGELOG.md)** for detailed release notes.
 
-**Current:** 0.2.0-M9 (2026-02-20) — Method security, @transactional, K8s probes, Pydantic config, soft delete/versioning.
+**Current:** 0.2.0-M10 (2026-02-28) — uv-first tooling: PEP 735 dependency-groups, uv-native CI/templates/installer, tool-neutral error messages.
 
 ---
 
@@ -629,7 +632,7 @@ PyFly is part of the [Firefly Framework](https://github.com/fireflyframework) ec
 | Requirement | Version |
 |-------------|---------|
 | Python | >= 3.12 |
-| pip | Latest recommended |
+| uv | >= 0.5 recommended (pip also supported) |
 | Git | For cloning the repository |
 | OS | macOS, Linux (Windows support planned) |
 

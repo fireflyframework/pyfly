@@ -192,7 +192,7 @@ def _prompt_interactive() -> tuple[str, str, str, list[str]]:
             features: list[str] = []
         else:
             print_step_header(3, total_steps, "Features")
-            console.print("  [dim]Features are optional PyFly packages. Each maps to a pip extra.[/dim]\n")
+            console.print("  [dim]Features are optional PyFly packages. Each maps to an installable extra.[/dim]\n")
 
             defaults = DEFAULT_FEATURES[archetype]
             choices: list[Choice | Separator] = []
@@ -315,8 +315,7 @@ def new_command(name: str | None, archetype: str | None, features_str: str | Non
     # Post-generation next steps
     console.print("\n  [info]Next steps:[/info]")
     console.print(f"    cd {project_dir}")
-    console.print("    python -m venv .venv && source .venv/bin/activate")
-    console.print('    pip install -e ".[dev]"')
+    console.print("    uv sync --group dev")
     if archetype == "cli":
         console.print(f"    python -m {name.replace('-', '_').replace(' ', '_').lower()}.main")
     elif archetype != "library":

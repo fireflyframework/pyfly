@@ -131,7 +131,7 @@ of entries consuming memory until their next read.
 The `RedisCacheAdapter` is the production cache backend. It delegates to a
 `redis.asyncio.Redis` client and transparently handles JSON serialization.
 
-**Install:** `pip install pyfly[redis]` (this pulls in `redis`).
+**Install:** `uv add "pyfly[redis]"` (this pulls in `redis`).
 
 ```python
 import redis.asyncio as redis

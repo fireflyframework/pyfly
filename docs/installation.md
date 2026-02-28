@@ -1,6 +1,6 @@
 # Installation Guide
 
-This guide covers every way to install PyFly — from the interactive installer for first-time users to manual pip commands for CI/CD pipelines.
+This guide covers every way to install PyFly — from the interactive installer for first-time users to manual uv/pip commands for CI/CD pipelines.
 
 > **Note:** PyFly is distributed exclusively via GitHub as part of the [Firefly Framework](https://github.com/fireflyframework) organization. It is **not** published to PyPI. All installation methods require cloning the repository first.
 
@@ -12,7 +12,7 @@ This guide covers every way to install PyFly — from the interactive installer 
 - [Prerequisites](#prerequisites)
 - [Interactive Installation](#interactive-installation)
 - [Non-Interactive Installation](#non-interactive-installation)
-- [Manual Installation (pip)](#manual-installation-pip)
+- [Manual Installation](#manual-installation)
 - [Available Extras](#available-extras)
 - [Core Dependencies](#core-dependencies)
 - [What the Installer Does](#what-the-installer-does)
@@ -52,9 +52,9 @@ pyfly doctor
 | Requirement | Version | How to Check |
 |-------------|---------|-------------|
 | Python | >= 3.12 | `python3 --version` |
-| pip | Latest recommended | `pip --version` |
+| uv | >= 0.5 (recommended) | `uv --version` |
 | Git | Any recent version | `git --version` |
-| venv module | Included with Python | `python3 -m venv --help` |
+| pip | Latest (alternative to uv) | `pip --version` |
 | OS | macOS or Linux | Windows support planned |
 
 ### Python 3.12+
@@ -227,11 +227,28 @@ CMD ["pyfly", "run", "--host", "0.0.0.0", "--port", "8080"]
 
 ---
 
-## Manual Installation (pip)
+## Manual Installation
 
-If you prefer to manage your own virtual environment, you can install PyFly directly with pip.
+If you prefer to manage your own virtual environment, you can install PyFly directly with uv or pip.
 
-### From Source
+### From Source (uv — Recommended)
+
+```bash
+# Clone the repository
+git clone https://github.com/fireflyframework/pyfly.git
+cd pyfly
+
+# Install with all extras
+uv sync --all-extras
+
+# Or install with specific extras
+uv sync --extra web --extra data-relational --extra cli
+
+# Or install the bare minimum (core + pydantic + pyyaml)
+uv sync
+```
+
+### From Source (pip)
 
 ```bash
 # Clone the repository
@@ -254,14 +271,23 @@ pip install -e .
 
 ### Extras Syntax
 
-Multiple extras are comma-separated inside the brackets:
+With uv:
 
 ```bash
-pip install -e ".[web]"                    # Web only
+uv add "pyfly[web]"                           # Web only
+uv add "pyfly[web,data-relational]"           # Web + SQL data
+uv add "pyfly[web,data-relational,security]"  # Web + SQL data + security
+uv add "pyfly[full]"                          # Everything
+```
+
+With pip:
+
+```bash
+pip install -e ".[web]"                              # Web only
 pip install -e ".[web,data-relational]"              # Web + SQL data
 pip install -e ".[web,data-relational,security]"     # Web + SQL data + security
-pip install -e ".[full]"                  # Everything
-pip install -e ".[dev]"                   # Everything + dev tools
+pip install -e ".[full]"                             # Everything
+# Note: dev tools (pytest, mypy, ruff) are in [dependency-groups] — use: uv sync --group dev
 ```
 
 ---
@@ -286,13 +312,12 @@ Each extra pulls in the third-party libraries needed for a specific framework mo
 | `rabbitmq` | aio-pika | RabbitMQ messaging only |
 | `redis` | redis[hiredis] | Redis client (hiredis C parser for performance) |
 | `cache` | redis[hiredis] | Caching with Redis backend |
-| `client` | httpx, tenacity | Resilient HTTP client with retry and circuit breaker |
+| `client` | httpx | Resilient HTTP client with retry and circuit breaker |
 | `observability` | prometheus-client, opentelemetry-api, opentelemetry-sdk, structlog | Metrics, distributed tracing, structured logging |
-| `security` | pyjwt[crypto], passlib[bcrypt] | JWT token generation/verification, password hashing |
+| `security` | pyjwt[crypto], bcrypt, cryptography | JWT token generation/verification, password hashing |
 | `scheduling` | croniter | Cron expression parsing for scheduled tasks |
-| `cli` | click, rich, jinja2 | CLI tools (pyfly new, run, info, doctor, db) |
+| `cli` | click, rich, jinja2, questionary | CLI tools (pyfly new, run, info, doctor, db) |
 | `full` | All of the above | Complete framework with all modules |
-| `dev` | full + pytest, pytest-asyncio, pytest-cov, mypy, ruff, aiosqlite | Development and testing tools |
 
 ### Choosing Extras
 
@@ -304,7 +329,7 @@ Each extra pulls in the third-party libraries needed for a specific framework mo
 
 **For a microservice with messaging:** `web,data-relational,eda,cache,cli`
 
-**For development:** `dev` (includes everything + test/lint tools)
+**For development:** `uv sync --all-extras --group dev` (includes everything + test/lint tools)
 
 **For production Docker images:** Only the extras your service actually uses (minimize image size)
 
@@ -364,9 +389,12 @@ This ensures PyFly's dependencies don't conflict with your system Python or othe
 
 ### 4. PyFly Installation
 
-Runs an editable install inside the virtual environment:
+Runs an editable install inside the virtual environment (uses `uv` if available, falls back to `pip`):
 
 ```bash
+# If uv is available:
+uv pip install --python "$INSTALL_DIR/venv/bin/python" -e ".[${EXTRAS}]"
+# Otherwise:
 $INSTALL_DIR/venv/bin/pip install -e ".[${EXTRAS}]"
 ```
 
@@ -396,15 +424,24 @@ If any step fails, the installer removes the partially-created installation dire
 
 ## Development Setup
 
-For contributing to PyFly itself, install with the `dev` extra which includes all modules plus testing and linting tools:
+For contributing to PyFly itself, install with dev dependencies which include all modules plus testing and linting tools:
 
 ```bash
 git clone https://github.com/fireflyframework/pyfly.git
 cd pyfly
+
+# With uv (recommended)
+uv sync --all-extras --group dev
+
+# Or with pip (dev tools must be installed separately)
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -e ".[dev]"
+pip install -e ".[full]"
+pip install pytest pytest-asyncio pytest-cov mypy ruff
 ```
+
+> **Note:** `uv sync` generates a `uv.lock` file. Commit this file to version control to ensure
+> reproducible installs across all environments.
 
 ### Development Tools Included
 
@@ -463,7 +500,7 @@ PyFly Doctor
 
   Required tools:
     ✓ git — Version control
-    ✓ pip — Package manager
+    ✓ uv — Package manager
 
   Optional tools:
     ✓ uvicorn — ASGI server (pyfly run)
@@ -472,7 +509,7 @@ PyFly Doctor
     ✓ mypy — Type checker
 
   PyFly packages:
-    ✓ pyfly v0.2.0-M9
+    ✓ pyfly v0.2.0-M10
 
   All checks passed!
 ```
@@ -510,12 +547,12 @@ Install Python 3.12+:
 
 The `web` extra isn't installed. Reinstall with:
 ```bash
-pip install -e ".[web]"
+uv sync --extra web
 ```
 
 Or reinstall everything:
 ```bash
-pip install -e ".[full]"
+uv sync --all-extras
 ```
 
 ### "venv module not found"
@@ -525,11 +562,16 @@ On some Linux distributions, `venv` is a separate package:
 sudo apt install python3.12-venv
 ```
 
-### Installation hangs or fails with pip errors
+### Installation hangs or fails
 
-Try upgrading pip first:
+If using pip, try upgrading it first:
 ```bash
 python3 -m pip install --upgrade pip
+```
+
+If using uv, try clearing the cache:
+```bash
+uv cache clean
 ```
 
 ---
@@ -549,8 +591,10 @@ rm -rf ~/.pyfly
 export PATH="$HOME/.pyfly/bin:$PATH"  # PyFly Framework
 ```
 
-### pip-based Installation
+### Manual Installation
 
 ```bash
+uv remove pyfly
+# Or with pip:
 pip uninstall pyfly
 ```

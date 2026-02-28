@@ -9,10 +9,10 @@
 ### Installation
 
 ```bash
-pip install pyfly[rabbitmq]
+uv add "pyfly[rabbitmq]"
 
 # Or install both Kafka and RabbitMQ
-pip install pyfly[eda]
+uv add "pyfly[eda]"
 ```
 
 ### Minimal Configuration

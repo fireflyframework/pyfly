@@ -1174,6 +1174,6 @@ Security middleware must live in the web adapter module (e.g., `web/adapters/sta
 3. [ ] Create `my_subsystem/auto_configuration.py` with `@auto_configuration`, conditions, and `@bean` methods
 4. [ ] Add entry point in `pyproject.toml` under `[project.entry-points."pyfly.auto_configuration"]`
 5. [ ] Add optional dependency group in `pyproject.toml` under `[project.optional-dependencies]`
-6. [ ] Run `pip install -e .` to register the entry point
+6. [ ] Run `uv sync` to register the entry point
 7. [ ] Write tests that verify: bean production, condition gating, user-bean precedence
 8. [ ] Verify: `grep -r "my_subsystem" src/pyfly/context/ src/pyfly/core/` returns **zero** results

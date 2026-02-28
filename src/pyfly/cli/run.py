@@ -28,7 +28,7 @@ from pyfly.cli.console import console
 def _ensure_src_on_path() -> None:
     """Add ``src/`` to sys.path when running from a src-layout project.
 
-    This allows ``pyfly run`` to work without ``pip install -e .`` first,
+    This allows ``pyfly run`` to work without installing the project first,
     mirroring how ``uvicorn --app-dir src`` works.
     """
     src = Path("src").resolve()

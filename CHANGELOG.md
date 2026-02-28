@@ -6,6 +6,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## v0.2.0-M10 (2026-02-28)
+
+### Changed
+- **uv-first tooling**: Migrated project from pip-centric to uv-first across all surfaces (CI, scaffolding, installer, docs, error messages)
+- **PEP 735 dependency-groups**: Moved dev/test dependencies (`pytest`, `ruff`, `mypy`, `mongomock-motor`, `jsonpath-ng`) from `[project.optional-dependencies].dev` to `[dependency-groups].dev`; `mongomock-motor` now persists across `uv sync`
+- **CI workflow**: Changed `uv sync --extra dev` → `uv sync --all-extras --group dev` in all CI jobs
+- **Scaffolded templates**: `pyproject.toml.j2` uses `[dependency-groups]`, `readme.md.j2` shows uv-first Quick Start, `dockerfile.j2` uses multi-stage uv build
+- **`install.sh`**: Added uv detection — uses `uv pip install` when available, falls back to pip
+- **`pyfly doctor`**: Now checks for `uv` instead of `pip` as required package manager
+- **Tool-neutral error messages**: All `pip install pyfly[xxx]` messages in source code changed to "Install the xxx extra: pyfly[xxx]"
+- **Documentation**: All `docs/**/*.md` and `README.md` updated to show uv as primary tool with pip as fallback
+
+### Removed
+- **`cqrs` extra**: Removed empty `[project.optional-dependencies].cqrs = []` (CQRS module has no external deps)
+- **`testing` extra**: Moved `jsonpath-ng` to `[dependency-groups].dev`
+- **`dev` extra**: Replaced by `[dependency-groups].dev` (PEP 735)
+
+### Added
+- **`.python-version`** file (`3.12`) for uv auto-detection
+
+---
+
 ## v0.2.0-M9 (2026-02-20)
 
 ### Added

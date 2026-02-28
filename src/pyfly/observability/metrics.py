@@ -44,7 +44,7 @@ class MetricsRegistry:
     def __init__(self) -> None:
         if not _HAS_PROMETHEUS:
             raise ImportError(
-                "prometheus_client is required for metrics. Install it with: pip install pyfly[observability]"
+                "prometheus_client is required for metrics. Install the observability extra: pyfly[observability]"
             )
         self._counters: dict[str, Counter] = {}
         self._histograms: dict[str, Histogram] = {}

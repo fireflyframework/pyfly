@@ -86,7 +86,7 @@ Granian is a Rust-powered ASGI server built on tokio. It provides the highest th
 - Rust/tokio thread pool for I/O
 - Per-worker runtime thread configuration
 
-Install: `pip install 'pyfly[granian]'` or `pip install 'pyfly[web-fast]'`
+Install: `uv add "pyfly[granian]"` or `uv add "pyfly[web-fast]"`
 
 See [Granian Adapter Guide](../adapters/granian.md) for details.
 
@@ -101,7 +101,7 @@ Uvicorn is the ecosystem-standard ASGI server. It is widely used, well-documente
 - `--reload` support for development
 - Built-in HTTP/1.1 (HTTP/2 via httptools)
 
-Install: `pip install 'pyfly[web]'` (included by default with the web extra)
+Install: `uv add "pyfly[web]"` (included by default with the web extra)
 
 ### Hypercorn
 
@@ -113,7 +113,7 @@ Hypercorn is an ASGI server with native HTTP/2 and HTTP/3 (QUIC) support. It is 
 - WebSocket over HTTP/2
 - Trio and asyncio event loop support
 
-Install: `pip install 'pyfly[hypercorn]'`
+Install: `uv add "pyfly[hypercorn]"`
 
 ### Selection Priority
 
@@ -137,7 +137,7 @@ PyFly supports pluggable event loop implementations. When `pyfly.server.event-lo
 
 uvloop is a fast, drop-in replacement for asyncio's default event loop, built on libuv (the same library that powers Node.js). It provides 2-4x throughput improvement over the default asyncio loop.
 
-Install: `pip install 'pyfly[web-fast]'` or `pip install uvloop`
+Install: `uv add "pyfly[web-fast]"` or `uv add uvloop`
 
 ### winloop (Windows)
 
@@ -145,7 +145,7 @@ Install: `pip install 'pyfly[web-fast]'` or `pip install uvloop`
 
 winloop is the Windows equivalent of uvloop, providing the same libuv-based performance on Windows platforms.
 
-Install: `pip install winloop`
+Install: `uv add winloop`
 
 ### asyncio (Fallback)
 

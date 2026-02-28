@@ -9,13 +9,13 @@
 ### Installation
 
 ```bash
-pip install 'pyfly[fastapi]'
+uv add "pyfly[fastapi]"
 ```
 
 Or install the full high-performance FastAPI stack (FastAPI + Granian + uvloop):
 
 ```bash
-pip install 'pyfly[web-fastapi]'
+uv add "pyfly[web-fastapi]"
 ```
 
 ### Minimal Configuration
@@ -206,7 +206,7 @@ This works because FastAPI is built on Starlette, so all Starlette middleware (i
 
 Switching from the Starlette adapter to FastAPI is a drop-in change:
 
-1. Install FastAPI: `pip install 'pyfly[fastapi]'`
+1. Install FastAPI: `uv add "pyfly[fastapi]"`
 2. Done. No controller changes needed.
 
 The FastAPI adapter is auto-detected and preferred over Starlette when both are installed. Your existing `@rest_controller` classes, `@get_mapping`/`@post_mapping` decorators, parameter binding types (`Body`, `PathVar`, `QueryParam`, `Header`, `Cookie`, `Valid`), exception handlers, and WebFilter implementations all work without modification.

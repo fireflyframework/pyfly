@@ -2,7 +2,7 @@
 
 The PyFly CLI provides command-line tools for project scaffolding, application management, database migrations, environment diagnostics, and framework information.
 
-**Install:** `pip install -e ".[cli]"` (requires Click, Rich, Jinja2, questionary)
+**Install:** `uv sync --extra cli` (requires Click, Rich, Jinja2, questionary)
 
 **Entry point:** `pyfly` (registered as a console script via `pyproject.toml`)
 
@@ -476,7 +476,7 @@ pyfly run [OPTIONS]
 
 ### Path Setup
 
-Before discovery, `pyfly run` automatically adds the `src/` directory to `sys.path` if it exists. This allows running from a src-layout project root without `pip install -e .` first.
+Before discovery, `pyfly run` automatically adds the `src/` directory to `sys.path` if it exists. This allows running from a src-layout project root without installing the project first.
 
 ### Application Discovery
 
@@ -516,7 +516,7 @@ Requires at least one ASGI server to be installed (Granian, Uvicorn, or Hypercor
 
 ```
 ✗ No ASGI server found.
-  Install one with: pip install 'pyfly[web]'
+  Install the web extra: pyfly[web]
 ```
 
 ### Examples
@@ -625,7 +625,7 @@ Checks that essential tools are available on PATH using `shutil.which()`:
 | Tool | Purpose | Impact if Missing |
 |------|---------|-------------------|
 | `git` | Version control | Overall check fails |
-| `pip` | Package manager | Overall check fails |
+| `uv` | Package manager | Overall check fails |
 
 **4. Optional Tools**
 
@@ -645,7 +645,7 @@ Missing optional tools are shown with a `-` dash indicator (dimmed), while missi
 Verifies that PyFly itself is importable and displays the installed version:
 
 ```
-✓ pyfly v0.2.0-M9
+✓ pyfly v0.2.0-M10
 ```
 
 ### Summary
@@ -666,7 +666,7 @@ All `pyfly db` subcommands require Alembic to be installed. If not available:
 
 ```
 ✗ alembic is not installed.
-  Install it with: pip install 'pyfly[data-relational]'
+  Install the data-relational extra: pyfly[data-relational]
 ```
 
 ### pyfly db init

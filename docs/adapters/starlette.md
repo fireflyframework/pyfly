@@ -9,7 +9,7 @@
 ### Installation
 
 ```bash
-pip install pyfly[web]
+uv add "pyfly[web]"
 ```
 
 ### Minimal Configuration

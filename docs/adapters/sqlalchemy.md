@@ -9,10 +9,10 @@
 ### Installation
 
 ```bash
-pip install pyfly[data-relational]
+uv add "pyfly[data-relational]"
 
 # For PostgreSQL (production)
-pip install pyfly[data-relational,postgresql]
+uv add "pyfly[data-relational,postgresql]"
 ```
 
 ### Minimal Configuration

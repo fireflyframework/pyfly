@@ -1,21 +1,24 @@
 # --- Build stage ---
 FROM python:3.12-slim AS builder
 
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
 WORKDIR /build
 
-COPY pyproject.toml .
+COPY pyproject.toml uv.lock ./
 COPY src/ src/
 
-RUN pip install --no-cache-dir build \
-    && python -m build --wheel --outdir /build/dist
+RUN uv build --wheel --out-dir /build/dist
 
 # --- Runtime stage ---
 FROM python:3.12-slim
 
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
 WORKDIR /app
 
 COPY --from=builder /build/dist/*.whl /tmp/
-RUN pip install --no-cache-dir /tmp/*.whl \
+RUN uv pip install --system --no-cache /tmp/*.whl \
     && rm /tmp/*.whl
 
 COPY pyfly.yaml .

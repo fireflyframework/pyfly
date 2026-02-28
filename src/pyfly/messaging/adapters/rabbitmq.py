@@ -24,7 +24,7 @@ from pyfly.messaging.types import Message
 class RabbitMQAdapter:
     """MessageBrokerPort implementation backed by RabbitMQ via aio-pika.
 
-    Requires aio-pika to be installed (pip install pyfly[rabbitmq]).
+    Requires aio-pika to be installed (install the rabbitmq extra: pyfly[rabbitmq]).
     Uses a single direct exchange. Topics map to routing keys and queue names.
     """
 

@@ -17,12 +17,12 @@ A PyFly microservice.
 ## Quick Start
 
 ```bash
-# Create virtual environment
-python -m venv .venv
-source .venv/bin/activate
+# Install dependencies
+uv sync --group dev
 
-# Install dependencies (editable mode for development)
-pip install -e ".[dev]"
+# Or with pip:
+# python -m venv .venv && source .venv/bin/activate
+# pip install -e . && pip install pytest pytest-asyncio pytest-cov ruff mypy
 {% if archetype == "cli" %}
 
 # Run the CLI application

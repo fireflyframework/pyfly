@@ -25,7 +25,7 @@ from pyfly.messaging.types import Message
 class KafkaAdapter:
     """MessageBrokerPort implementation backed by Apache Kafka via aiokafka.
 
-    Requires aiokafka to be installed (pip install pyfly[kafka]).
+    Requires aiokafka to be installed (install the kafka extra: pyfly[kafka]).
     """
 
     def __init__(self, bootstrap_servers: str = "localhost:9092") -> None:

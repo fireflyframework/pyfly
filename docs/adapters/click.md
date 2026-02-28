@@ -9,7 +9,7 @@
 ### Installation
 
 ```bash
-pip install pyfly[shell]
+uv add "pyfly[shell]"
 ```
 
 ### Minimal Configuration
