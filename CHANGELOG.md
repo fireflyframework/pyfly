@@ -6,6 +6,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## v0.2.0-M11 (2026-03-01)
+
+### Fixed
+- **Thread-safe singleton initialization**: DI container now uses RLock with double-check pattern to prevent duplicate singleton creation under concurrent access
+- **Condition list inheritance**: `@conditional_on_*` decorators now copy conditions via `cls.__dict__` instead of `getattr()` to prevent cross-class mutation through MRO
+- **`@transactional` rollback_for semantics**: Replaced `session.begin()` context manager with explicit `begin()`/`commit()`/`rollback()` to support selective rollback matching Spring's `@Transactional`
+- **SecurityException status code**: Base `SecurityException` now maps to 403 (Forbidden) instead of 401; `UnauthorizedException` subclass retains 401
+- **`@secure` decorator**: Authorization failures now raise `ForbiddenException` (403) instead of base `SecurityException`
+- **Security context bridge**: `SecurityMiddleware` now sets `security_context` on both `request.state` and `RequestContext` for `@pre_authorize`/`@post_authorize`
+- **Lazy controller race condition**: Added `asyncio.Lock` with double-check to prevent duplicate bean resolution on concurrent first requests
+- **Parameter coercion errors**: `_coerce()` now raises `InvalidRequestException` (HTTP 400) instead of unhandled `ValueError`/`TypeError`
+- **Bulkhead TOCTOU**: Replaced `semaphore.locked()` check with `_active >= _max_concurrent` for consistent capacity tracking
+- **`asyncio.get_event_loop()`**: Replaced 3 occurrences with `get_running_loop()` to avoid deprecation warnings and ensure correct loop in nested contexts
+
+### Changed
+- **Resilience sync/async support**: All 4 resilience decorators (`@fallback`, `@rate_limiter`, `@time_limiter`, `@bulkhead`) now detect sync functions via `inspect.iscoroutinefunction` and wrap accordingly
+- **Event bus optimization**: Listeners are pre-sorted at subscribe time instead of on every `publish()` call
+- **Repository dynamic PK**: `find_all_by_ids()` and `delete_all()` use `_pk_column` property (via `sa_inspect`) instead of hardcoded `.id`
+- **Nested repository patching**: `_patch_repositories()` now patches repositories one level deep into nested services
+- **Kahn's algorithm**: `_sort_bean_methods` uses `collections.deque` instead of `list.pop(0)` for O(1) popleft
+- **Auto-config logging**: `ImportError` during entry point discovery now logged at DEBUG level instead of silently swallowed
+- **Exception handling**: `_inject_autowired_fields` catches `NameError` specifically (not bare `Exception`) and logs a warning
+- **Filter chain**: Fast path bypasses response buffering when no filters are registered; 100MB body size guard prevents OOM
+
+---
+
 ## v0.2.0-M10 (2026-02-28)
 
 ### Changed

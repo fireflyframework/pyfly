@@ -80,6 +80,8 @@ class Repository(Generic[T, ID]):
         from sqlalchemy import inspect as sa_inspect
 
         mapper = sa_inspect(self._model)
+        if mapper is None:
+            return self._model.id  # type: ignore[attr-defined]
         pk_cols = mapper.primary_key
         if pk_cols:
             return getattr(self._model, pk_cols[0].name)
