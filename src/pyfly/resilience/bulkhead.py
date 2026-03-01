@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import asyncio
 import functools
+import inspect
 from collections.abc import Callable
 from typing import Any
 
@@ -41,7 +42,7 @@ class Bulkhead:
 
     async def acquire(self) -> None:
         """Try to acquire a slot. Raises BulkheadException if at capacity."""
-        if self._semaphore.locked():
+        if self._active >= self._max_concurrent:
             raise BulkheadException(f"Bulkhead at capacity ({self._max_concurrent} concurrent calls)")
         await self._semaphore.acquire()
         self._active += 1
@@ -72,6 +73,20 @@ def bulkhead(
     """
 
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        if not inspect.iscoroutinefunction(func):
+
+            @functools.wraps(func)
+            def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
+                if bh._active >= bh._max_concurrent:
+                    raise BulkheadException(f"Bulkhead at capacity ({bh._max_concurrent} concurrent calls)")
+                bh._active += 1
+                try:
+                    return func(*args, **kwargs)
+                finally:
+                    bh._active -= 1
+
+            return sync_wrapper
+
         @functools.wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
             await bh.acquire()

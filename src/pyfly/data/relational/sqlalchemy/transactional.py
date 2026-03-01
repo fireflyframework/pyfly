@@ -58,6 +58,11 @@ def _patch_repositories(self_arg: Any, session: AsyncSession) -> None:
     for value in vars(self_arg).values():
         if isinstance(value, Repository):
             value._session = session
+        elif hasattr(value, "__dict__"):
+            # Patch nested services' repositories (one level deep)
+            for nested_val in vars(value).values():
+                if isinstance(nested_val, Repository):
+                    nested_val._session = session
 
 
 def _resolve_session_factory(self_arg: Any) -> async_sessionmaker[AsyncSession] | None:
@@ -121,19 +126,22 @@ def transactional(
                 if execution_options:
                     session = session.execution_options(**execution_options)  # type: ignore[attr-defined]
 
-                async with session.begin():
-                    token = _active_session_var.set(session)
-                    if self_arg is not None:
-                        _patch_repositories(self_arg, session)
-                    try:
-                        result = await func(*args, **kwargs)
-                    except BaseException as exc:
-                        if isinstance(exc, tuple(rollback_for)):
-                            raise
-                        raise
-                    finally:
-                        _active_session_var.reset(token)
+                await session.begin()
+                token = _active_session_var.set(session)
+                if self_arg is not None:
+                    _patch_repositories(self_arg, session)
+                try:
+                    result = await func(*args, **kwargs)
+                    await session.commit()
                     return result
+                except BaseException as exc:
+                    if isinstance(exc, tuple(rollback_for)):
+                        await session.rollback()
+                    else:
+                        await session.commit()
+                    raise
+                finally:
+                    _active_session_var.reset(token)
 
         wrapper.__pyfly_transactional__ = True  # type: ignore[attr-defined]
         wrapper.__pyfly_propagation__ = propagation  # type: ignore[attr-defined]

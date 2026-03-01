@@ -56,7 +56,7 @@ class SecurityMiddleware:
 
         # Skip excluded paths (docs, health, etc.)
         if request.url.path in self._exclude_paths:
-            request.state.security_context = SecurityContext.anonymous()
+            security_context = SecurityContext.anonymous()
         else:
             # Extract Bearer token
             auth_header = request.headers.get("authorization", "")
@@ -70,6 +70,13 @@ class SecurityMiddleware:
             else:
                 security_context = SecurityContext.anonymous()
 
-            request.state.security_context = security_context
+        request.state.security_context = security_context
+
+        # Bridge to RequestContext for @pre_authorize / @post_authorize
+        from pyfly.context.request_context import RequestContext
+
+        req_ctx = RequestContext.current()
+        if req_ctx is not None:
+            req_ctx.security_context = security_context
 
         await self.app(scope, receive, send)

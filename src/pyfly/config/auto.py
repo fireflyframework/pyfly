@@ -58,7 +58,13 @@ def discover_auto_configurations() -> list[type]:
             if getattr(cls, "__pyfly_auto_configuration__", False):
                 classes.append(cls)
         except ImportError:
-            pass  # Optional dependency not installed — skip silently
+            import logging
+
+            logging.getLogger(__name__).debug(
+                "Skipped auto-configuration entry point '%s': %s",
+                ep.name,
+                ep.value,
+            )
     return classes
 
 

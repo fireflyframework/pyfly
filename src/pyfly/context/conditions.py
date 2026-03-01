@@ -32,7 +32,7 @@ def conditional_on_property(key: str, having_value: str = "") -> Callable[[F], F
     """
 
     def decorator(cls: F) -> F:
-        conditions = getattr(cls, "__pyfly_conditions__", [])
+        conditions = list(cls.__dict__.get("__pyfly_conditions__", []))
         conditions.append(
             {
                 "type": "on_property",
@@ -60,7 +60,7 @@ def conditional_on_class(module_name: str) -> Callable[[F], F]:
             return False
 
     def decorator(cls: F) -> F:
-        conditions = getattr(cls, "__pyfly_conditions__", [])
+        conditions = list(cls.__dict__.get("__pyfly_conditions__", []))
         conditions.append(
             {
                 "type": "on_class",
@@ -81,7 +81,7 @@ def conditional_on_missing_bean(bean_type: type) -> Callable[[F], F]:
     """
 
     def decorator(cls: F) -> F:
-        conditions = getattr(cls, "__pyfly_conditions__", [])
+        conditions = list(cls.__dict__.get("__pyfly_conditions__", []))
         conditions.append(
             {
                 "type": "on_missing_bean",
@@ -98,7 +98,7 @@ def conditional_on_bean(bean_type: type) -> Callable[[F], F]:
     """Only register this bean if another bean of the given type exists."""
 
     def decorator(cls: F) -> F:
-        conditions = getattr(cls, "__pyfly_conditions__", [])
+        conditions = list(cls.__dict__.get("__pyfly_conditions__", []))
         conditions.append({"type": "on_bean", "bean_type": bean_type})
         cls.__pyfly_conditions__ = conditions  # type: ignore[attr-defined]
         return cls

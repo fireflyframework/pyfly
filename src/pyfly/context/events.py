@@ -68,11 +68,12 @@ class ApplicationEventBus:
         if event_type not in self._listeners:
             self._listeners[event_type] = []
         self._listeners[event_type].append((listener, owner_cls))
+        # Pre-sort so publish() doesn't need to sort per invocation
+        self._listeners[event_type].sort(key=lambda e: get_order(e[1]) if e[1] else 0)
 
     async def publish(self, event: ApplicationEvent) -> None:
-        """Publish an event to all matching listeners, sorted by @order."""
+        """Publish an event to all matching listeners (pre-sorted by @order)."""
         for event_type, entries in self._listeners.items():
             if isinstance(event, event_type):
-                sorted_entries = sorted(entries, key=lambda e: get_order(e[1]) if e[1] else 0)
-                for listener, _owner in sorted_entries:
+                for listener, _owner in entries:
                     await listener(event)

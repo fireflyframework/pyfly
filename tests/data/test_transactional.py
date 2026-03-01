@@ -44,7 +44,9 @@ def _make_async_cm(enter_value: object = None) -> MagicMock:
 def _make_session_factory() -> MagicMock:
     """Build a mock async_sessionmaker that yields a mock AsyncSession."""
     session = MagicMock()
-    session.begin = MagicMock(return_value=_make_async_cm())
+    session.begin = AsyncMock()
+    session.commit = AsyncMock()
+    session.rollback = AsyncMock()
     session.execution_options = MagicMock(return_value=session)
 
     session_cm = _make_async_cm(enter_value=session)

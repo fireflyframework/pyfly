@@ -337,15 +337,21 @@ class ControllerRegistrar:
         status_code: int,
     ) -> Any:
         """Create a Starlette endpoint that lazily resolves the controller bean on first request."""
+        import asyncio
+
         _cache: dict[str, Any] = {}
+        _init_lock = asyncio.Lock()
 
         async def lazy_endpoint(request: Request) -> Response:
             if "instance" not in _cache:
-                _cache["instance"] = ctx.get_bean(controller_cls)
-                _cache["exc_handlers"] = self._collect_exception_handlers(_cache["instance"])
-                bound_method = getattr(_cache["instance"], method_name)
-                _cache["resolver"] = ParameterResolver(bound_method)
-                _cache["method"] = bound_method
+                async with _init_lock:
+                    if "instance" not in _cache:
+                        instance = ctx.get_bean(controller_cls)
+                        _cache["exc_handlers"] = self._collect_exception_handlers(instance)
+                        bound_method = getattr(instance, method_name)
+                        _cache["resolver"] = ParameterResolver(bound_method)
+                        _cache["method"] = bound_method
+                        _cache["instance"] = instance  # set last — acts as init flag
 
             accept = request.headers.get("accept")
 

@@ -67,7 +67,7 @@ _STATUS_MAP: dict[type, int] = {
     # Security
     UnauthorizedException: 401,
     ForbiddenException: 403,
-    SecurityException: 401,
+    SecurityException: 403,
     # Rate limiting
     QuotaExceededException: 429,
     RateLimitException: 429,

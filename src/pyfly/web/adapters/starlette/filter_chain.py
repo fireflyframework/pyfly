@@ -24,6 +24,8 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from pyfly.web.ports.filter import CallNext, WebFilter
 
+MAX_RESPONSE_BODY_SIZE = 100 * 1024 * 1024  # 100 MB
+
 
 class WebFilterChainMiddleware:
     """Pure ASGI middleware that executes a sorted chain of :class:`WebFilter` instances.
@@ -45,6 +47,10 @@ class WebFilterChainMiddleware:
             await self.app(scope, receive, send)
             return
 
+        if not self._filters:
+            await self.app(scope, receive, send)
+            return
+
         request = Request(scope, receive, send)
 
         async def _call_app(req: Any) -> Response:
@@ -62,6 +68,11 @@ class WebFilterChainMiddleware:
                     body = message.get("body", b"")
                     if body:
                         body_parts.append(body)
+                        if sum(len(p) for p in body_parts) > MAX_RESPONSE_BODY_SIZE:
+                            raise RuntimeError(
+                                f"Response body exceeds {MAX_RESPONSE_BODY_SIZE} bytes. "
+                                "Consider excluding this route from the filter chain."
+                            )
                 elif message["type"] == "http.response.pathsend":
                     # ASGI pathsend extension (Granian zero-copy file serving).
                     # Stream the file in chunks to avoid OOM on large files.

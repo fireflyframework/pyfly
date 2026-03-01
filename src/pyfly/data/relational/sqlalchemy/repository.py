@@ -74,6 +74,17 @@ class Repository(Generic[T, ID]):
             raise RuntimeError("No AsyncSession configured — ensure a session bean is registered")
         return self._session
 
+    @property
+    def _pk_column(self) -> Any:
+        """Discover the primary key column dynamically."""
+        from sqlalchemy import inspect as sa_inspect
+
+        mapper = sa_inspect(self._model)
+        pk_cols = mapper.primary_key
+        if pk_cols:
+            return getattr(self._model, pk_cols[0].name)
+        return self._model.id  # type: ignore[attr-defined]
+
     def _apply_sort(self, stmt: Select[Any], pageable: Pageable) -> Select[Any]:
         """Apply sort orders from a Pageable to a SELECT statement."""
         for order in pageable.sort.orders:
@@ -201,7 +212,7 @@ class Repository(Generic[T, ID]):
         if not ids:
             return []
         session = self._require_session()
-        stmt = select(self._model).where(self._model.id.in_(ids))  # type: ignore[attr-defined]
+        stmt = select(self._model).where(self._pk_column.in_(ids))
         result = await session.execute(stmt)
         return list(result.scalars().all())
 
@@ -212,7 +223,7 @@ class Repository(Generic[T, ID]):
         session = self._require_session()
         from sqlalchemy import delete as sa_delete
 
-        stmt = sa_delete(self._model).where(self._model.id.in_(ids))  # type: ignore[attr-defined]
+        stmt = sa_delete(self._model).where(self._pk_column.in_(ids))
         result = await session.execute(stmt)
         await session.flush()
         return cast(int, result.rowcount)  # type: ignore[attr-defined]

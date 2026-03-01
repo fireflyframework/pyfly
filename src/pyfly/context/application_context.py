@@ -20,6 +20,7 @@ import functools
 import inspect
 import logging
 import typing
+from collections import deque
 from typing import Any, TypeVar
 
 from pyfly.container.container import Container
@@ -489,10 +490,10 @@ class ApplicationContext:
 
         # Kahn's algorithm
         in_degree = {name: len(d) for name, d in deps.items()}
-        queue = [name for name, deg in in_degree.items() if deg == 0]
+        queue = deque(name for name, deg in in_degree.items() if deg == 0)
         ordered: list[str] = []
         while queue:
-            node = queue.pop(0)
+            node = queue.popleft()
             ordered.append(node)
             for name, d in deps.items():
                 if node in d:
@@ -603,7 +604,7 @@ class ApplicationContext:
                 topic = getattr(method, "__pyfly_listener_topic__", "")
                 group = getattr(method, "__pyfly_listener_group__", None)
                 # MessageBrokerPort.subscribe is async; defer via create_task
-                task = asyncio.get_event_loop().create_task(broker.subscribe(topic, method, group=group))
+                task = asyncio.get_running_loop().create_task(broker.subscribe(topic, method, group=group))
                 self._background_tasks.append(task)
                 count += 1
         self._wiring_counts["message_listeners"] = count
@@ -662,7 +663,7 @@ class ApplicationContext:
         self._wiring_counts["scheduled"] = count
         if count:
             self._task_scheduler = scheduler
-            task = asyncio.get_event_loop().create_task(scheduler.start())
+            task = asyncio.get_running_loop().create_task(scheduler.start())
             self._background_tasks.append(task)
             logger.debug("Discovered %d @scheduled method(s)", count)
 
@@ -687,7 +688,7 @@ class ApplicationContext:
 
                 @functools.wraps(original)
                 async def async_wrapper(*args: Any, _orig: Any = original, **kwargs: Any) -> Any:
-                    loop = asyncio.get_event_loop()
+                    loop = asyncio.get_running_loop()
                     if inspect.iscoroutinefunction(_orig):
                         return await _orig(*args, **kwargs)
                     return await loop.run_in_executor(None, functools.partial(_orig, *args, **kwargs))

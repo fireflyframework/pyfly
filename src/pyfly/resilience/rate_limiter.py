@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import asyncio
 import functools
+import inspect
 import time
 from collections.abc import Callable
 from typing import Any
@@ -75,6 +76,18 @@ def rate_limiter(
     """
 
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        if not inspect.iscoroutinefunction(func):
+
+            @functools.wraps(func)
+            def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
+                limiter._refill()
+                if limiter._tokens < 1.0:
+                    raise RateLimitException("Rate limit exceeded")
+                limiter._tokens -= 1.0
+                return func(*args, **kwargs)
+
+            return sync_wrapper
+
         @functools.wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
             await limiter.acquire()

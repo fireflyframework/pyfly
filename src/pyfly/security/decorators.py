@@ -21,7 +21,7 @@ import re
 from collections.abc import Callable
 from typing import Any, TypeVar
 
-from pyfly.kernel.exceptions import SecurityException
+from pyfly.kernel.exceptions import ForbiddenException, SecurityException
 from pyfly.security.context import SecurityContext
 
 F = TypeVar("F", bound=Callable[..., Any])
@@ -217,7 +217,7 @@ def secure(
                 raise SecurityException("Authentication required", code="AUTH_REQUIRED")
 
             if roles and not ctx.has_any_role(roles):
-                raise SecurityException(
+                raise ForbiddenException(
                     f"Insufficient roles: requires one of {roles}",
                     code="FORBIDDEN",
                 )
@@ -225,13 +225,13 @@ def secure(
             if permissions:
                 missing = [p for p in permissions if not ctx.has_permission(p)]
                 if missing:
-                    raise SecurityException(
+                    raise ForbiddenException(
                         f"Insufficient permissions: missing {missing}",
                         code="FORBIDDEN",
                     )
 
             if expression and not _evaluate_expression(expression, ctx):
-                raise SecurityException(
+                raise ForbiddenException(
                     f"Access denied by expression: {expression}",
                     code="FORBIDDEN",
                 )

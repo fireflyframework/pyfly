@@ -216,7 +216,15 @@ class ParameterResolver:
         """Coerce a string value to the target type."""
         if target_type is str:
             return value
-        return target_type(value)
+        try:
+            return target_type(value)
+        except (ValueError, TypeError) as exc:
+            from pyfly.kernel.exceptions import InvalidRequestException
+
+            raise InvalidRequestException(
+                f"Cannot convert '{value}' to {target_type.__name__}",
+                code="TYPE_CONVERSION_ERROR",
+            ) from exc
 
     async def _resolve_file(self, request: Request, param: ResolvedParam) -> Any:
         """Resolve a File[UploadedFile] or File[list[UploadedFile]] parameter."""

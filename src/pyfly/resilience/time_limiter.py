@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import asyncio
 import functools
+import inspect
 from collections.abc import Callable
 from datetime import timedelta
 from typing import Any
@@ -38,6 +39,25 @@ def time_limiter(
     timeout_seconds = timeout.total_seconds()
 
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        if not inspect.iscoroutinefunction(func):
+
+            @functools.wraps(func)
+            def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
+                import signal
+
+                def _handler(signum: int, frame: Any) -> None:
+                    raise OperationTimeoutException(f"{func.__name__} exceeded timeout of {timeout_seconds}s")
+
+                old = signal.signal(signal.SIGALRM, _handler)
+                signal.alarm(int(timeout_seconds) or 1)
+                try:
+                    return func(*args, **kwargs)
+                finally:
+                    signal.alarm(0)
+                    signal.signal(signal.SIGALRM, old)
+
+            return sync_wrapper
+
         @functools.wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
             try:

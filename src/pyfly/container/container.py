@@ -17,6 +17,8 @@ from __future__ import annotations
 
 import difflib
 import inspect
+import logging
+import threading
 import time
 import types
 import typing
@@ -52,6 +54,7 @@ class Container:
         self._bindings: dict[type, list[type]] = {}
         self._resolving: dict[type, None] = {}  # insertion-ordered, O(1) lookup
         self._metrics: dict[type, BeanMetrics] = {}
+        self._lock = threading.RLock()
 
     def register(
         self,
@@ -126,9 +129,19 @@ class Container:
 
     def _resolve_registration(self, reg: Registration) -> Any:
         """Resolve a single registration, handling scope."""
-        if reg.scope == Scope.SINGLETON and reg.instance is not None:
-            self._ensure_metrics(reg.impl_type).resolution_count += 1
-            return reg.instance
+        if reg.scope == Scope.SINGLETON:
+            if reg.instance is not None:
+                self._ensure_metrics(reg.impl_type).resolution_count += 1
+                return reg.instance
+            with self._lock:
+                # Double-check after acquiring lock
+                if reg.instance is not None:
+                    self._ensure_metrics(reg.impl_type).resolution_count += 1
+                    return reg.instance
+                instance = self._create_instance(reg)
+                reg.instance = instance
+                self._ensure_metrics(reg.impl_type).resolution_count += 1
+                return instance
 
         if reg.scope == Scope.REQUEST:
             instance = self._resolve_request_scoped(reg)
@@ -136,10 +149,6 @@ class Container:
             return instance
 
         instance = self._create_instance(reg)
-
-        if reg.scope == Scope.SINGLETON:
-            reg.instance = instance
-
         self._ensure_metrics(reg.impl_type).resolution_count += 1
         return instance
 
@@ -253,7 +262,12 @@ class Container:
 
         try:
             hints = typing.get_type_hints(type(instance), include_extras=True)
-        except Exception:
+        except NameError:
+            logging.getLogger(__name__).warning(
+                "Could not resolve type hints for %s — Autowired fields will not be injected. "
+                "Check for unresolved forward references.",
+                type(instance).__qualname__,
+            )
             return
 
         for attr_name, attr_type in hints.items():

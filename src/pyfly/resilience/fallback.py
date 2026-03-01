@@ -42,6 +42,20 @@ def fallback(
         raise ValueError("Either fallback_method or fallback_value must be provided")
 
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        if not inspect.iscoroutinefunction(func):
+
+            @functools.wraps(func)
+            def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
+                try:
+                    return func(*args, **kwargs)
+                except on as exc:
+                    if fallback_method is not None:
+                        result = fallback_method(*args, exc=exc, **kwargs)
+                        return result
+                    return fallback_value
+
+            return sync_wrapper
+
         @functools.wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
             try:
